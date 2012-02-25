@@ -1,0 +1,25 @@
+{
+    "name": "nools",
+    "description": "A rules engine for node",
+    "version": "0.0.1",
+    "keywords" : ["rules", "flow", "rules engine", "rools", "drools", "async", "flow control"],
+    "repository": {
+        "type": "git",
+        "url": "git@github.com:doug-martin/flow.git"
+    },
+    "dependencies" : {
+        "comb" : ">=0.0.9"
+    },
+    "devDependencies" : {
+        "it" : ">=0.0.1"
+    },
+    "homepage": "http://doug-martin.github.com/flow",
+    "author": "Doug Martin (http://blog.dougamartin.com)",
+    "main": "index.js",
+    "directories": {
+        "lib": "lib"
+    },
+    "engines": {
+        "node": ">= 0.6.1"
+    }
+}
