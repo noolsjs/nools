@@ -57,16 +57,6 @@ it.describe("Flow", function (it) {
                 called++;
             });
             assert.isTrue(flow.containsRule("test rule4"));
-            flow.assert("hello");
-            flow.assert("world");
-            flow.assert("Hi");
-            flow.assert("what");
-            flow.assert("for");
-//            flow.print();
-//            flow.match().then(function(){
-//                assert.equal(called, 4);
-//                next();
-//            })
             next();
         });
 
@@ -87,8 +77,9 @@ it.describe("Flow", function (it) {
         });
 
         it.should("call hello world rule", function (next) {
-            flow.assert(new HelloFact());
-            flow.match();
+            var session = flow.getSession();
+            session.assert(new HelloFact());
+            session.match();
             assert.equal(called, 1);
             next();
         });
@@ -105,22 +96,17 @@ it.describe("Flow", function (it) {
                 }
             }
         });
-
-        var fib1 = new Fibonacci(150);
         var result = null;
         var flow = nools.flow("Fibonacci Flow", function (flow) {
 
-            flow.rule("Boostrap1", {priority:4}, [Fibonacci, "f", "f.value == -1 && f.sequence == 1"], function (facts) {
-                facts.f.value = 1;
-                this.modify(facts.f);
-            });
-
-            flow.rule("Recurse", {priority:3}, [Fibonacci, "f", "f.value == -1"], function (facts) {
+            flow.rule("Recurse", {priority:1}, [
+                [Fibonacci, "f", "f.value == -1 && f.sequence != 1"]
+                ], function (facts) {
                 var f2 = new Fibonacci(facts.f.sequence - 1);
                 this.assert(f2);
             });
 
-            flow.rule("Boostrap2", [Fibonacci, "f", "f.value == -1 && f.sequence == 2"], function (facts, flow) {
+            flow.rule("Boostrap2", [Fibonacci, "f", "f.value == -1 && (f.sequence == 1 || f.sequence == 2)"], function (facts, flow) {
                 facts.f.value = 1;
                 this.modify(facts.f);
             });
@@ -137,13 +123,27 @@ it.describe("Flow", function (it) {
             });
         });
 
-        it.should("calculate Fibonacci", function (next) {
-            flow.assert(fib1);
-            flow.match().then(function () {
+        it.afterEach(function(next){
+            result = [];
+            next();
+        });
+
+
+        it.should("calculate Fibonacci of 10", function (next) {
+            var session = flow.getSession(new Fibonacci(10));
+            session.match().then(function () {
+                assert.equal(result, 55);
+                next();
+            });
+        });
+
+        it.should("calculate Fibonacci of 150", function (next) {
+            var session = flow.getSession(new Fibonacci(150));
+            session.match().then(function () {
                 assert.equal(result, 9.969216677189305e+30);
                 next();
             });
-        })
+        });
 
     });
 
@@ -228,13 +228,20 @@ it.describe("Flow", function (it) {
 
         });
 
+        it.afterEach(function(next){
+            results = [];
+            next();
+        });
+
         it.should("treat properly", function (next) {
-            flow.assert(new Patient("Fred", "none", true, false, false, false));
-            flow.assert(new Patient("Joe", "high", false, false, true, false));
-            flow.assert(new Patient("Bob", "high", true, false, false, true));
-            flow.assert(new Patient("Tom", "none", false, true, false, false));
+            var session = flow.getSession(
+                new Patient("Fred", "none", true, false, false, false),
+                new Patient("Joe", "high", false, false, true, false),
+                new Patient("Bob", "high", true, false, false, true),
+                new Patient("Tom", "none", false, true, false, false)
+            );
             //flow.print();
-            flow.match().then(function () {
+            session.match().then(function () {
                 assert.deepEqual(results, [
                     {"name":"Bob", "treatment":"penicillin"},
                     {"name":"Tom", "treatment":"allegryShot"},
@@ -243,7 +250,26 @@ it.describe("Flow", function (it) {
                 ]);
                 next();
             })
+        });
+
+        it.should("treat properly on consecutive runs", function (next) {
+            var session = flow.getSession();
+            session.assert(new Patient("Tom", "none", true, false, false, false));
+            session.assert(new Patient("Bob", "high", false, false, true, false));
+            session.assert(new Patient("Joe", "high", true, false, false, true));
+            session.assert(new Patient("Fred", "none", false, true, false, false));
+            //flow.print();
+            session.match().then(function () {
+                assert.deepEqual(results, [
+                    {"name":"Joe", "treatment":"penicillin"},
+                    {"name":"Fred", "treatment":"allegryShot"},
+                    {"name":"Bob", "treatment":"bedRest"},
+                    {"name":"Tom", "treatment":"allegryShot"}
+                ]);
+                next();
+            })
         })
+
 
     });
 

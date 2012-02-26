@@ -56,6 +56,12 @@ it.describe("A Parser", function (it) {
             'eq'
         ]);
 
+        assert.deepEqual(parser.parse("a eq null"), [
+            ['a', null, 'identifier'],
+            [null, null, 'null'],
+            'eq'
+        ]);
+
         assert.deepEqual(parser.parse("a =~ /hello/"), [
             ['a', null, 'identifier'],
             [/hello/, null, 'regexp'],
