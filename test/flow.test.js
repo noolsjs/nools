@@ -13,6 +13,8 @@ it.describe("nools", function (it) {
 });
 
 it.describe("Flow", function (it) {
+
+
     it.describe("#rule", function (it) {
         var called = 0;
         var flow = nools.flow("test flow");
@@ -101,14 +103,16 @@ it.describe("Flow", function (it) {
 
             flow.rule("Recurse", {priority:1}, [
                 [Fibonacci, "f", "f.value == -1 && f.sequence != 1"]
-                ], function (facts) {
+            ], function (facts) {
                 var f2 = new Fibonacci(facts.f.sequence - 1);
                 this.assert(f2);
+                //console.log("Recurse " + f2.sequence);
             });
 
-            flow.rule("Boostrap2", [Fibonacci, "f", "f.value == -1 && (f.sequence == 1 || f.sequence == 2)"], function (facts, flow) {
+            flow.rule("Bootstrap", [Fibonacci, "f", "f.value == -1 && (f.sequence == 1 || f.sequence == 2)"], function (facts, flow) {
                 facts.f.value = 1;
                 this.modify(facts.f);
+                //console.log("Bootstrap " + facts.f.sequence + " " + facts.f.value);
             });
 
             flow.rule("Calculate", [
@@ -120,10 +124,12 @@ it.describe("Flow", function (it) {
                 result = facts.f3.value;
                 this.modify(facts.f3);
                 this.retract(facts.f1);
+                //console.log("Calculate " + facts.f3.sequence + " " + facts.f3.value);
             });
         });
 
-        it.afterEach(function(next){
+
+        it.afterEach(function (next) {
             result = [];
             next();
         });
@@ -183,8 +189,11 @@ it.describe("Flow", function (it) {
         var results = [];
         var flow = nools.flow("Diagnosis", function (flow) {
 
-            flow.rule("Measels", {priority:100},
-                [Patient, "p", "p.fever == 'high' && p.spots == true && p.innoculated == true", {name:"n"}], function (facts) {
+            flow.rule("Measels", {salience : 1}, [
+                [Patient, "p", "p.fever == 'high' && p.spots == true && p.innoculated == true", {name:"n"}],
+                ["not", Diagnosis, "d", "d.name == n && d.diagnosis == 'allergy'"]
+            ],
+                function (facts) {
                     var name = facts.n;
                     this.assert(new Diagnosis(name, "measles"));
                 });
@@ -228,18 +237,17 @@ it.describe("Flow", function (it) {
 
         });
 
-        it.afterEach(function(next){
+        it.afterEach(function (next) {
             results = [];
             next();
         });
 
         it.should("treat properly", function (next) {
-            var session = flow.getSession(
-                new Patient("Fred", "none", true, false, false, false),
-                new Patient("Joe", "high", false, false, true, false),
-                new Patient("Bob", "high", true, false, false, true),
-                new Patient("Tom", "none", false, true, false, false)
-            );
+            var session = flow.getSession();
+            session.assert(new Patient("Fred", "none", true, false, false, false));
+            session.assert(new Patient("Joe", "high", false, false, true, false));
+            session.assert(new Patient("Bob", "high", true, false, false, true));
+            session.assert(new Patient("Tom", "none", false, true, false, false));
             //flow.print();
             session.match().then(function () {
                 assert.deepEqual(results, [
@@ -268,10 +276,10 @@ it.describe("Flow", function (it) {
                 ]);
                 next();
             })
-        })
-
-
+        });
     });
+
+    it.describe("#")
 
 });
 
