@@ -54,7 +54,6 @@ module.exports = exports = nools.flow("Manners", function (flow) {
         this.assert(path);
         var chosen = new Chosen(seatId, lgn, facts.rightGuestHobby);
         this.assert(chosen);
-        //console.log("find seating : %s", seating);
 
         count.value = countValue + 1;
         this.modify(count);

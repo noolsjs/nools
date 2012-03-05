@@ -106,13 +106,13 @@ it.describe("Flow", function (it) {
             ], function (facts) {
                 var f2 = new Fibonacci(facts.f.sequence - 1);
                 this.assert(f2);
-                //console.log("Recurse " + f2.sequence);
+                console.log("Recurse " + f2.sequence);
             });
 
             flow.rule("Bootstrap", [Fibonacci, "f", "f.value == -1 && (f.sequence == 1 || f.sequence == 2)"], function (facts, flow) {
                 facts.f.value = 1;
                 this.modify(facts.f);
-                //console.log("Bootstrap " + facts.f.sequence + " " + facts.f.value);
+                console.log("Bootstrap " + facts.f.sequence + " " + facts.f.value);
             });
 
             flow.rule("Calculate", [
@@ -124,7 +124,7 @@ it.describe("Flow", function (it) {
                 result = facts.f3.value;
                 this.modify(facts.f3);
                 this.retract(facts.f1);
-                //console.log("Calculate " + facts.f3.sequence + " " + facts.f3.value);
+                console.log("Calculate " + facts.f3.sequence + " " + facts.f3.value);
             });
         });
 
@@ -138,6 +138,7 @@ it.describe("Flow", function (it) {
         it.should("calculate Fibonacci of 10", function (next) {
             var session = flow.getSession(new Fibonacci(10));
             session.match().then(function () {
+                session.dispose();
                 assert.equal(result, 55);
                 next();
             });
@@ -146,6 +147,7 @@ it.describe("Flow", function (it) {
         it.should("calculate Fibonacci of 150", function (next) {
             var session = flow.getSession(new Fibonacci(150));
             session.match().then(function () {
+                session.dispose();
                 assert.equal(result, 9.969216677189305e+30);
                 next();
             });
@@ -250,6 +252,7 @@ it.describe("Flow", function (it) {
             session.assert(new Patient("Tom", "none", false, true, false, false));
             //flow.print();
             session.match().then(function () {
+                session.dispose();
                 assert.deepEqual(results, [
                     {"name":"Bob", "treatment":"penicillin"},
                     {"name":"Tom", "treatment":"allegryShot"},
@@ -268,6 +271,7 @@ it.describe("Flow", function (it) {
             session.assert(new Patient("Fred", "none", false, true, false, false));
             //flow.print();
             session.match().then(function () {
+                session.dispose();
                 assert.deepEqual(results, [
                     {"name":"Joe", "treatment":"penicillin"},
                     {"name":"Fred", "treatment":"allegryShot"},
