@@ -8,32 +8,32 @@ var Message = function (message) {
 var flow = nools.flow("Hello World", function (flow) {
 
     //find any message that starts with hello
-    this.rule("Hello", [String, "s", "s =~ /^hello(\\s*world)?$/"], function (facts) {
-        var s = facts.s + " goodbye";
-        this.assert(s);
+    this.rule("Hello", [Message, "m", "m.message =~ /^hello(\\s*world)?$/"], function (facts) {
+        facts.m.message = facts.m.message + " goodbye";
+        this.modify(facts.m);
     });
 
     //find all messages then end in goodbye
-    this.rule("Goodbye", [String, "s", "s =~ /.*goodbye$/"], function (facts) {
-        console.log(facts.s);
+    this.rule("Goodbye", [Message, "m", "m.message =~ /.*goodbye$/"], function (facts) {
+        console.log(facts.m.message);
     });
 });
 
-var session2 = flow.getSession();
+var session = flow.getSession();
 //assert your different messages
-session2.assert("goodbye");
-session2.assert("hello");
-session2.assert("hello world");
-session2.match();
+session.assert(new Message("goodbye"));
+session.assert(new Message("hello"));
+session.assert(new Message("hello world"));
+session.match();
 
 
 //same as above getSession will assert the passed in objects
-var session = flow.getSession(
-    "goodbye",
-    "hello",
-    "hello world"
+var session2 = flow.getSession(
+    new Message("goodbye"),
+    new Message("hello"),
+    new Message("hello world")
 );
-session.match();
+session2.match();
 
 
 
