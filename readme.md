@@ -1,9 +1,7 @@
 
 #Nools
 
-Nools is a rules engine for node based on the [rete](http://en.wikipedia.org/wiki/Rete_algorithm) network. 
-
-Please note nools is still in early development stages and api changes can/will happen.
+Nools is a rules engine for node based on the [rete](http://en.wikipedia.org/wiki/Rete_algorithm) network.
 
 # Installation
 
@@ -44,7 +42,7 @@ var Message = function (message) {
 
 var flow = nools.flow("Hello World", function (flow) {
 
-    //find any message that starts with hello
+    //find any message that start with hello
     this.rule("Hello", [Message, "m", "m.message =~ /^hello(\\s*world)?$/"], function (facts) {
         facts.m.message = facts.m.message + " goodbye";
         this.modify(facts.m);
@@ -141,7 +139,7 @@ session.modify(m);
 <a name="firing"></a>
 ##Firing the rules
 
-When you get a session from a **flow** no rules will be fired until the **match** method called.
+When you get a session from a **flow** no rules will be fired until the **match** method is called.
 
 ```javascript
 var session = flow.getSession();
