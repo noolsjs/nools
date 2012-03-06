@@ -8,12 +8,13 @@
         "url": "git@github.com:doug-martin/flow.git"
     },
     "dependencies" : {
-        "comb" : ">=0.0.9"
+        "comb" : ">=0.1.0"
     },
     "devDependencies" : {
-        "it" : ">=0.0.1"
+        "it" : ">=0.0.1",
+        "jison" : ">=0.3.2"
     },
-    "homepage": "http://doug-martin.github.com/flow",
+    "homepage": "http://github.com/doug-martin/nools",
     "author": "Doug Martin (http://blog.dougamartin.com)",
     "main": "index.js",
     "directories": {

@@ -691,6 +691,4 @@ it.describe("A Parser", function (it) {
         next();
     });
 
-
-    it.run();
 });

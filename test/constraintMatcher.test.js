@@ -134,5 +134,3 @@ it.describe("constraint matcher", function (it) {
     });
 
 });
-
-it.run();

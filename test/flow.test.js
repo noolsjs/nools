@@ -106,25 +106,22 @@ it.describe("Flow", function (it) {
             ], function (facts) {
                 var f2 = new Fibonacci(facts.f.sequence - 1);
                 this.assert(f2);
-                console.log("Recurse " + f2.sequence);
             });
 
             flow.rule("Bootstrap", [Fibonacci, "f", "f.value == -1 && (f.sequence == 1 || f.sequence == 2)"], function (facts, flow) {
                 facts.f.value = 1;
                 this.modify(facts.f);
-                console.log("Bootstrap " + facts.f.sequence + " " + facts.f.value);
             });
 
             flow.rule("Calculate", [
                 [Fibonacci, "f1", "f1.value != -1", {sequence:"s1"}],
                 [Fibonacci, "f2", "f2.value != -1 && f2.sequence == s1 + 1", {sequence:"s2"}],
                 [Fibonacci, "f3", "f3.value == -1 && f3.sequence == s2 + 1"]
-            ], function (facts, flow) {
+            ], function (facts) {
                 facts.f3.value = facts.f1.value + facts.f2.value;
                 result = facts.f3.value;
                 this.modify(facts.f3);
                 this.retract(facts.f1);
-                console.log("Calculate " + facts.f3.sequence + " " + facts.f3.value);
             });
         });
 
@@ -191,7 +188,7 @@ it.describe("Flow", function (it) {
         var results = [];
         var flow = nools.flow("Diagnosis", function (flow) {
 
-            flow.rule("Measels", {salience : 1}, [
+            flow.rule("Measels", [
                 [Patient, "p", "p.fever == 'high' && p.spots == true && p.innoculated == true", {name:"n"}],
                 ["not", Diagnosis, "d", "d.name == n && d.diagnosis == 'allergy'"]
             ],
@@ -254,8 +251,8 @@ it.describe("Flow", function (it) {
             session.match().then(function () {
                 session.dispose();
                 assert.deepEqual(results, [
-                    {"name":"Bob", "treatment":"penicillin"},
                     {"name":"Tom", "treatment":"allegryShot"},
+                    {"name":"Bob", "treatment":"penicillin"},
                     {"name":"Joe", "treatment":"bedRest"},
                     {"name":"Fred", "treatment":"allegryShot"}
                 ]);
@@ -273,8 +270,8 @@ it.describe("Flow", function (it) {
             session.match().then(function () {
                 session.dispose();
                 assert.deepEqual(results, [
-                    {"name":"Joe", "treatment":"penicillin"},
                     {"name":"Fred", "treatment":"allegryShot"},
+                    {"name":"Joe", "treatment":"penicillin"},
                     {"name":"Bob", "treatment":"bedRest"},
                     {"name":"Tom", "treatment":"allegryShot"}
                 ]);
@@ -283,11 +280,7 @@ it.describe("Flow", function (it) {
         });
     });
 
-    it.describe("#")
-
 });
 
-
-it.run();
 
 

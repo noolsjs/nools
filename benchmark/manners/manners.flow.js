@@ -54,7 +54,6 @@ module.exports = exports = nools.flow("Manners", function (flow) {
         this.assert(path);
         var chosen = new Chosen(seatId, lgn, facts.rightGuestHobby);
         this.assert(chosen);
-
         count.value = countValue + 1;
         this.modify(count);
         context.state = Context.MAKE_PATH;
@@ -69,7 +68,6 @@ module.exports = exports = nools.flow("Manners", function (flow) {
     ], function (facts) {
         var path = new Path(facts.seatingId, facts.pathSeat, facts.pathGuestName);
         this.assert(path);
-        //console.log("make Path %s", path);
     });
 
     flow.rule("pathDone",  [
