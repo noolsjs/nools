@@ -1,4 +1,3 @@
-
 #Nools
 
 Nools is a rules engine for node based on the [rete](http://en.wikipedia.org/wiki/Rete_algorithm) network.
@@ -352,9 +351,9 @@ Output
 License
 -------
 
-MIT <https://github.com/doug-martin/nools/raw/master/LICENSE>
+MIT <https://github.com/Pollenware/nools/raw/master/LICENSE>
 
 Meta
 ----
 
-* Code: `git clone git://github.com/doug-martin/nools.git`
+* Code: `git clone git://github.com/Pollenware/nools.git`
