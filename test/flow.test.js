@@ -88,6 +88,76 @@ it.describe("Flow", function (it) {
 
     });
 
+    it.describe("not rule", function (it) {
+
+        var called = 0;
+
+        var flow = nools.flow("hello world flow", function (flow) {
+            flow.rule("hello rule", ["not", String, "s", "s == 'hello'"], function () {
+                called++;
+            });
+        });
+
+        it.should("call when a string that does not equal 'hello'", function () {
+            var session = flow.getSession("world").match();
+            assert.equal(called, 1);
+        });
+
+        it.should(" not call when a string that does equal 'hello'", function () {
+            called = 0;
+            var session = flow.getSession("hello").match();
+            assert.equal(called, 0);
+        });
+
+        it.should(" not call when a string that does equal 'hello' and one that does not", function (next) {
+            called = 0;
+            flow.getSession("hello", "world").match().then(function () {
+                assert.equal(called, 0);
+                next();
+            }, next);
+        });
+
+    });
+
+    it.describe("or rule", function (it) {
+
+        var called = 0;
+
+        var flow = nools.flow("hello world flow", function (flow) {
+            flow.rule("hello rule", ["or",
+                [String, "s", "s == 'hello'"],
+                [String, "s", "s == 'world'"]
+            ], function () {
+                called++;
+            });
+        });
+
+        it.should("call when a string equals 'hello'", function (next) {
+            var session = flow.getSession("world").match().then(function () {
+                assert.equal(called, 1);
+                next();
+            }, next);
+        });
+
+        it.should("call when a string equals 'world'", function (next) {
+            called = 0;
+            var session = flow.getSession("hello").match().then(function () {
+                assert.equal(called, 1);
+                next();
+            }, next);
+        });
+
+        it.should(" not call when a string that does equal 'hello' or 'world", function (next) {
+            called = 0;
+            var session = flow.getSession("hello", "world", "test").match().then(function () {
+                assert.equal(called, 2);
+                next();
+            }, next);
+
+        });
+
+    });
+
     it.describe("fibonocci", function (it) {
 
         var Fibonacci = comb.define(null, {
@@ -210,7 +280,7 @@ it.describe("Flow", function (it) {
                 this.assert(new Diagnosis(name, "allergy"));
             });
 
-            flow.rule("Flu", [Patient, "p", "p.soreThroat == true && (p.fever == 'mild' || p.fever == 'high')", {name:"n"}], function (facts) {
+            flow.rule("Flu", [Patient, "p", "p.soreThroat == true && p.fever in ['mild', 'high']", {name:"n"}], function (facts) {
                 var name = facts.n;
                 this.assert(new Diagnosis(name, "flu"));
             });
@@ -280,6 +350,7 @@ it.describe("Flow", function (it) {
         });
     });
 
+    it.run();
 });
 
 

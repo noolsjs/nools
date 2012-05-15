@@ -3,7 +3,7 @@ var it = require("it"),
     assert = require("assert");
 
 it.describe("A Parser", function (it) {
-    it.should("parse valid string expressions", function (next) {
+    it.should("parse valid string expressions", function () {
         assert.deepEqual(parser.parse("a == 'a'"), [
             ['a', null, 'identifier'],
             ['a', null, 'string'],
@@ -125,10 +125,55 @@ it.describe("A Parser", function (it) {
             [1, null, 'number'],
             'lte'
         ]);
-        next();
     });
 
-    it.should("parse valid string expressions with property access", function (next) {
+    it.should("parse valid string expressions with functions", function () {
+
+        assert.deepEqual(parser.parse("Date()"), ["Date", [null, null, "arguments"], "function"]);
+        assert.deepEqual(parser.parse("a(b,c,d,e)"), ["a", [
+            [
+                [
+                    ["b", null, "identifier"],
+                    ["c", null, "identifier"],
+                    "arguments"
+                ],
+                ["d", null, "identifier"],
+                "arguments"
+            ],
+            ["e", null, "identifier"],
+            "arguments"
+        ], "function"]);
+        assert.deepEqual(parser.parse("a(b,c)"), ["a",
+            [
+                ["b", null, "identifier"],
+                ["c", null, "identifier"],
+                "arguments"
+            ], "function"]);
+        assert.deepEqual(parser.parse("a(b,c) && e(f,g)"), [
+            [
+                "a",
+                [
+                    ["b", null, "identifier"],
+                    ["c", null, "identifier"],
+                    "arguments"
+                ],
+                "function"
+            ],
+            [
+                "e",
+                [
+                    ["f", null, "identifier"],
+                    ["g", null, "identifier"],
+                    "arguments"
+                ],
+                "function"
+            ],
+            "and"
+        ]);
+
+    })
+
+    it.should("parse valid string expressions with property access", function () {
 
         assert.deepEqual(parser.parse("a.flag"), [
             ["a", null, 'identifier'],
@@ -452,11 +497,23 @@ it.describe("A Parser", function (it) {
             ],
             "eq"
         ]);
-        next();
+        assert.deepEqual(parser.parse("a.age() eq a.num()"), [
+            [
+                ["a", null, "identifier"],
+                ["age", [null, null, "arguments"], "function"],
+                "prop"
+            ],
+            [
+                ["a", null, "identifier"],
+                ["num", [null, null, "arguments"], "function"],
+                "prop"
+            ],
+            "eq"
+        ]);
     });
 
 
-    it.should("parse valid string expressions with boolean operators", function (next) {
+    it.should("parse valid string expressions with boolean operators", function () {
         assert.deepEqual(parser.parse("a.name == 'bob' && a.age >= 10"), [
             [
                 [
@@ -585,42 +642,43 @@ it.describe("A Parser", function (it) {
             ],
             "or"
         ]);
-        next();
     });
 
-    it.should("handle operator associativity properly", function (next) {
+    it.should("handle operator associativity properly", function () {
         assert.deepEqual(parser.parse("a.name == 'a' || a.name == 'bob' && a.age >= 10"), [
+            [
+                [
+                    ["a", null, "identifier"],
+                    ["name", null, "identifier"],
+                    "prop"
+                ],
+                ["a", null, "string"],
+                "eq"
+            ],
             [
                 [
                     [
                         ["a", null, "identifier"],
-                        ["name", null, "identifier"],
-                        "prop"
-                    ],
-                    ["a", null, "string"],
-                    "eq"
-                ],
-                [
-                    [
-                        ["a", null, "identifier"],
-                        ["name", null, "identifier"],
+                        ["name", null,
+                            "identifier"
+                        ],
                         "prop"
                     ],
                     ["bob", null, "string"],
                     "eq"
                 ],
-                "or"
-            ],
-            [
                 [
-                    ["a", null, "identifier"],
-                    ["age", null, "identifier"],
-                    "prop"
+                    [
+                        ["a", null, "identifier"],
+                        ["age", null, "identifier"],
+                        "prop"
+                    ],
+                    [10, null, "number"],
+                    "gte"
                 ],
-                [10, null, "number"],
-                "gte"
+                "and"
             ],
-            "and"
+            "or"
         ]);
         assert.deepEqual(parser.parse("a.name == 'a' || (a.name == 'bob' && a.age >= 10)"), [
             [
@@ -688,7 +746,66 @@ it.describe("A Parser", function (it) {
             ],
             "or"
         ]);
-        next();
     });
+
+    it.should("parse arrays", function () {
+        assert.deepEqual(parser.parse("[]"), [null, null, "array"]);
+        assert.deepEqual(parser.parse("[1,2]"), [
+            [
+                [1, null, "number"],
+                [2, null, "number"],
+                "arguments"
+            ],
+            null,
+            "array"
+        ]);
+        assert.deepEqual(parser.parse("['a',2, true, false, /hello/, b]"), [
+            [
+                [
+                    [
+                        [
+                            [
+                                ["a", null, "string"],
+                                [2, null, "number"],
+                                "arguments"
+                            ],
+                            [true, null, "boolean"],
+                            "arguments"
+                        ],
+                        [false, null, "boolean"],
+                        "arguments"
+                    ],
+                    [/hello/, null, "regexp"],
+                    "arguments"
+                ],
+                ["b", null, "identifier"],
+                "arguments"
+            ],
+            null,
+            "array"
+        ]);
+    });
+
+    it.should("parse the in operator", function () {
+        assert.deepEqual(parser.parse("1 in [1,2,3]"), [
+            [1, null, "number"],
+            [
+                [
+                    [
+                        [1, null, "number"],
+                        [2, null, "number"],
+                        "arguments"
+                    ],
+                    [3, null, "number"],
+                    "arguments"
+                ],
+                null,
+                "array"
+            ],
+            "in"
+        ]);
+    });
+
+    it.run();
 
 });

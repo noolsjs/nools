@@ -1,0 +1,46 @@
+{
+    "name":"Fibonacci",
+    "define":{
+        "Fibonacci":{
+            "value":-1,
+            "sequence":null
+        },
+        "Result":{
+            "value":-1
+        }
+    },
+    "Recurse":{
+        "options":{
+            "priority":1
+        },
+        "rules":[
+            ["not", "Fibonacci", "f", "f.sequence == 1"],
+            ["Fibonacci", "f1", "f1.sequence != 1"]
+        ],
+        "action":"assert(new Fibonacci({sequence : f1.sequence - 1}));"
+    },
+    "Bootstrap":{
+        "rules":["Fibonacci", "f", "f.value == -1 && (f.sequence == 1 || f.sequence == 2)"],
+        "action":[
+            "f.value = 1;",
+            "modify(f);"
+        ]
+    },
+    "Calculate":{
+        "rules":[
+            ["Fibonacci", "f1", "f1.value != -1", {
+                "sequence":"s1"
+            }],
+            ["Fibonacci", "f2", "f2.value != -1 && f2.sequence == s1 + 1", {
+                "sequence":"s2"
+            }],
+            ["Fibonacci", "f3", "f3.value == -1 && f3.sequence == s2 + 1"],
+            ["Result", "r"]
+        ],
+        "action":[
+            "var v = f3.value = f1.value + f2.value;",
+            "r.result = v;",
+            "modify(f3);retract(f1);"
+        ]
+    }
+}

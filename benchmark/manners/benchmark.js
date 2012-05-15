@@ -4,6 +4,10 @@ var session = flow.getSession.apply(flow, data.guests16);
 session.assert(new models.Context("start"));
 session.assert(new models.Count(1));
 var start = new Date();
-session.match().both(function () {
-    console.log("Duration %dms", new Date() - start);
+session.match(function (err) {
+    if (err) {
+        console.log(err);
+    } else {
+        console.log("Duration %dms", new Date() - start);
+    }
 });

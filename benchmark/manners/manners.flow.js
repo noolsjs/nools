@@ -25,7 +25,7 @@ module.exports = exports = nools.flow("Manners", function (flow) {
         this.assert(seating);
         var path = new Path(count.value, 1, name);
         this.assert(path);
-        count.value = count.value + 1;
+        ++count.value;
         this.modify(count);
         console.log("assign first seat : " + seating + " : " + path);
         context.state = Context.ASSIGN_SEATS;
@@ -42,19 +42,18 @@ module.exports = exports = nools.flow("Manners", function (flow) {
         ["not", Chosen, "chosen", "chosen.id == sid && chosen.guestName == leftGuestName && chosen.hobby == rightGuestHobby"]
     ], function (facts) {
         var s = facts.s,
-            g2 = facts.lg,
             count = facts.count,
             context = facts.c,
-            lgn = facts.leftGuestName;
-
-        var rightSeat = s.rightSeat, seatId = s.id, countValue = count.value;
+            lgn = facts.leftGuestName,
+            rightSeat = s.rightSeat,
+            seatId = facts.sid, countValue = count.value;
         var seating = new Seating(countValue, seatId, false, rightSeat, facts.seatingRightGuestName, rightSeat + 1, lgn);
         this.assert(seating);
         var path = new Path(countValue, rightSeat + 1, lgn);
         this.assert(path);
         var chosen = new Chosen(seatId, lgn, facts.rightGuestHobby);
         this.assert(chosen);
-        count.value = countValue + 1;
+        ++count.value;
         this.modify(count);
         context.state = Context.MAKE_PATH;
         this.modify(context);
@@ -70,7 +69,7 @@ module.exports = exports = nools.flow("Manners", function (flow) {
         this.assert(path);
     });
 
-    flow.rule("pathDone",  [
+    flow.rule("pathDone", [
         [Context, "c", "c.state == " + Context.MAKE_PATH],
         [Seating, "s", "s.path == false"]
     ], function (facts) {
