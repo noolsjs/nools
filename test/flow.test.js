@@ -232,7 +232,7 @@
 
             it.should("calculate Fibonacci of 10", function (next) {
                 var result = new Result();
-                var session = flow.getSession(new Fibonacci({sequence:10}), result);
+                var session = flow.getSession(new Fibonacci(10), result);
                 session.match().then(function () {
                     session.dispose();
                     assert.equal(result.value, 55);
@@ -242,7 +242,7 @@
 
             it.should("calculate Fibonacci of 150", function (next) {
                 var result = new Result();
-                var session = flow.getSession(new Fibonacci({sequence:150}), result);
+                var session = flow.getSession(new Fibonacci(150), result);
                 session.match().then(function () {
                     session.dispose();
                     assert.equal(result.value, 9.969216677189305e+30);

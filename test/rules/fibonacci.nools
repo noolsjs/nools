@@ -1,10 +1,20 @@
 define Fibonacci {
     sequence : null,
-    value : -1
+    value : -1,
+    //provide default constructor
+    constructor : function(sequence, value){
+        this.sequence = sequence;
+        this.value = value || -1;
+    }
 }
 
 define Result {
-    value : 0
+    value : 0,
+    //default constructor
+    constructor : function(value){
+        this.valie = value;
+    }
+
 }
 
 rule Recurse {
@@ -13,7 +23,7 @@ rule Recurse {
         f : Fibonacci f.value == -1 && f.sequence != 1
     }
     then {
-        assert(new Fibonacci({sequence : f.sequence - 1}));
+        assert(new Fibonacci(f.sequence - 1));
     }
 }
 

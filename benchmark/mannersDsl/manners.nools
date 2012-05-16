@@ -1,3 +1,7 @@
+//Define our models
+//can be retrieved in JS by calling by:
+//var Chosen = flow.getDefined("chosen");
+//var chosen = new Chosen({id : 1, guestName : "bob", hobby : "my hobby"});
 define Chosen {
     id : null,
     guestName : null,

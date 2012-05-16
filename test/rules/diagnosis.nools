@@ -1,3 +1,7 @@
+//create new classes;
+//All classes will use default constructor where you pass in
+//an object with key value pairs of the value defined in the define object
+//i.e new Patient({name : "bob", fever : "high", spots : false, rash : true, soreThroat : false, innoculated : true});
 define Patient {
     name : null,
     fever : null,
