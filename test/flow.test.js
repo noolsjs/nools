@@ -160,6 +160,61 @@
 
         });
 
+        it.describe("events", function(it){
+               var flow = nools.compile(__dirname + "/rules/simple.nools"),
+                   Message = flow.getDefined("Message"),
+                   session;
+
+            it.beforeEach(function(){
+                session = flow.getSession();
+            });
+
+            it.should("emit when facts are asserted", function(next){
+                var m = new Message("hello");
+                session.once("assert", function(fact){
+                    assert.deepEqual(fact, m);
+                    next();
+                });
+                session.assert(m);
+            });
+
+            it.should("emit when facts are retracted", function(next){
+                var m = new Message("hello");
+                session.once("retract", function(fact){
+                    assert.deepEqual(fact, m);
+                    next();
+                });
+                session.assert(m);
+                session.retract(m);
+            });
+
+            it.should("emit when facts are modified", function(next){
+                var m = new Message("hello");
+                session.once("modify", function(fact){
+                    assert.deepEqual(fact, m);
+                    next();
+                });
+                session.assert(m);
+                session.modify(m);
+            });
+
+            it.should("emit when rules are fired", function(next){
+                var m = new Message("hello");
+                var fire = [["Hello", "hello"], ["Goodbye", "hello goodbye"]], i = 0;
+                session.on("fire", function(name, facts){
+                    assert.equal(name, fire[i][0]);
+                    assert.equal(facts.m.message, fire[i++][1]);
+                });
+                session.assert(m);
+                session.match(function(err){
+                    assert.equal(i, 2);
+                    next();
+                });
+
+            });
+
+        });
+
         it.describe("fibonocci", function (it) {
 
             var Fibonacci = comb.define(null, {
