@@ -51,7 +51,7 @@
                         {
                             name:"TestRule",
                             constraints:[
-                                ["c", "Clazz", "c.name eq 'Test'", {test:"test"}]
+                                ["Clazz", "c", "c.name eq 'Test'", {test:"test"}]
                             ],
                             action:"console.log($test);"
                         }
@@ -77,6 +77,24 @@
                 });
             });
 
+            it.should("parse when clause predicate conditions", function () {
+                var parsed = noolsParser.parse("rule TestRule { when {not(c : Clazz {test : test} c.name eq 'Test')} then {console.log($test);}}");
+                assert.deepEqual(parsed, {
+                    define:[],
+                    rules:[
+                        {
+                            name:"TestRule",
+                            constraints:[
+                                ["not", 'Clazz',"c", "c.name eq 'Test'", {test:"test"}]
+                            ],
+                            action:"console.log($test);"
+                        }
+                    ]
+                });
+                var parsed2 = noolsParser.parse("rule TestRule { when { not(c : Clazz c.name eq 'Test' {test : test})} then {console.log($test);}}");
+                assert.deepEqual(parsed, parsed2);
+            });
+
             it.should("parse when clause with hash and constraints in any order", function () {
                 var parsed = noolsParser.parse("rule TestRule { when { c : Clazz {test : test} c.name eq 'Test'} then {console.log($test);}}");
                 assert.deepEqual(parsed, {
@@ -85,7 +103,7 @@
                         {
                             name:"TestRule",
                             constraints:[
-                                ["c", "Clazz", "c.name eq 'Test'", {test:"test"}]
+                                ["Clazz", "c", "c.name eq 'Test'", {test:"test"}]
                             ],
                             action:"console.log($test);"
                         }
@@ -109,6 +127,23 @@
                     noolsParser.parse("rule TestRule { when c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
                 });
             });
+
+            it.should("throw an error for invalid then clauses", function () {
+                assert.throws(function () {
+                    //missing start curly
+                    noolsParser.parse("rule TestRule { when {c : Clazz c.name eq 'Test' {test : test}} then console.log($test);}}");
+                });
+                assert.throws(function () {
+                    //missing end curly
+                    noolsParser.parse("rule TestRule { when {c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}");
+                });
+                assert.throws(function () {
+                    //extra colon
+                    noolsParser.parse("rule TestRule { when {c : Clazz c.name eq 'Test' {test : test}} then : {console.log($test);}}");
+                });
+            });
+
+
         });
 
 

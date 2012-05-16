@@ -47,16 +47,15 @@ module.exports = exports = nools.flow("Manners", function (flow) {
             lgn = facts.leftGuestName,
             rightSeat = s.rightSeat,
             seatId = facts.sid, countValue = count.value;
-        var seating = new Seating(countValue, seatId, false, rightSeat, facts.seatingRightGuestName, rightSeat + 1, lgn);
-        this.assert(seating);
-        var path = new Path(countValue, rightSeat + 1, lgn);
-        this.assert(path);
-        var chosen = new Chosen(seatId, lgn, facts.rightGuestHobby);
-        this.assert(chosen);
-        ++count.value;
-        this.modify(count);
-        context.state = Context.MAKE_PATH;
-        this.modify(context);
+        this.assert(new Seating(countValue, seatId, false, rightSeat, facts.seatingRightGuestName, rightSeat + 1, lgn));
+        this.assert(new Path(countValue, rightSeat + 1, lgn));
+        this.assert(new Chosen(seatId, lgn, facts.rightGuestHobby));
+        this.modify(count, function(){
+            this.value++;
+        });
+        this.modify(context, function(){
+            this.state = Context.MAKE_PATH
+        });
     });
 
     flow.rule("makePath", [
@@ -65,19 +64,20 @@ module.exports = exports = nools.flow("Manners", function (flow) {
         [Path, "p", "p.id == seatingPid", {guestName:"pathGuestName", seat:"pathSeat"}],
         ["not", Path, "p2", "p2.id == seatingId && p2.guestName == pathGuestName"]
     ], function (facts) {
-        var path = new Path(facts.seatingId, facts.pathSeat, facts.pathGuestName);
-        this.assert(path);
+        this.assert(new Path(facts.seatingId, facts.pathSeat, facts.pathGuestName));
     });
 
     flow.rule("pathDone", [
         [Context, "c", "c.state == " + Context.MAKE_PATH],
         [Seating, "s", "s.path == false"]
     ], function (facts) {
-        var c = facts.c, s = facts.s;
-        s.path = true;
-        this.modify(s);
-        c.state = Context.CHECK_DONE;
-        this.modify(c);
+        var s = facts.s;
+        this.modify(s, function(){
+            this.path = true;
+        });
+        this.modify(facts.c, function(){
+            this.state = Context.CHECK_DONE;
+        });
         console.log("path Done : %s", s);
     });
 
@@ -87,17 +87,17 @@ module.exports = exports = nools.flow("Manners", function (flow) {
         [LastSeat, "ls", "true", {seat:"lastSeat"}],
         [Seating, "s", "s.rightSeat == lastSeat"]
     ], function (facts) {
-        var c = facts.c;
-        c.state = Context.PRINT_RESULTS;
-        this.modify(c);
+        this.modify(facts.c, function () {
+            this.state = Context.PRINT_RESULTS;
+        });
     });
 
 
     flow.rule("continue", [Context, "c", "c.state == " + Context.CHECK_DONE],
         function (facts) {
-            var c = facts.c;
-            c.state = Context.ASSIGN_SEATS;
-            this.modify(c);
+            this.modify(facts.c, function () {
+                this.state = Context.ASSIGN_SEATS;
+            });
         });
 
     flow.rule("allDone", [Context, "c", "c.state == " + Context.PRINT_RESULTS], function () {

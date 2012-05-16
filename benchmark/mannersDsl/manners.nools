@@ -23,7 +23,8 @@ define Count {
 
 define Guest {
     name : "",
-    sex :  "hobby",
+    sex :  "",
+    hobby : "",
     toString:function () {
         return ["[Guest name=", this.name, ", sex=", this.sex, ", hobbies=", this.hobby, "]"].join("");
     }
@@ -66,21 +67,23 @@ rule assignFirstSeat {
             count : Count;
         }
         then {
-            assert(new Seating({
-                id : $count.value,
-                pid : 0,
-                path : true,
-                leftSeat : 1,
-                leftGuestName : $leftGuestName,
-                rightSeat : 1,
-                rightGuestName : $leftGuestName
-            }));
-            assert(new Path({id : $count.value, seat : 1, guestName : $leftGuestName}));
-            modify($count, function(){
+            var seating = new Seating({
+                    id : count.value,
+                    pid : 0,
+                    path : true,
+                    leftSeat : 1,
+                    leftGuestName : leftGuestName,
+                    rightSeat : 1,
+                    rightGuestName : leftGuestName
+            });
+            assert(seating);
+            var path = new Path({id : count.value, seat : 1, guestName : leftGuestName});
+            assert(path);
+            modify(count, function(){
                 this.value++
             });
             console.log('assign first seat : %s : %s', seating, path);
-            modify($c, function(){
+            modify(c, function(){
                 this.state = 'assign';
             });
         }
@@ -99,18 +102,19 @@ rule findSeating {
         }
         then {
             assert(new Seating({
-                        id : $count.value,
-                        pid : $sid,
-                        path : true,
-                        leftSeat : $s.rightSeat,
-                        leftGuestName : $seatingRightGuestName,
-                        rightSeat : $rightSeat + 1,
-                        rightGuestName : $leftGuestName
+                        id : countValue,
+                        pid : sid,
+                        path : false,
+                        leftSeat : s.rightSeat,
+                        leftGuestName : seatingRightGuestName,
+                        rightSeat : rightSeat + 1,
+                        rightGuestName : leftGuestName
             }));
-            assert(new Path({id : countValue, seat : rightSeat + 1, guestName : leftGuestName}));
-            assert(new Chosen({id : $sid, guestName : $leftGuestName, hobby : $rightGuestHobby}));
-            modify($count, function(){this.value++;});
-            modify($c, function(){this.state = 'make'});
+            var path = new Path({id : countValue, seat : rightSeat + 1, guestName : leftGuestName});
+            assert(path);
+            assert(new Chosen({id : sid, guestName : leftGuestName, hobby : rightGuestHobby}));
+            modify(count, function(){this.value++;});
+            modify(c, function(){this.state = 'make'});
         }
 }
 
@@ -118,11 +122,11 @@ rule makePath {
         when {
             c : Context c.state == 'make';
             s : Seating s.path == false {id : sid, pid : seatingPid};
-            p : Path p, p.id == seatingPid {guestName : pathGuestName, seat : pathSeat};
-            not( p2 : Path p2.id == sid && p2.guestName == pathGuestName];
+            p : Path p.id == seatingPid {guestName : pathGuestName, seat : pathSeat};
+            not( p2 : Path p2.id == sid && p2.guestName == pathGuestName);
         }
         then {
-            assert(new Path({id : $sid, seat : $pathSeat, guestName : $pathGuestName}));
+            assert(new Path({id : sid, seat : pathSeat, guestName : pathGuestName}));
         }
 }
 
@@ -132,13 +136,13 @@ rule pathDone {
             s : Seating s.path == false;
         }
         then {
-            modify($s, function(){
+            modify(s, function(){
                 this.path = true;
             });
-            modify($c, function(){
+            modify(c, function(){
                     this.state = 'check';
             });
-            console.log('path Done : %s', $s);
+            console.log('path Done : %s', s);
         }
 }
 
@@ -149,7 +153,7 @@ rule areWeDone {
             s : Seating s.rightSeat == lastSeat;
         }
         then {
-            modify($c, {this.state = 'print';})
+            modify(c, function(){this.state = 'print';})
         }
 }
 
@@ -158,7 +162,7 @@ rule continue {
             c : Context c.state == 'check';
         }
         then {
-            modify($c, {this.state = 'assign'});
+            modify(c, function(){this.state = 'assign'});
         }
 }
 
