@@ -11,4 +11,4 @@
     session.match().both(function () {
         console.log("Duration %dms", new Date() - start);
     });
-});
+})();
