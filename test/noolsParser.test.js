@@ -18,7 +18,8 @@
                             }
                         }
                     ],
-                    "rules":[]
+                    "rules":[],
+                    "scope":[]
                 });
                 parsed = noolsParser.parse("define Test {myFunc : function(){}}");
                 //have to test this way because deepEqual cannot include functions
@@ -41,6 +42,36 @@
             });
         });
 
+        it.describe("parsing function", function (it) {
+            it.should("parse a function statement", function () {
+                var parsed = noolsParser.parse("function myFunc(a, b) {return a + b}");
+                assert.lengthOf(parsed.rules, 0);
+                assert.lengthOf(parsed.define, 0);
+                assert.lengthOf(parsed.scope, 1);
+                assert.equal(parsed.scope[0].name, "myFunc");
+                assert.equal(parsed.scope[0].body, "function(a, b){return a + b}");
+            });
+
+            it.should("throw an error when the function block is missing a name", function () {
+                assert.throws(function () {
+                    noolsParser.parse("function(a,b) {return a + b;}");
+                });
+            });
+
+            it.should("throw an error for invalid define blocks", function () {
+                assert.throws(function () {
+                    noolsParser.parse("function testFunc() {return 'value'");
+                });
+                assert.throws(function () {
+                    noolsParser.parse("function testFunc() return 'value'}");
+                });
+
+                assert.throws(function () {
+                    noolsParser.parse("function testFunc {return 'value'}");
+                });
+            });
+        });
+
         it.describe("parsing rules", function (it) {
 
             it.should("parse rules", function () {
@@ -53,9 +84,11 @@
                             constraints:[
                                 ["Clazz", "c", "c.name eq 'Test'", {test:"test"}]
                             ],
-                            action:"console.log($test);"
+                            action:"console.log($test);",
+                            options : {}
                         }
-                    ]
+                    ],
+                    "scope":[]
                 });
             });
 
@@ -87,9 +120,11 @@
                             constraints:[
                                 ["not", 'Clazz',"c", "c.name eq 'Test'", {test:"test"}]
                             ],
-                            action:"console.log($test);"
+                            action:"console.log($test);",
+                            options : {}
                         }
-                    ]
+                    ],
+                    "scope":[]
                 });
                 var parsed2 = noolsParser.parse("rule TestRule { when { not(c : Clazz c.name eq 'Test' {test : test})} then {console.log($test);}}");
                 assert.deepEqual(parsed, parsed2);
@@ -105,9 +140,11 @@
                             constraints:[
                                 ["Clazz", "c", "c.name eq 'Test'", {test:"test"}]
                             ],
-                            action:"console.log($test);"
+                            action:"console.log($test);",
+                            options : {}
                         }
-                    ]
+                    ],
+                    "scope":[]
                 });
                 var parsed2 = noolsParser.parse("rule TestRule { when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
                 assert.deepEqual(parsed, parsed2);
