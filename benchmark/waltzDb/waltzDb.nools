@@ -33,6 +33,110 @@ define Junction {
             return ["JUNCTION: P1=", this.p1, ",P2=", this.p2, ",P3=",
             this.p3, ",BasePoint=", this.basePoint, ", Type=" + this.type,
             ",Name=", this.name, ",Visited=", this.visited].join("");
+    },
+
+    __getX : function(val){
+        return Math.floor(val / 100);
+    },
+
+    __getY : function(val){
+        return val % 100;
+    },
+
+    __getAngle : function(p1, p2){
+      //**********************************************************************
+      // This function is passed two points and calculates the angle between the
+      // line defined by these points and the x-axis.
+      //**********************************************************************/
+      	var deltaX, deltaY, PI = Math.PI;
+
+      	/* Calculate (x2 - x1) and (y2 - y1).  The points are passed in the
+      	 * form x1y1 and x2y2.  get_x() and get_y() are passed these points
+      	 * and return the x and y values respectively.  For example,
+      	 * get_x(1020) returns 10. */
+      	var deltaX = this.__getX(p2) - this.__getX(p1);
+      	var deltaY = this.__getY(p2) - this.__getY(p1);
+
+      	if (deltaX == 0) {
+      		if (deltaY > 0)
+      			return PI/2;
+      		else if (deltaY < 0)
+      			return -PI/2;
+      	}
+      	else if (deltaY == 0) {
+      		if (deltaX > 0)
+      			return 0.0;
+      		else if (deltaX < 0)
+      			return PI;
+      	}
+      	else
+      		return Math.atan2(deltaY, deltaX);
+    },
+
+    __getInscribedAngle : function(basePoint, p1, p2){
+        var angle1, angle2, temp, PI = Math.PI;
+
+    	/* Get the angle between line #1 and the origin and the angle
+    	 * between line #2 and the origin, and then subtract these values. */
+    	angle1 = this.__getAngle(basePoint,p1),
+    	    angle2 = this.__getAngle(basePoint,p2),
+    	    temp = angle1 - angle2;
+    	if (temp < 0)
+    		temp = -temp;
+
+    	/* We always want the smaller of the two angles inscribed, so if the
+    	 * answer is greater than 180 degrees, calculate the smaller angle and
+    	 * return it. */
+    	if (temp > PI)
+    		temp = 2*PI - temp;
+    	if (temp < 0)
+    		return -temp;
+    	return temp;
+    },
+
+    make3Junction : function(basePoint, p1, p2, p3){
+        	var PI = Math.PI;
+        	var angle12, angle13, angle23;
+        	var sum, sum1213, sum1223, sum1323;
+        	var delta;
+
+        	angle12 = this.__getInscribedAngle(basePoint,p1,p2);
+        	angle13 = this.__getInscribedAngle(basePoint,p1,p3);
+        	angle23 = this.__getInscribedAngle(basePoint,p2,p3);
+
+        	sum1213 = angle12 + angle13;
+        	sum1223 = angle12 + angle23;
+        	sum1323 = angle13 + angle23;
+
+        	if (sum1213 < sum1223) {
+        		if (sum1213 < sum1323) {
+        			sum = sum1213;
+        			this.p2 = p1; this.p1 = p2; this.p3 = p3;
+        		}else {
+        			sum = sum1323;
+        			this.p2 = p3; this.p1 = p1; this.p3 = p2;
+        		}
+        	}else {
+        		if (sum1223 < sum1323) {
+        			sum = sum1223;
+        			this.p2 = p2; this.p1 = p1; this.p3 = p3;
+        		}
+        		else {
+        			sum = sum1323;
+        			this.p2 = p3; this.p1 = p1; this.p3 = p2;
+        		}
+        	}
+
+        	delta = sum - PI;
+        	if (delta < 0)
+        		delta = -delta;
+
+        	if (delta < 0.001)
+        		this.name = 'tee';
+        	else if (sum > PI)
+        		this.name = 'fork';
+        	else
+        		this.name = 'arrow';
     }
 }
 
@@ -116,9 +220,9 @@ rule make_3_junction {
         var junction = new Junction({
             basePoint : basePoint,
             type : '3j',
-            name : "make_3_junction " + basePoint + " " + p1 + " " + " " + p2 + " " + p3,
             visited : "no"
         });
+        junction.make3Junction(basePoint, p1, p2, p3);
         assert( junction );
         console.log( junction.toString( ) );
         modify( edge1, function(){this.joined = true; this.type = '3j';});
@@ -310,7 +414,7 @@ rule second_boundary_junction_arrow {
 rule start_visit_3_junction {
     when {
         stage : Stage stage.value == 'LABELING';
-        junction : Junction junction.type == '3j' && visited == 'no'
+        junction : Junction junction.type == '3j' && junction.visited == 'no'
 	}
 	then {
         modify(stage, function(){this.value = 'VISITING_3J'});
