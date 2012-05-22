@@ -12,7 +12,7 @@ define Result {
     value : 0,
     //default constructor
     constructor : function(value){
-        this.valie = value;
+        this.value = value;
     }
 
 }

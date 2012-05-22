@@ -280,7 +280,6 @@
                     "(function(hash){var a = hash['a'];var isFalse = definedFuncs['isFalse'];var b = hash['b']; return !!(a.name.isSomething() && isFalse(a.flag) && b === 1);})");
                 assert.equal(constraintMatcher.toJs(parser.parseConstraint("a.name like /hello$/")),
                     "(function(hash){var a = hash['a']; return !!(/hello$/.test(a.name));})");
-                console.log(constraintMatcher.toJs(parser.parseConstraint("a.name in [a, b, c, 'BOB']")));
                 assert.equal(constraintMatcher.toJs(parser.parseConstraint("a.name in [a, b, c, 'BOB']")),
                     "(function(hash){var a = hash['a'];var b = hash['b'];var c = hash['c']; return !!([a,b,c,'BOB'].indexOf(a.name) != -1);})");
             });
