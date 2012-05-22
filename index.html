@@ -1,0 +1,747 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Nools by Pollenware</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Nools</h1>
+        <p>Rete based rules engine for node.js</p>
+        <p class="view"><a href="https://github.com/Pollenware/nools">View the Project on GitHub <small>Pollenware/nools</small></a></p>
+        <ul>
+          <li><a href="https://github.com/Pollenware/nools/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/Pollenware/nools/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/Pollenware/nools">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>Nools</h1>
+
+<p>Nools is a rules engine for node based on the <a href="http://en.wikipedia.org/wiki/Rete_algorithm">rete</a> network.</p>
+
+<h1>Installation</h1>
+
+<pre><code>npm install nools
+</code></pre>
+
+<h1>Usage</h1>
+
+<ul>
+<li>Flows
+
+<ul>
+<li>
+<a href="#flow">Defining A Flow</a> </li>
+<li>
+<a href="#session">Sessions</a> </li>
+<li>
+<a href="#facts">Facts</a> </li>
+<li>
+<a href="#firing">Firing</a> </li>
+<li>
+<a href="#disposing">Disposing</a> </li>
+</ul>
+</li>
+<li>
+<a href="#defining-rule">Defining Rules</a>
+
+<ul>
+<li>
+<a href="#rule-structure">Structure</a> </li>
+<li><a href="#constraints">Constraints</a></li>
+<li><a href="#action">Actions</a></li>
+</ul>
+</li>
+<li><a href="#fib">Fibonacci</a></li>
+</ul><p>To get started with nools the <a href="https://github.com/doug-martin/nools/tree/master/examples">examples</a> and <a href="https://github.com/doug-martin/nools/tree/master/test">tests</a> are a 
+great place to get started.</p>
+
+<p><a name="flow"></a></p>
+
+<h2>Defining a flow</h2>
+
+<p>When using nools you define a <strong>flow</strong> which acts as a container for rules that can later be used to get
+an <strong>engine session</strong></p>
+
+<h3>Pragmatically</h3>
+
+<div class="highlight">
+<pre><span class="kd">var</span> <span class="nx">nools</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s2">"nools"</span><span class="p">);</span>
+
+<span class="kd">var</span> <span class="nx">Message</span> <span class="o">=</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">message</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">message</span> <span class="o">=</span> <span class="nx">message</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="kd">var</span> <span class="nx">flow</span> <span class="o">=</span> <span class="nx">nools</span><span class="p">.</span><span class="nx">flow</span><span class="p">(</span><span class="s2">"Hello World"</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">flow</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="c1">//find any message that start with hello</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">rule</span><span class="p">(</span><span class="s2">"Hello"</span><span class="p">,</span> <span class="p">[</span><span class="nx">Message</span><span class="p">,</span> <span class="s2">"m"</span><span class="p">,</span> <span class="s2">"m.message =~ /^hello(\\s*world)?$/"</span><span class="p">],</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">facts</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">facts</span><span class="p">.</span><span class="nx">m</span><span class="p">.</span><span class="nx">message</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">m</span><span class="p">.</span><span class="nx">message</span> <span class="o">+</span> <span class="s2">" goodbye"</span><span class="p">;</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">modify</span><span class="p">(</span><span class="nx">facts</span><span class="p">.</span><span class="nx">m</span><span class="p">);</span>
+    <span class="p">});</span>
+
+    <span class="c1">//find all messages then end in goodbye</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">rule</span><span class="p">(</span><span class="s2">"Goodbye"</span><span class="p">,</span> <span class="p">[</span><span class="nx">Message</span><span class="p">,</span> <span class="s2">"m"</span><span class="p">,</span> <span class="s2">"m.message =~ /.*goodbye$/"</span><span class="p">],</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">facts</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">facts</span><span class="p">.</span><span class="nx">m</span><span class="p">.</span><span class="nx">message</span><span class="p">);</span>
+    <span class="p">});</span>
+<span class="p">});</span>
+
+</pre>
+</div>
+
+
+<p>In the above flow definition 2 rules were defined</p>
+
+<ul>
+<li>Hello
+
+<ul>
+<li>Requires a Message</li>
+<li>The messages's message must match the regular expression "/^hello(\s*world)?$/"</li>
+<li>When matched the message's message is modified and then we let the engine know that we modified the message.</li>
+</ul>
+</li>
+<li>Goodbye
+
+<ul>
+<li>Requires a Message</li>
+<li>The messages's message must match the regular expression "/.*goodbye$/"(anything that ends in goodbye)</li>
+<li>When matched the resulting message is logged.</li>
+</ul>
+</li>
+</ul><h3>Nools</h3>
+
+<p>You may also use the <code>nools</code> rules language to define your rules</p>
+
+<pre><code>define Message {
+    message : '',
+    constructor : function(message){
+        this.message = message;
+    }    
+}
+
+rule Hello {
+    when {
+        m : Message m.message =~ /^hello(\\s*world)?$/;
+    }
+    then {
+        modify(m, function(){this.message += " goodbye";});
+    }
+}
+
+rule Goodbye {
+    when {
+        m : Message m.message =~ /.*goodbye$/;
+    }
+    then {
+        console.log(m.message);
+    }
+}
+</code></pre>
+
+<p>To use the flow</p>
+
+<div class="highlight">
+<pre><span class="kd">var</span> <span class="nx">flow</span> <span class="o">=</span> <span class="nx">nools</span><span class="p">.</span><span class="nx">compile</span><span class="p">(</span><span class="nx">__dirname</span> <span class="o">+</span> <span class="s2">"/helloworld.nools"</span><span class="p">),</span>
+    <span class="nx">Message</span> <span class="o">=</span> <span class="nx">flow</span><span class="p">.</span><span class="nx">getDefined</span><span class="p">(</span><span class="s2">"message"</span><span class="p">);</span>
+</pre>
+</div>
+
+
+<p><a name="session"></a></p>
+
+<h2>Working with a session</h2>
+
+<p>A session is an instance of the flow that contains a working memory and handles the assertion, modification, and retraction
+of facts from the engine.</p>
+
+<p>To obtain an engine session from the flow invoke the <strong>getSession</strong> method.</p>
+
+<div class="highlight">
+<pre><span class="kd">var</span> <span class="nx">session</span> <span class="o">=</span> <span class="nx">flow</span><span class="p">.</span><span class="nx">getSession</span><span class="p">();</span>
+</pre>
+</div>
+
+
+<p><a name="facts"></a></p>
+
+<h2>Working with facts</h2>
+
+<p>Facts are items that the rules should try to match.</p>
+
+<p>To add facts to the session use <strong>assert</strong> method.</p>
+
+<div class="highlight">
+<pre><span class="nx">session</span><span class="p">.</span><span class="nx">assert</span><span class="p">(</span><span class="k">new</span> <span class="nx">Message</span><span class="p">(</span><span class="s2">"hello"</span><span class="p">));</span>
+<span class="nx">session</span><span class="p">.</span><span class="nx">assert</span><span class="p">(</span><span class="k">new</span> <span class="nx">Message</span><span class="p">(</span><span class="s2">"hello world"</span><span class="p">));</span>
+<span class="nx">session</span><span class="p">.</span><span class="nx">assert</span><span class="p">(</span><span class="k">new</span> <span class="nx">Message</span><span class="p">(</span><span class="s2">"goodbye"</span><span class="p">));</span>
+</pre>
+</div>
+
+
+<p>As a convenience any object passed into <strong>getSession</strong> will also be asserted.</p>
+
+<div class="highlight">
+<pre><span class="nx">flow</span><span class="p">.</span><span class="nx">getSession</span><span class="p">(</span><span class="k">new</span> <span class="nx">Message</span><span class="p">(</span><span class="s2">"hello"</span><span class="p">),</span> <span class="k">new</span> <span class="nx">Message</span><span class="p">(</span><span class="s2">"hello world"</span><span class="p">),</span> <span class="k">new</span> <span class="nx">Message</span><span class="p">(</span><span class="s2">"goodbye"</span><span class="p">));</span>
+</pre>
+</div>
+
+
+<p>To retract facts from the session use the <strong>retract</strong> method.</p>
+
+<div class="highlight">
+<pre><span class="kd">var</span> <span class="nx">m</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Message</span><span class="p">(</span><span class="s2">"hello"</span><span class="p">);</span>
+
+<span class="c1">//assert the fact into the engine</span>
+<span class="nx">session</span><span class="p">.</span><span class="nx">assert</span><span class="p">(</span><span class="nx">m</span><span class="p">);</span>
+
+<span class="c1">//remove the fact from the engine</span>
+<span class="nx">session</span><span class="p">.</span><span class="nx">retract</span><span class="p">(</span><span class="nx">m</span><span class="p">);</span>
+
+</pre>
+</div>
+
+
+<p>To modify a fact use the <strong>modify</strong> method.</p>
+
+<p><strong>Note</strong> modify will not work with immutable objects (i.e. strings). </p>
+
+<div class="highlight">
+<pre>
+<span class="kd">var</span> <span class="nx">m</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Message</span><span class="p">(</span><span class="s2">"hello"</span><span class="p">);</span>
+
+<span class="nx">session</span><span class="p">.</span><span class="nx">assert</span><span class="p">(</span><span class="nx">m</span><span class="p">);</span>
+
+<span class="nx">m</span><span class="p">.</span><span class="nx">message</span> <span class="o">=</span> <span class="s2">"hello goodbye"</span><span class="p">;</span>
+
+<span class="nx">session</span><span class="p">.</span><span class="nx">modify</span><span class="p">(</span><span class="nx">m</span><span class="p">);</span>
+
+</pre>
+</div>
+
+
+<p><strong>assert</strong> is typically used pre engine execution and during the execution of the rules.</p>
+
+<p><strong>modify</strong> and <strong>retract</strong> are typically used during the execution of the rules.</p>
+
+<p><a name="firing"></a></p>
+
+<h2>Firing the rules</h2>
+
+<p>When you get a session from a <strong>flow</strong> no rules will be fired until the <strong>match</strong> method is called.</p>
+
+<div class="highlight">
+<pre><span class="kd">var</span> <span class="nx">session</span> <span class="o">=</span> <span class="nx">flow</span><span class="p">.</span><span class="nx">getSession</span><span class="p">();</span>
+<span class="c1">//assert your different messages</span>
+<span class="nx">session</span><span class="p">.</span><span class="nx">assert</span><span class="p">(</span><span class="k">new</span> <span class="nx">Message</span><span class="p">(</span><span class="s2">"goodbye"</span><span class="p">));</span>
+<span class="nx">session</span><span class="p">.</span><span class="nx">assert</span><span class="p">(</span><span class="k">new</span> <span class="nx">Message</span><span class="p">(</span><span class="s2">"hello"</span><span class="p">));</span>
+<span class="nx">session</span><span class="p">.</span><span class="nx">assert</span><span class="p">(</span><span class="k">new</span> <span class="nx">Message</span><span class="p">(</span><span class="s2">"hello world"</span><span class="p">));</span>
+
+<span class="c1">//now fire the rules</span>
+<span class="nx">session</span><span class="p">.</span><span class="nx">match</span><span class="p">(</span><span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">){</span>
+    <span class="k">if</span><span class="p">(</span><span class="nx">err</span><span class="p">){</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="nx">err</span><span class="p">);</span>
+    <span class="p">}</span><span class="k">else</span><span class="p">{</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">"done"</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">})</span>
+</pre>
+</div>
+
+
+<p>The <strong>match</strong> method returns a promise that is invoked once there are no more rules to activate. </p>
+
+<p>Example of the promise api</p>
+
+<div class="highlight">
+<pre><span class="nx">session</span><span class="p">.</span><span class="nx">match</span><span class="p">().</span><span class="nx">then</span><span class="p">(</span>
+  <span class="kd">function</span><span class="p">(){</span>
+      <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">"Done"</span><span class="p">);</span>
+  <span class="p">},</span> 
+  <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">){</span>
+    <span class="c1">//uh oh an error occurred</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="nx">err</span><span class="p">);</span>
+  <span class="p">});</span>
+</pre>
+</div>
+
+
+<p><a name="disposing"></a></p>
+
+<h2>Disposing of the session</h2>
+
+<p>When working with a lot of facts it is wise to call the <strong>dispose</strong> method which will purge the current session of
+all facts, this will help prevent the process growing a large memory footprint.</p>
+
+<div class="highlight">
+<pre>   <span class="nx">session</span><span class="p">.</span><span class="nx">dispose</span><span class="p">();</span>
+</pre>
+</div>
+
+
+<p><a name="defining-rule"></a></p>
+
+<h1>Defining rules</h1>
+
+<p><a name="rule%20structure"></a></p>
+
+<h2>Rule structure</h2>
+
+<p>Lets look at the "Calculate" rule in the <a href="#fib">Fibonacci</a> example</p>
+
+<div class="highlight">
+<pre>   <span class="c1">//flow.rule(type[String|Function], constraints[Array|Array[[]]], action[Function]);</span>
+   <span class="nx">flow</span><span class="p">.</span><span class="nx">rule</span><span class="p">(</span><span class="s2">"Calculate"</span><span class="p">,</span> <span class="p">[</span>
+         <span class="c1">//Type     alias  pattern           store sequence to s1</span>
+        <span class="p">[</span><span class="nx">Fibonacci</span><span class="p">,</span> <span class="s2">"f1"</span><span class="p">,</span>  <span class="s2">"f1.value != -1"</span><span class="p">,</span> <span class="p">{</span><span class="nx">sequence</span><span class="o">:</span><span class="s2">"s1"</span><span class="p">}],</span>
+        <span class="p">[</span><span class="nx">Fibonacci</span><span class="p">,</span> <span class="s2">"f2"</span><span class="p">,</span> <span class="s2">"f2.value != -1 &amp;&amp; f2.sequence == s1 + 1"</span><span class="p">,</span> <span class="p">{</span><span class="nx">sequence</span><span class="o">:</span><span class="s2">"s2"</span><span class="p">}],</span>
+        <span class="p">[</span><span class="nx">Fibonacci</span><span class="p">,</span> <span class="s2">"f3"</span><span class="p">,</span> <span class="s2">"f3.value == -1 &amp;&amp; f3.sequence == s2 + 1"</span><span class="p">],</span>
+        <span class="p">[</span><span class="nx">Result</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">]</span>
+    <span class="p">],</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">facts</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">var</span> <span class="nx">f3</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f3</span><span class="p">,</span> <span class="nx">f1</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f1</span><span class="p">,</span> <span class="nx">f2</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f2</span><span class="p">;</span>
+        <span class="kd">var</span> <span class="nx">v</span> <span class="o">=</span> <span class="nx">f3</span><span class="p">.</span><span class="nx">value</span> <span class="o">=</span> <span class="nx">f1</span><span class="p">.</span><span class="nx">value</span> <span class="o">+</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f2</span><span class="p">.</span><span class="nx">value</span><span class="p">;</span>
+        <span class="nx">facts</span><span class="p">.</span><span class="nx">r</span><span class="p">.</span><span class="nx">result</span> <span class="o">=</span> <span class="nx">v</span><span class="p">;</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">modify</span><span class="p">(</span><span class="nx">f3</span><span class="p">);</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">retract</span><span class="p">(</span><span class="nx">f1</span><span class="p">);</span>
+    <span class="p">});</span>
+</pre>
+</div>
+
+
+<p>Or using the nools DSL</p>
+
+<pre><code>rule Calculate{
+    when {
+        f1 : Fibonacci f1.value != -1 {sequence:s1};
+        f2 : Fibonacci f2.value != -1 &amp;&amp; f2.sequence == s1 + 1 {sequence:s2};
+        f3 : Fibonacci f3.value == -1 &amp;&amp; f3.sequence == s2 + 1;
+    }
+    then {
+       modify(f3, function(){
+            this.value = f1.value + f2.value;
+       });
+       retract(f1);
+    }
+}
+</code></pre>
+
+<p><a name="constraints"></a></p>
+
+<h3>Constraints</h3>
+
+<p>Constraints define what facts the rule should match. The constraint is a array of either a single constraint (i.e. Bootstrap rule)
+   or an array of constraints(i.e. Calculate).</p>
+
+<p>Prgamatically</p>
+
+<div class="highlight">
+<pre><span class="p">[</span>
+   <span class="c1">//Type     alias  pattern           store sequence to s1</span>
+  <span class="p">[</span><span class="nx">Fibonacci</span><span class="p">,</span> <span class="s2">"f1"</span><span class="p">,</span> <span class="s2">"f1.value != -1"</span><span class="p">,</span> <span class="p">{</span><span class="nx">sequence</span><span class="o">:</span><span class="s2">"s1"</span><span class="p">}],</span>
+  <span class="p">[</span><span class="nx">Fibonacci</span><span class="p">,</span> <span class="s2">"f2"</span><span class="p">,</span> <span class="s2">"f2.value != -1 &amp;&amp; f2.sequence == s1 + 1"</span><span class="p">,</span> <span class="p">{</span><span class="nx">sequence</span><span class="o">:</span><span class="s2">"s2"</span><span class="p">}],</span>
+  <span class="p">[</span><span class="nx">Fibonacci</span><span class="p">,</span> <span class="s2">"f3"</span><span class="p">,</span> <span class="s2">"f3.value == -1 &amp;&amp; f3.sequence == s2 + 1"</span><span class="p">],</span>
+  <span class="p">[</span><span class="nx">Result</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">]</span>
+<span class="p">]</span>
+</pre>
+</div>
+
+
+<p>Using nools DSL</p>
+
+<pre><code>when {
+    f1 : Fibonacci f1.value != -1 {sequence:s1};
+    f2 : Fibonacci f2.value != -1 &amp;&amp; f2.sequence == s1 + 1 {sequence:s2};
+    f3 : Fibonacci f3.value == -1 &amp;&amp; f3.sequence == s2 + 1;
+}
+</code></pre>
+
+<ol>
+<li>Type -  is the Object type the rule should match. The available types are
+
+<ul>
+<li>
+<code>String</code> - "string", "String", String</li>
+<li>
+<code>Number</code> - "number", "Number", Number</li>
+<li>
+<code>Boolean</code> - "boolean", "Boolean", Boolean</li>
+<li>
+<code>Date</code> - "date", "Date", Date</li>
+<li>
+<code>RegExp</code> - "regexp", "RegExp", RegExp</li>
+<li>
+<code>Array</code> - "array", "Array", [], Array</li>
+<li>
+<code>Object</code> - "object", "Object", "hash", Object</li>
+<li>Custom - any custom type that you define</li>
+</ul>
+</li>
+<li>Alias - the name the object should be represented as.</li>
+<li>
+<p>Pattern(optional) - The pattern that should evaluate to a boolean, the alias that was used should be used to reference the object in the pattern. Strings should be in single quotes, regular expressions are allowed. Any previously define alias/reference can be used within the pattern. Available operators are.</p>
+
+<ul>
+<li>
+<code>&amp;&amp;</code>, <code>AND</code>, <code>and</code>
+</li>
+<li>
+<code>||</code>, <code>OR</code>, <code>or</code>
+</li>
+<li>
+<code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>gt</code>, <code>lt</code>, <code>gte</code>, <code>lte</code>
+</li>
+<li>
+<code>==</code>, <code>!=</code>, <code>=~</code>, <code>eq</code>, <code>neq</code>, <code>like</code>
+</li>
+<li>
+<code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>
+</li>
+<li>
+<code>-</code> (unary minus)</li>
+<li>
+<code>.</code> (member operator)</li>
+<li>
+<code>in</code> (check inclusion in an array)</li>
+<li>Defined helper functions
+
+<ul>
+<li>
+<code>now</code> - the current date</li>
+<li>
+<code>Date(year?, month?, day?, hour?, minute?, second?, ms?)</code> - creates a new <code>Date</code> object</li>
+<li>
+<code>lengthOf(arr, length)</code> - checks the length of an array</li>
+<li>
+<code>isTrue(something)</code> - check if something === true<br>
+</li>
+<li>
+<code>isFalse(something)</code> - check if something === false</li>
+<li>
+<code>isRegExp(something)</code> - check if something is a <code>RegExp</code>
+</li>
+<li>
+<code>isArray(something)</code> - check if something is an <code>Array</code><br>
+</li>
+<li>
+<code>isNumber(something)</code> - check if something is an <code>Number</code>
+</li>
+<li>
+<code>isHash(something)</code> - check if something is strictly an <code>Object</code>
+</li>
+<li>
+<code>isObject(something)</code> - check if something is any type of <code>Object</code>
+</li>
+<li>
+<code>isDate(something)</code> - check if something is a <code>Date</code>
+</li>
+<li>
+<code>isBoolean(something)</code> - check if something is a <code>Boolean</code>
+</li>
+<li>
+<code>isString(something)</code> - check if something is a <code>String</code>
+</li>
+<li>
+<code>isUndefined(something)</code> - check if something is a <code>undefined</code>
+</li>
+<li>
+<code>isDefined(something)</code> - check if something is <code>Defined</code>
+</li>
+<li>
+<code>isUndefinedOrNull(something)</code> - check if something is a <code>undefined</code> or <code>null</code>
+</li>
+<li>
+<code>isPromiseLike(something)</code> - check if something is a "promise" like (containing <code>then</code>, <code>addCallback</code>, <code>addErrback</code>)</li>
+<li>
+<code>isFunction(something)</code> - check if something is a <code>Function</code>
+</li>
+<li>
+<code>isNull(something)</code> - check if something is <code>null</code>
+</li>
+<li>
+<code>isNotNull(something)</code> - check if something is not null</li>
+<li>
+<code>dateCmp(dt1, dt2)</code> - compares two dates return 1, -1, or 0</li>
+<li>
+<code>years|months|days|hours|minutes|seconds</code><code>Ago</code>/<code>FromNow</code><code>(interval)</code> - adds/subtracts the date unit from the current time </li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Reference(optional) - An object where the keys are properties on the current object, and values are aliases to use. The alias may be used in succeeding patterns.</p></li>
+</ol><p><a name="action"></a></p>
+
+<h3>Action</h3>
+
+<p>The action is a function that should be fired when all patterns in the rule match. The action is called in the scope
+of the engine so you can use <strong>this</strong> to <strong>assert</strong>, <strong>modify</strong>, or <strong>retract</strong> facts. An object containing all facts and
+references created by the alpha nodes is passed in as the first argument to the action.</p>
+
+<p>So calculate's action modifies f3 by adding the value of f1 and f2 together and modifies f3 and retracts f1.</p>
+
+<div class="highlight">
+<pre><span class="kd">function</span> <span class="p">(</span><span class="nx">facts</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">var</span> <span class="nx">f3</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f3</span><span class="p">,</span> <span class="nx">f1</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f1</span><span class="p">,</span> <span class="nx">f2</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f2</span><span class="p">;</span>
+        <span class="kd">var</span> <span class="nx">v</span> <span class="o">=</span> <span class="nx">f3</span><span class="p">.</span><span class="nx">value</span> <span class="o">=</span> <span class="nx">f1</span><span class="p">.</span><span class="nx">value</span> <span class="o">+</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f2</span><span class="p">.</span><span class="nx">value</span><span class="p">;</span>
+        <span class="nx">facts</span><span class="p">.</span><span class="nx">r</span><span class="p">.</span><span class="nx">result</span> <span class="o">=</span> <span class="nx">v</span><span class="p">;</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">modify</span><span class="p">(</span><span class="nx">f3</span><span class="p">);</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">retract</span><span class="p">(</span><span class="nx">f1</span><span class="p">);</span>
+    <span class="p">}</span>
+</pre>
+</div>
+
+
+<p>The engine is also passed in as a second argument so alternatively you could do the following.</p>
+
+<div class="highlight">
+<pre><span class="kd">function</span> <span class="p">(</span><span class="nx">facts</span><span class="p">,</span> <span class="nx">engine</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">var</span> <span class="nx">f3</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f3</span><span class="p">,</span> <span class="nx">f1</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f1</span><span class="p">,</span> <span class="nx">f2</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f2</span><span class="p">;</span>
+        <span class="kd">var</span> <span class="nx">v</span> <span class="o">=</span> <span class="nx">f3</span><span class="p">.</span><span class="nx">value</span> <span class="o">=</span> <span class="nx">f1</span><span class="p">.</span><span class="nx">value</span> <span class="o">+</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f2</span><span class="p">.</span><span class="nx">value</span><span class="p">;</span>
+        <span class="nx">facts</span><span class="p">.</span><span class="nx">r</span><span class="p">.</span><span class="nx">result</span> <span class="o">=</span> <span class="nx">v</span><span class="p">;</span>
+        <span class="nx">engine</span><span class="p">.</span><span class="nx">modify</span><span class="p">(</span><span class="nx">f3</span><span class="p">);</span>
+        <span class="nx">engine</span><span class="p">.</span><span class="nx">retract</span><span class="p">(</span><span class="nx">f1</span><span class="p">);</span>
+    <span class="p">}</span>
+</pre>
+</div>
+
+
+<p>If you have an async action that needs to take place an optional third argument can be passed in which is a function 
+to be called when the action is completed.</p>
+
+<div class="highlight">
+<pre><span class="kd">function</span> <span class="p">(</span><span class="nx">facts</span><span class="p">,</span> <span class="nx">engine</span><span class="p">,</span> <span class="nx">next</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">//some async action</span>
+        <span class="nx">process</span><span class="p">.</span><span class="nx">nextTick</span><span class="p">(</span><span class="kd">function</span><span class="p">(){</span>
+            <span class="kd">var</span> <span class="nx">f3</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f3</span><span class="p">,</span> <span class="nx">f1</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f1</span><span class="p">,</span> <span class="nx">f2</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f2</span><span class="p">;</span>
+            <span class="kd">var</span> <span class="nx">v</span> <span class="o">=</span> <span class="nx">f3</span><span class="p">.</span><span class="nx">value</span> <span class="o">=</span> <span class="nx">f1</span><span class="p">.</span><span class="nx">value</span> <span class="o">+</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f2</span><span class="p">.</span><span class="nx">value</span><span class="p">;</span>
+            <span class="nx">facts</span><span class="p">.</span><span class="nx">r</span><span class="p">.</span><span class="nx">result</span> <span class="o">=</span> <span class="nx">v</span><span class="p">;</span>
+            <span class="nx">engine</span><span class="p">.</span><span class="nx">modify</span><span class="p">(</span><span class="nx">f3</span><span class="p">);</span>
+            <span class="nx">engine</span><span class="p">.</span><span class="nx">retract</span><span class="p">(</span><span class="nx">f1</span><span class="p">);</span>
+            <span class="nx">next</span><span class="p">();</span>
+        <span class="p">})</span>
+    <span class="p">}</span>
+</pre>
+</div>
+
+
+<p>If any arguments are passed into next it is assumed there was an error and the session will error out.</p>
+
+<p>To define the action with the nools DSL</p>
+
+<pre><code>then {
+    modify(f3, function(){
+        this.value = f1.value + f2.value;
+    });
+    retract(f1);
+}
+</code></pre>
+
+<p>For rules defined using the rules language nools will automatically determine what parameters need to be passed in based on what is referenced in the action.</p>
+
+<h1>Examples</h1>
+
+<p><a name="fib"></a></p>
+
+<h2>Fibonacci</h2>
+
+<div class="highlight">
+<pre><span class="s2">"use strict"</span><span class="p">;</span>
+
+<span class="kd">var</span> <span class="nx">nools</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s2">"nools"</span><span class="p">);</span>
+
+<span class="kd">var</span> <span class="nx">Fibonacci</span> <span class="o">=</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">sequence</span><span class="p">,</span> <span class="nx">value</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">sequence</span> <span class="o">=</span> <span class="nx">sequence</span><span class="p">;</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">value</span> <span class="o">=</span> <span class="nx">value</span> <span class="o">||</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="kd">var</span> <span class="nx">Result</span> <span class="o">=</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">result</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">result</span> <span class="o">=</span> <span class="nx">result</span> <span class="o">||</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+<span class="p">};</span>
+
+
+<span class="kd">var</span> <span class="nx">flow</span> <span class="o">=</span> <span class="nx">nools</span><span class="p">.</span><span class="nx">flow</span><span class="p">(</span><span class="s2">"Fibonacci Flow"</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">flow</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="nx">flow</span><span class="p">.</span><span class="nx">rule</span><span class="p">(</span><span class="s2">"Recurse"</span><span class="p">,</span> <span class="p">{</span><span class="nx">priority</span><span class="o">:</span><span class="mi">1</span><span class="p">},</span> <span class="p">[</span>
+        <span class="p">[</span><span class="s2">"not"</span><span class="p">,</span> <span class="nx">Fibonacci</span><span class="p">,</span> <span class="s2">"f"</span><span class="p">,</span> <span class="s2">"f.sequence == 1"</span><span class="p">],</span>
+        <span class="p">[</span><span class="nx">Fibonacci</span><span class="p">,</span> <span class="s2">"f1"</span><span class="p">,</span> <span class="s2">"f1.sequence != 1"</span><span class="p">]</span>
+    <span class="p">],</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">facts</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">var</span> <span class="nx">f2</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Fibonacci</span><span class="p">(</span><span class="nx">facts</span><span class="p">.</span><span class="nx">f1</span><span class="p">.</span><span class="nx">sequence</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">assert</span><span class="p">(</span><span class="nx">f2</span><span class="p">);</span>
+    <span class="p">});</span>
+
+    <span class="nx">flow</span><span class="p">.</span><span class="nx">rule</span><span class="p">(</span><span class="s2">"Bootstrap"</span><span class="p">,</span> <span class="p">[</span>
+          <span class="nx">Fibonacci</span><span class="p">,</span> <span class="s2">"f"</span><span class="p">,</span> <span class="s2">"f.value == -1 &amp;&amp; (f.sequence == 1 || f.sequence == 2)"</span>
+    <span class="p">],</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">facts</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">var</span> <span class="nx">f</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f</span><span class="p">;</span>
+        <span class="nx">f</span><span class="p">.</span><span class="nx">value</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">modify</span><span class="p">(</span><span class="nx">f</span><span class="p">);</span>
+    <span class="p">});</span>
+
+    <span class="nx">flow</span><span class="p">.</span><span class="nx">rule</span><span class="p">(</span><span class="s2">"Calculate"</span><span class="p">,</span> <span class="p">[</span>
+        <span class="p">[</span><span class="nx">Fibonacci</span><span class="p">,</span> <span class="s2">"f1"</span><span class="p">,</span> <span class="s2">"f1.value != -1"</span><span class="p">,</span> <span class="p">{</span><span class="nx">sequence</span><span class="o">:</span><span class="s2">"s1"</span><span class="p">}],</span>
+        <span class="p">[</span><span class="nx">Fibonacci</span><span class="p">,</span> <span class="s2">"f2"</span><span class="p">,</span> <span class="s2">"f2.value != -1 &amp;&amp; f2.sequence == s1 + 1"</span><span class="p">,</span> <span class="p">{</span><span class="nx">sequence</span><span class="o">:</span><span class="s2">"s2"</span><span class="p">}],</span>
+        <span class="p">[</span><span class="nx">Fibonacci</span><span class="p">,</span> <span class="s2">"f3"</span><span class="p">,</span> <span class="s2">"f3.value == -1 &amp;&amp; f3.sequence == s2 + 1"</span><span class="p">],</span>
+        <span class="p">[</span><span class="nx">Result</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">]</span>
+    <span class="p">],</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">facts</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">var</span> <span class="nx">f3</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f3</span><span class="p">,</span> <span class="nx">f1</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f1</span><span class="p">,</span> <span class="nx">f2</span> <span class="o">=</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f2</span><span class="p">;</span>
+        <span class="kd">var</span> <span class="nx">v</span> <span class="o">=</span> <span class="nx">f3</span><span class="p">.</span><span class="nx">value</span> <span class="o">=</span> <span class="nx">f1</span><span class="p">.</span><span class="nx">value</span> <span class="o">+</span> <span class="nx">facts</span><span class="p">.</span><span class="nx">f2</span><span class="p">.</span><span class="nx">value</span><span class="p">;</span>
+        <span class="nx">facts</span><span class="p">.</span><span class="nx">r</span><span class="p">.</span><span class="nx">result</span> <span class="o">=</span> <span class="nx">v</span><span class="p">;</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">modify</span><span class="p">(</span><span class="nx">f3</span><span class="p">);</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">retract</span><span class="p">(</span><span class="nx">f1</span><span class="p">);</span>
+    <span class="p">});</span>
+<span class="p">});</span>
+
+<span class="kd">var</span> <span class="nx">r1</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Result</span><span class="p">(),</span>
+    <span class="nx">session1</span> <span class="o">=</span> <span class="nx">flow</span><span class="p">.</span><span class="nx">getSession</span><span class="p">(</span><span class="k">new</span> <span class="nx">Fibonacci</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="nx">r1</span><span class="p">),</span>
+    <span class="nx">s1</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">;</span>
+<span class="nx">session1</span><span class="p">.</span><span class="nx">match</span><span class="p">().</span><span class="nx">then</span><span class="p">(</span><span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">"%d [%dms]"</span><span class="p">,</span> <span class="nx">r1</span><span class="p">.</span><span class="nx">result</span><span class="p">,</span> <span class="k">new</span> <span class="nb">Date</span> <span class="o">-</span> <span class="nx">s1</span><span class="p">);</span>
+    <span class="nx">session1</span><span class="p">.</span><span class="nx">dispose</span><span class="p">();</span>
+<span class="p">});</span>
+
+<span class="kd">var</span> <span class="nx">r2</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Result</span><span class="p">(),</span>
+    <span class="nx">session2</span> <span class="o">=</span> <span class="nx">flow</span><span class="p">.</span><span class="nx">getSession</span><span class="p">(</span><span class="k">new</span> <span class="nx">Fibonacci</span><span class="p">(</span><span class="mi">150</span><span class="p">),</span> <span class="nx">r2</span><span class="p">),</span>
+    <span class="nx">s2</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">;</span>
+<span class="nx">session2</span><span class="p">.</span><span class="nx">match</span><span class="p">().</span><span class="nx">then</span><span class="p">(</span><span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">"%d [%dms]"</span><span class="p">,</span> <span class="nx">r2</span><span class="p">.</span><span class="nx">result</span><span class="p">,</span> <span class="k">new</span> <span class="nb">Date</span> <span class="o">-</span> <span class="nx">s2</span><span class="p">);</span>
+    <span class="nx">session2</span><span class="p">.</span><span class="nx">dispose</span><span class="p">();</span>
+<span class="p">});</span>
+
+<span class="kd">var</span> <span class="nx">r3</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Result</span><span class="p">(),</span>
+    <span class="nx">session3</span> <span class="o">=</span> <span class="nx">flow</span><span class="p">.</span><span class="nx">getSession</span><span class="p">(</span><span class="k">new</span> <span class="nx">Fibonacci</span><span class="p">(</span><span class="mi">1000</span><span class="p">),</span> <span class="nx">r3</span><span class="p">),</span>
+    <span class="nx">s3</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">;</span>
+<span class="nx">session3</span><span class="p">.</span><span class="nx">match</span><span class="p">().</span><span class="nx">then</span><span class="p">(</span><span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">"%d [%dms]"</span><span class="p">,</span> <span class="nx">r3</span><span class="p">.</span><span class="nx">result</span><span class="p">,</span> <span class="k">new</span> <span class="nb">Date</span> <span class="o">-</span> <span class="nx">s3</span><span class="p">);</span>
+    <span class="nx">session3</span><span class="p">.</span><span class="nx">dispose</span><span class="p">();</span>
+<span class="p">});</span>
+
+</pre>
+</div>
+
+
+<p>Output</p>
+
+<pre><code>55 [43ms]
+9.969216677189305e+30 [383ms]
+4.346655768693743e+208 [3580ms]
+</code></pre>
+
+<p>Fiboncci with nools DSL</p>
+
+<pre><code>//Define our object classes, you can
+//also declare these outside of the nools
+//file by passing them into the compile method
+define Fibonacci {
+    value:-1,
+    sequence:null
+}
+define Result {
+    value : -1
+}
+
+rule Recurse {
+    priority:1,
+    when {
+        //you can use not or or methods in here
+        not(f : Fibonacci f.sequence == 1);
+        //f1 is how you can reference the fact else where
+        f1 : Fibonacci f1.sequence != 1;
+    }
+    then {
+        assert(new Fibonacci({sequence : f1.sequence - 1}));
+    }
+}
+
+rule Bootstrap {
+   when {
+       f : Fibonacci f.value == -1 &amp;&amp; (f.sequence == 1 || f.sequence == 2);
+   }
+   then{
+       modify(f, function(){
+           this.value = 1;
+       });
+   }
+}
+
+rule Calculate {
+    when {
+        f1 : Fibonacci f1.value != -1 {sequence : s1};
+        //here we define constraints along with a hash so you can reference sequence
+        //as s2 else where
+        f2 : Fibonacci f2.value != -1 &amp;&amp; f2.sequence == s1 + 1 {sequence:s2};
+        f3 : Fibonacci f3.value == -1 &amp;&amp; f3.sequence == s2 + 1;
+        r : Result
+    }
+    then {
+        modify(f3, function(){
+            this.value = r.result = f1.value + f2.value;
+        });
+        retract(f1);
+    }
+}
+
+</code></pre>
+
+<p>And to run</p>
+
+<div class="highlight">
+<pre><span class="kd">var</span> <span class="nx">flow</span> <span class="o">=</span> <span class="nx">nools</span><span class="p">.</span><span class="nx">compile</span><span class="p">(</span><span class="nx">__dirname</span> <span class="o">+</span> <span class="s2">"/fibonacci.nools"</span><span class="p">);</span>
+
+<span class="kd">var</span> <span class="nx">Fibonacci</span> <span class="o">=</span> <span class="nx">flow</span><span class="p">.</span><span class="nx">getDefined</span><span class="p">(</span><span class="s2">"fibonacci"</span><span class="p">),</span> <span class="nx">Result</span> <span class="o">=</span> <span class="nx">flow</span><span class="p">.</span><span class="nx">getDefined</span><span class="p">(</span><span class="s2">"result"</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">r1</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Result</span><span class="p">(),</span>
+    <span class="nx">session1</span> <span class="o">=</span> <span class="nx">flow</span><span class="p">.</span><span class="nx">getSession</span><span class="p">(</span><span class="k">new</span> <span class="nx">Fibonacci</span><span class="p">({</span><span class="nx">sequence</span><span class="o">:</span><span class="mi">10</span><span class="p">}),</span> <span class="nx">r1</span><span class="p">),</span>
+    <span class="nx">s1</span> <span class="o">=</span> <span class="o">+</span><span class="p">(</span><span class="k">new</span> <span class="nb">Date</span><span class="p">());</span>
+<span class="nx">session1</span><span class="p">.</span><span class="nx">match</span><span class="p">().</span><span class="nx">then</span><span class="p">(</span><span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">"%d [%dms]"</span><span class="p">,</span> <span class="nx">r1</span><span class="p">.</span><span class="nx">result</span><span class="p">,</span> <span class="o">+</span><span class="p">(</span><span class="k">new</span> <span class="nb">Date</span><span class="p">())</span> <span class="o">-</span> <span class="nx">s1</span><span class="p">);</span>
+    <span class="nx">session1</span><span class="p">.</span><span class="nx">dispose</span><span class="p">();</span>
+<span class="p">});</span>
+
+<span class="kd">var</span> <span class="nx">r2</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Result</span><span class="p">(),</span>
+    <span class="nx">session2</span> <span class="o">=</span> <span class="nx">flow</span><span class="p">.</span><span class="nx">getSession</span><span class="p">(</span><span class="k">new</span> <span class="nx">Fibonacci</span><span class="p">({</span><span class="nx">sequence</span><span class="o">:</span><span class="mi">150</span><span class="p">}),</span> <span class="nx">r2</span><span class="p">),</span>
+    <span class="nx">s2</span> <span class="o">=</span> <span class="o">+</span><span class="p">(</span><span class="k">new</span> <span class="nb">Date</span><span class="p">());</span>
+<span class="nx">session2</span><span class="p">.</span><span class="nx">match</span><span class="p">().</span><span class="nx">then</span><span class="p">(</span><span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">"%d [%dms]"</span><span class="p">,</span> <span class="nx">r2</span><span class="p">.</span><span class="nx">result</span><span class="p">,</span> <span class="o">+</span><span class="p">(</span><span class="k">new</span> <span class="nb">Date</span><span class="p">())</span> <span class="o">-</span> <span class="nx">s2</span><span class="p">);</span>
+    <span class="nx">session2</span><span class="p">.</span><span class="nx">dispose</span><span class="p">();</span>
+<span class="p">});</span>
+
+<span class="kd">var</span> <span class="nx">r3</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Result</span><span class="p">(),</span>
+    <span class="nx">session3</span> <span class="o">=</span> <span class="nx">flow</span><span class="p">.</span><span class="nx">getSession</span><span class="p">(</span><span class="k">new</span> <span class="nx">Fibonacci</span><span class="p">({</span><span class="nx">sequence</span><span class="o">:</span><span class="mi">1000</span><span class="p">}),</span> <span class="nx">r3</span><span class="p">),</span>
+    <span class="nx">s3</span> <span class="o">=</span> <span class="o">+</span><span class="p">(</span><span class="k">new</span> <span class="nb">Date</span><span class="p">());</span>
+<span class="nx">session3</span><span class="p">.</span><span class="nx">match</span><span class="p">().</span><span class="nx">then</span><span class="p">(</span><span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">"%d [%dms]"</span><span class="p">,</span> <span class="nx">r3</span><span class="p">.</span><span class="nx">result</span><span class="p">,</span> <span class="o">+</span><span class="p">(</span><span class="k">new</span> <span class="nb">Date</span><span class="p">())</span> <span class="o">-</span> <span class="nx">s3</span><span class="p">);</span>
+    <span class="nx">session3</span><span class="p">.</span><span class="nx">dispose</span><span class="p">();</span>
+<span class="p">});</span>
+
+</pre>
+</div>
+
+
+<h2>License</h2>
+
+<p>MIT <a href="https://github.com/Pollenware/nools/raw/master/LICENSE">https://github.com/Pollenware/nools/raw/master/LICENSE</a></p>
+
+<h2>Meta</h2>
+
+<ul>
+<li>Code: <code>git clone git://github.com/Pollenware/nools.git</code>
+</li>
+</ul>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/Pollenware">Pollenware</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
