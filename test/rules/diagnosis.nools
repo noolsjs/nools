@@ -1,0 +1,97 @@
+//create new classes;
+//All classes will use default constructor where you pass in
+//an object with key value pairs of the value defined in the define object
+//i.e new Patient({name : "bob", fever : "high", spots : false, rash : true, soreThroat : false, innoculated : true});
+define Patient {
+    name : null,
+    fever : null,
+    spots : null,
+    rash : null,
+    soreThroat : null,
+    innoculated : null
+}
+
+define Diagnosis {
+    name : null,
+    diagnosis : null
+}
+
+define Treatment {
+    name : null,
+    treatment : null
+}
+
+rule Measels {
+    when {
+        p : Patient p.fever == 'high' && p.spots == true && p.innoculated == true {name : n};
+        not(d : Diagnosis d.name == n && d.diagnosis == 'allergy');
+    }
+    then {
+        assert(new Diagnosis({name : n, diagnosis : "measles"}));
+    }
+}
+
+rule Allergy1 {
+    when {
+        p : Patient p.spots == true {name : n};
+        not(d : Diagnosis d.name == n && d.diagnosis == 'measles');
+    }
+    then {
+        assert(new Diagnosis({name : n, diagnosis : "allergy"}));
+    }
+}
+
+rule Allergy2 {
+    when {
+        p : Patient p.rash == true {name : n};
+    }
+    then {
+        assert(new Diagnosis({name : n, diagnosis : "allergy"}));
+    }
+}
+
+rule Flu {
+    when {
+        p : Patient p.soreThroat == true && p.fever in ['mild', 'high'] {name : n};
+    }
+    then {
+        assert(new Diagnosis({name : n, diagnosis : "flu"}));
+    }
+}
+
+rule Penicillin {
+    when {
+        d : Diagnosis d.diagnosis == 'measles' {name : n};
+    }
+    then {
+            assert(new Treatment({name : n, treatment : "penicillin"}));
+    }
+}
+
+rule AllergyPills {
+    when {
+        d : Diagnosis d.diagnosis == 'allergy' {name : n};
+    }
+    then {
+            assert(new Treatment({name : n, treatment : "allergyShot"}));
+    }
+}
+
+rule BedRest {
+    when {
+        d : Diagnosis d.diagnosis == 'flu' {name : n};
+    }
+    then {
+        assert(new Treatment({name : n, treatment : "bedRest"}));
+    }
+}
+
+rule Collect {
+    when {
+        t : Treatment;
+        r : Array;
+    }
+    then {
+        r.push(t);
+    }
+}

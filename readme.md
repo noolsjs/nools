@@ -32,6 +32,7 @@ great place to get started.
 When using nools you define a **flow** which acts as a container for rules that can later be used to get
 an **engine session**
 
+###Pragmatically
 ```javascript
 var nools = require("nools");
 
@@ -65,6 +66,45 @@ In the above flow definition 2 rules were defined
     * Requires a Message
     * The messages's message must match the regular expression "/.*goodbye$/"(anything that ends in goodbye)
     * When matched the resulting message is logged.
+
+###Nools 
+
+You may also use the `nools` rules language to define your rules
+
+```
+define Message {
+    message : '',
+    constructor : function(message){
+        this.message = message;
+    }    
+}
+
+rule Hello {
+    when {
+        m : Message m.message =~ /^hello(\\s*world)?$/;
+    }
+    then {
+        modify(m, function(){this.message += " goodbye";});
+    }
+}
+
+rule Goodbye {
+    when {
+        m : Message m.message =~ /.*goodbye$/;
+    }
+    then {
+        console.log(m.message);
+    }
+}
+```
+
+To use the flow
+
+```javascript
+var flow = nools.compile(__dirname + "/helloworld.nools"),
+    Message = flow.getDefined("message");
+```
+    
 
 
 <a name="session"></a>
@@ -148,6 +188,19 @@ session.assert(new Message("hello"));
 session.assert(new Message("hello world"));
 
 //now fire the rules
+session.match(function(err){
+    if(err){
+        console.error(err);
+    }else{
+        console.log("done");
+    }
+})
+```
+
+The **match** method returns a promise that is invoked once there are no more rules to activate. 
+
+Example of the promise api
+```javascript
 session.match().then(
   function(){
       console.log("Done");
@@ -157,8 +210,6 @@ session.match().then(
     console.error(err);
   });
 ```
-
-The **match** method returns a promise that is invoked once there are no more rules to activate.
 
 <a name="disposing"></a>
 ##Disposing of the session
@@ -196,11 +247,30 @@ Lets look at the "Calculate" rule in the [Fibonacci](#fib) example
     });
 ```
 
+Or using the nools DSL
+
+```
+rule Calculate{
+    when {
+        f1 : Fibonacci f1.value != -1 {sequence:s1};
+        f2 : Fibonacci f2.value != -1 && f2.sequence == s1 + 1 {sequence:s2};
+        f3 : Fibonacci f3.value == -1 && f3.sequence == s2 + 1;
+    }
+    then {
+       modify(f3, function(){
+            this.value = f1.value + f2.value;
+       });
+       retract(f1);
+    }
+}
+```
+
 <a name="constraints"></a>
 ###Constraints
    Constraints define what facts the rule should match. The constraint is a array of either a single constraint (i.e. Bootstrap rule)
    or an array of constraints(i.e. Calculate).
 
+Prgamatically
 ```javascript
 [
    //Type     alias  pattern           store sequence to s1
@@ -211,23 +281,58 @@ Lets look at the "Calculate" rule in the [Fibonacci](#fib) example
 ]
 ```
 
+Using nools DSL
+```
+when {
+    f1 : Fibonacci f1.value != -1 {sequence:s1};
+    f2 : Fibonacci f2.value != -1 && f2.sequence == s1 + 1 {sequence:s2};
+    f3 : Fibonacci f3.value == -1 && f3.sequence == s2 + 1;
+}
+```
+
    1. Type -  is the Object type the rule should match. The available types are
-      * String - "string", "String", String
-      * Number - "number", "Number", Number
-      * Boolean - "boolean", "Boolean", Boolean
-      * Date - "date", "Date", Date
-      * RegExp - "regexp", "RegExp", RegExp
-      * Array - "array", "Array", [], Array
-      * Object - "object", "Object", "hash", Object
+      * `String` - "string", "String", String
+      * `Number` - "number", "Number", Number
+      * `Boolean` - "boolean", "Boolean", Boolean
+      * `Date` - "date", "Date", Date
+      * `RegExp` - "regexp", "RegExp", RegExp
+      * `Array` - "array", "Array", [], Array
+      * `Object` - "object", "Object", "hash", Object
+      * Custom - any custom type that you define
    2. Alias - the name the object should be represented as.
    3. Pattern(optional) - The pattern that should evaluate to a boolean, the alias that was used should be used to reference the object in the pattern. Strings should be in single quotes, regular expressions are allowed. Any previously define alias/reference can be used within the pattern. Available operators are.
-      * &&, AND, and
-      * ||, OR, or
-      * >, <, >=, <=, gt, lt, gte, lte
-      * ==, !=, =~, eq, neq, like
-      * +, -, *, /
-      * - (unary minus)
-      * \. (member operator)
+      * `&&`, `AND`, `and`
+      * `||`, `OR`, `or`
+      * `>`, `<`, `>=`, `<=`, `gt`, `lt`, `gte`, `lte`
+      * `==`, `!=`, `=~`, `eq`, `neq`, `like`
+      * `+`, `-`, `*`, `/`
+      * `-` (unary minus)
+      * `.` (member operator)
+      * `in` (check inclusion in an array)
+      * Defined helper functions
+        * `now` - the current date
+        * `Date(year?, month?, day?, hour?, minute?, second?, ms?)` - creates a new `Date` object
+        * `lengthOf(arr, length)` - checks the length of an array
+        * `isTrue(something)` - check if something === true         
+        * `isFalse(something)` - check if something === false
+        * `isRegExp(something)` - check if something is a `RegExp`
+        * `isArray(something)` - check if something is an `Array`                                
+        * `isNumber(something)` - check if something is an `Number`
+        * `isHash(something)` - check if something is strictly an `Object`
+        * `isObject(something)` - check if something is any type of `Object`
+        * `isDate(something)` - check if something is a `Date`
+        * `isBoolean(something)` - check if something is a `Boolean`
+        * `isString(something)` - check if something is a `String`
+        * `isUndefined(something)` - check if something is a `undefined`
+        * `isDefined(something)` - check if something is `Defined`
+        * `isUndefinedOrNull(something)` - check if something is a `undefined` or `null`
+        * `isPromiseLike(something)` - check if something is a "promise" like (containing `then`, `addCallback`, `addErrback`)
+        * `isFunction(something)` - check if something is a `Function`
+        * `isNull(something)` - check if something is `null`
+        * `isNotNull(something)` - check if something is not null
+        * `dateCmp(dt1, dt2)` - compares two dates return 1, -1, or 0
+        * `years|months|days|hours|minutes|seconds``Ago`/`FromNow``(interval)` - adds/subtracts the date unit from the current time 
+        
    4. Reference(optional) - An object where the keys are properties on the current object, and values are aliases to use. The alias may be used in succeeding patterns.
 
 <a name="action"></a>
@@ -260,6 +365,38 @@ function (facts, engine) {
         engine.retract(f1);
     }
 ```
+
+If you have an async action that needs to take place an optional third argument can be passed in which is a function 
+to be called when the action is completed.
+
+```javascript
+function (facts, engine, next) {
+        //some async action
+        process.nextTick(function(){
+            var f3 = facts.f3, f1 = facts.f1, f2 = facts.f2;
+            var v = f3.value = f1.value + facts.f2.value;
+            facts.r.result = v;
+            engine.modify(f3);
+            engine.retract(f1);
+            next();
+        })
+    }
+```
+If any arguments are passed into next it is assumed there was an error and the session will error out.
+
+To define the action with the nools DSL
+
+```
+then {
+    modify(f3, function(){
+        this.value = f1.value + f2.value;
+    });
+    retract(f1);
+}
+```
+
+For rules defined using the rules language nools will automatically determine what parameters need to be passed in based on what is referenced in the action.
+
 
 
 #Examples
@@ -346,6 +483,95 @@ Output
 55 [43ms]
 9.969216677189305e+30 [383ms]
 4.346655768693743e+208 [3580ms]
+```
+
+Fiboncci with nools DSL
+
+```
+//Define our object classes, you can
+//also declare these outside of the nools
+//file by passing them into the compile method
+define Fibonacci {
+    value:-1,
+    sequence:null
+}
+define Result {
+    value : -1
+}
+
+rule Recurse {
+    priority:1,
+    when {
+        //you can use not or or methods in here
+        not(f : Fibonacci f.sequence == 1);
+        //f1 is how you can reference the fact else where
+        f1 : Fibonacci f1.sequence != 1;
+    }
+    then {
+        assert(new Fibonacci({sequence : f1.sequence - 1}));
+    }
+}
+
+rule Bootstrap {
+   when {
+       f : Fibonacci f.value == -1 && (f.sequence == 1 || f.sequence == 2);
+   }
+   then{
+       modify(f, function(){
+           this.value = 1;
+       });
+   }
+}
+
+rule Calculate {
+    when {
+        f1 : Fibonacci f1.value != -1 {sequence : s1};
+        //here we define constraints along with a hash so you can reference sequence
+        //as s2 else where
+        f2 : Fibonacci f2.value != -1 && f2.sequence == s1 + 1 {sequence:s2};
+        f3 : Fibonacci f3.value == -1 && f3.sequence == s2 + 1;
+        r : Result
+    }
+    then {
+        modify(f3, function(){
+            this.value = r.result = f1.value + f2.value;
+        });
+        retract(f1);
+    }
+}
+
+```
+
+And to run
+
+```javascript
+var flow = nools.compile(__dirname + "/fibonacci.nools");
+
+var Fibonacci = flow.getDefined("fibonacci"), Result = flow.getDefined("result");
+var r1 = new Result(),
+    session1 = flow.getSession(new Fibonacci({sequence:10}), r1),
+    s1 = +(new Date());
+session1.match().then(function () {
+    console.log("%d [%dms]", r1.result, +(new Date()) - s1);
+    session1.dispose();
+});
+
+var r2 = new Result(),
+    session2 = flow.getSession(new Fibonacci({sequence:150}), r2),
+    s2 = +(new Date());
+session2.match().then(function () {
+    console.log("%d [%dms]", r2.result, +(new Date()) - s2);
+    session2.dispose();
+});
+
+var r3 = new Result(),
+    session3 = flow.getSession(new Fibonacci({sequence:1000}), r3),
+    s3 = +(new Date());
+session3.match().then(function () {
+    console.log("%d [%dms]", r3.result, +(new Date()) - s3);
+    session3.dispose();
+});
+
 ```
 
 License

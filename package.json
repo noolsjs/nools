@@ -1,21 +1,21 @@
 {
     "name": "nools",
     "description": "A rules engine for node",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "keywords" : ["rules", "flow", "rules engine", "rools", "drools", "async", "flow control"],
     "repository": {
         "type": "git",
-        "url": "git@github.com:doug-martin/flow.git"
+        "url": "git@github.com:Pollenware/nools.git"
     },
     "dependencies" : {
-        "comb" : ">=0.1.0"
+        "comb" : ">=0.1.1"
     },
     "devDependencies" : {
-        "it" : ">=0.0.1",
+        "it" : ">=0.0.2",
         "jison" : ">=0.3.2"
     },
-    "homepage": "http://github.com/doug-martin/nools",
-    "author": "Doug Martin (http://blog.dougamartin.com)",
+    "homepage": "http://github.com/Pollenware/nools",
+    "author": "Doug Martin (http://www.pollenware.com)",
     "main": "index.js",
     "directories": {
         "lib": "lib"

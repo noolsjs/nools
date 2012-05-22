@@ -1,0 +1,55 @@
+define Fibonacci {
+    sequence : null,
+    value : -1,
+    //provide default constructor
+    constructor : function(sequence, value){
+        this.sequence = sequence;
+        this.value = value || -1;
+    }
+}
+
+define Result {
+    value : 0,
+    //default constructor
+    constructor : function(value){
+        this.value = value;
+    }
+
+}
+
+rule Recurse {
+    salience : 1
+    when {
+        f : Fibonacci f.value == -1 && f.sequence != 1
+    }
+    then {
+        assert(new Fibonacci(f.sequence - 1));
+    }
+}
+
+rule Boostrap {
+    when {
+        f : Fibonacci f.value == -1 && (f.sequence == 1 || f.sequence  == 2)
+    }
+    then {
+        modify(f, function(){
+            this.value = 1;
+        });
+    }
+}
+
+rule Calculate {
+    when {
+        f1 : Fibonacci f1.value != -1 {sequence : s1};
+        f2 : Fibonacci f2.value != -1 && f2.sequence == s1 + 1 {sequence : s2};
+        f3 : Fibonacci f3.value == -1 && f3.sequence == s2 + 1;
+        r : Result;
+    }
+    then {
+        var v = f1.value + f2.value;
+        modify(f3, function(){
+             this.value = r.value =  v;
+        });
+        retract(f1);
+    }
+}
