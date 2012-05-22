@@ -67,10 +67,11 @@ define Seating {
 rule assignFirstSeat {
         when {
             c : Context  c.state == 'start';
-            g : Guest {name : leftGuestName};
+            g : Guest;
             count : Count;
         }
         then {
+            var leftGuestName = g.name;
             var seating = new Seating({
                     id : count.value,
                     pid : 0,

@@ -1,13 +1,11 @@
-var flow = require("./manners.flow"), models = require("./model"), data = require("./data");
+var data = require("./data"),
+    nools = require("../../index");
 
-var session = flow.getSession.apply(flow, data.guests16);
-session.assert(new models.Context("start"));
-session.assert(new models.Count(1));
+var flow = nools.compile(__dirname + "/manners.nools");
+var guests = data.load(flow).manners16;
+var session = flow.getSession.apply(flow, guests);
+session.assert(new (flow.getDefined("count"))({value:1}));
 var start = new Date();
-session.match(function (err) {
-    if (err) {
-        console.log(err);
-    } else {
-        console.log("Duration %dms", new Date() - start);
-    }
+session.match().both(function () {
+    console.log("Duration %dms", new Date() - start);
 });
