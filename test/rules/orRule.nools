@@ -1,0 +1,13 @@
+rule hello {
+    when {
+        or(
+            s : String s == 'hello',
+            s : String s == 'world'
+        );
+        count : Count
+    }
+    then {
+        console.log("called");
+        count.called++;
+    }
+}
