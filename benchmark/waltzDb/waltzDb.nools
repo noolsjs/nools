@@ -326,8 +326,8 @@ rule initial_boundary_junction_L {
 //    (modify 1 ^value find_second_boundary))
 rule initial_boundary_junction_arrow {
     when {
-        stage : Stage stage.value == 'FIND_INITIAL_BOUNDARY'
-        junction : Junction  junction.type == '3j' && junction.name == 'arrow' {basePoint : basePoint, p1 : p1, p2 : p2, p3 : p3}
+        stage : Stage stage.value == 'FIND_INITIAL_BOUNDARY';
+        junction : Junction  junction.type == '3j' && junction.name == 'arrow' {basePoint : basePoint, p1 : p1, p2 : p2, p3 : p3};
         edge1 : Edge edge1.p1 == basePoint && edge1.p2 == p1;
         edge2 : Edge edge2.p1 == basePoint && edge2.p2 == p2;
         edge3 : Edge edge3.p1 == basePoint && edge3.p2 == p3;
@@ -988,10 +988,10 @@ rule remove_label_3j {
 rule remove_edge_2j {
     when {
         stage : Stage stage.value == 'REMOVE_LABEL';
-        illegal : Illegal {basePoint : basePoint, labelId : labelId}
-        j : Junction j.type == '2j' && j.basePoint == basePoint {p1 : p1, p2 : p2}
-        edgeLabel1 : EdgeLabel edgeLabel1.p1 == basePoint && edgeLabel1.p2 == p1 && edgeLabel1.labelId == labelId
-        edgeLabel2 : EdgeLabel edgeLabel2.p1 == basePoint && edgeLabel2.p2 == p2 && edgeLabel2.labelId == labelId
+        illegal : Illegal {basePoint : basePoint, labelId : labelId};
+        j : Junction j.type == '2j' && j.basePoint == basePoint {p1 : p1, p2 : p2};
+        edgeLabel1 : EdgeLabel edgeLabel1.p1 == basePoint && edgeLabel1.p2 == p1 && edgeLabel1.labelId == labelId;
+        edgeLabel2 : EdgeLabel edgeLabel2.p1 == basePoint && edgeLabel2.p2 == p2 && edgeLabel2.labelId == labelId;
 	}
 	then {
         modify(stage, function(){this.value = 'CHECKING';});

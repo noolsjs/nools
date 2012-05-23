@@ -75,7 +75,7 @@
         it.describe("parsing rules", function (it) {
 
             it.should("parse rules", function () {
-                var parsed = noolsParser.parse("rule TestRule {when {c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                var parsed = noolsParser.parse("rule TestRule {when {c : Clazz c.name eq 'Test' {test : test};} then {console.log($test);}}");
                 assert.deepEqual(parsed, {
                     define:[],
                     rules:[
@@ -85,7 +85,7 @@
                                 ["Clazz", "c", "c.name eq 'Test'", {test:"test"}]
                             ],
                             action:"console.log($test);",
-                            options : {}
+                            options:{}
                         }
                     ],
                     "scope":[]
@@ -94,11 +94,14 @@
 
             it.should("throw an error for invalid rule blocks", function () {
                 assert.throws(function () {
+                    //missing starting curly
                     noolsParser.parse("rule TestRule when {c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
                 });
                 assert.throws(function () {
+                    //missing end curly
                     noolsParser.parse("rule TestRule { when {c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}");
                 });
+                //added colon
                 assert.throws(function () {
                     noolsParser.parse("rule TestRule : { when {c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}");
                 });
@@ -110,18 +113,18 @@
                 });
             });
 
-            it.should("parse when clause predicate conditions", function () {
-                var parsed = noolsParser.parse("rule TestRule { when {not(c : Clazz {test : test} c.name eq 'Test')} then {console.log($test);}}");
+            it.should("parse not conditions", function () {
+                var parsed = noolsParser.parse("rule TestRule { when {not(c : Clazz {test : test} c.name eq 'Test');} then {console.log($test);}}");
                 assert.deepEqual(parsed, {
                     define:[],
                     rules:[
                         {
                             name:"TestRule",
                             constraints:[
-                                ["not", 'Clazz',"c", "c.name eq 'Test'", {test:"test"}]
+                                ["not", 'Clazz', "c", "c.name eq 'Test'", {test:"test"}]
                             ],
                             action:"console.log($test);",
-                            options : {}
+                            options:{}
                         }
                     ],
                     "scope":[]
@@ -130,8 +133,38 @@
                 assert.deepEqual(parsed, parsed2);
             });
 
+            it.should("parse or conditions", function () {
+                var parsed = noolsParser.parse("rule TestRule { when {or(c : Clazz c.name in ['Test1', 'test2', 'test3'], c : Clazz c.name eq 'Test')} then {console.log($test);}}");
+                assert.deepEqual(parsed, {
+                    "define":[],
+                    "rules":[
+                        {
+                            "name":"TestRule",
+                            "options":{},
+                            "constraints":[
+                                [
+                                    "or",
+                                    [
+                                        "Clazz",
+                                        "c",
+                                        "c.name in ['Test1', 'test2', 'test3']"
+                                    ],
+                                    [
+                                        "Clazz",
+                                        "c",
+                                        "c.name eq 'Test'"
+                                    ]
+                                ]
+                            ],
+                            "action":"console.log($test);"
+                        }
+                    ],
+                    "scope":[]
+                });
+            });
+
             it.should("parse when clause with hash and constraints in any order", function () {
-                var parsed = noolsParser.parse("rule TestRule { when { c : Clazz {test : test} c.name eq 'Test'} then {console.log($test);}}");
+                var parsed = noolsParser.parse("rule TestRule { when { c : Clazz {test : test} c.name eq 'Test';} then {console.log($test);}}");
                 assert.deepEqual(parsed, {
                     define:[],
                     rules:[
@@ -141,7 +174,7 @@
                                 ["Clazz", "c", "c.name eq 'Test'", {test:"test"}]
                             ],
                             action:"console.log($test);",
-                            options : {}
+                            options:{}
                         }
                     ],
                     "scope":[]
@@ -179,7 +212,6 @@
                     noolsParser.parse("rule TestRule { when {c : Clazz c.name eq 'Test' {test : test}} then : {console.log($test);}}");
                 });
             });
-
 
         });
     });
