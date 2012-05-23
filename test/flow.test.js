@@ -123,36 +123,45 @@
 
         it.describe("or rule", function (it) {
 
-            var called = 0;
+            var Count = function () {
+                this.called = 0;
+            }, called = new Count();
 
             var flow = nools.flow("hello world flow", function (flow) {
-                flow.rule("hello rule", ["or",
-                    [String, "s", "s == 'hello'"],
-                    [String, "s", "s == 'world'"]
-                ], function () {
-                    called++;
+                flow.rule("hello rule", [
+                    ["or",
+                        [String, "s", "s == 'hello'"],
+                        [String, "s", "s == 'world'"]
+                    ],
+                    [Count, "called", null]
+                ], function (facts) {
+                    facts.called.called++;
                 });
             });
+            var dslFlow = nools.compile(__dirname + "/rules/orRule.nools", {define:{Count:Count}});
 
             it.should("call when a string equals 'hello'", function (next) {
-                var session = flow.getSession("world").match().then(function () {
-                    assert.equal(called, 1);
-                    next();
-                }, next);
+                comb.when(
+                    flow.getSession("world", called).match(),
+                    dslFlow.getSession("world", called).match()
+                ).then(function () {
+                        assert.equal(called.called, 2);
+                        next();
+                    }, next);
             });
 
             it.should("call when a string equals 'world'", function (next) {
-                called = 0;
-                var session = flow.getSession("hello").match().then(function () {
-                    assert.equal(called, 1);
+                called = new Count();
+                var session = flow.getSession("hello", called).match().then(function () {
+                    assert.equal(called.called, 1);
                     next();
                 }, next);
             });
 
             it.should(" not call when a string that does equal 'hello' or 'world", function (next) {
-                called = 0;
-                var session = flow.getSession("hello", "world", "test").match().then(function () {
-                    assert.equal(called, 2);
+                called = new Count();
+                var session = flow.getSession("hello", "world", "test", called).match().then(function () {
+                    assert.equal(called.called, 2);
                     next();
                 }, next);
 
@@ -160,27 +169,27 @@
 
         });
 
-        it.describe("events", function(it){
-               var flow = nools.compile(__dirname + "/rules/simple.nools"),
-                   Message = flow.getDefined("Message"),
-                   session;
+        it.describe("events", function (it) {
+            var flow = nools.compile(__dirname + "/rules/simple.nools"),
+                Message = flow.getDefined("Message"),
+                session;
 
-            it.beforeEach(function(){
+            it.beforeEach(function () {
                 session = flow.getSession();
             });
 
-            it.should("emit when facts are asserted", function(next){
+            it.should("emit when facts are asserted", function (next) {
                 var m = new Message("hello");
-                session.once("assert", function(fact){
+                session.once("assert", function (fact) {
                     assert.deepEqual(fact, m);
                     next();
                 });
                 session.assert(m);
             });
 
-            it.should("emit when facts are retracted", function(next){
+            it.should("emit when facts are retracted", function (next) {
                 var m = new Message("hello");
-                session.once("retract", function(fact){
+                session.once("retract", function (fact) {
                     assert.deepEqual(fact, m);
                     next();
                 });
@@ -188,9 +197,9 @@
                 session.retract(m);
             });
 
-            it.should("emit when facts are modified", function(next){
+            it.should("emit when facts are modified", function (next) {
                 var m = new Message("hello");
-                session.once("modify", function(fact){
+                session.once("modify", function (fact) {
                     assert.deepEqual(fact, m);
                     next();
                 });
@@ -198,15 +207,18 @@
                 session.modify(m);
             });
 
-            it.should("emit when rules are fired", function(next){
+            it.should("emit when rules are fired", function (next) {
                 var m = new Message("hello");
-                var fire = [["Hello", "hello"], ["Goodbye", "hello goodbye"]], i = 0;
-                session.on("fire", function(name, facts){
+                var fire = [
+                    ["Hello", "hello"],
+                    ["Goodbye", "hello goodbye"]
+                ], i = 0;
+                session.on("fire", function (name, facts) {
                     assert.equal(name, fire[i][0]);
                     assert.equal(facts.m.message, fire[i++][1]);
                 });
                 session.assert(m);
-                session.match(function(err){
+                session.match(function (err) {
                     assert.equal(i, 2);
                     next();
                 });
@@ -444,7 +456,6 @@
             var Treatment = flow.getDefined("treatment");
 
 
-
             it.should("treat properly", function (next) {
                 var session = flow.getSession();
                 var results = [];
@@ -455,7 +466,7 @@
                 session.assert(results);
                 //flow.print();
                 session.match().then(function () {
-                    session.dispose();
+                    //session.dispose();
                     assert.deepEqual(results, [
                         {"name":"Tom", "treatment":"allergyShot"},
                         {"name":"Bob", "treatment":"penicillin"},
@@ -472,7 +483,7 @@
                 session.assert(new Patient({name:"Tom", fever:"none", spots:true, rash:false, soreThroat:false, innoculated:false}));
                 session.assert(new Patient({name:"Bob", fever:"high", spots:false, rash:false, soreThroat:true, innoculated:false}));
                 session.assert(new Patient({name:"Joe", fever:"high", spots:true, rash:false, soreThroat:false, innoculated:true}));
-                session.assert(new Patient({name:"Fred",fever:"none", spots:false, rash:true, soreThroat:false, innoculated:false}));
+                session.assert(new Patient({name:"Fred", fever:"none", spots:false, rash:true, soreThroat:false, innoculated:false}));
                 session.assert(results);
                 //flow.print();
                 session.match().then(function () {
