@@ -577,9 +577,9 @@ session3.match().then(function () {
 License
 -------
 
-MIT <https://github.com/Pollenware/nools/raw/master/LICENSE>
+MIT <https://github.com/C2FO/nools/raw/master/LICENSE>
 
 Meta
 ----
 
-* Code: `git clone git://github.com/Pollenware/nools.git`
+* Code: `git clone git://github.com/C2FO/nools.git`
