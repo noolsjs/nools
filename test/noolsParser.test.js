@@ -43,6 +43,7 @@
         });
 
         it.describe("parsing function", function (it) {
+
             it.should("parse a function statement", function () {
                 var parsed = noolsParser.parse("function myFunc(a, b) {return a + b}");
                 assert.lengthOf(parsed.rules, 0);
@@ -214,6 +215,6 @@
             });
 
         });
-    });
+    }).as(module);
 
 })();
