@@ -7,7 +7,6 @@ rule hello {
         count : Count
     }
     then {
-        console.log("called");
         count.called++;
     }
 }

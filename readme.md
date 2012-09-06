@@ -67,7 +67,7 @@ In the above flow definition 2 rules were defined
     * The messages's message must match the regular expression "/.*goodbye$/"(anything that ends in goodbye)
     * When matched the resulting message is logged.
 
-###Nools 
+###Nools DSL
 
 You may also use the `nools` rules language to define your rules
 

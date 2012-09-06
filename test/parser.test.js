@@ -76,12 +76,12 @@
             ]);
             assert.deepEqual(parser.parseConstraint("a =~ /^hello$/"), [
                 ['a', null, 'identifier'],
-                [/hello/, null, 'regexp'],
+                [/^hello$/, null, 'regexp'],
                 'like'
             ]);
             assert.deepEqual(parser.parseConstraint("a like /^hello$/"), [
                 ['a', null, 'identifier'],
-                [/hello/, null, 'regexp'],
+                [/^hello$/, null, 'regexp'],
                 'like'
             ]);
 
@@ -807,7 +807,6 @@
                 "in"
             ]);
         });
-
 
     });
 })();
