@@ -1,7 +1,7 @@
 {
     "name": "nools",
     "description": "A rules engine for node",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "keywords" : ["rules", "flow", "rules engine", "rools", "drools", "async", "flow control"],
     "repository": {
         "type": "git",
