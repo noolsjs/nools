@@ -1,3 +1,4 @@
+[![Build Status](https://secure.travis-ci.org/C2FO/nools.png)](http://travis-ci.org/C2FO/nools)
 #Nools
 
 Nools is a rules engine for node based on the [rete](http://en.wikipedia.org/wiki/Rete_algorithm) network.
