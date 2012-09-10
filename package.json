@@ -1,7 +1,7 @@
 {
     "name": "nools",
     "description": "A rules engine for node",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "keywords" : ["rules", "flow", "rules engine", "rools", "drools", "async", "flow control"],
     "repository": {
         "type": "git",
@@ -17,6 +17,9 @@
     "homepage": "http://c2fo.github.com/nools",
     "author": "Doug Martin (http://c2fo.com)",
     "main": "index.js",
+    "scripts" : {
+        "test" : "make test"
+    },
     "directories": {
         "lib": "lib"
     },
