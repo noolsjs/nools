@@ -4,22 +4,22 @@
         assert = require("assert"),
         noolsParser = require("../lib/parser/nools/nool.parser.js");
 
-    it.describe("nools dsl parser", function (it) {
+    it.describe("nools dsl parser",function (it) {
 
         it.describe("parsing define", function (it) {
             it.should("parse a define statement", function () {
                 var parsed = noolsParser.parse("define Test {myProp : 'value'}");
                 assert.deepEqual(parsed, {
-                    define:[
+                    define: [
                         {
-                            name:"Test",
-                            properties:{
-                                myProp:"value"
+                            name: "Test",
+                            properties: {
+                                myProp: "value"
                             }
                         }
                     ],
-                    "rules":[],
-                    "scope":[]
+                    "rules": [],
+                    "scope": []
                 });
                 parsed = noolsParser.parse("define Test {myFunc : function(){}}");
                 //have to test this way because deepEqual cannot include functions
@@ -78,18 +78,18 @@
             it.should("parse rules", function () {
                 var parsed = noolsParser.parse("rule TestRule {when {c : Clazz c.name eq 'Test' {test : test};} then {console.log($test);}}");
                 assert.deepEqual(parsed, {
-                    define:[],
-                    rules:[
+                    define: [],
+                    rules: [
                         {
-                            name:"TestRule",
-                            constraints:[
-                                ["Clazz", "c", "c.name eq 'Test'", {test:"test"}]
+                            name: "TestRule",
+                            constraints: [
+                                ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
                             ],
-                            action:"console.log($test);",
-                            options:{}
+                            action: "console.log($test);",
+                            options: {}
                         }
                     ],
-                    "scope":[]
+                    "scope": []
                 });
             });
 
@@ -117,18 +117,18 @@
             it.should("parse not conditions", function () {
                 var parsed = noolsParser.parse("rule TestRule { when {not(c : Clazz {test : test} c.name eq 'Test');} then {console.log($test);}}");
                 assert.deepEqual(parsed, {
-                    define:[],
-                    rules:[
+                    define: [],
+                    rules: [
                         {
-                            name:"TestRule",
-                            constraints:[
-                                ["not", 'Clazz', "c", "c.name eq 'Test'", {test:"test"}]
+                            name: "TestRule",
+                            constraints: [
+                                ["not", 'Clazz', "c", "c.name eq 'Test'", {test: "test"}]
                             ],
-                            action:"console.log($test);",
-                            options:{}
+                            action: "console.log($test);",
+                            options: {}
                         }
                     ],
-                    "scope":[]
+                    "scope": []
                 });
                 var parsed2 = noolsParser.parse("rule TestRule { when { not(c : Clazz c.name eq 'Test' {test : test})} then {console.log($test);}}");
                 assert.deepEqual(parsed, parsed2);
@@ -137,12 +137,12 @@
             it.should("parse or conditions", function () {
                 var parsed = noolsParser.parse("rule TestRule { when {or(c : Clazz c.name in ['Test1', 'test2', 'test3'], c : Clazz c.name eq 'Test')} then {console.log($test);}}");
                 assert.deepEqual(parsed, {
-                    "define":[],
-                    "rules":[
+                    "define": [],
+                    "rules": [
                         {
-                            "name":"TestRule",
-                            "options":{},
-                            "constraints":[
+                            "name": "TestRule",
+                            "options": {},
+                            "constraints": [
                                 [
                                     "or",
                                     [
@@ -157,28 +157,28 @@
                                     ]
                                 ]
                             ],
-                            "action":"console.log($test);"
+                            "action": "console.log($test);"
                         }
                     ],
-                    "scope":[]
+                    "scope": []
                 });
             });
 
             it.should("parse when clause with hash and constraints in any order", function () {
                 var parsed = noolsParser.parse("rule TestRule { when { c : Clazz {test : test} c.name eq 'Test';} then {console.log($test);}}");
                 assert.deepEqual(parsed, {
-                    define:[],
-                    rules:[
+                    define: [],
+                    rules: [
                         {
-                            name:"TestRule",
-                            constraints:[
-                                ["Clazz", "c", "c.name eq 'Test'", {test:"test"}]
+                            name: "TestRule",
+                            constraints: [
+                                ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
                             ],
-                            action:"console.log($test);",
-                            options:{}
+                            action: "console.log($test);",
+                            options: {}
                         }
                     ],
-                    "scope":[]
+                    "scope": []
                 });
                 var parsed2 = noolsParser.parse("rule TestRule { when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
                 assert.deepEqual(parsed, parsed2);

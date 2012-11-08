@@ -14,7 +14,7 @@
         });
     });
 
-    it.describe("Flow", function (it) {
+    it.describe("Flow",function (it) {
 
 
         it.describe("#rule", function (it) {
@@ -69,8 +69,8 @@
 
             var called = 0;
             var HelloFact = comb.define(null, {
-                instance:{
-                    value:true
+                instance: {
+                    value: true
                 }
             });
 
@@ -138,7 +138,7 @@
                     facts.called.called++;
                 });
             });
-            var dslFlow = nools.compile(__dirname + "/rules/orRule.nools", {define:{Count:Count}});
+            var dslFlow = nools.compile(__dirname + "/rules/orRule.nools", {define: {Count: Count}});
 
             it.should("call when a string equals 'hello'", function (next) {
                 comb.when(
@@ -230,8 +230,8 @@
         it.describe("fibonocci", function (it) {
 
             var Fibonacci = comb.define(null, {
-                instance:{
-                    constructor:function (sequence, value) {
+                instance: {
+                    constructor: function (sequence, value) {
                         this.sequence = sequence;
                         this.value = value || -1;
                     }
@@ -240,7 +240,7 @@
             var result = null;
             var flow = nools.flow("Fibonacci Flow", function (flow) {
 
-                flow.rule("Recurse", {priority:1}, [
+                flow.rule("Recurse", {priority: 1}, [
                     [Fibonacci, "f", "f.value == -1 && f.sequence != 1"]
                 ], function (facts) {
                     var f2 = new Fibonacci(facts.f.sequence - 1);
@@ -253,8 +253,8 @@
                 });
 
                 flow.rule("Calculate", [
-                    [Fibonacci, "f1", "f1.value != -1", {sequence:"s1"}],
-                    [Fibonacci, "f2", "f2.value != -1 && f2.sequence == s1 + 1", {sequence:"s2"}],
+                    [Fibonacci, "f1", "f1.value != -1", {sequence: "s1"}],
+                    [Fibonacci, "f2", "f2.value != -1 && f2.sequence == s1 + 1", {sequence: "s2"}],
                     [Fibonacci, "f3", "f3.value == -1 && f3.sequence == s2 + 1"]
                 ], function (facts) {
                     facts.f3.value = facts.f1.value + facts.f2.value;
@@ -323,8 +323,8 @@
         it.describe("diagnosis", function (it) {
 
             var Patient = comb.define(null, {
-                instance:{
-                    constructor:function (name, fever, spots, rash, soreThroat, innoculated) {
+                instance: {
+                    constructor: function (name, fever, spots, rash, soreThroat, innoculated) {
                         this.name = name;
                         this.fever = fever;
                         this.spots = spots;
@@ -336,8 +336,8 @@
             });
 
             var Diagnosis = comb.define(null, {
-                instance:{
-                    constructor:function (name, diagnosis) {
+                instance: {
+                    constructor: function (name, diagnosis) {
                         this.name = name;
                         this.diagnosis = diagnosis;
                     }
@@ -345,8 +345,8 @@
             });
 
             var Treatment = comb.define(null, {
-                instance:{
-                    constructor:function (name, treatment) {
+                instance: {
+                    constructor: function (name, treatment) {
                         this.name = name;
                         this.treatment = treatment;
                     }
@@ -357,7 +357,7 @@
             var flow = nools.flow("Diagnosis", function (flow) {
 
                 flow.rule("Measels", [
-                    [Patient, "p", "p.fever == 'high' && p.spots == true && p.innoculated == true", {name:"n"}],
+                    [Patient, "p", "p.fever == 'high' && p.spots == true && p.innoculated == true", {name: "n"}],
                     ["not", Diagnosis, "d", "d.name == n && d.diagnosis == 'allergy'"]
                 ],
                     function (facts) {
@@ -366,34 +366,34 @@
                     });
 
                 flow.rule("Allergy1", [
-                    [Patient, "p", "p.spots == true", {name:"n"}],
+                    [Patient, "p", "p.spots == true", {name: "n"}],
                     ["not", Diagnosis, "d", "d.name == n && d.diagnosis == 'measles'"]
                 ], function (facts) {
                     var name = facts.n;
                     this.assert(new Diagnosis(name, "allergy"));
                 });
 
-                flow.rule("Allergy2", [Patient, "p", "p.rash == true", {name:"n"}], function (facts) {
+                flow.rule("Allergy2", [Patient, "p", "p.rash == true", {name: "n"}], function (facts) {
                     var name = facts.n;
                     this.assert(new Diagnosis(name, "allergy"));
                 });
 
-                flow.rule("Flu", [Patient, "p", "p.soreThroat == true && p.fever in ['mild', 'high']", {name:"n"}], function (facts) {
+                flow.rule("Flu", [Patient, "p", "p.soreThroat == true && p.fever in ['mild', 'high']", {name: "n"}], function (facts) {
                     var name = facts.n;
                     this.assert(new Diagnosis(name, "flu"));
                 });
 
-                flow.rule("Penicillin", [Diagnosis, "d", "d.diagnosis == 'measles'", {name:"n"}], function (facts) {
+                flow.rule("Penicillin", [Diagnosis, "d", "d.diagnosis == 'measles'", {name: "n"}], function (facts) {
                     var name = facts.n;
                     this.assert(new Treatment(name, "penicillin"));
                 });
 
-                flow.rule("Allergy Pills", [Diagnosis, "d", "d.diagnosis == 'allergy'", {name:"n"}], function (facts) {
+                flow.rule("Allergy Pills", [Diagnosis, "d", "d.diagnosis == 'allergy'", {name: "n"}], function (facts) {
                     var name = facts.n;
                     this.assert(new Treatment(name, "allegryShot"));
                 });
 
-                flow.rule("Bed Rest", [Diagnosis, "d", "d.diagnosis == 'flu'", {name:"n"}], function (facts) {
+                flow.rule("Bed Rest", [Diagnosis, "d", "d.diagnosis == 'flu'", {name: "n"}], function (facts) {
                     var name = facts.n;
                     this.assert(new Treatment(name, "bedRest"));
                 });
@@ -419,10 +419,10 @@
                 session.match().then(function () {
                     session.dispose();
                     assert.deepEqual(results, [
-                        {"name":"Tom", "treatment":"allegryShot"},
-                        {"name":"Bob", "treatment":"penicillin"},
-                        {"name":"Joe", "treatment":"bedRest"},
-                        {"name":"Fred", "treatment":"allegryShot"}
+                        {"name": "Tom", "treatment": "allegryShot"},
+                        {"name": "Bob", "treatment": "penicillin"},
+                        {"name": "Joe", "treatment": "bedRest"},
+                        {"name": "Fred", "treatment": "allegryShot"}
                     ]);
                     next();
                 });
@@ -438,10 +438,10 @@
                 session.match().then(function () {
                     session.dispose();
                     assert.deepEqual(results, [
-                        {"name":"Fred", "treatment":"allegryShot"},
-                        {"name":"Joe", "treatment":"penicillin"},
-                        {"name":"Bob", "treatment":"bedRest"},
-                        {"name":"Tom", "treatment":"allegryShot"}
+                        {"name": "Fred", "treatment": "allegryShot"},
+                        {"name": "Joe", "treatment": "penicillin"},
+                        {"name": "Bob", "treatment": "bedRest"},
+                        {"name": "Tom", "treatment": "allegryShot"}
                     ]);
                     next();
                 });
@@ -459,19 +459,19 @@
             it.should("treat properly", function (next) {
                 var session = flow.getSession();
                 var results = [];
-                session.assert(new Patient({name:"Fred", fever:"none", spots:true, rash:false, soreThroat:false, innoculated:false}));
-                session.assert(new Patient({name:"Joe", fever:"high", spots:false, rash:false, soreThroat:true, innoculated:false}));
-                session.assert(new Patient({name:"Bob", fever:"high", spots:true, rash:false, soreThroat:false, innoculated:true}));
-                session.assert(new Patient({name:"Tom", fever:"none", spots:false, rash:true, soreThroat:false, innoculated:false}));
+                session.assert(new Patient({name: "Fred", fever: "none", spots: true, rash: false, soreThroat: false, innoculated: false}));
+                session.assert(new Patient({name: "Joe", fever: "high", spots: false, rash: false, soreThroat: true, innoculated: false}));
+                session.assert(new Patient({name: "Bob", fever: "high", spots: true, rash: false, soreThroat: false, innoculated: true}));
+                session.assert(new Patient({name: "Tom", fever: "none", spots: false, rash: true, soreThroat: false, innoculated: false}));
                 session.assert(results);
                 //flow.print();
                 session.match().then(function () {
                     //session.dispose();
                     assert.deepEqual(results, [
-                        {"name":"Tom", "treatment":"allergyShot"},
-                        {"name":"Bob", "treatment":"penicillin"},
-                        {"name":"Joe", "treatment":"bedRest"},
-                        {"name":"Fred", "treatment":"allergyShot"}
+                        {"name": "Tom", "treatment": "allergyShot"},
+                        {"name": "Bob", "treatment": "penicillin"},
+                        {"name": "Joe", "treatment": "bedRest"},
+                        {"name": "Fred", "treatment": "allergyShot"}
                     ]);
                     next();
                 });
@@ -480,19 +480,19 @@
             it.should("treat properly on consecutive runs", function (next) {
                 var session = flow.getSession();
                 var results = [];
-                session.assert(new Patient({name:"Tom", fever:"none", spots:true, rash:false, soreThroat:false, innoculated:false}));
-                session.assert(new Patient({name:"Bob", fever:"high", spots:false, rash:false, soreThroat:true, innoculated:false}));
-                session.assert(new Patient({name:"Joe", fever:"high", spots:true, rash:false, soreThroat:false, innoculated:true}));
-                session.assert(new Patient({name:"Fred", fever:"none", spots:false, rash:true, soreThroat:false, innoculated:false}));
+                session.assert(new Patient({name: "Tom", fever: "none", spots: true, rash: false, soreThroat: false, innoculated: false}));
+                session.assert(new Patient({name: "Bob", fever: "high", spots: false, rash: false, soreThroat: true, innoculated: false}));
+                session.assert(new Patient({name: "Joe", fever: "high", spots: true, rash: false, soreThroat: false, innoculated: true}));
+                session.assert(new Patient({name: "Fred", fever: "none", spots: false, rash: true, soreThroat: false, innoculated: false}));
                 session.assert(results);
                 //flow.print();
                 session.match().then(function () {
                     session.dispose();
                     assert.deepEqual(results, [
-                        {"name":"Fred", "treatment":"allergyShot"},
-                        {"name":"Joe", "treatment":"penicillin"},
-                        {"name":"Bob", "treatment":"bedRest"},
-                        {"name":"Tom", "treatment":"allergyShot"}
+                        {"name": "Fred", "treatment": "allergyShot"},
+                        {"name": "Joe", "treatment": "penicillin"},
+                        {"name": "Bob", "treatment": "bedRest"},
+                        {"name": "Tom", "treatment": "allergyShot"}
                     ]);
                     next();
                 });
