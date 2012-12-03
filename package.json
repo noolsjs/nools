@@ -8,11 +8,11 @@
         "url": "git@github.com:C2FO/nools.git"
     },
     "dependencies" : {
-        "comb" : ">=0.1.7"
+        "comb" : "~0.1.7"
     },
     "devDependencies" : {
-        "it" : ">=0.0.5",
-        "jison" : ">=0.3.2"
+        "it" : "~0.0.5",
+        "jison" : "~0.3.2"
     },
     "homepage": "http://c2fo.github.com/nools",
     "author": "Doug Martin (http://c2fo.com)",
