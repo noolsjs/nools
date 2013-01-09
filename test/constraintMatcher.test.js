@@ -3,219 +3,272 @@
     var it = require("it"),
         assert = require("assert"), parser = require("../lib/parser"), constraintMatcher = require("../lib/constraintMatcher");
 
-    it.describe("constraint matcher", function (it) {
+    it.describe("constraint matcher",function (it) {
 
         it.describe("#match", function (it) {
             it.should("check equality", function () {
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a == 'a'"))({a:"a"}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a == 10"))({a:10}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a == true"))({a:true}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a == false"))({a:false}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a == 'a'"))({a: "a"}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a == 10"))({a: 10}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a == true"))({a: true}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a == false"))({a: false}));
 
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == 'a'"))({a:"b"}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == 10"))({a:11}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == 10"))({a:"10"}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == false"))({a:true}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == true"))({a:false}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == 'a'"))({a: "b"}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == 10"))({a: 11}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == 10"))({a: "10"}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == false"))({a: true}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == true"))({a: false}));
 
             });
 
             it.should("check inequality", function () {
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a != 'a'"))({a:"a"}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a != 10"))({a:10}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a != true"))({a:true}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a != false"))({a:false}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a != 'a'"))({a: "a"}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a != 10"))({a: 10}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a != true"))({a: true}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a != false"))({a: false}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != 'a'"))({a:"b"}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != 10"))({a:11}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != 10"))({a:"10"}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != false"))({a:true}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != true"))({a:false}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != 'a'"))({a: "b"}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != 10"))({a: 11}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != 10"))({a: "10"}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != false"))({a: true}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != true"))({a: false}));
 
             });
 
             it.should("check gt operator", function () {
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a > '0'"))({a:"a"}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a > '0'"))({a:"0"}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a > '0'"))({a: "a"}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a > '0'"))({a: "0"}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a > 0"))({a:1}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a > 0"))({a:0}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a > 0"))({a: 1}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a > 0"))({a: 0}));
 
 
             });
 
             it.should("check lt operator", function () {
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a < 'b'"))({a:"a"}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a < '0'"))({a:"0"}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a < 'b'"))({a: "a"}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a < '0'"))({a: "0"}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a < 2"))({a:1}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a < 0"))({a:0}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a < 2"))({a: 1}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a < 0"))({a: 0}));
 
 
             });
 
             it.should("check gte operator", function () {
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a >= 'a'"))({a:"a"}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a >= 'a'"))({a:"0"}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a >= 'a'"))({a: "a"}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a >= 'a'"))({a: "0"}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a >= 1"))({a:1}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a >= 1"))({a:0}));
-
-
-            });
-
-            it.should("check lte operator", function () {
-
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a <= 'a'"))({a:"a"}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a <= -1"))({a:"0"}));
-
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a <= 1"))({a:1}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a <= -1"))({a:0}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a <= -1"))({a:-10}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a >= 1"))({a: 1}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a >= 1"))({a: 0}));
 
 
             });
 
             it.should("check lte operator", function () {
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a <= 'a'"))({a:"a"}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a <= -1"))({a:"0"}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a <= 1"))({a:1}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a <= -1"))({a:0}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a <= -1"))({a:-10}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a <= 'a'"))({a: "a"}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a <= -1"))({a: "0"}));
+
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a <= 1"))({a: 1}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a <= -1"))({a: 0}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a <= -1"))({a: -10}));
+
+
+            });
+
+            it.should("check lte operator", function () {
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a <= 'a'"))({a: "a"}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a <= -1"))({a: "0"}));
+
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a <= 1"))({a: 1}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a <= -1"))({a: 0}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a <= -1"))({a: -10}));
             });
 
             it.should("check like operator", function () {
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /hello/"))({a:"hello"}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /world/"))({a:"hello"}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /hello/"))({a: "hello"}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /world/"))({a: "hello"}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /^hello world$/"))({a:"hello world"}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /^hello world$/"))({a:"hello world2"}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /^hello world$/"))({a: "hello world"}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /^hello world$/"))({a: "hello world2"}));
 
 
             });
 
             it.should("check and operator", function () {
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 'hello' and a.world eq 'world'"))({"a":{hello:"hello", world:"world"}}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 'hello' and a.world eq 'world'"))({a:{hello:"world", world:"hello"}}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 'hello' and a.world eq 'world'"))({"a": {hello: "hello", world: "world"}}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 'hello' and a.world eq 'world'"))({a: {hello: "world", world: "hello"}}));
 
             });
 
             it.should("check or operator", function () {
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 'hello' or a.world eq 'world'"))({a:{hello:"world", world:"world"}}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 'hello' or a.world eq 'world'"))({a:{hello:"world", world:"hello"}}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq a.world"))({a:{hello:"hello", world:"hello"}}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 'hello' or a.world eq 'world'"))({a: {hello: "world", world: "world"}}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 'hello' or a.world eq 'world'"))({a: {hello: "world", world: "hello"}}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq a.world"))({a: {hello: "hello", world: "hello"}}));
 
 
             });
 
             it.should("check with member operator", function () {
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq a.world"))({a:{hello:"hello", world:"hello"}}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq a.world"))({a:{hello:"hello", world:"world"}}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq a.world"))({a: {hello: "hello", world: "hello"}}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq a.world"))({a: {hello: "hello", world: "world"}}));
             });
 
             it.should("check with in operator", function () {
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a in [1,2,3,4]"))({a:1}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a in ['a','b','c']"))({a:1}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a in [1,2,3,4]"))({a: 1}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a in ['a','b','c']"))({a: 1}));
             });
 
             it.should("allow properties with in", function () {
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.in == 1"))({a:{"in":1}}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.innoculated == 1"))({a:{innoculated:1}}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.in == 1"))({a: {"in": 1}}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.innoculated == 1"))({a: {innoculated: 1}}));
             });
 
             it.should("check with boolean associativity", function () {
-                var a = {hello:"hello", world:"world", age:10, name:"bob"};
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq a.world || (a.age >= 10 && a.name eq 'bob')"))({a:a}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("(a.hello eq a.world && a.age >= 10) || a.name eq 'bob'"))({a:a}));
+                var a = {hello: "hello", world: "world", age: 10, name: "bob"};
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq a.world || (a.age >= 10 && a.name eq 'bob')"))({a: a}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("(a.hello eq a.world && a.age >= 10) || a.name eq 'bob'"))({a: a}));
 
             });
 
             it.should("check with nested properties", function () {
-                var a = {hello:"hello"};
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.length eq 5"))({a:a}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.size eq 5"))({a:a}));
+                var a = {hello: "hello"};
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.length eq 5"))({a: a}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.size eq 5"))({a: a}));
 
             });
 
             it.should("check with function", function () {
-                var a = {hello:"hello", myFunc:function () {
-                    return this.hello + " world";
-                }};
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.length eq 5 && a.myFunc() eq 'hello world'"))({a:a}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.size eq 5 && a.myFunc() eq 'hello world'"))({a:a}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 5 && a.myFunc() eq 'hello'"))({a:a}));
+                var a = {
+                    hello: "hello",
+                    myFunc: function () {
+                        return this.hello + " world";
+                    }
+                };
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.length eq 5 && a.myFunc() eq 'hello world'"))({a: a}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.size eq 5 && a.myFunc() eq 'hello world'"))({a: a}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 5 && a.myFunc() eq 'hello'"))({a: a}));
+            });
+
+            it.should("check with functions and identifier args", function () {
+                var a = {
+                    hello: "hello",
+                    myFunc: function (concat) {
+                        return this.hello + " world";
+                    }
+                };
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.length eq 5 && a.myFunc(b) eq 'hello world'"))({a: a, b: 'world'}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.size eq 5 && a.myFunc(b) eq 'hello world'"))({a: a, b: 'world'}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 5 && a.myFunc(b) eq 'hello'"))({a: a, b: 'world'}));
+            });
+
+            it.should("check with functions in a deep property chain and identifier args", function () {
+                var a = {
+                    hello: "hello",
+                    b: {
+                        c: {
+                            myFunc: function (concat) {
+                                return a.hello + " world";
+                            }
+                        }
+                    }
+                };
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.length eq 5 && a.b.c.myFunc(b) eq 'hello world'"))({a: a, b: 'world'}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.size eq 5 && a.b.c.myFunc(b) eq 'hello world'"))({a: a, b: 'world'}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 5 && a.b.c.myFunc(b) eq 'hello'"))({a: a, b: 'world'}));
+            });
+
+            it.should("check with functions in a deep property chain that returns an object and identifier args", function () {
+                var a = {
+                    hello: "hello",
+                    b: {
+                        c: {
+                            myFunc: function (concat) {
+                                return {
+                                    d: {
+                                        myFunc: function () {
+                                            return a.hello + " world";
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.length eq 5 && a.b.c.myFunc().d.myFunc(b) eq 'hello world'"))({a: a, b: 'world'}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.size eq 5 && a.b.c.myFunc().d.myFunc(b) eq 'hello world'"))({a: a, b: 'world'}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 5 && a.b.c.myFunc().d.myFunc(b) eq 'hello'"))({a: a, b: 'world'}));
             });
 
             it.should("have date helpers", function () {
-                var a = {myDate:new Date()};
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lte now()"))({a:a}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lte Date(2013)"))({a:a}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate gt yearsAgo(10)"))({a:a}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lt yearsFromNow(10)"))({a:a}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate gt monthsAgo(10)"))({a:a}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lt monthsFromNow(10)"))({a:a}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate gt daysAgo(10)"))({a:a}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lt daysFromNow(10)"))({a:a}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate gt hoursAgo(10)"))({a:a}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lt hoursFromNow(10)"))({a:a}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate gt minutesAgo(10)"))({a:a}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lt minutesFromNow(10)"))({a:a}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate gt secondsAgo(10)"))({a:a}));
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lt secondsFromNow(10)"))({a:a}));
+                var a = {myDate: new Date()};
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lte now()"))({a: a}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lte Date(2013)"))({a: a}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate gt yearsAgo(10)"))({a: a}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lt yearsFromNow(10)"))({a: a}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate gt monthsAgo(10)"))({a: a}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lt monthsFromNow(10)"))({a: a}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate gt daysAgo(10)"))({a: a}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lt daysFromNow(10)"))({a: a}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate gt hoursAgo(10)"))({a: a}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lt hoursFromNow(10)"))({a: a}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate gt minutesAgo(10)"))({a: a}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lt minutesFromNow(10)"))({a: a}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate gt secondsAgo(10)"))({a: a}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.myDate lt secondsFromNow(10)"))({a: a}));
             });
 
             it.should("create have type helpers", function () {
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isTrue(a)"))({a:true}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isTrue(a)"))({a:false}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isTrue(a)"))({a: true}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isTrue(a)"))({a: false}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isFalse(a)"))({a:false}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isFalse(a)"))({a:true}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isFalse(a)"))({a: false}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isFalse(a)"))({a: true}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isNumber(a)"))({a:1}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isNumber(a)"))({a:false}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isNumber(a)"))({a: 1}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isNumber(a)"))({a: false}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isBoolean(a)"))({a:true}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isBoolean(a)"))({a:1}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isBoolean(a)"))({a: true}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isBoolean(a)"))({a: 1}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isDate(a)"))({a:new Date()}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isDate(a)"))({a:1}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isDate(a)"))({a: new Date()}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isDate(a)"))({a: 1}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isRegExp(a)"))({a:/a/}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isRegExp(a)"))({a:"/a/"}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isRegExp(a)"))({a: /a/}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isRegExp(a)"))({a: "/a/"}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isDefined(a)"))({a:1}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isDefined(a)"))({a:undefined}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isDefined(a)"))({a: 1}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isDefined(a)"))({a: undefined}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isUndefined(a)"))({a:undefined}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isUndefined(a)"))({a:false}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isUndefined(a)"))({a: undefined}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isUndefined(a)"))({a: false}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isNotNull(a)"))({a:1}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isNotNull(a)"))({a:null}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isNotNull(a)"))({a: 1}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isNotNull(a)"))({a: null}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isEmpty(a)"))({a:{}}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isEmpty(a)"))({a:{b:"c"}}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("isEmpty(a)"))({a: {}}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("isEmpty(a)"))({a: {b: "c"}}));
 
-                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("lengthOf(a, 3)"))({a:[1, 2, 3]}));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("lengthOf(a, 3)"))({a:[1]}));
+                assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("lengthOf(a, 3)"))({a: [1, 2, 3]}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("lengthOf(a, 3)"))({a: [1]}));
 
                 assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("deepEqual(a, b) && deepEqual(c,d) && deepEqual(e, f)"))({
-                    a:[1, 2, 3],
-                    b:[1, 2, 3],
-                    c:new Date(2000, 10, 10, 10, 10, 10),
-                    d:new Date(2000, 10, 10, 10, 10, 10),
-                    e:{
-                        a:new Date(2000, 10, 10, 10, 10, 10),
-                        b:new Date(2000, 10, 10, 10, 10, 10)
+                    a: [1, 2, 3],
+                    b: [1, 2, 3],
+                    c: new Date(2000, 10, 10, 10, 10, 10),
+                    d: new Date(2000, 10, 10, 10, 10, 10),
+                    e: {
+                        a: new Date(2000, 10, 10, 10, 10, 10),
+                        b: new Date(2000, 10, 10, 10, 10, 10)
                     },
-                    f:{
-                        a:new Date(2000, 10, 10, 10, 10, 10),
-                        b:new Date(2000, 10, 10, 10, 10, 10)
+                    f: {
+                        a: new Date(2000, 10, 10, 10, 10, 10),
+                        b: new Date(2000, 10, 10, 10, 10, 10)
                     }
                 }));
-                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("deepEqual(a, b)"))({a:[1], b:new Date()}));
+                assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("deepEqual(a, b)"))({a: [1], b: new Date()}));
             });
         });
 
@@ -368,5 +421,5 @@
             });
         });
 
-    }).as(module);
+    }).as(module).run();
 })();
