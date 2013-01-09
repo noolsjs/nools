@@ -1,3 +1,6 @@
+#0.0.5 / 2012-09-10
+* Fix for issue [#13](https://github.com/C2FO/nools/issues/13) where identifiers were not gathered in property chains that contained functions.
+
 #0.0.4 / 2012-09-10
 * Added travis CI
 
