@@ -1,39 +1,39 @@
 {
-    "name": "nools",
-    "description": "A rules engine for node",
-    "version": "0.0.4",
-    "keywords": [
-        "rules",
-        "flow",
-        "rules engine",
-        "rools",
-        "drools",
-        "async",
-        "flow control"
-    ],
-    "repository": {
-        "type": "git",
-        "url": "git@github.com:C2FO/nools.git"
-    },
-    "dependencies": {
-        "comb": "~0.2.0",
-        "declare.js": "0.0.2"
-    },
-    "devDependencies": {
-        "it": "~0.1.0",
-        "jison": ">=0.3.2"
-    },
-    "homepage": "http://c2fo.github.com/nools",
-    "author": "Doug Martin (http://c2fo.com)",
-    "main": "index.js",
-    "scripts": {
-        "test": "it -r dot",
-        "create-doc": "rm -rf docs/* && coddoc -f multi-html -d ./lib --dir ./docs"
-    },
-    "directories": {
-        "lib": "lib"
-    },
-    "engines": {
-        "node": ">= 0.6.1"
-    }
+  "name": "nools",
+  "description": "A rules engine for node",
+  "version": "0.0.4",
+  "keywords": [
+    "rules",
+    "flow",
+    "rules engine",
+    "rools",
+    "drools",
+    "async",
+    "flow control"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:C2FO/nools.git"
+  },
+  "dependencies": {
+    "comb": "~0.2.0",
+    "declare.js": "0.0.2"
+  },
+  "devDependencies": {
+    "it": "~0.1.0",
+    "jison": ">=0.3.2"
+  },
+  "homepage": "http://c2fo.github.com/nools",
+  "author": "Doug Martin (http://c2fo.com)",
+  "main": "index.js",
+  "scripts": {
+    "test": "it -r dot",
+    "create-doc": "rm -rf docs/* && coddoc -f multi-html -d ./lib --dir ./docs"
+  },
+  "directories": {
+    "lib": "lib"
+  },
+  "engines": {
+    "node": ">= 0.6.1"
+  }
 }
