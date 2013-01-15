@@ -1,6 +1,6 @@
 "use strict";
 var it = require("it"),
-    comb = require("comb"),
+    promise = require("promise-extended"),
     declare = require("declare.js"),
     assert = require("assert"),
     nools = require("../index");
@@ -144,10 +144,10 @@ it.describe("Flow",function (it) {
         var dslFlow = nools.compile(__dirname + "/rules/orRule.nools", {define: {Count: Count}});
 
         it.should("call when a string equals 'hello'", function (next) {
-            comb.when(
-                flow.getSession("world", called).match(),
-                dslFlow.getSession("world", called).match()
-            ).then(function () {
+            promise.when(
+                    flow.getSession("world", called).match(),
+                    dslFlow.getSession("world", called).match()
+                ).then(function () {
                     assert.equal(called.called, 2);
                     next();
                 }, next);
@@ -279,8 +279,7 @@ it.describe("Flow",function (it) {
             session.match().then(function () {
                 session.dispose();
                 assert.equal(result, 55);
-                next();
-            });
+            }).classic(next)
         });
 
         it.should("calculate Fibonacci of 150", function (next) {
@@ -288,8 +287,7 @@ it.describe("Flow",function (it) {
             session.match().then(function () {
                 session.dispose();
                 assert.equal(result, 9.969216677189305e+30);
-                next();
-            });
+            }).classic(next);
         });
 
     });
@@ -306,8 +304,7 @@ it.describe("Flow",function (it) {
             session.match().then(function () {
                 session.dispose();
                 assert.equal(result.value, 55);
-                next();
-            });
+            }).classic(next);
         });
 
         it.should("calculate Fibonacci of 150", function (next) {
@@ -316,8 +313,7 @@ it.describe("Flow",function (it) {
             session.match().then(function () {
                 session.dispose();
                 assert.equal(result.value, 9.969216677189305e+30);
-                next();
-            });
+            }).classic(next);
         });
 
     });
@@ -427,8 +423,7 @@ it.describe("Flow",function (it) {
                     {"name": "Joe", "treatment": "bedRest"},
                     {"name": "Fred", "treatment": "allegryShot"}
                 ]);
-                next();
-            });
+            }).classic(next);
         });
 
         it.should("treat properly on consecutive runs", function (next) {
@@ -446,8 +441,7 @@ it.describe("Flow",function (it) {
                     {"name": "Bob", "treatment": "bedRest"},
                     {"name": "Tom", "treatment": "allegryShot"}
                 ]);
-                next();
-            });
+            }).classic(next);
         });
     });
 
@@ -476,8 +470,7 @@ it.describe("Flow",function (it) {
                     {"name": "Joe", "treatment": "bedRest"},
                     {"name": "Fred", "treatment": "allergyShot"}
                 ]);
-                next();
-            });
+            }).classic(next);
         });
 
         it.should("treat properly on consecutive runs", function (next) {
@@ -497,8 +490,7 @@ it.describe("Flow",function (it) {
                     {"name": "Bob", "treatment": "bedRest"},
                     {"name": "Tom", "treatment": "allergyShot"}
                 ]);
-                next();
-            });
+            }).classic(next);
         });
     });
 }).as(module).run();

@@ -1,0 +1,1 @@
+window.nools = require("./lib");

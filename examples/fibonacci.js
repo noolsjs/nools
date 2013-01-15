@@ -19,6 +19,7 @@ var flow = nools.flow("Fibonacci Flow", function (flow) {
         [Fibonacci, "f1", "f1.sequence != 1"]
     ], function (facts) {
         var f2 = new Fibonacci(facts.f1.sequence - 1);
+        console.log(f2.value);
         this.assert(f2);
     });
 
