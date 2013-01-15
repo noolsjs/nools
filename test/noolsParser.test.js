@@ -12,9 +12,7 @@ it.describe("nools dsl parser",function (it) {
                 define: [
                     {
                         name: "Test",
-                        properties: {
-                            myProp: "value"
-                        }
+                        properties: "({myProp : 'value'})"
                     }
                 ],
                 "rules": [],
@@ -22,7 +20,16 @@ it.describe("nools dsl parser",function (it) {
             });
             parsed = noolsParser.parse("define Test {myFunc : function(){}}");
             //have to test this way because deepEqual cannot include functions
-            assert.isFunction(parsed.define[0].properties.myFunc);
+            assert.deepEqual(parsed, {
+                define: [
+                    {
+                        name: "Test",
+                        properties: "({myFunc : function(){}})"
+                    }
+                ],
+                "rules": [],
+                "scope": []
+            });
         });
 
         it.should("throw an error when the define block is missing a name", function () {
@@ -214,5 +221,5 @@ it.describe("nools dsl parser",function (it) {
         });
 
     });
-}).as(module);
+}).as(module).run();
 
