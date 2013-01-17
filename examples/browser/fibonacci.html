@@ -3,20 +3,20 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mixin Example</title>
+    <title>Fibonacci</title>
 </head>
 <body onload="init()">
 
 <div id="output"></div>
 
-<script type="text/javascript" src="../../bundle.js"></script>
+<script type="text/javascript" src="../../nools.js"></script>
 <script type="text/javascript">
     function init() {
 
         var outputDiv = document.getElementById("output");
 
         function log(str) {
-            outputDiv.innerText += str + "\n";
+            outputDiv.innerHTML += str + "</br>";
         }
 
 
@@ -37,7 +37,6 @@
                 [Fibonacci, "f1", "f1.sequence != 1"]
             ], function (facts) {
                 var f2 = new Fibonacci(facts.f1.sequence - 1);
-                console.log(f2.value);
                 this.assert(f2);
             });
 
@@ -45,7 +44,6 @@
                 Fibonacci, "f", "f.value == -1 && (f.sequence == 1 || f.sequence == 2)"
             ], function (facts) {
                 var f = facts.f;
-                console.log(f.value);
                 f.value = 1;
                 this.modify(f);
             });
@@ -72,21 +70,21 @@
             session1.dispose();
         });
 
-//        var r2 = new Result(),
-//                session2 = flow.getSession(new Fibonacci(150), r2),
-//                s2 = new Date;
-//        session2.match().then(function () {
-//            log(r2.result + " [" + (new Date - s2) + "ms]");
-//            session2.dispose();
-//        });
-//
-//        var r3 = new Result(),
-//                session3 = flow.getSession(new Fibonacci(1000), r3),
-//                s3 = new Date;
-//        session3.match().then(function () {
-//            log(r3.result + " [" + (new Date - s3) + "ms]");
-//            session3.dispose();
-//        });
+        var r2 = new Result(),
+                session2 = flow.getSession(new Fibonacci(150), r2),
+                s2 = new Date;
+        session2.match().then(function () {
+            log(r2.result + " [" + (new Date - s2) + "ms]");
+            session2.dispose();
+        });
+
+        var r3 = new Result(),
+                session3 = flow.getSession(new Fibonacci(1000), r3),
+                s3 = new Date;
+        session3.match().then(function () {
+            log(r3.result + " [" + (new Date - s3) + "ms]");
+            session3.dispose();
+        });
 
     }
 </script>
