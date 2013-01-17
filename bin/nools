@@ -2,13 +2,12 @@
 
 
 var nools = require(".."),
-    path = require("path");
-
-/**
- * Module dependencies.
- */
-
-var program = require('commander');
+    path = require("path"),
+    fs = require("fs"),
+    path = require("path"),
+    template = fs.readFileSync(path.join(__dirname, "assets", "compile_wrapper.tmpl"), "utf8"),
+    str = require("string-extended"),
+    program = require('commander');
 
 program
     .version('0.0.1');
@@ -17,11 +16,13 @@ program
 program.command("compile")
     .usage('[options] <file ...>')
     .description("compile nools dsl")
-    .action(function (cmd) {
+    .option("-n --name", "name of the flow to compile, defaults to the name of the file less the extension")
+    .action(function () {
         var files = Array.prototype.slice.call(arguments);
         files.pop();
         files.forEach(function (file) {
-            console.log(JSON.stringify(nools.parse(path.resolve(process.cwd(), file))));
+            var name = program.name || path.basename(file, path.extname(file));
+            console.log(str.format(template, { source: JSON.stringify(nools.parse(path.resolve(process.cwd(), file))), name: name}).replace(/\s+/g, " "));
         });
     });
 

@@ -1,0 +1,18 @@
+(function(){
+     function _getCompiled(nools){
+        return nools.compile({source}, {name : "{name}"});
+     }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            return _getCompiled(require("nools"));
+        }
+    } else if ("function" === typeof define && define.amd) {
+        define(["nools"], function (nools) {
+            return _getCompiled(nools);
+        });
+    } else {
+        _getCompiled(this.nools);
+    }
+
+}).call(this);

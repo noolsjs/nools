@@ -8,10 +8,11 @@ var it = require("it"),
 it.describe("nools", function (it) {
     it.describe("#flow", function (it) {
         it.should("create a flow", function (next) {
-            var flow = nools.flow("test flow");
+            var flow = nools.flow("nools flow");
             assert.isNotNull(flow);
             assert.instanceOf(flow, nools.Flow);
-            assert.equal("test flow", flow.name);
+            assert.equal("nools flow", flow.name);
+            assert.equal(nools.getFlow("nools flow"), flow);
             next();
         });
     });
@@ -97,7 +98,7 @@ it.describe("Flow",function (it) {
 
         var called = 0;
 
-        var flow = nools.flow("hello world flow", function (flow) {
+        var flow = nools.flow("hello world flow 2", function (flow) {
             flow.rule("hello rule", ["not", String, "s", "s == 'hello'"], function () {
                 called++;
             });
@@ -130,7 +131,7 @@ it.describe("Flow",function (it) {
             this.called = 0;
         }, called = new Count();
 
-        var flow = nools.flow("hello world flow", function (flow) {
+        var flow = nools.flow("hello world flow 3", function (flow) {
             flow.rule("hello rule", [
                 ["or",
                     [String, "s", "s == 'hello'"],
@@ -493,7 +494,7 @@ it.describe("Flow",function (it) {
             }).classic(next);
         });
     });
-}).as(module).run();
+}).as(module);
 
 
 

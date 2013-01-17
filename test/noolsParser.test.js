@@ -221,5 +221,5 @@ it.describe("nools dsl parser",function (it) {
         });
 
     });
-}).as(module).run();
+}).as(module);
 
