@@ -1,56 +1,52 @@
 "use strict";
 var it = require("it"),
-    promise = require("promise-extended"),
     declare = require("declare.js"),
     assert = require("assert"),
     nools = require("../index");
 
 it.describe("nools", function (it) {
     it.describe("#flow", function (it) {
-        it.should("create a flow", function (next) {
+        it.should("create a flow", function () {
             var flow = nools.flow("nools flow");
             assert.isNotNull(flow);
             assert.instanceOf(flow, nools.Flow);
             assert.equal("nools flow", flow.name);
             assert.equal(nools.getFlow("nools flow"), flow);
-            next();
         });
     });
 });
 
 it.describe("Flow",function (it) {
 
+    it.ignoreErrors(false);
 
     it.describe("#rule", function (it) {
         var called = 0;
         var flow = nools.flow("test flow");
-        it.should("create a rule", function (next) {
-            flow.rule("test rule", [String, "s", "s == 'hello'"], function (str1) {
+        it.should("create a rule", function () {
+            flow.rule("test rule", [String, "s", "s == 'hello'"], function () {
                 called++;
             });
             assert.isTrue(flow.containsRule("test rule"));
-            next();
         });
 
-        it.should("create a rule with joins properly", function (next) {
+        it.should("create a rule with joins properly", function () {
             flow.rule("test rule2", [
                 [String, "s", "s == 'hello'"],
                 [String, "s2", "s2 == 'world'"],
                 [String, "s3", "s3 == 'Hi'"]
-            ], function (str1) {
+            ], function () {
                 called++;
             });
             assert.isTrue(flow.containsRule("test rule2"));
-            next();
         });
 
-        it.should("create a rules that are dependent on eachother properly", function (next) {
-            var s1, s2, s3, s4, s5;
+        it.should("create a rules that are dependent on eachother properly", function () {
             flow.rule("test rule3", [
                 [String, "s", "s == 'hello'"],
                 [String, "s2", "s2 == 'world'"],
                 [String, "s3", "s3 == 'Hi'"]
-            ], function (str1) {
+            ], function () {
                 called++;
             });
             assert.isTrue(flow.containsRule("test rule3"));
@@ -61,11 +57,10 @@ it.describe("Flow",function (it) {
                 [String, "s3", "s3 == 'Hi'"],
                 [String, "s4", "s4 == 'what'"],
                 [String, "s5", "s5 == 'for'"]
-            ], function (str1) {
+            ], function () {
                 called++;
             });
             assert.isTrue(flow.containsRule("test rule4"));
-            next();
         });
 
     });
@@ -84,12 +79,11 @@ it.describe("Flow",function (it) {
             });
         });
 
-        it.should("call hello world rule", function (next) {
+        it.should("call hello world rule", function () {
             var session = flow.getSession();
             session.assert(new HelloFact());
             session.match();
             assert.equal(called, 1);
-            next();
         });
 
     });
@@ -105,22 +99,21 @@ it.describe("Flow",function (it) {
         });
 
         it.should("call when a string that does not equal 'hello'", function () {
-            var session = flow.getSession("world").match();
+            flow.getSession("world").match();
             assert.equal(called, 1);
         });
 
         it.should(" not call when a string that does equal 'hello'", function () {
             called = 0;
-            var session = flow.getSession("hello").match();
+            flow.getSession("hello").match();
             assert.equal(called, 0);
         });
 
-        it.should(" not call when a string that does equal 'hello' and one that does not", function (next) {
+        it.should(" not call when a string that does equal 'hello' and one that does not", function () {
             called = 0;
-            flow.getSession("hello", "world").match().then(function () {
+            return flow.getSession("hello", "world").match().then(function () {
                 assert.equal(called, 0);
-                next();
-            }, next);
+            });
         });
 
     });
@@ -142,41 +135,49 @@ it.describe("Flow",function (it) {
                 facts.called.called++;
             });
         });
-        var dslFlow = nools.compile(__dirname + "/rules/orRule.nools", {define: {Count: Count}});
 
-        it.should("call when a string equals 'hello'", function (next) {
-            promise.when(
-                    flow.getSession("world", called).match(),
-                    dslFlow.getSession("world", called).match()
-                ).then(function () {
-                    assert.equal(called.called, 2);
-                    next();
-                }, next);
-        });
-
-        it.should("call when a string equals 'world'", function (next) {
-            called = new Count();
-            var session = flow.getSession("hello", called).match().then(function () {
+        it.should("call when a string equals 'hello'", function () {
+            return flow.getSession("world", called).match().then(function () {
                 assert.equal(called.called, 1);
-                next();
-            }, next);
+            });
         });
 
-        it.should(" not call when a string that does equal 'hello' or 'world", function (next) {
+        it.should("call when a string equals 'world'", function () {
             called = new Count();
-            var session = flow.getSession("hello", "world", "test", called).match().then(function () {
+            return flow.getSession("hello", called).match().then(function () {
+                assert.equal(called.called, 1);
+            });
+        });
+
+        it.should(" not call when a string that does equal 'hello' or 'world", function () {
+            called = new Count();
+            return flow.getSession("hello", "world", "test", called).match().then(function () {
                 assert.equal(called.called, 2);
-                next();
-            }, next);
+            });
 
         });
 
     });
 
     it.describe("events", function (it) {
-        var flow = nools.compile(__dirname + "/rules/simple.nools"),
-            Message = flow.getDefined("Message"),
-            session;
+
+        it.timeout(1000);
+
+        function Message(m) {
+            this.message = m;
+        }
+
+        var session, flow = nools.flow("Simple", function (flow) {
+            flow.rule("Hello", [Message, "m", "m.message =~ /^hello(\\s*world)?$/"], function (facts) {
+                this.modify(facts.m, function () {
+                    this.message += " goodbye";
+                });
+            });
+
+            flow.rule("Goodbye", [Message, "m", "m.message =~ /.*goodbye$/"], function () {
+            });
+
+        });
 
         it.beforeEach(function () {
             session = flow.getSession();
@@ -222,7 +223,7 @@ it.describe("Flow",function (it) {
                 assert.equal(facts.m.message, fire[i++][1]);
             });
             session.assert(m);
-            session.match(function (err) {
+            session.match(function () {
                 assert.equal(i, 2);
                 next();
             });
@@ -231,7 +232,7 @@ it.describe("Flow",function (it) {
 
     });
 
-    it.describe("fibonocci", function (it) {
+    it.describe("fibonacci", function (it) {
 
         var Fibonacci = declare({
             instance: {
@@ -269,52 +270,25 @@ it.describe("Flow",function (it) {
         });
 
 
-        it.afterEach(function (next) {
+        it.afterEach(function () {
             result = [];
-            next();
         });
 
 
-        it.should("calculate Fibonacci of 10", function (next) {
+        it.should("calculate Fibonacci of 10", function () {
             var session = flow.getSession(new Fibonacci(10));
-            session.match().then(function () {
+            return session.match().then(function () {
                 session.dispose();
                 assert.equal(result, 55);
-            }).classic(next)
+            });
         });
 
-        it.should("calculate Fibonacci of 150", function (next) {
+        it.should("calculate Fibonacci of 150", function () {
             var session = flow.getSession(new Fibonacci(150));
-            session.match().then(function () {
+            return session.match().then(function () {
                 session.dispose();
                 assert.equal(result, 9.969216677189305e+30);
-            }).classic(next);
-        });
-
-    });
-
-    it.describe("fibonocci nools dsl", function (it) {
-
-        var flow = nools.compile(__dirname + "/rules/fibonacci.nools");
-        var Fibonacci = flow.getDefined("fibonacci");
-        var Result = flow.getDefined("result");
-
-        it.should("calculate Fibonacci of 10", function (next) {
-            var result = new Result();
-            var session = flow.getSession(new Fibonacci(10), result);
-            session.match().then(function () {
-                session.dispose();
-                assert.equal(result.value, 55);
-            }).classic(next);
-        });
-
-        it.should("calculate Fibonacci of 150", function (next) {
-            var result = new Result();
-            var session = flow.getSession(new Fibonacci(150), result);
-            session.match().then(function () {
-                session.dispose();
-                assert.equal(result.value, 9.969216677189305e+30);
-            }).classic(next);
+            });
         });
 
     });
@@ -404,19 +378,17 @@ it.describe("Flow",function (it) {
 
         });
 
-        it.afterEach(function (next) {
+        it.afterEach(function () {
             results = [];
-            next();
         });
 
-        it.should("treat properly", function (next) {
+        it.should("treat properly", function () {
             var session = flow.getSession();
             session.assert(new Patient("Fred", "none", true, false, false, false));
             session.assert(new Patient("Joe", "high", false, false, true, false));
             session.assert(new Patient("Bob", "high", true, false, false, true));
             session.assert(new Patient("Tom", "none", false, true, false, false));
-            //flow.print();
-            session.match().then(function () {
+            return session.match().then(function () {
                 session.dispose();
                 assert.deepEqual(results, [
                     {"name": "Tom", "treatment": "allegryShot"},
@@ -424,17 +396,16 @@ it.describe("Flow",function (it) {
                     {"name": "Joe", "treatment": "bedRest"},
                     {"name": "Fred", "treatment": "allegryShot"}
                 ]);
-            }).classic(next);
+            });
         });
 
-        it.should("treat properly on consecutive runs", function (next) {
+        it.should("treat properly on consecutive runs", function () {
             var session = flow.getSession();
             session.assert(new Patient("Tom", "none", true, false, false, false));
             session.assert(new Patient("Bob", "high", false, false, true, false));
             session.assert(new Patient("Joe", "high", true, false, false, true));
             session.assert(new Patient("Fred", "none", false, true, false, false));
-            //flow.print();
-            session.match().then(function () {
+            return session.match().then(function () {
                 session.dispose();
                 assert.deepEqual(results, [
                     {"name": "Fred", "treatment": "allegryShot"},
@@ -442,59 +413,12 @@ it.describe("Flow",function (it) {
                     {"name": "Bob", "treatment": "bedRest"},
                     {"name": "Tom", "treatment": "allegryShot"}
                 ]);
-            }).classic(next);
+            });
         });
     });
 
-    it.describe("diagnosis using dsl", function (it) {
-
-        var flow = nools.compile(__dirname + "/rules/diagnosis.nools");
-        var Patient = flow.getDefined("patient");
-        var Diagnosis = flow.getDefined("diagnosis");
-        var Treatment = flow.getDefined("treatment");
-
-
-        it.should("treat properly", function (next) {
-            var session = flow.getSession();
-            var results = [];
-            session.assert(new Patient({name: "Fred", fever: "none", spots: true, rash: false, soreThroat: false, innoculated: false}));
-            session.assert(new Patient({name: "Joe", fever: "high", spots: false, rash: false, soreThroat: true, innoculated: false}));
-            session.assert(new Patient({name: "Bob", fever: "high", spots: true, rash: false, soreThroat: false, innoculated: true}));
-            session.assert(new Patient({name: "Tom", fever: "none", spots: false, rash: true, soreThroat: false, innoculated: false}));
-            session.assert(results);
-            //flow.print();
-            session.match().then(function () {
-                //session.dispose();
-                assert.deepEqual(results, [
-                    {"name": "Tom", "treatment": "allergyShot"},
-                    {"name": "Bob", "treatment": "penicillin"},
-                    {"name": "Joe", "treatment": "bedRest"},
-                    {"name": "Fred", "treatment": "allergyShot"}
-                ]);
-            }).classic(next);
-        });
-
-        it.should("treat properly on consecutive runs", function (next) {
-            var session = flow.getSession();
-            var results = [];
-            session.assert(new Patient({name: "Tom", fever: "none", spots: true, rash: false, soreThroat: false, innoculated: false}));
-            session.assert(new Patient({name: "Bob", fever: "high", spots: false, rash: false, soreThroat: true, innoculated: false}));
-            session.assert(new Patient({name: "Joe", fever: "high", spots: true, rash: false, soreThroat: false, innoculated: true}));
-            session.assert(new Patient({name: "Fred", fever: "none", spots: false, rash: true, soreThroat: false, innoculated: false}));
-            session.assert(results);
-            //flow.print();
-            session.match().then(function () {
-                session.dispose();
-                assert.deepEqual(results, [
-                    {"name": "Fred", "treatment": "allergyShot"},
-                    {"name": "Joe", "treatment": "penicillin"},
-                    {"name": "Bob", "treatment": "bedRest"},
-                    {"name": "Tom", "treatment": "allergyShot"}
-                ]);
-            }).classic(next);
-        });
-    });
 }).as(module);
+
 
 
 

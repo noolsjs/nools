@@ -19,21 +19,21 @@
     "url": "git@github.com:C2FO/nools.git"
   },
   "dependencies": {
-    "declare.js": "0.0.3",
-    "extended": "0.0.2",
-    "is-extended": "0.0.2",
-    "string-extended": "0.0.2",
-    "array-extended": "0.0.2",
-    "date-extended": "0.0.2",
-    "function-extended": "0.0.2",
-    "object-extended": "0.0.2",
-    "promise-extended": "0.0.2",
-    "leafy": "0.0.1",
-    "ht": "0.0.1",
+    "declare.js": "~0.0.3",
+    "extended": "~0.0.3",
+    "is-extended": "~0.0.3",
+    "string-extended": "~0.0.3",
+    "array-extended": "~0.0.3",
+    "date-extended": "~0.0.3",
+    "function-extended": "~0.0.3",
+    "object-extended": "~0.0.3",
+    "promise-extended": "~0.0.3",
+    "leafy": "~0.0.1",
+    "ht": "~0.0.1",
     "commander": "~1.1.1"
   },
   "devDependencies": {
-    "it": "~0.1.0",
+    "it": "~0.2.0",
     "jison": ">=0.3.2",
     "grunt-it": "~0.2.1",
     "grunt-browserify": "~0.1.2"

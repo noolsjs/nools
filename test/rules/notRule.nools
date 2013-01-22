@@ -6,10 +6,7 @@ define Count{
 
 rule hello {
     when {
-        or(
-            s : String s == 'hello',
-            s : String s == 'world'
-        );
+        not(s : String s == 'hello');
         count : Count
     }
     then {
