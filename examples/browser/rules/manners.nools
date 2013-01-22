@@ -51,7 +51,7 @@ define Path {
 }
 
 function log(str){
-    document.getElementById("output").innerHTML += str + "</br>";
+    document.getElementById("output").innerHTML += str.toString() + "</br>";
 }
 
 define Seating {

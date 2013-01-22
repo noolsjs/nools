@@ -1331,7 +1331,7 @@ var FlowContainer = declare({
         },
 
         containsRule: function (name) {
-            return this.__rules.some(function (rule) {
+            return extd.some(this.__rules, function (rule) {
                 return rule.name === name;
             });
         }
@@ -1398,8 +1398,6 @@ require.define("/lib/extended.js",function(require,module,exports,__dirname,__fi
     .register("HashTable", require("ht"))
     .register("declare", require("declare.js"))
     .register(require("leafy"));
-
-
 
 
 
@@ -1961,14 +1959,15 @@ require.define("/node_modules/extended/node_modules/extender/extender.js",functi
             function _extender(obj) {
                 var ret = obj, i, l;
                 if (!(obj instanceof Base)) {
-                    var base = {}, instance = (base.instance = {"__extender__": _extender});
+                    var OurBase = Base;
                     for (i = 0, l = defined.length; i < l; i++) {
                         var definer = defined[i];
                         if (definer[0](obj)) {
-                            merge(instance, definer[1]);
+                            OurBase = OurBase.extend({instance: definer[1]});
                         }
                     }
-                    ret = new (Base.extend(base))(obj);
+                    ret = new OurBase(obj);
+                    ret["__extender__"] = _extender;
                 }
                 return ret;
             }
@@ -1986,6 +1985,16 @@ require.define("/node_modules/extended/node_modules/extender/extender.js",functi
                     decorate = decorate || {};
                     var proto = {};
                     decorateProto(proto, decorate);
+                    //handle browsers like which skip over the constructor while looping
+                    if (!proto.hasOwnProperty("constructor")) {
+                        if (decorate.hasOwnProperty("constructor")) {
+                            addMethod(proto, "constructor", decorate.constructor);
+                        } else {
+                            proto.constructor = function () {
+                                this._super(arguments);
+                            };
+                        }
+                    }
                     defined.push([tester, proto]);
                 }
                 return _extender;
@@ -2844,11 +2853,15 @@ require.define("/node_modules/declare.js/declare.js",function(require,module,exp
             child.prototype = childProto;
             if (proto) {
                 var instance = meta.proto = proto.instance || {};
-                !instance.hasOwnProperty("constructor") && (instance.constructor = defaultFunction);
                 var stat = childMeta.proto = proto.static || {};
                 stat.init = stat.init || defaultFunction;
                 defineProps(childProto, instance);
                 defineProps(child, stat);
+                if (!instance.hasOwnProperty("constructor")) {
+                    childProto.constructor = instance.constructor = functionWrapper(defaultFunction, "constructor");
+                } else {
+                    childProto.constructor = functionWrapper(instance.constructor, "constructor");
+                }
             } else {
                 meta.proto = {};
                 childMeta.proto = {};
@@ -2941,6 +2954,16 @@ require.define("/node_modules/is-extended/index.js",function(require,module,expo
             return pSlice.call(args, slice);
         }
 
+        function keys(obj) {
+            var ret = [];
+            for (var i in obj) {
+                if (obj.hasOwnProperty(i)) {
+                    ret.push(i);
+                }
+            }
+            return ret;
+        }
+
         //taken from node js assert.js
         //https://github.com/joyent/node/blob/master/lib/assert.js
         function deepEqual(actual, expected) {
@@ -2978,6 +3001,8 @@ require.define("/node_modules/is-extended/index.js",function(require,module,expo
 
                 // 7.4. Other pairs that do not both pass typeof value == 'object',
                 // equivalence is determined by ==.
+            } else if (isString(actual) && isString(expected) && actual !== expected) {
+                return false;
             } else if (typeof actual !== 'object' && typeof expected !== 'object') {
                 return actual === expected;
 
@@ -3013,8 +3038,8 @@ require.define("/node_modules/is-extended/index.js",function(require,module,expo
                 return deepEqual(a, b);
             }
             try {
-                var ka = Object.keys(a),
-                    kb = Object.keys(b),
+                var ka = keys(a),
+                    kb = keys(b),
                     i;
                 // having the same number of owned properties (keys incorporates
                 // hasOwnProperty)
@@ -3091,8 +3116,15 @@ require.define("/node_modules/is-extended/index.js",function(require,module,expo
             return obj !== undef && obj === null;
         }
 
-        function isArguments(object) {
+
+        var isArguments = function _isArguments(object) {
             return !isUndefinedOrNull(object) && Object.prototype.toString.call(object) === '[object Arguments]';
+        };
+
+        if (!isArguments(arguments)) {
+            isArguments = function _isArguments(obj) {
+                return !!(obj && obj.hasOwnProperty("callee"));
+            };
         }
 
 
@@ -4022,7 +4054,7 @@ require.define("/node_modules/date-extended/package.json",function(require,modul
 require.define("/node_modules/date-extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
     "use strict";
 
-    function defineDate(extended, is) {
+    function defineDate(extended, is, array) {
 
         function _pad(string, length, ch, end) {
             string = "" + string; //check for numbers
@@ -4156,7 +4188,7 @@ require.define("/node_modules/date-extended/index.js",function(require,module,ex
                             weeks = parseInt(days / 7, 10);
                             // Mark the date advanced by the number of
                             // round weeks (may be zero)
-                            var dtMark = new Date(date1);
+                            var dtMark = new Date(+date1);
                             dtMark.setDate(dtMark[utc ? "getUTCDate" : "getDate"]() + (weeks * 7));
                             var dayMark = dtMark[utc ? "getUTCDay" : "getDay"]();
 
@@ -4468,8 +4500,8 @@ require.define("/node_modules/date-extended/index.js",function(require,module,ex
              * @returns -1 if date1 is < date2 0 if date1 === date2  1 if date1 > date2
              */
             compare: function (/*Date*/date1, /*Date*/date2, /*String*/portion) {
-                date1 = new Date(date1);
-                date2 = new Date((date2 || new Date()));
+                date1 = new Date(+date1);
+                date2 = new Date(+(date2 || new Date()));
 
                 if (portion === "date") {
                     // Ignore times and compare dates.
@@ -4546,7 +4578,7 @@ require.define("/node_modules/date-extended/index.js",function(require,module,ex
                 var res = addTransform(interval, date, amount || 0);
                 amount = res[0];
                 var property = res[1];
-                var sum = new Date(date);
+                var sum = new Date(+date);
                 var fixOvershoot = res[2];
                 if (property) {
                     sum["set" + property](sum["get" + property]() + amount);
@@ -4794,7 +4826,7 @@ require.define("/node_modules/date-extended/index.js",function(require,module,ex
             };
         }
 
-        var intervals = ["year", "month", "day", "hour", "minute", "second"], interval;
+        var intervals = ["year", "month", "day", "hour", "minute", "second"];
         for (var i = 0, l = intervals.length; i < l; i++) {
             addInterval(intervals[i]);
         }
@@ -4860,10 +4892,10 @@ require.define("/node_modules/date-extended/index.js",function(require,module,ex
                                 }
                                 //Case-insensitive comparison
                                 v = v.toLowerCase();
-                                days = days.map(function (d) {
+                                days = array.map(days, function (d) {
                                     return d.toLowerCase();
                                 });
-                                var d = days.indexOf(v);
+                                var d = array.indexOf(days, v);
                                 if (d === -1) {
                                     v = parseInt(v, 10);
                                     if (isNaN(v) || v > days.length) {
@@ -4908,8 +4940,8 @@ require.define("/node_modules/date-extended/index.js",function(require,module,ex
                         result[3] = 0; //12am -> 0
                     }
                     var dateObject = new Date(result[0], result[1], result[2], result[3], result[4], result[5], result[6]); // Date
-                    var dateToken = (tokens.indexOf('d') !== -1),
-                        monthToken = (tokens.indexOf('M') !== -1),
+                    var dateToken = (array.indexOf(tokens, 'd') !== -1),
+                        monthToken = (array.indexOf(tokens, 'M') !== -1),
                         month = result[1],
                         day = result[2],
                         dateMonth = dateObject.getMonth(),
@@ -4947,15 +4979,15 @@ require.define("/node_modules/date-extended/index.js",function(require,module,ex
 
     if ("undefined" !== typeof exports) {
         if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineDate(require("extended"), require("is-extended"));
+            module.exports = defineDate(require("extended"), require("is-extended"), require("array-extended"));
 
         }
     } else if ("function" === typeof define) {
         define(["require"], function (require) {
-            return defineDate(require("extended"), require("is-extended"));
+            return defineDate(require("extended"), require("is-extended"), require("array-extended"));
         });
     } else {
-        this.dateExtended = defineDate(this.extended, this.isExtended);
+        this.dateExtended = defineDate(this.extended, this.isExtended, this.arrayExtended);
     }
 
 }).call(this);
@@ -5177,6 +5209,150 @@ require.define("/node_modules/string-extended/index.js",function(require,module,
 
     function defineString(extended, is, date) {
 
+        var stringify;
+        if (typeof JSON === "undefined") {
+            /*
+             json2.js
+             2012-10-08
+
+             Public Domain.
+
+             NO WARRANTY EXPRESSED OR IMPLIED. USE AT YOUR OWN RISK.
+             */
+
+            (function () {
+                function f(n) {
+                    // Format integers to have at least two digits.
+                    return n < 10 ? '0' + n : n;
+                }
+
+                var isPrimitive = is.tester().isString().isNumber().isBoolean().tester();
+
+                function toJSON(obj) {
+                    if (is.isDate(obj)) {
+                        return isFinite(obj.valueOf())
+                            ? obj.getUTCFullYear() + '-' +
+                            f(obj.getUTCMonth() + 1) + '-' +
+                            f(obj.getUTCDate()) + 'T' +
+                            f(obj.getUTCHours()) + ':' +
+                            f(obj.getUTCMinutes()) + ':' +
+                            f(obj.getUTCSeconds()) + 'Z'
+                            : null;
+                    } else if (isPrimitive(obj)) {
+                        return obj.valueOf();
+                    }
+                    return obj;
+                }
+
+                var cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
+                    escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
+                    gap,
+                    indent,
+                    meta = {    // table of character substitutions
+                        '\b': '\\b',
+                        '\t': '\\t',
+                        '\n': '\\n',
+                        '\f': '\\f',
+                        '\r': '\\r',
+                        '"': '\\"',
+                        '\\': '\\\\'
+                    },
+                    rep;
+
+
+                function quote(string) {
+                    escapable.lastIndex = 0;
+                    return escapable.test(string) ? '"' + string.replace(escapable, function (a) {
+                        var c = meta[a];
+                        return typeof c === 'string' ? c : '\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
+                    }) + '"' : '"' + string + '"';
+                }
+
+
+                function str(key, holder) {
+
+                    var i, k, v, length, mind = gap, partial, value = holder[key];
+                    if (value) {
+                        value = toJSON(value);
+                    }
+                    if (typeof rep === 'function') {
+                        value = rep.call(holder, key, value);
+                    }
+                    switch (typeof value) {
+                        case 'string':
+                            return quote(value);
+                        case 'number':
+                            return isFinite(value) ? String(value) : 'null';
+                        case 'boolean':
+                        case 'null':
+                            return String(value);
+                        case 'object':
+                            if (!value) {
+                                return 'null';
+                            }
+                            gap += indent;
+                            partial = [];
+                            if (Object.prototype.toString.apply(value) === '[object Array]') {
+                                length = value.length;
+                                for (i = 0; i < length; i += 1) {
+                                    partial[i] = str(i, value) || 'null';
+                                }
+                                v = partial.length === 0 ? '[]' : gap ? '[\n' + gap + partial.join(',\n' + gap) + '\n' + mind + ']' : '[' + partial.join(',') + ']';
+                                gap = mind;
+                                return v;
+                            }
+                            if (rep && typeof rep === 'object') {
+                                length = rep.length;
+                                for (i = 0; i < length; i += 1) {
+                                    if (typeof rep[i] === 'string') {
+                                        k = rep[i];
+                                        v = str(k, value);
+                                        if (v) {
+                                            partial.push(quote(k) + (gap ? ': ' : ':') + v);
+                                        }
+                                    }
+                                }
+                            } else {
+                                for (k in value) {
+                                    if (Object.prototype.hasOwnProperty.call(value, k)) {
+                                        v = str(k, value);
+                                        if (v) {
+                                            partial.push(quote(k) + (gap ? ': ' : ':') + v);
+                                        }
+                                    }
+                                }
+                            }
+                            v = partial.length === 0 ? '{}' : gap ? '{\n' + gap + partial.join(',\n' + gap) + '\n' + mind + '}' : '{' + partial.join(',') + '}';
+                            gap = mind;
+                            return v;
+                    }
+                }
+
+                stringify = function (value, replacer, space) {
+                    var i;
+                    gap = '';
+                    indent = '';
+                    if (typeof space === 'number') {
+                        for (i = 0; i < space; i += 1) {
+                            indent += ' ';
+                        }
+                    } else if (typeof space === 'string') {
+                        indent = space;
+                    }
+                    rep = replacer;
+                    if (replacer && typeof replacer !== 'function' &&
+                        (typeof replacer !== 'object' ||
+                            typeof replacer.length !== 'number')) {
+                        throw new Error('JSON.stringify');
+                    }
+                    return str('', {'': value});
+                };
+            }());
+        }else{
+            stringify = JSON.stringify;
+        }
+
+
         var isHash = is.isHash, aSlice = Array.prototype.slice;
 
         var FORMAT_REGEX = /%((?:-?\+?.?\d*)?|(?:\[[^\[|\]]*\]))?([sjdDZ])/g;
@@ -5236,7 +5412,7 @@ require.define("/node_modules/string-extended/index.js",function(require,module,
                 }
             }
             try {
-                ret = JSON.stringify(object, null, spacing);
+                ret = stringify(object, null, spacing);
             } catch (e) {
                 throw new Error("stringExtended.format : Unable to parse json from ", object);
             }
@@ -5516,7 +5692,7 @@ require.define("/node_modules/string-extended/index.js",function(require,module,
                         ret = replacer.toUTCString();
                     } else if (m === "%j") {
                         try {
-                            ret = JSON.stringify(replacer);
+                            ret = stringify(replacer);
                         } catch (e) {
                             throw new Error("stringExtended.format : Unable to parse json from ", replacer);
                         }
@@ -6063,7 +6239,7 @@ require.define("/node_modules/promise-extended/index.js",function(require,module
             return function _wrap() {
                 var ret = new Promise();
                 var args = argsToArray(arguments);
-                args.push(ret.resolve.bind(ret));
+                args.push(ret.resolve);
                 fn.apply(scope || this, args);
                 return ret.promise();
             };
@@ -6095,10 +6271,10 @@ require.define("/node_modules/promise-extended/index.js",function(require,module
             return function waiter() {
                 if (!resolved) {
                     args = arguments;
-                    return p.then(function doneWaiting() {
+                    return p.then(bind(this, function doneWaiting() {
                         resolved = true;
                         return fn.apply(this, args);
-                    }.bind(this));
+                    }));
                 } else {
                     return when(fn.apply(this, arguments));
                 }
@@ -6126,6 +6302,7 @@ require.define("/node_modules/promise-extended/index.js",function(require,module
             .define({
                 isPromiseLike: isPromiseLike
             }).expose({
+                isPromiseLike: isPromiseLike,
                 when: when,
                 wrap: wrap,
                 wait: wait,
@@ -6242,7 +6419,6 @@ require.define("/node_modules/function-extended/index.js",function(require,modul
         }
 
 
-
         function hitchIgnore(scope, method, args) {
             args = argsToArray(arguments, 2);
             if ((isString(method) && !(method in scope))) {
@@ -6269,7 +6445,7 @@ require.define("/node_modules/function-extended/index.js",function(require,modul
 
         function hitchAll(scope) {
             var funcs = argsToArray(arguments, 1);
-            if (!isObject(scope)) {
+            if (!isObject(scope) && !isFunction(scope)) {
                 throw new TypeError("scope must be an object");
             }
             if (funcs.length === 1 && isArray(funcs[0])) {
@@ -7618,11 +7794,15 @@ require.define("/node_modules/ht/node_modules/declare.js/declare.js",function(re
             child.prototype = childProto;
             if (proto) {
                 var instance = meta.proto = proto.instance || {};
-                !instance.hasOwnProperty("constructor") && (instance.constructor = defaultFunction);
                 var stat = childMeta.proto = proto.static || {};
                 stat.init = stat.init || defaultFunction;
                 defineProps(childProto, instance);
                 defineProps(child, stat);
+                if (!instance.hasOwnProperty("constructor")) {
+                    childProto.constructor = instance.constructor = functionWrapper(defaultFunction, "constructor");
+                } else {
+                    childProto.constructor = functionWrapper(instance.constructor, "constructor");
+                }
             } else {
                 meta.proto = {};
                 childMeta.proto = {};
@@ -7706,13 +7886,23 @@ require.define("/node_modules/ht/node_modules/is-extended/package.json",function
 require.define("/node_modules/ht/node_modules/is-extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
     "use strict";
 
-    function defineIsa(extender) {
+    function defineIsa(extended) {
 
         var undef, pSlice = Array.prototype.slice;
 
         function argsToArray(args, slice) {
             slice = slice || 0;
             return pSlice.call(args, slice);
+        }
+
+        function keys(obj) {
+            var ret = [];
+            for (var i in obj) {
+                if (obj.hasOwnProperty(i)) {
+                    ret.push(i);
+                }
+            }
+            return ret;
         }
 
         //taken from node js assert.js
@@ -7722,7 +7912,7 @@ require.define("/node_modules/ht/node_modules/is-extended/index.js",function(req
             if (actual === expected) {
                 return true;
 
-            } else if (Buffer && Buffer.isBuffer(actual) && Buffer.isBuffer(expected)) {
+            } else if (typeof Buffer !== "undefined" && Buffer.isBuffer(actual) && Buffer.isBuffer(expected)) {
                 if (actual.length !== expected.length) {
                     return false;
                 }
@@ -7752,6 +7942,8 @@ require.define("/node_modules/ht/node_modules/is-extended/index.js",function(req
 
                 // 7.4. Other pairs that do not both pass typeof value == 'object',
                 // equivalence is determined by ==.
+            } else if (isString(actual) && isString(expected) && actual !== expected) {
+                return false;
             } else if (typeof actual !== 'object' && typeof expected !== 'object') {
                 return actual === expected;
 
@@ -7787,8 +7979,8 @@ require.define("/node_modules/ht/node_modules/is-extended/index.js",function(req
                 return deepEqual(a, b);
             }
             try {
-                var ka = Object.keys(a),
-                    kb = Object.keys(b),
+                var ka = keys(a),
+                    kb = keys(b),
                     i;
                 // having the same number of owned properties (keys incorporates
                 // hasOwnProperty)
@@ -7839,6 +8031,8 @@ require.define("/node_modules/ht/node_modules/is-extended/index.js",function(req
                         return false;
                     }
                 }
+            } else if (isString(object) && object === "") {
+                return true;
             }
             return true;
         }
@@ -7863,8 +8057,15 @@ require.define("/node_modules/ht/node_modules/is-extended/index.js",function(req
             return obj !== undef && obj === null;
         }
 
-        function isArguments(object) {
+
+        var isArguments = function _isArguments(object) {
             return !isUndefinedOrNull(object) && Object.prototype.toString.call(object) === '[object Arguments]';
+        };
+
+        if (!isArguments(arguments)) {
+            isArguments = function _isArguments(obj) {
+                return !!(obj && obj.hasOwnProperty("callee"));
+            };
         }
 
 
@@ -8072,7 +8273,7 @@ require.define("/node_modules/ht/node_modules/is-extended/index.js",function(req
         }
 
         function addToSwitcher(func) {
-            switcher[func] = function isaTester(val) {
+            switcher[func] = function isaTester() {
                 var args = argsToArray(arguments, 1), isFunc = isa[func], handler, doBreak = true;
                 if (args.length <= isFunc.length - 1) {
                     throw new TypeError("A handler must be defined when calling using switch");
@@ -8087,7 +8288,6 @@ require.define("/node_modules/ht/node_modules/is-extended/index.js",function(req
                     throw new TypeError("handler must be defined");
                 }
                 this._cases.push(function (testArgs) {
-                    var ret;
                     if (isFunc.apply(isa, testArgs.concat(args))) {
                         return [doBreak, handler.apply(this, testArgs)];
                     }
@@ -8103,35 +8303,139 @@ require.define("/node_modules/ht/node_modules/is-extended/index.js",function(req
             }
         }
 
-        var is = extender.define(tester).expose(isa);
-        is.switcher = extender.define(switcher);
+        var is = extended.define(isa).expose(isa);
+        is.tester = extended.define(tester);
+        is.switcher = extended.define(switcher);
         return is;
 
     }
 
     if ("undefined" !== typeof exports) {
         if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineIsa(require("extender"));
+            module.exports = defineIsa(require("extended"));
 
         }
     } else if ("function" === typeof define) {
         define(["require"], function (require) {
-            return defineIsa((require("extender")));
+            return defineIsa((require("extended")));
         });
     } else {
-        this.isa = defineIsa(this.extender);
+        this.is = defineIsa(this.extended);
     }
 
 }).call(this);
 });
 
-require.define("/node_modules/ht/node_modules/is-extended/node_modules/extender/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
+require.define("/node_modules/ht/node_modules/is-extended/node_modules/extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
 });
 
-require.define("/node_modules/ht/node_modules/is-extended/node_modules/extender/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./extender.js");
+require.define("/node_modules/ht/node_modules/is-extended/node_modules/extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
+    "use strict";
+    /*global extender isa, dateExtended*/
+
+    function defineExtended(extender, require) {
+
+
+        var merge = (function merger() {
+            function _merge(target, source) {
+                var name, s;
+                for (name in source) {
+                    if (source.hasOwnProperty(name)) {
+                        s = source[name];
+                        if (!(name in target) || (target[name] !== s)) {
+                            target[name] = s;
+                        }
+                    }
+                }
+                return target;
+            }
+
+            return function merge(obj) {
+                if (!obj) {
+                    obj = {};
+                }
+                for (var i = 1, l = arguments.length; i < l; i++) {
+                    _merge(obj, arguments[i]);
+                }
+                return obj; // Object
+            };
+        }());
+
+        function getExtended() {
+
+            var loaded = {};
+
+
+            //getInitial instance;
+            var extended = extender.define();
+            extended.expose({
+                register: function register(alias, extendWith) {
+                    if (!extendWith) {
+                        extendWith = alias;
+                        alias = null;
+                    }
+                    var type = typeof extendWith;
+                    if (alias) {
+                        extended[alias] = extendWith;
+                    } else if (extendWith && type === "function") {
+                        extended.extend(extendWith);
+                    } else if (type === "object") {
+                        extended.expose(extendWith);
+                    } else {
+                        throw new TypeError("extended.register must be called with an extender function");
+                    }
+                    return extended;
+                },
+
+                define: function () {
+                    return extender.define.apply(extender, arguments);
+                }
+            });
+
+            return extended;
+        }
+
+        function extended() {
+            return getExtended();
+        }
+
+        extended.define = function define() {
+            return extender.define.apply(extender, arguments);
+        };
+
+        return extended;
+    }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            module.exports = defineExtended(require("extender"), require);
+
+        }
+    } else if ("function" === typeof define) {
+        define(["require"], function (require) {
+            return defineExtended(require("extender"), require);
+        });
+    } else {
+        this.extended = defineExtended(this.extender);
+    }
+
+}).call(this);
+
+
+
+
+
+
+
 });
 
-require.define("/node_modules/ht/node_modules/is-extended/node_modules/extender/extender.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
+require.define("/node_modules/ht/node_modules/is-extended/node_modules/extended/node_modules/extender/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
+});
+
+require.define("/node_modules/ht/node_modules/is-extended/node_modules/extended/node_modules/extender/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./extender.js");
+});
+
+require.define("/node_modules/ht/node_modules/is-extended/node_modules/extended/node_modules/extender/extender.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
     /*jshint strict:false*/
 
 
@@ -8503,11 +8807,11 @@ require.define("/node_modules/ht/node_modules/is-extended/node_modules/extender/
                     },
 
                     eq: function eq(val) {
-                        return _extender(this._value === val);
+                        return this["__extender__"](this._value === val);
                     },
 
                     neq: function neq(other) {
-                        return _extender(this._value !== other);
+                        return this["__extender__"](this._value !== other);
                     },
                     print: function () {
                         console.log(this._value);
@@ -8531,7 +8835,7 @@ require.define("/node_modules/ht/node_modules/is-extended/node_modules/extender/
                         var args = slice.call(arguments);
                         args.unshift(this._value);
                         var ret = func.apply(this, args);
-                        return ret !== undef ? _extender(ret) : this;
+                        return ret !== undef ? this["__extender__"](ret) : this;
                     };
                 }
                 proto[name] = extendedMethod;
@@ -8578,14 +8882,15 @@ require.define("/node_modules/ht/node_modules/is-extended/node_modules/extender/
             function _extender(obj) {
                 var ret = obj, i, l;
                 if (!(obj instanceof Base)) {
-                    var base = {}, instance = (base.instance = {});
+                    var OurBase = Base;
                     for (i = 0, l = defined.length; i < l; i++) {
                         var definer = defined[i];
                         if (definer[0](obj)) {
-                            merge(instance, definer[1]);
+                            OurBase = OurBase.extend({instance: definer[1]});
                         }
                     }
-                    ret = new (Base.extend(base))(obj);
+                    ret = new OurBase(obj);
+                    ret["__extender__"] = _extender;
                 }
                 return ret;
             }
@@ -8603,6 +8908,16 @@ require.define("/node_modules/ht/node_modules/is-extended/node_modules/extender/
                     decorate = decorate || {};
                     var proto = {};
                     decorateProto(proto, decorate);
+                    //handle browsers like which skip over the constructor while looping
+                    if (!proto.hasOwnProperty("constructor")) {
+                        if (decorate.hasOwnProperty("constructor")) {
+                            addMethod(proto, "constructor", decorate.constructor);
+                        } else {
+                            proto.constructor = function () {
+                                this._super(arguments);
+                            };
+                        }
+                    }
                     defined.push([tester, proto]);
                 }
                 return _extender;
@@ -8662,893 +8977,11 @@ require.define("/node_modules/ht/node_modules/is-extended/node_modules/extender/
 }).call(this);
 });
 
-require.define("/node_modules/ht/node_modules/is-extended/node_modules/extender/node_modules/declare.js/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/ht/node_modules/is-extended/node_modules/extender/node_modules/declare.js/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./declare.js");
-});
-
-require.define("/node_modules/ht/node_modules/is-extended/node_modules/extender/node_modules/declare.js/declare.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-
-    /**
-     * @projectName declare
-     * @github http://github.com/doug-martin/declare.js
-     * @header
-     *
-     * Declare is a library designed to allow writing object oriented code the same way in both the browser and node.js.
-     *
-     * ##Installation
-     *
-     * `npm install declare.js`
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/declare.js/master/declare.js) ([minified](https://raw.github.com/doug-martin/declare.js/master/declare-min.js))
-     *
-     * ###Requirejs
-     *
-     * To use with requirejs place the `declare` source in the root scripts directory
-     *
-     * ```
-     *
-     * define(["declare"], function(declare){
-     *      return declare({
-     *          instance : {
-     *              hello : function(){
-     *                  return "world";
-     *              }
-     *          }
-     *      });
-     * });
-     *
-     * ```
-     *
-     *
-     * ##Usage
-     *
-     * declare.js provides
-     *
-     * Class methods
-     *
-     * * `as(module | object, name)` : exports the object to module or the object with the name
-     * * `mixin(mixin)` : mixes in an object but does not inherit directly from the object. **Note** this does not return a new class but changes the original class.
-     * * `extend(proto)` : extend a class with the given properties. A shortcut to `declare(Super, {})`;
-     *
-     * Instance methods
-     *
-     * * `_super(arguments)`: calls the super of the current method, you can pass in either the argments object or an array with arguments you want passed to super
-     * * `_getSuper()`: returns a this methods direct super.
-     * * `_static` : use to reference class properties and methods.
-     * * `get(prop)` : gets a property invoking the getter if it exists otherwise it just returns the named property on the object.
-     * * `set(prop, val)` : sets a property invoking the setter if it exists otherwise it just sets the named property on the object.
-     *
-     *
-     * ###Declaring a new Class
-     *
-     * Creating a new class with declare is easy!
-     *
-     * ```
-     *
-     * var Mammal = declare({
-     *      //define your instance methods and properties
-     *      instance : {
-     *
-     *          //will be called whenever a new instance is created
-     *          constructor: function(options) {
-     *              options = options || {};
-     *              this._super(arguments);
-     *              this._type = options.type || "mammal";
-     *          },
-     *
-     *          speak : function() {
-     *              return  "A mammal of type " + this._type + " sounds like";
-     *          },
-     *
-     *          //Define your getters
-     *          getters : {
-     *
-     *              //can be accessed by using the get method. (mammal.get("type"))
-     *              type : function() {
-     *                  return this._type;
-     *              }
-     *          },
-     *
-     *           //Define your setters
-     *          setters : {
-     *
-     *                //can be accessed by using the set method. (mammal.set("type", "mammalType"))
-     *              type : function(t) {
-     *                  this._type = t;
-     *              }
-     *          }
-     *      },
-     *
-     *      //Define your static methods
-     *      static : {
-     *
-     *          //Mammal.soundOff(); //"Im a mammal!!"
-     *          soundOff : function() {
-     *              return "Im a mammal!!";
-     *          }
-     *      }
-     * });
-     *
-     *
-     * ```
-     *
-     * You can use Mammal just like you would any other class.
-     *
-     * ```
-     * Mammal.soundOff("Im a mammal!!");
-     *
-     * var myMammal = new Mammal({type : "mymammal"});
-     * myMammal.speak(); // "A mammal of type mymammal sounds like"
-     * myMammal.get("type"); //"mymammal"
-     * myMammal.set("type", "mammal");
-     * myMammal.get("type"); //"mammal"
-     *
-     *
-     * ```
-     *
-     * ###Extending a class
-     *
-     * If you want to just extend a single class use the .extend method.
-     *
-     * ```
-     *
-     * var Wolf = Mammal.extend({
-     *
-     *   //define your instance method
-     *   instance: {
-     *
-     *        //You can override super constructors just be sure to call `_super`
-     *       constructor: function(options) {
-     *          options = options || {};
-     *          this._super(arguments); //call our super constructor.
-     *          this._sound = "growl";
-     *          this._color = options.color || "grey";
-     *      },
-     *
-     *      //override Mammals `speak` method by appending our own data to it.
-     *      speak : function() {
-     *          return this._super(arguments) + " a " + this._sound;
-     *      },
-     *
-     *      //add new getters for sound and color
-     *      getters : {
-     *
-     *           //new Wolf().get("type")
-     *           //notice color is read only as we did not define a setter
-     *          color : function() {
-     *              return this._color;
-     *          },
-     *
-     *          //new Wolf().get("sound")
-     *          sound : function() {
-     *              return this._sound;
-     *          }
-     *      },
-     *
-     *      setters : {
-     *
-     *          //new Wolf().set("sound", "howl")
-     *          sound : function(s) {
-     *              this._sound = s;
-     *          }
-     *      }
-     *
-     *  },
-     *
-     *  static : {
-     *
-     *      //You can override super static methods also! And you can still use _super
-     *      soundOff : function() {
-     *          //You can even call super in your statics!!!
-     *          //should return "I'm a mammal!! that growls"
-     *          return this._super(arguments) + " that growls";
-     *      }
-     *  }
-     * });
-     *
-     * Wolf.soundOff(); //Im a mammal!! that growls
-     *
-     * var myWolf = new Wolf();
-     * myWolf instanceof Mammal //true
-     * myWolf instanceof Wolf //true
-     *
-     * ```
-     *
-     * You can also extend a class by using the declare method and just pass in the super class.
-     *
-     * ```
-     * //Typical hierarchical inheritance
-     * // Mammal->Wolf->Dog
-     * var Dog = declare(Wolf, {
-     *    instance: {
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            //override Wolfs initialization of sound to woof.
-     *            this._sound = "woof";
-     *
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a growl thats domesticated"
-     *            return this._super(arguments) + " thats domesticated";
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'm a mammal!! that growls but now barks"
-     *            return this._super(arguments) + " but now barks";
-     *        }
-     *    }
-     * });
-     *
-     * Dog.soundOff(); //Im a mammal!! that growls but now barks
-     *
-     * var myDog = new Dog();
-     * myDog instanceof Mammal //true
-     * myDog instanceof Wolf //true
-     * myDog instanceof Dog //true
-     *
-     *
-     * //Notice you still get the extend method.
-     *
-     * // Mammal->Wolf->Dog->Breed
-     * var Breed = Dog.extend({
-     *    instance: {
-     *
-     *        //initialize outside of constructor
-     *        _pitch : "high",
-     *
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            this.breed = options.breed || "lab";
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a
-     *            //growl thats domesticated with a high pitch!"
-     *            return this._super(arguments) + " with a " + this._pitch + " pitch!";
-     *        },
-     *
-     *        getters : {
-     *            pitch : function() {
-     *                return this._pitch;
-     *            }
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'M A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *            return this._super(arguments).toUpperCase() + "!";
-     *        }
-     *    }
-     * });
-     *
-     *
-     * Breed.soundOff()//"IM A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *
-     * var myBreed = new Breed({color : "gold", type : "lab"}),
-     * myBreed instanceof Dog //true
-     * myBreed instanceof Wolf //true
-     * myBreed instanceof Mammal //true
-     * myBreed.speak() //"A mammal of type lab sounds like a woof thats domesticated with a high pitch!"
-     * myBreed.get("type") //"lab"
-     * myBreed.get("color") //"gold"
-     * myBreed.get("sound")" //"woof"
-     * ```
-     *
-     * ###Multiple Inheritance / Mixins
-     *
-     * declare also allows the use of multiple super classes.
-     * This is useful if you have generic classes that provide functionality but shouldnt be used on their own.
-     *
-     * Lets declare a mixin that allows us to watch for property changes.
-     *
-     * ```
-     * //Notice that we set up the functions outside of declare because we can reuse them
-     *
-     * function _set(prop, val) {
-     *     //get the old value
-     *     var oldVal = this.get(prop);
-     *     //call super to actually set the property
-     *     var ret = this._super(arguments);
-     *     //call our handlers
-     *     this.__callHandlers(prop, oldVal, val);
-     *     return ret;
-     * }
-     *
-     * function _callHandlers(prop, oldVal, newVal) {
-     *    //get our handlers for the property
-     *     var handlers = this.__watchers[prop], l;
-     *     //if the handlers exist and their length does not equal 0 then we call loop through them
-     *     if (handlers && (l = handlers.length) !== 0) {
-     *         for (var i = 0; i < l; i++) {
-     *             //call the handler
-     *             handlers[i].call(null, prop, oldVal, newVal);
-     *         }
-     *     }
-     * }
-     *
-     *
-     * //the watch function
-     * function _watch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         //if its not a function then its an invalid handler
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     if (!this.__watchers[prop]) {
-     *         //create the watchers if it doesnt exist
-     *         this.__watchers[prop] = [handler];
-     *     } else {
-     *         //otherwise just add it to the handlers array
-     *         this.__watchers[prop].push(handler);
-     *     }
-     * }
-     *
-     * function _unwatch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     var handlers = this.__watchers[prop], index;
-     *     if (handlers && (index = handlers.indexOf(handler)) !== -1) {
-     *        //remove the handler if it is found
-     *         handlers.splice(index, 1);
-     *     }
-     * }
-     *
-     * declare({
-     *     instance:{
-     *         constructor:function () {
-     *             this._super(arguments);
-     *             //set up our watchers
-     *             this.__watchers = {};
-     *         },
-     *
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set up our callhandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch function
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     },
-     *
-     *     "static":{
-     *
-     *         init:function () {
-     *             this._super(arguments);
-     *             this.__watchers = {};
-     *         },
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set our callHandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     }
-     * })
-     *
-     * ```
-     *
-     * Now lets use the mixin
-     *
-     * ```
-     * var WatchDog = declare([Dog, WatchMixin]);
-     *
-     * var watchDog = new WatchDog();
-     * //create our handler
-     * function watch(id, oldVal, newVal) {
-     *     console.log("watchdog's %s was %s, now %s", id, oldVal, newVal);
-     * }
-     *
-     * //watch for property changes
-     * watchDog.watch("type", watch);
-     * watchDog.watch("color", watch);
-     * watchDog.watch("sound", watch);
-     *
-     * //now set the properties each handler will be called
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * //unwatch the property changes
-     * watchDog.unwatch("type", watch);
-     * watchDog.unwatch("color", watch);
-     * watchDog.unwatch("sound", watch);
-     *
-     * //no handlers will be called this time
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * ```
-     *
-     * ###Accessing static methods and properties witin an instance.
-     *
-     * To access static properties on an instance use the `_static` property which is a reference to your constructor.
-     *
-     * For example if your in your constructor and you want to have configurable default values.
-     *
-     * ```
-     * consturctor : function constructor(opts){
-     *     this.opts = opts || {};
-     *     this._type = opts.type || this._static.DEFAULT_TYPE;
-     * }
-     * ```
-     *
-     *
-     *
-     * ###Creating a new instance of within an instance.
-     *
-     * Often times you want to create a new instance of an object within an instance. If your subclassed however you cannot return a new instance of the parent class as it will not be the right sub class. `declare` provides a way around this by setting the `_static` property on each isntance of the class.
-     *
-     * Lets add a reproduce method `Mammal`
-     *
-     * ```
-     * reproduce : function(options){
-     *     return new this._static(options);
-     * }
-     * ```
-     *
-     * Now in each subclass you can call reproduce and get the proper type.
-     *
-     * ```
-     * var myDog = new Dog();
-     * var myDogsChild = myDog.reproduce();
-     *
-     * myDogsChild instanceof Dog; //true
-     * ```
-     *
-     * ###Using the `as`
-     *
-     * `declare` also provides an `as` method which allows you to add your class to an object or if your using node.js you can pass in `module` and the class will be exported as the module.
-     *
-     * ```
-     * var animals = {};
-     *
-     * Mammal.as(animals, "Dog");
-     * Wolf.as(animals, "Wolf");
-     * Dog.as(animals, "Dog");
-     * Breed.as(animals, "Breed");
-     *
-     * var myDog = new animals.Dog();
-     *
-     * ```
-     *
-     * Or in node
-     *
-     * ```
-     * Mammal.as(exports, "Dog");
-     * Wolf.as(exports, "Wolf");
-     * Dog.as(exports, "Dog");
-     * Breed.as(exports, "Breed");
-     *
-     * ```
-     *
-     * To export a class as the `module` in node
-     *
-     * ```
-     * Mammal.as(module);
-     * ```
-     *
-     *
-     */
-    function createDeclared() {
-        var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function merge(target, source, exclude) {
-            var name, s;
-            for (name in source) {
-                if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function callSuper(args, a) {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                a && (args = a);
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, args);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getSuper() {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.bind(this);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getter(name) {
-            var getters = this.__getters__;
-            if (getters.hasOwnProperty(name)) {
-                return getters[name].apply(this);
-            } else {
-                return this[name];
-            }
-        }
-
-        function setter(name, val) {
-            var setters = this.__setters__;
-            if (isHash(name)) {
-                for (var i in name) {
-                    var prop = name[i];
-                    if (setters.hasOwnProperty(i)) {
-                        setters[name].call(this, prop);
-                    } else {
-                        this[i] = prop;
-                    }
-                }
-            } else {
-                if (setters.hasOwnProperty(name)) {
-                    return setters[name].apply(this, argsToArray(arguments, 1));
-                } else {
-                    return this[name] = val;
-                }
-            }
-        }
-
-
-        function defaultFunction() {
-            var meta = this.__meta || {},
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, arguments);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-
-        function functionWrapper(f, name) {
-            var wrapper = function wrapper() {
-                var ret, meta = this.__meta || {};
-                var orig = meta.superMeta;
-                meta.superMeta = {f: f, pos: 0, name: name};
-                ret = f.apply(this, arguments);
-                meta.superMeta = orig;
-                return ret;
-            };
-            wrapper._f = f;
-            return wrapper;
-        }
-
-        function defineMixinProps(child, proto) {
-
-            var operations = proto.setters || {}, __setters = child.__setters__, __getters = child.__getters__;
-            for (var i in operations) {
-                if (!__setters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            for (i in operations) {
-                if (!__getters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __getters[i] = operations[i];
-                }
-            }
-            for (var j in proto) {
-                if (j != "getters" && j != "setters") {
-                    var p = proto[j];
-                    if ("function" === typeof p) {
-                        if (!child.hasOwnProperty(j)) {
-                            child[j] = functionWrapper(defaultFunction, j);
-                        }
-                    } else {
-                        child[j] = p;
-                    }
-                }
-            }
-        }
-
-        function mixin() {
-            var args = argsToArray(arguments), l = args.length;
-            var child = this.prototype;
-            var childMeta = child.__meta, thisMeta = this.__meta, bases = child.__meta.bases, staticBases = bases.slice(),
-                staticSupers = thisMeta.supers || [], supers = childMeta.supers || [];
-            for (var i = 0; i < l; i++) {
-                var m = args[i], mProto = m.prototype;
-                var protoMeta = mProto.__meta, meta = m.__meta;
-                !protoMeta && (protoMeta = (mProto.__meta = {proto: mProto || {}}));
-                !meta && (meta = (m.__meta = {proto: m.__proto__ || {}}));
-                defineMixinProps(child, protoMeta.proto || {});
-                defineMixinProps(this, meta.proto || {});
-                //copy the bases for static,
-
-                mixinSupers(m.prototype, supers, bases);
-                mixinSupers(m, staticSupers, staticBases);
-            }
-            return this;
-        }
-
-        function mixinSupers(sup, arr, bases) {
-            var meta = sup.__meta;
-            !meta && (meta = (sup.__meta = {}));
-            var unique = sup.__meta.unique;
-            !unique && (meta.unique = "declare" + ++classCounter);
-            //check it we already have this super mixed into our prototype chain
-            //if true then we have already looped their supers!
-            if (indexOf(bases, unique) === -1) {
-                //add their id to our bases
-                bases.push(unique);
-                var supers = sup.__meta.supers || [], i = supers.length - 1 || 0;
-                while (i >= 0) {
-                    mixinSupers(supers[i--], arr, bases);
-                }
-                arr.unshift(sup);
-            }
-        }
-
-        function defineProps(child, proto) {
-            var operations = proto.setters,
-                __setters = child.__setters__,
-                __getters = child.__getters__;
-            if (operations) {
-                for (var i in operations) {
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            if (operations) {
-                for (i in operations) {
-                    __getters[i] = operations[i];
-                }
-            }
-            for (i in proto) {
-                if (i != "getters" && i != "setters") {
-                    var f = proto[i];
-                    if ("function" === typeof f) {
-                        var meta = f.__meta || {};
-                        if (!meta.isConstructor) {
-                            child[i] = functionWrapper(f, i);
-                        } else {
-                            child[i] = f;
-                        }
-                    } else {
-                        child[i] = f;
-                    }
-                }
-            }
-
-        }
-
-        function _export(obj, name) {
-            if (obj && name) {
-                obj[name] = this;
-            } else {
-                obj.exports = obj = this;
-            }
-            return this;
-        }
-
-        function extend(proto) {
-            return declare(this, proto);
-        }
-
-        function getNew(ctor) {
-            // create object with correct prototype using a do-nothing
-            // constructor
-            forceNew.prototype = ctor.prototype;
-            var t = new forceNew();
-            forceNew.prototype = null;	// clean up
-            return t;
-        }
-
-
-        function __declare(child, sup, proto) {
-            var childProto = {}, supers = [];
-            var unique = "declare" + ++classCounter, bases = [], staticBases = [];
-            var instanceSupers = [], staticSupers = [];
-            var meta = {
-                supers: instanceSupers,
-                unique: unique,
-                bases: bases,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-            var childMeta = {
-                supers: staticSupers,
-                unique: unique,
-                bases: staticBases,
-                isConstructor: true,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-
-            if (isHash(sup) && !proto) {
-                proto = sup;
-                sup = Base;
-            }
-
-            if ("function" === typeof sup || isArray(sup)) {
-                supers = isArray(sup) ? sup : [sup];
-                sup = supers.shift();
-                child.__meta = childMeta;
-                childProto = getNew(sup);
-                childProto.__meta = meta;
-                childProto.__getters__ = merge({}, childProto.__getters__ || {});
-                childProto.__setters__ = merge({}, childProto.__setters__ || {});
-                child.__getters__ = merge({}, child.__getters__ || {});
-                child.__setters__ = merge({}, child.__setters__ || {});
-                mixinSupers(sup.prototype, instanceSupers, bases);
-                mixinSupers(sup, staticSupers, staticBases);
-            } else {
-                child.__meta = childMeta;
-                childProto.__meta = meta;
-                childProto.__getters__ = childProto.__getters__ || {};
-                childProto.__setters__ = childProto.__setters__ || {};
-                child.__getters__ = child.__getters__ || {};
-                child.__setters__ = child.__setters__ || {};
-            }
-            child.prototype = childProto;
-            if (proto) {
-                var instance = meta.proto = proto.instance || {};
-                !instance.hasOwnProperty("constructor") && (instance.constructor = defaultFunction);
-                var stat = childMeta.proto = proto.static || {};
-                stat.init = stat.init || defaultFunction;
-                defineProps(childProto, instance);
-                defineProps(child, stat);
-            } else {
-                meta.proto = {};
-                childMeta.proto = {};
-                child.init = functionWrapper(defaultFunction, "init");
-                childProto.constructor = functionWrapper(defaultFunction, "constructor");
-            }
-            if (supers.length) {
-                mixin.apply(child, supers);
-            }
-            if (sup) {
-                //do this so we mixin our super methods directly but do not ov
-                merge(child, merge(merge({}, sup), child));
-            }
-            childProto._super = child._super = callSuper;
-            childProto._getSuper = child._getSuper = getSuper;
-            childProto._static = child;
-        }
-
-        function declare(sup, proto) {
-            function declared() {
-                this.constructor.apply(this, arguments);
-            }
-
-            __declare(declared, sup, proto);
-            return declared.init() || declared;
-        }
-
-        function singleton(sup, proto) {
-            var retInstance;
-
-            function declaredSingleton() {
-                if (!retInstance) {
-                    this.constructor.apply(this, arguments);
-                    retInstance = this;
-                }
-                return retInstance;
-            }
-
-            __declare(declaredSingleton, sup, proto);
-            return  declaredSingleton.init() || declaredSingleton;
-        }
-
-        Base = declare({
-            instance: {
-                "get": getter,
-                "set": setter
-            },
-
-            "static": {
-                "get": getter,
-                "set": setter,
-                mixin: mixin,
-                extend: extend,
-                as: _export
-            }
-        });
-
-        declare.singleton = singleton;
-        return declare;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = createDeclared();
-        }
-    } else if ("function" === typeof define) {
-        define(createDeclared);
-    } else {
-        this.declare = createDeclared();
-    }
-}());
-
-
-
-
-});
-
 require.define("/node_modules/ht/node_modules/array-extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
 });
 
 require.define("/node_modules/ht/node_modules/array-extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
     "use strict";
-    /*global extender isExtended*/
 
     var arraySlice = Array.prototype.slice;
 
@@ -9842,19 +9275,6 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
         }
 
 
-        /**
-         * converts anything to an array
-         *
-         * @example
-         *  arrayExtender.toArray({a : "b", b : "c"}) => [["a","b"], ["b","c"]];
-         *  arrayExtender.toArray("a") => ["a"]
-         *  arrayExtender.toArray(["a"]) =>  ["a"];
-         *  arrayExtender.toArray() => [];
-         *  arrayExtender.toArray("a", {a : "b"}) => ["a", ["a", "b"]];
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function toArray(o) {
             var ret = [];
             if (o !== null) {
@@ -9880,23 +9300,6 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             return ret;
         }
 
-        /**
-         * Sums all items in an array
-         *
-         * @example
-         *
-         *  arrayExtender.sum([1,2,3]) => 6
-         *  arrayExtender.sum(["A","B","C"]) => "ABC";
-         *  var d1 = new Date(1999), d2 = new Date(2000), d3 = new Date(3000);
-         *  arrayExtender.sum([d1,d2,d3]) => "Wed Dec 31 1969 18:00:01 GMT-0600 (CST)"
-         *                              + "Wed Dec 31 1969"  18:00:02 GMT-0600 (CST)"
-         *                              + "Wed Dec 31 1969 18:00:03 GMT-0600 (CST)"
-         *  arrayExtender.sum([{},{},{}]) => "[object Object][object Object][object Object]";
-         *
-         * @param {Number[]} array the array of numbers to sum
-         * @static
-         * @memberOf arrayExtender
-         */
         function sum(array) {
             array = array || [];
             if (array.length) {
@@ -9908,18 +9311,6 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             }
         }
 
-        /**
-         * Averages an array of numbers.
-         * @example
-         *
-         * arrayExtender.avg([1,2,3]); //2
-         *
-         * @param {Number[]} array - an array of numbers
-         * @return {Number} the average of all the numbers in the array.
-         * @throws {Error} if the array is not all numbers.
-         * @static
-         * @memberOf arrayExtender
-         */
         function avg(arr) {
             arr = arr || [];
             if (arr.length) {
@@ -9934,85 +9325,19 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             }
         }
 
-        /**
-         * Allows the sorting of an array based on a property name instead. This can also
-         * act as a sort that does not change the original array.
-         *
-         * <b>NOTE:</b> this does not change the original array!
-         *
-         * @example
-         * arrayExtender.sort([{a : 1}, {a : 2}, {a : -2}], "a"); //[{a : -2}, {a : 1}, {a : 2}];
-         * @param {Array} arr the array to sort
-         * @param {String|Function} cmp the property to sort on. Or a function used to compare.
-         * @return {Array} a copy of the original array that is sorted.
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function sort(arr, cmp) {
             return _sort(arr, cmp);
         }
 
-        /**
-         * Finds that min value of an array. If a second argument is provided and it is a function
-         * it will be used as a comparator function. If the second argument is a string then it will be used
-         * as a property look up on each item.
-         *
-         * @example
-         * arrayExtender.min([{a : 1}, {a : 2}, {a : -2}], "a"); //{a : -2}
-         * arrayExtender.min([{a : 1}, {a : 2}, {a : -2}], function(a,b){
- *      return a.a - b.a
- * }); //{a : -2}
-         *
-         * @param {Array} arr the array to find the min value on
-         * @param {String|Function} cmp the property to sort on. Or a function used to compare.
-         * @return {*}
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function min(arr, cmp) {
             return _sort(arr, cmp)[0];
         }
 
-        /**
-         * Finds that max value of an array. If a second argument is provided and it is a function
-         * it will be used as a comparator function. If the second argument is a string then it will be used
-         * as a property look up on each item.
-         *
-         * @example
-         * arrayExtender.max([{a : 1}, {a : 2}, {a : -2}], "a"); //{a : 2}
-         * arrayExtender.max([{a : 1}, {a : 2}, {a : -2}], function(a,b){
- *      return a.a - b.a
- * }); //{a : 2}
-         *
-         * @param arr the array to find the max value on
-         * @param {String|Function} cmp the property to sort on. Or a function used to compare.
-         * @return {*} the maximum value of the array based on the provided cmp.
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function max(arr, cmp) {
             return _sort(arr, cmp)[arr.length - 1];
         }
 
-        /**
-         * Finds the difference of the two arrays.
-         *
-         * @example
-         *
-         * arrayExtender.difference([1,2,3], [2,3]); //[1]
-         * arrayExtender.difference(["a","b",3], [3]); //["a","b"]
-         *
-         * @param {Array} arr1 the array we are subtracting from
-         * @param {Array} arr2 the array we are subtracting from arr1
-         * @return {*} the difference of the arrays.
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
-        function difference(arr1, arr2) {
+        function difference(arr1) {
             var ret = arr1, args = flatten(argsToArray(arguments, 1));
             if (isArray(arr1)) {
                 ret = filter(arr1, function (a) {
@@ -10022,23 +9347,10 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             return ret;
         }
 
-
-        /**
-         * Removes duplicates from an array
-         *
-         * @example
-         *
-         * arrayExtender.removeDuplicates([1,1,1]) => [1]
-         * arrayExtender.removeDuplicates([1,2,3,2]) => [1,2,3]
-         *
-         * @param {Aray} array the array of elements to remove duplicates from
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function removeDuplicates(arr) {
+            var ret = arr;
             if (isArray(arr)) {
-                return reduce(arr, function (a, b) {
+                ret = reduce(arr, function (a, b) {
                     if (indexOf(a, b) === -1) {
                         return a.concat(b);
                     } else {
@@ -10046,39 +9358,15 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
                     }
                 }, []);
             }
+            return ret;
         }
 
-        /**
-         *
-         * See {@link arrayExtender.removeDuplicates}
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
+
         function unique(arr) {
             return removeDuplicates(arr);
         }
 
-        /**
-         * Rotates an array the number of specified positions
-         *
-         * @example
-         * var arr = ["a", "b", "c", "d"];
-         * arrayExtender.rotate(arr)     => ["b", "c", "d", "a"]
-         * arrayExtender.rotate(arr, 2)  => ["c", "d", "a", "b"]);
-         * arrayExtender.rotate(arr, 3)  => ["d", "a", "b", "c"]);
-         * arrayExtender.rotate(arr, 4)  => ["a", "b", "c", "d"]);
-         * arrayExtender.rotate(arr, -1) => ["d", "a", "b", "c"]);
-         * arrayExtender.rotate(arr, -2) => ["c", "d", "a", "b"]);
-         * arrayExtender.rotate(arr, -3) => ["b", "c", "d", "a"]);
-         * arrayExtender.rotate(arr, -4) => ["a", "b", "c", "d"]);
-         *
-         * @param {Array} array the array of elements to remove duplicates from
-         * @param {Number} numberOfTimes the number of times to rotate the array
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
+
         function rotate(arr, numberOfTimes) {
             var ret = arr.slice();
             if (typeof numberOfTimes !== "number") {
@@ -10098,23 +9386,6 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             }
         }
 
-        /**
-         * Finds all permutations of an array
-         *
-         * @example
-         * var arr = [1,2,3];
-         * arrayExtender.permutations(arr)    => [[ 1, 2, 3 ],[ 1, 3, 2 ],[ 2, 3, 1 ],
-         *                                     [ 2, 1, 3 ],[ 3, 1, 2 ],[ 3, 2, 1 ]]
-         * arrayExtender.permutations(arr, 2) => [[ 1, 2],[ 1, 3],[ 2, 3],[ 2, 1],[ 3, 1],[ 3, 2]]
-         * arrayExtender.permutations(arr, 1) => [[1],[2],[3]]
-         * arrayExtender.permutations(arr, 0) => [[]]
-         * arrayExtender.permutations(arr, 4) => []
-         *
-         * @param {Array} arr the array to permute.
-         * @param {Number} length the number of elements to permute.
-         * @static
-         * @memberOf arrayExtender
-         */
         function permutations(arr, length) {
             var ret = [];
             if (isArray(arr)) {
@@ -10143,22 +9414,6 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             return ret;
         }
 
-        /**
-         * Zips to arrays together
-         *
-         * @example
-         *  var a = [ 4, 5, 6 ], b = [ 7, 8, 9 ]
-         *  arrayExtender.zip([1], [2], [3]) => [[ 1, 2, 3 ]]);
-         *  arrayExtender.zip([1,2], [2], [3]) => [[ 1, 2, 3 ],[2, null, null]]
-         *  arrayExtender.zip([1,2,3], a, b) => [[1, 4, 7],[2, 5, 8],[3, 6, 9]]
-         *  arrayExtender.zip([1,2], a, b) => [[1, 4, 7],[2, 5, 8]]
-         *  arrayExtender.zip(a, [1,2], [8]) => [[4,1,8],[5,2,null],[6,null,null]]
-         *
-         * @param arrays variable number of arrays to zip together
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function zip() {
             var ret = [];
             var arrs = argsToArray(arguments);
@@ -10183,19 +9438,6 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             return ret;
         }
 
-        /**
-         * Transposes an array of arrays
-         * @example
-         *
-         * arrayExtender.transpose([[1,2,3], [4,5,6]]) => [ [ 1, 4 ], [ 2, 5 ], [ 3, 6 ] ]
-         * arrayExtender.transpose([[1,2], [3,4], [5,6]]) => [ [ 1, 3, 5 ], [ 2, 4, 6 ] ]
-         * arrayExtender.transpose([[1], [3,4], [5,6]]) => [[1]])
-         *
-         * @param [Array[Array[]]] arr Array of arrays
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function transpose(arr) {
             var ret = [];
             if (isArray(arr) && arr.length) {
@@ -10215,49 +9457,18 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             return ret;
         }
 
-
-        /**
-         * Retrieves values at specified indexes in the array
-         *
-         * @example
-         *
-         *  var arr =["a", "b", "c", "d"]
-         *   arrayExtender.valuesAt(arr, 1,2,3) => ["b", "c", "d"];
-         *   arrayExtender.valuesAt(arr, 1,2,3, 4) => ["b", "c", "d", null];
-         *   arrayExtender.valuesAt(arr, 0,3) => ["a", "d"];
-         *
-         * @param {Array} arr the array to retrieve values from
-         * @param {Number} indexes variable number of indexes to retrieve
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function valuesAt(arr, indexes) {
             var ret = [];
             indexes = argsToArray(arguments);
             arr = indexes.shift();
-            var l = arr.length;
             if (isArray(arr) && indexes.length) {
-                for (var i = 0; i < indexes.length; i++) {
+                for (var i = 0, l = indexes.length; i < l; i++) {
                     ret.push(arr[indexes[i]] || null);
                 }
             }
             return ret;
         }
 
-        /**
-         * Union a variable number of arrays together
-         *
-         * @example
-         *
-         * arrayExtender.union(['a','b','c'], ['b','c', 'd']) => ["a", "b", "c", "d"]
-         * arrayExtender.union(["a"], ["b"], ["c"], ["d"], ["c"]) => ["a", "b", "c", "d"]
-         *
-         * @param arrs variable number of arrays to union
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function union() {
             var ret = [];
             var arrs = argsToArray(arguments);
@@ -10269,24 +9480,7 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             return ret;
         }
 
-        /**
-         * Finds the intersection of arrays
-         * NOTE : this function accepts an arbitrary number of arrays
-         *
-         * @example
-         * arrayExtender.intersect([1,2], [2,3], [2,3,5]) => [2]
-         * arrayExtender.intersect([1,2,3], [2,3,4,5], [2,3,5]) => [2,3]
-         * arrayExtender.intersect([1,2,3,4], [2,3,4,5], [2,3,4,5]) => [2,3,4]
-         * arrayExtender.intersect([1,2,3,4,5], [1,2,3,4,5], [1,2,3]) => [1,2,3]
-         * arrayExtender.intersect([[1,2,3,4,5],[1,2,3,4,5],[1,2,3]]) => [1,2,3]
-         *
-         * @param {Array} a
-         * @param {Array} b
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
-        function intersect(a, b) {
+        function intersect() {
             var collect = [], set;
             var args = argsToArray(arguments);
             if (args.length > 1) {
@@ -10304,51 +9498,6 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             return removeDuplicates(collect);
         }
 
-        /**
-         * Finds the powerset of an array
-         *
-         * @example
-         *
-         *  arrayExtender.powerSet([1,2]) => [
-         *           [],
-         *           [ 1 ],
-         *           [ 2 ],
-         *           [ 1, 2 ]
-         *   ]
-         *   arrayExtender.powerSet([1,2,3]) => [
-         *           [],
-         *           [ 1 ],
-         *           [ 2 ],
-         *           [ 1, 2 ],
-         *           [ 3 ],
-         *           [ 1, 3 ],
-         *           [ 2, 3 ],
-         *           [ 1, 2, 3 ]
-         *       ]
-         *   arrayExtender.powerSet([1,2,3,4]) => [
-         *           [],
-         *           [ 1 ],
-         *           [ 2 ],
-         *           [ 1, 2 ],
-         *           [ 3 ],
-         *           [ 1, 3 ],
-         *           [ 2, 3 ],
-         *           [ 1, 2, 3 ],
-         *           [ 4 ],
-         *           [ 1, 4 ],
-         *           [ 2, 4 ],
-         *           [ 1, 2, 4 ],
-         *           [ 3, 4 ],
-         *           [ 1, 3, 4 ],
-         *           [ 2, 3, 4 ],
-         *           [ 1, 2, 3, 4 ]
-         *       ]
-         *
-         * @param {Array} arr the array to find the powerset of
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function powerSet(arr) {
             var ret = [];
             if (isArray(arr) && arr.length) {
@@ -10364,43 +9513,6 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             return ret;
         }
 
-        /**
-         * Find the cartesian product of two arrays
-         *
-         * @example
-         *
-         * arrayExtender.cartesian([1,2], [2,3]) => [
-         *           [1,2],
-         *           [1,3],
-         *           [2,2],
-         *           [2,3]
-         *       ]
-         * arrayExtender.cartesian([1,2], [2,3,4]) => [
-         *           [1,2],
-         *           [1,3],
-         *           [1,4] ,
-         *           [2,2],
-         *           [2,3],
-         *           [2,4]
-         *       ]
-         * arrayExtender.cartesian([1,2,3], [2,3,4]) => [
-         *           [1,2],
-         *           [1,3],
-         *           [1,4] ,
-         *           [2,2],
-         *           [2,3],
-         *           [2,4] ,
-         *           [3,2],
-         *           [3,3],
-         *           [3,4]
-         *       ]
-         *
-         * @param {Array} a
-         * @param {Array} b
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function cartesian(a, b) {
             var ret = [];
             if (isArray(a) && isArray(b) && a.length && b.length) {
@@ -10409,19 +9521,6 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             return ret;
         }
 
-        /**
-         * Compacts an array removing null or undefined objects from the array.
-         *
-         * @example
-         *
-         * var x;
-         * arrayExtender.compact([1,null,null,x,2]) => [1,2]
-         * arrayExtender.compact([1,2]) => [1,2]
-         *
-         * @param {Array} arr
-         * @static
-         * @memberOf arrayExtender
-         */
         function compact(arr) {
             var ret = [];
             if (isArray(arr) && arr.length) {
@@ -10432,16 +9531,6 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             return ret;
         }
 
-        /**
-         * Creates a new array that is the result of the array concated the number of
-         * times. If times is not specified or it equals 0 then it defaults to 1.
-         * @param {Array} arr the array to multiply.
-         * @param {Number} [times=1] the number of times to multiple the array.
-         * @return {Array} a new array that is the result of the array multiplied the number of times specified.
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function multiply(arr, times) {
             times = is.isNumber(times) ? times : 1;
             if (!times) {
@@ -10456,19 +9545,6 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             return ret;
         }
 
-        /**
-         * Flatten multiple arrays into a single array
-         *
-         * @example
-         *
-         * arrayExtender.flatten([1,2], [2,3], [3,4]) => [1,2,2,3,3,4]
-         * arrayExtender.flatten([1,"A"], [2,"B"], [3,"C"]) => [1,"A",2,"B",3,"C"]
-         *
-         * @param array
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function flatten(arr) {
             var set;
             var args = argsToArray(arguments);
@@ -10483,31 +9559,6 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             }, []);
         }
 
-
-        /**
-         * Plucks values from an array. Effectevily the same as using a array.map implementation. However the porperty specified supports
-         * a "dot" notation to access nested properties.
-         *
-         * @example
-         *
-         *   var arr = [
-         *                  {name:{first:"Fred", last:"Jones"}, age:50, roles:["a", "b", "c"]},
-         *                  {name:{first:"Bob", last:"Yukon"}, age:40, roles:["b", "c"]},
-         *                  {name:{first:"Alice", last:"Palace"}, age:35, roles:["c"]},
-         *                  {name:{first:"Johnny", last:"P."}, age:56, roles:[]}
-         *             ];
-         * console.log(arrayExtender.pluck(arr, "name.first")); //["Fred", "Bob", "Alice", "Johnny"]
-         * console.log(arrayExtender.pluck(arr, "age")); //[50, 40, 35, 56]
-         * console.log(arrayExtender.pluck(arr, "roles.length")); //[3, 2, 1, 0]
-         * console.log(arrayExtender.pluck(arr, "roles.0")); //["a", "b", "c", undefined]
-         *
-         * @param {Array} arr the array to pluck values from
-         * @param {String} prop the property to retrieve from each item in the array
-         * @return {Array} an array containing the plucked properties.
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function pluck(arr, prop) {
             prop = prop.split(".");
             var result = arr.slice(0);
@@ -10520,49 +9571,6 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             return result;
         }
 
-        /**
-         * Invokes the method specified in the scope of each item in the array. If you supply addional arguments they will
-         * be applied to the function.
-         *
-         * ```
-         *
-         * function person(name, age){
- *     return {
- *         getName : function(){
- *             return name;
- *         },
- *         setName : function(newName){
- *             name = newName;
- *         },
- *
- *         getOlder : function(){
- *             age++;
- *             return this;
- *         },
- *
- *         getAge : function(){
- *             return age;
- *         }
- *     };
- * }
-         *
-         * var arr = [person("Bob", 40), person("Alice", 35), person("Fred", 50), person("Johnny", 56)];
-         *
-         * console.log(arrayExtender.invoke(arr, "getName")); //["Bob", "Alice", "Fred", "Johnny"]
-         *
-         * console.log(arrayExtender(arr).invoke("getOlder").invoke("getAge")); //[41, 36, 51, 57];
-         *
-         * ```
-         *
-         * @param {Array} arr the array to iterate and invoke the functions on
-         * @param {String|Function} func the function to invoke, if it is a string then the function will be looked up on the
-         * each item in the array and invoked
-         * @param [args=null] variable number of arguments to apply to the function
-         * @return {Array} the return values of the functions invoked.
-         *
-         * @static
-         * @memberOf arrayExtender
-         */
         function invoke(arr, func, args) {
             args = argsToArray(arguments, 2);
             return map(arr, function (item) {
@@ -10607,38 +9615,19 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
             lastIndexOf: lastIndexOf
         };
 
-        /**
-         * @namespace Utilities for working with arrays.
-         *
-         * The `arrayExtender` namespace can be used to decorate arrays with additional chainable funcitonality.
-         *
-         * ```
-         *
-         * var arr = arrayExtender([1,3,2,5,4,6]);
-         * console.log(arr.sum()) //21
-         * console.log(arr.sort()) //[1,2,3,4,5,6]
-         * console.log(arr.min()) //[1]
-         * console.log(arr.max()) [6]
-         *
-         * ```
-         *
-         * @function
-         * @ignoreCode
-         */
-
         return extended.define(isArray, array).expose(array);
     }
 
     if ("undefined" !== typeof exports) {
         if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineArray(require("extender"), require("is-extended"));
+            module.exports = defineArray(require("extended"), require("is-extended"));
         }
     } else if ("function" === typeof define) {
         define(["require"], function (require) {
-            return defineArray(require("extender"), require("is-extended"));
+            return defineArray(require("extended"), require("is-extended"));
         });
     } else {
-        this.arrayExtended = defineArray(extender, isExtended);
+        this.arrayExtended = defineArray(this.extended, this.isExtended);
     }
 
 }).call(this);
@@ -10651,1856 +9640,116 @@ require.define("/node_modules/ht/node_modules/array-extended/index.js",function(
 
 });
 
-require.define("/node_modules/ht/node_modules/array-extended/node_modules/extender/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
+require.define("/node_modules/ht/node_modules/array-extended/node_modules/extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
 });
 
-require.define("/node_modules/ht/node_modules/array-extended/node_modules/extender/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./extender.js");
-});
-
-require.define("/node_modules/ht/node_modules/array-extended/node_modules/extender/extender.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    /*jshint strict:false*/
-
-
-    /**
-     *
-     * @projectName extender
-     * @github http://github.com/doug-martin/extender
-     * @header
-     * [![build status](https://secure.travis-ci.org/doug-martin/extender.png)](http://travis-ci.org/doug-martin/extender)
-     * # Extender
-     *
-     * `extender` is a library that helps in making chainable APIs, by creating a function that accepts different values and returns an object decorated with functions based on the type.
-     *
-     * ## Why Is Extender Different?
-     *
-     * Extender is different than normal chaining because is does more than return `this`. It decorates your values in a type safe manner.
-     *
-     * For example if you return an array from a string based method then the returned value will be decorated with array methods and not the string methods. This allow you as the developer to focus on your API and not worrying about how to properly build and connect your API.
-     *
-     *
-     * ## Installation
-     *
-     * ```
-     * npm install extender
-     * ```
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/extender/master/extender.js) ([minified](https://raw.github.com/doug-martin/extender/master/extender-min.js))
-     *
-     * **Note** `extender` depends on [`declare.js`](http://doug-martin.github.com/declare.js/).
-     *
-     * ### Requirejs
-     *
-     * To use with requirejs place the `extend` source in the root scripts directory
-     *
-     * ```javascript
-     *
-     * define(["extender"], function(extender){
-     * });
-     *
-     * ```
-     *
-     *
-     * ## Usage
-     *
-     * **`extender.define(tester, decorations)`**
-     *
-     * To create your own extender call the `extender.define` function.
-     *
-     * This function accepts an optional tester which is used to determine a value should be decorated with the specified `decorations`
-     *
-     * ```javascript
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     *
-     * var myExtender = extender.define(isString, {
-     *		multiply: function (str, times) {
-     *			var ret = str;
-     *			for (var i = 1; i < times; i++) {
-     *				ret += str;
-     *			}
-     *			return ret;
-     *		},
-     *		toArray: function (str, delim) {
-     *			delim = delim || "";
-     *			return str.split(delim);
-     *		}
-     *	});
-     *
-     * myExtender("hello").multiply(2).value(); //hellohello
-     *
-     * ```
-     *
-     * If you do not specify a tester function and just pass in an object of `functions` then all values passed in will be decorated with methods.
-     *
-     * ```javascript
-     *
-     * function isUndefined(obj) {
-     *     var undef;
-     *     return obj === undef;
-     * }
-     *
-     * function isUndefinedOrNull(obj) {
-     *	var undef;
-     *     return obj === undef || obj === null;
-     * }
-     *
-     * function isArray(obj) {
-     *     return Object.prototype.toString.call(obj) === "[object Array]";
-     * }
-     *
-     * function isBoolean(obj) {
-     *     var undef, type = typeof obj;
-     *     return !isUndefinedOrNull(obj) && type === "boolean" || type === "Boolean";
-     * }
-     *
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     * var myExtender = extender.define({
-     *	isUndefined : isUndefined,
-     *	isUndefinedOrNull : isUndefinedOrNull,
-     *	isArray : isArray,
-     *	isBoolean : isBoolean,
-     *	isString : isString
-     * });
-     *
-     * ```
-     *
-     * To use
-     *
-     * ```
-     * var undef;
-     * myExtender("hello").isUndefined().value(); //false
-     * myExtender(undef).isUndefined().value(); //true
-     * ```
-     *
-     * You can also chain extenders so that they accept multiple types and decorates accordingly.
-     *
-     * ```javascript
-     * myExtender
-     *     .define(isArray, {
-     *		pluck: function (arr, m) {
-     *			var ret = [];
-     *			for (var i = 0, l = arr.length; i < l; i++) {
-     *				ret.push(arr[i][m]);
-     *			}
-     *			return ret;
-     *		}
-     *	})
-     *     .define(isBoolean, {
-     *		invert: function (val) {
-     *			return !val;
-     *		}
-     *	});
-     *
-     * myExtender([{a: "a"},{a: "b"},{a: "c"}]).pluck("a").value(); //["a", "b", "c"]
-     * myExtender("I love javascript!").toArray(/\s+/).pluck("0"); //["I", "l", "j"]
-     *
-     * ```
-     *
-     * Notice that we reuse the same extender as defined above.
-     *
-     * **Return Values**
-     *
-     * When creating an extender if you return a value from one of the decoration functions then that value will also be decorated. If you do not return any values then the extender will be returned.
-     *
-     * **Default decoration methods**
-     *
-     * By default every value passed into an extender is decorated with the following methods.
-     *
-     * * `value` : The value this extender represents.
-     * * `eq(otherValue)` : Tests strict equality of the currently represented value to the `otherValue`
-     * * `neq(oterValue)` : Tests strict inequality of the currently represented value.
-     * * `print` : logs the current value to the console.
-     *
-     * **Extender initialization**
-     *
-     * When creating an extender you can also specify a constructor which will be invoked with the current value.
-     *
-     * ```javascript
-     * myExtender.define(isString, {
-     *	constructor : function(val){
-     *     //set our value to the string trimmed
-     *		this._value = val.trimRight().trimLeft();
-     *	}
-     * });
-     * ```
-     *
-     * **`noWrap`**
-     *
-     * `extender` also allows you to specify methods that should not have the value wrapped providing a cleaner exit function other than `value()`.
-     *
-     * For example suppose you have an API that allows you to build a validator, rather than forcing the user to invoke the `value` method you could add a method called `validator` which makes more syntactic sense.
-     *
-     * ```
-     *
-     * var myValidator = extender.define({
-     *     //chainable validation methods
-     *     //...
-     *     //end chainable validation methods
-     *
-     *     noWrap : {
-     *         validator : function(){
-     *             //return your validator
-     *         }
-     *     }
-     * });
-     *
-     * myValidator().isNotNull().isEmailAddress().validator(); //now you dont need to call .value()
-     *
-     *
-     * ```
-     * **`extender.extend(extendr)`**
-     *
-     * You may also compose extenders through the use of `extender.extend(extender)`, which will return an entirely new extender that is the composition of extenders.
-     *
-     * Suppose you have the following two extenders.
-     *
-     * ```javascript
-     * var myExtender = extender
-     *        .define({
-     *            isFunction: is.function,
-     *            isNumber: is.number,
-     *            isString: is.string,
-     *            isDate: is.date,
-     *            isArray: is.array,
-     *            isBoolean: is.boolean,
-     *            isUndefined: is.undefined,
-     *            isDefined: is.defined,
-     *            isUndefinedOrNull: is.undefinedOrNull,
-     *            isNull: is.null,
-     *            isArguments: is.arguments,
-     *            isInstanceOf: is.instanceOf,
-     *            isRegExp: is.regExp
-     *        });
-     * var myExtender2 = extender.define(is.array, {
-     *     pluck: function (arr, m) {
-     *         var ret = [];
-     *         for (var i = 0, l = arr.length; i < l; i++) {
-     *             ret.push(arr[i][m]);
-     *         }
-     *         return ret;
-     *     },
-     *
-     *     noWrap: {
-     *         pluckPlain: function (arr, m) {
-     *             var ret = [];
-     *             for (var i = 0, l = arr.length; i < l; i++) {
-     *                 ret.push(arr[i][m]);
-     *             }
-     *             return ret;
-     *         }
-     *     }
-     * });
-     *
-     *
-     * ```
-     *
-     * And you do not want to alter either of them but instead what to create a third that is the union of the two.
-     *
-     *
-     * ```javascript
-     * var composed = extender.extend(myExtender).extend(myExtender2);
-     * ```
-     * So now you can use the new extender with the joined functionality if `myExtender` and `myExtender2`.
-     *
-     * ```javascript
-     * var extended = composed([
-     *      {a: "a"},
-     *      {a: "b"},
-     *      {a: "c"}
-     * ]);
-     * extended.isArray().value(); //true
-     * extended.pluck("a").value(); // ["a", "b", "c"]);
-     *
-     * ```
-     *
-     * **Note** `myExtender` and `myExtender2` will **NOT** be altered.
-     *
-     * **`extender.expose(methods)`**
-     *
-     * The `expose` method allows you to add methods to your extender that are not wrapped or automatically chained by exposing them on the extender directly.
-     *
-     * ```
-     * var isMethods = {
-     *      isFunction: is.function,
-     *      isNumber: is.number,
-     *      isString: is.string,
-     *      isDate: is.date,
-     *      isArray: is.array,
-     *      isBoolean: is.boolean,
-     *      isUndefined: is.undefined,
-     *      isDefined: is.defined,
-     *      isUndefinedOrNull: is.undefinedOrNull,
-     *      isNull: is.null,
-     *      isArguments: is.arguments,
-     *      isInstanceOf: is.instanceOf,
-     *      isRegExp: is.regExp
-     * };
-     *
-     * var myExtender = extender.define(isMethods).expose(isMethods);
-     *
-     * myExtender.isArray([]); //true
-     * myExtender([]).isArray([]).value(); //true
-     *
-     * ```
-     *
-     *
-     * **Using `instanceof`**
-     *
-     * When using extenders you can test if a value is an `instanceof` of an extender by using the instanceof operator.
-     *
-     * ```javascript
-     * var str = myExtender("hello");
-     *
-     * str instanceof myExtender; //true
-     * ```
-     *
-     * ## Examples
-     *
-     * To see more examples click [here](https://github.com/doug-martin/extender/tree/master/examples)
-     */
-    function defineExtender(declare) {
-
-
-        var slice = Array.prototype.slice, undef;
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        var merge = (function merger() {
-            function _merge(target, source, exclude) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
-            }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                var l = arguments.length;
-                var exclude = arguments[arguments.length - 1];
-                if (isArray(exclude)) {
-                    l--;
-                } else {
-                    exclude = [];
-                }
-                for (var i = 1; i < l; i++) {
-                    _merge(obj, arguments[i], exclude);
-                }
-                return obj; // Object
-            };
-        }());
-
-
-        function extender(supers) {
-            supers = supers || [];
-            var Base = declare({
-                instance: {
-                    constructor: function (value) {
-                        this._value = value;
-                    },
-
-                    value: function () {
-                        return this._value;
-                    },
-
-                    eq: function eq(val) {
-                        return _extender(this._value === val);
-                    },
-
-                    neq: function neq(other) {
-                        return _extender(this._value !== other);
-                    },
-                    print: function () {
-                        console.log(this._value);
-                        return this;
-                    }
-                }
-            }), defined = [];
-
-            function addMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        var ret = func.apply(this, args);
-                        return ret !== undef ? _extender(ret) : this;
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function addNoWrapMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        return func.apply(this, args);
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function decorateProto(proto, decoration, nowrap) {
-                for (var i in decoration) {
-                    if (decoration.hasOwnProperty(i)) {
-                        if (i !== "getters" && i !== "setters") {
-                            if (i === "noWrap") {
-                                decorateProto(proto, decoration[i], true);
-                            } else if (nowrap) {
-                                addNoWrapMethod(proto, i, decoration[i]);
-                            } else {
-                                addMethod(proto, i, decoration[i]);
-                            }
-                        } else {
-                            proto[i] = decoration[i];
-                        }
-                    }
-                }
-            }
-
-            function _extender(obj) {
-                var ret = obj, i, l;
-                if (!(obj instanceof Base)) {
-                    var base = {}, instance = (base.instance = {});
-                    for (i = 0, l = defined.length; i < l; i++) {
-                        var definer = defined[i];
-                        if (definer[0](obj)) {
-                            merge(instance, definer[1]);
-                        }
-                    }
-                    ret = new (Base.extend(base))(obj);
-                }
-                return ret;
-            }
-
-            function always() {
-                return true;
-            }
-
-            function define(tester, decorate) {
-                if (arguments.length) {
-                    if (typeof tester === "object") {
-                        decorate = tester;
-                        tester = always;
-                    }
-                    decorate = decorate || {};
-                    var proto = {};
-                    decorateProto(proto, decorate);
-                    defined.push([tester, proto]);
-                }
-                return _extender;
-            }
-
-            function extend(supr) {
-                if (supr && supr.hasOwnProperty("__defined__")) {
-                    _extender["__defined__"] = defined = defined.concat(supr["__defined__"]);
-                }
-                merge(_extender, supr, ["define", "extend", "expose", "__defined__"]);
-                return _extender;
-            }
-
-            _extender.define = define;
-            _extender.extend = extend;
-            _extender.expose = function expose() {
-                var methods;
-                for (var i = 0, l = arguments.length; i < l; i++) {
-                    methods = arguments[i];
-                    if (typeof methods === "object") {
-                        merge(_extender, methods, ["define", "extend", "expose", "__defined__"]);
-                    }
-                }
-                return _extender;
-            };
-            _extender["__defined__"] = defined;
-
-
-            return _extender;
-        }
-
-        return {
-            define: function () {
-                return extender().define.apply(extender, arguments);
-            },
-
-            extend: function (supr) {
-                return extender().define().extend(supr);
-            }
-        };
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtender(require("declare.js"));
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineExtender((require("declare.js")));
-        });
-    } else {
-        this.extender = defineExtender(this.declare);
-    }
-
-}).call(this);
-});
-
-require.define("/node_modules/ht/node_modules/array-extended/node_modules/extender/node_modules/declare.js/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/ht/node_modules/array-extended/node_modules/extender/node_modules/declare.js/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./declare.js");
-});
-
-require.define("/node_modules/ht/node_modules/array-extended/node_modules/extender/node_modules/declare.js/declare.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-
-    /**
-     * @projectName declare
-     * @github http://github.com/doug-martin/declare.js
-     * @header
-     *
-     * Declare is a library designed to allow writing object oriented code the same way in both the browser and node.js.
-     *
-     * ##Installation
-     *
-     * `npm install declare.js`
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/declare.js/master/declare.js) ([minified](https://raw.github.com/doug-martin/declare.js/master/declare-min.js))
-     *
-     * ###Requirejs
-     *
-     * To use with requirejs place the `declare` source in the root scripts directory
-     *
-     * ```
-     *
-     * define(["declare"], function(declare){
-     *      return declare({
-     *          instance : {
-     *              hello : function(){
-     *                  return "world";
-     *              }
-     *          }
-     *      });
-     * });
-     *
-     * ```
-     *
-     *
-     * ##Usage
-     *
-     * declare.js provides
-     *
-     * Class methods
-     *
-     * * `as(module | object, name)` : exports the object to module or the object with the name
-     * * `mixin(mixin)` : mixes in an object but does not inherit directly from the object. **Note** this does not return a new class but changes the original class.
-     * * `extend(proto)` : extend a class with the given properties. A shortcut to `declare(Super, {})`;
-     *
-     * Instance methods
-     *
-     * * `_super(arguments)`: calls the super of the current method, you can pass in either the argments object or an array with arguments you want passed to super
-     * * `_getSuper()`: returns a this methods direct super.
-     * * `_static` : use to reference class properties and methods.
-     * * `get(prop)` : gets a property invoking the getter if it exists otherwise it just returns the named property on the object.
-     * * `set(prop, val)` : sets a property invoking the setter if it exists otherwise it just sets the named property on the object.
-     *
-     *
-     * ###Declaring a new Class
-     *
-     * Creating a new class with declare is easy!
-     *
-     * ```
-     *
-     * var Mammal = declare({
-     *      //define your instance methods and properties
-     *      instance : {
-     *
-     *          //will be called whenever a new instance is created
-     *          constructor: function(options) {
-     *              options = options || {};
-     *              this._super(arguments);
-     *              this._type = options.type || "mammal";
-     *          },
-     *
-     *          speak : function() {
-     *              return  "A mammal of type " + this._type + " sounds like";
-     *          },
-     *
-     *          //Define your getters
-     *          getters : {
-     *
-     *              //can be accessed by using the get method. (mammal.get("type"))
-     *              type : function() {
-     *                  return this._type;
-     *              }
-     *          },
-     *
-     *           //Define your setters
-     *          setters : {
-     *
-     *                //can be accessed by using the set method. (mammal.set("type", "mammalType"))
-     *              type : function(t) {
-     *                  this._type = t;
-     *              }
-     *          }
-     *      },
-     *
-     *      //Define your static methods
-     *      static : {
-     *
-     *          //Mammal.soundOff(); //"Im a mammal!!"
-     *          soundOff : function() {
-     *              return "Im a mammal!!";
-     *          }
-     *      }
-     * });
-     *
-     *
-     * ```
-     *
-     * You can use Mammal just like you would any other class.
-     *
-     * ```
-     * Mammal.soundOff("Im a mammal!!");
-     *
-     * var myMammal = new Mammal({type : "mymammal"});
-     * myMammal.speak(); // "A mammal of type mymammal sounds like"
-     * myMammal.get("type"); //"mymammal"
-     * myMammal.set("type", "mammal");
-     * myMammal.get("type"); //"mammal"
-     *
-     *
-     * ```
-     *
-     * ###Extending a class
-     *
-     * If you want to just extend a single class use the .extend method.
-     *
-     * ```
-     *
-     * var Wolf = Mammal.extend({
-     *
-     *   //define your instance method
-     *   instance: {
-     *
-     *        //You can override super constructors just be sure to call `_super`
-     *       constructor: function(options) {
-     *          options = options || {};
-     *          this._super(arguments); //call our super constructor.
-     *          this._sound = "growl";
-     *          this._color = options.color || "grey";
-     *      },
-     *
-     *      //override Mammals `speak` method by appending our own data to it.
-     *      speak : function() {
-     *          return this._super(arguments) + " a " + this._sound;
-     *      },
-     *
-     *      //add new getters for sound and color
-     *      getters : {
-     *
-     *           //new Wolf().get("type")
-     *           //notice color is read only as we did not define a setter
-     *          color : function() {
-     *              return this._color;
-     *          },
-     *
-     *          //new Wolf().get("sound")
-     *          sound : function() {
-     *              return this._sound;
-     *          }
-     *      },
-     *
-     *      setters : {
-     *
-     *          //new Wolf().set("sound", "howl")
-     *          sound : function(s) {
-     *              this._sound = s;
-     *          }
-     *      }
-     *
-     *  },
-     *
-     *  static : {
-     *
-     *      //You can override super static methods also! And you can still use _super
-     *      soundOff : function() {
-     *          //You can even call super in your statics!!!
-     *          //should return "I'm a mammal!! that growls"
-     *          return this._super(arguments) + " that growls";
-     *      }
-     *  }
-     * });
-     *
-     * Wolf.soundOff(); //Im a mammal!! that growls
-     *
-     * var myWolf = new Wolf();
-     * myWolf instanceof Mammal //true
-     * myWolf instanceof Wolf //true
-     *
-     * ```
-     *
-     * You can also extend a class by using the declare method and just pass in the super class.
-     *
-     * ```
-     * //Typical hierarchical inheritance
-     * // Mammal->Wolf->Dog
-     * var Dog = declare(Wolf, {
-     *    instance: {
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            //override Wolfs initialization of sound to woof.
-     *            this._sound = "woof";
-     *
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a growl thats domesticated"
-     *            return this._super(arguments) + " thats domesticated";
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'm a mammal!! that growls but now barks"
-     *            return this._super(arguments) + " but now barks";
-     *        }
-     *    }
-     * });
-     *
-     * Dog.soundOff(); //Im a mammal!! that growls but now barks
-     *
-     * var myDog = new Dog();
-     * myDog instanceof Mammal //true
-     * myDog instanceof Wolf //true
-     * myDog instanceof Dog //true
-     *
-     *
-     * //Notice you still get the extend method.
-     *
-     * // Mammal->Wolf->Dog->Breed
-     * var Breed = Dog.extend({
-     *    instance: {
-     *
-     *        //initialize outside of constructor
-     *        _pitch : "high",
-     *
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            this.breed = options.breed || "lab";
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a
-     *            //growl thats domesticated with a high pitch!"
-     *            return this._super(arguments) + " with a " + this._pitch + " pitch!";
-     *        },
-     *
-     *        getters : {
-     *            pitch : function() {
-     *                return this._pitch;
-     *            }
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'M A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *            return this._super(arguments).toUpperCase() + "!";
-     *        }
-     *    }
-     * });
-     *
-     *
-     * Breed.soundOff()//"IM A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *
-     * var myBreed = new Breed({color : "gold", type : "lab"}),
-     * myBreed instanceof Dog //true
-     * myBreed instanceof Wolf //true
-     * myBreed instanceof Mammal //true
-     * myBreed.speak() //"A mammal of type lab sounds like a woof thats domesticated with a high pitch!"
-     * myBreed.get("type") //"lab"
-     * myBreed.get("color") //"gold"
-     * myBreed.get("sound")" //"woof"
-     * ```
-     *
-     * ###Multiple Inheritance / Mixins
-     *
-     * declare also allows the use of multiple super classes.
-     * This is useful if you have generic classes that provide functionality but shouldnt be used on their own.
-     *
-     * Lets declare a mixin that allows us to watch for property changes.
-     *
-     * ```
-     * //Notice that we set up the functions outside of declare because we can reuse them
-     *
-     * function _set(prop, val) {
-     *     //get the old value
-     *     var oldVal = this.get(prop);
-     *     //call super to actually set the property
-     *     var ret = this._super(arguments);
-     *     //call our handlers
-     *     this.__callHandlers(prop, oldVal, val);
-     *     return ret;
-     * }
-     *
-     * function _callHandlers(prop, oldVal, newVal) {
-     *    //get our handlers for the property
-     *     var handlers = this.__watchers[prop], l;
-     *     //if the handlers exist and their length does not equal 0 then we call loop through them
-     *     if (handlers && (l = handlers.length) !== 0) {
-     *         for (var i = 0; i < l; i++) {
-     *             //call the handler
-     *             handlers[i].call(null, prop, oldVal, newVal);
-     *         }
-     *     }
-     * }
-     *
-     *
-     * //the watch function
-     * function _watch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         //if its not a function then its an invalid handler
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     if (!this.__watchers[prop]) {
-     *         //create the watchers if it doesnt exist
-     *         this.__watchers[prop] = [handler];
-     *     } else {
-     *         //otherwise just add it to the handlers array
-     *         this.__watchers[prop].push(handler);
-     *     }
-     * }
-     *
-     * function _unwatch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     var handlers = this.__watchers[prop], index;
-     *     if (handlers && (index = handlers.indexOf(handler)) !== -1) {
-     *        //remove the handler if it is found
-     *         handlers.splice(index, 1);
-     *     }
-     * }
-     *
-     * declare({
-     *     instance:{
-     *         constructor:function () {
-     *             this._super(arguments);
-     *             //set up our watchers
-     *             this.__watchers = {};
-     *         },
-     *
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set up our callhandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch function
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     },
-     *
-     *     "static":{
-     *
-     *         init:function () {
-     *             this._super(arguments);
-     *             this.__watchers = {};
-     *         },
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set our callHandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     }
-     * })
-     *
-     * ```
-     *
-     * Now lets use the mixin
-     *
-     * ```
-     * var WatchDog = declare([Dog, WatchMixin]);
-     *
-     * var watchDog = new WatchDog();
-     * //create our handler
-     * function watch(id, oldVal, newVal) {
-     *     console.log("watchdog's %s was %s, now %s", id, oldVal, newVal);
-     * }
-     *
-     * //watch for property changes
-     * watchDog.watch("type", watch);
-     * watchDog.watch("color", watch);
-     * watchDog.watch("sound", watch);
-     *
-     * //now set the properties each handler will be called
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * //unwatch the property changes
-     * watchDog.unwatch("type", watch);
-     * watchDog.unwatch("color", watch);
-     * watchDog.unwatch("sound", watch);
-     *
-     * //no handlers will be called this time
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * ```
-     *
-     * ###Accessing static methods and properties witin an instance.
-     *
-     * To access static properties on an instance use the `_static` property which is a reference to your constructor.
-     *
-     * For example if your in your constructor and you want to have configurable default values.
-     *
-     * ```
-     * consturctor : function constructor(opts){
-     *     this.opts = opts || {};
-     *     this._type = opts.type || this._static.DEFAULT_TYPE;
-     * }
-     * ```
-     *
-     *
-     *
-     * ###Creating a new instance of within an instance.
-     *
-     * Often times you want to create a new instance of an object within an instance. If your subclassed however you cannot return a new instance of the parent class as it will not be the right sub class. `declare` provides a way around this by setting the `_static` property on each isntance of the class.
-     *
-     * Lets add a reproduce method `Mammal`
-     *
-     * ```
-     * reproduce : function(options){
-     *     return new this._static(options);
-     * }
-     * ```
-     *
-     * Now in each subclass you can call reproduce and get the proper type.
-     *
-     * ```
-     * var myDog = new Dog();
-     * var myDogsChild = myDog.reproduce();
-     *
-     * myDogsChild instanceof Dog; //true
-     * ```
-     *
-     * ###Using the `as`
-     *
-     * `declare` also provides an `as` method which allows you to add your class to an object or if your using node.js you can pass in `module` and the class will be exported as the module.
-     *
-     * ```
-     * var animals = {};
-     *
-     * Mammal.as(animals, "Dog");
-     * Wolf.as(animals, "Wolf");
-     * Dog.as(animals, "Dog");
-     * Breed.as(animals, "Breed");
-     *
-     * var myDog = new animals.Dog();
-     *
-     * ```
-     *
-     * Or in node
-     *
-     * ```
-     * Mammal.as(exports, "Dog");
-     * Wolf.as(exports, "Wolf");
-     * Dog.as(exports, "Dog");
-     * Breed.as(exports, "Breed");
-     *
-     * ```
-     *
-     * To export a class as the `module` in node
-     *
-     * ```
-     * Mammal.as(module);
-     * ```
-     *
-     *
-     */
-    function createDeclared() {
-        var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function merge(target, source, exclude) {
-            var name, s;
-            for (name in source) {
-                if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function callSuper(args, a) {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                a && (args = a);
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, args);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getSuper() {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.bind(this);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getter(name) {
-            var getters = this.__getters__;
-            if (getters.hasOwnProperty(name)) {
-                return getters[name].apply(this);
-            } else {
-                return this[name];
-            }
-        }
-
-        function setter(name, val) {
-            var setters = this.__setters__;
-            if (isHash(name)) {
-                for (var i in name) {
-                    var prop = name[i];
-                    if (setters.hasOwnProperty(i)) {
-                        setters[name].call(this, prop);
-                    } else {
-                        this[i] = prop;
-                    }
-                }
-            } else {
-                if (setters.hasOwnProperty(name)) {
-                    return setters[name].apply(this, argsToArray(arguments, 1));
-                } else {
-                    return this[name] = val;
-                }
-            }
-        }
-
-
-        function defaultFunction() {
-            var meta = this.__meta || {},
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, arguments);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-
-        function functionWrapper(f, name) {
-            var wrapper = function wrapper() {
-                var ret, meta = this.__meta || {};
-                var orig = meta.superMeta;
-                meta.superMeta = {f: f, pos: 0, name: name};
-                ret = f.apply(this, arguments);
-                meta.superMeta = orig;
-                return ret;
-            };
-            wrapper._f = f;
-            return wrapper;
-        }
-
-        function defineMixinProps(child, proto) {
-
-            var operations = proto.setters || {}, __setters = child.__setters__, __getters = child.__getters__;
-            for (var i in operations) {
-                if (!__setters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            for (i in operations) {
-                if (!__getters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __getters[i] = operations[i];
-                }
-            }
-            for (var j in proto) {
-                if (j != "getters" && j != "setters") {
-                    var p = proto[j];
-                    if ("function" === typeof p) {
-                        if (!child.hasOwnProperty(j)) {
-                            child[j] = functionWrapper(defaultFunction, j);
-                        }
-                    } else {
-                        child[j] = p;
-                    }
-                }
-            }
-        }
-
-        function mixin() {
-            var args = argsToArray(arguments), l = args.length;
-            var child = this.prototype;
-            var childMeta = child.__meta, thisMeta = this.__meta, bases = child.__meta.bases, staticBases = bases.slice(),
-                staticSupers = thisMeta.supers || [], supers = childMeta.supers || [];
-            for (var i = 0; i < l; i++) {
-                var m = args[i], mProto = m.prototype;
-                var protoMeta = mProto.__meta, meta = m.__meta;
-                !protoMeta && (protoMeta = (mProto.__meta = {proto: mProto || {}}));
-                !meta && (meta = (m.__meta = {proto: m.__proto__ || {}}));
-                defineMixinProps(child, protoMeta.proto || {});
-                defineMixinProps(this, meta.proto || {});
-                //copy the bases for static,
-
-                mixinSupers(m.prototype, supers, bases);
-                mixinSupers(m, staticSupers, staticBases);
-            }
-            return this;
-        }
-
-        function mixinSupers(sup, arr, bases) {
-            var meta = sup.__meta;
-            !meta && (meta = (sup.__meta = {}));
-            var unique = sup.__meta.unique;
-            !unique && (meta.unique = "declare" + ++classCounter);
-            //check it we already have this super mixed into our prototype chain
-            //if true then we have already looped their supers!
-            if (indexOf(bases, unique) === -1) {
-                //add their id to our bases
-                bases.push(unique);
-                var supers = sup.__meta.supers || [], i = supers.length - 1 || 0;
-                while (i >= 0) {
-                    mixinSupers(supers[i--], arr, bases);
-                }
-                arr.unshift(sup);
-            }
-        }
-
-        function defineProps(child, proto) {
-            var operations = proto.setters,
-                __setters = child.__setters__,
-                __getters = child.__getters__;
-            if (operations) {
-                for (var i in operations) {
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            if (operations) {
-                for (i in operations) {
-                    __getters[i] = operations[i];
-                }
-            }
-            for (i in proto) {
-                if (i != "getters" && i != "setters") {
-                    var f = proto[i];
-                    if ("function" === typeof f) {
-                        var meta = f.__meta || {};
-                        if (!meta.isConstructor) {
-                            child[i] = functionWrapper(f, i);
-                        } else {
-                            child[i] = f;
-                        }
-                    } else {
-                        child[i] = f;
-                    }
-                }
-            }
-
-        }
-
-        function _export(obj, name) {
-            if (obj && name) {
-                obj[name] = this;
-            } else {
-                obj.exports = obj = this;
-            }
-            return this;
-        }
-
-        function extend(proto) {
-            return declare(this, proto);
-        }
-
-        function getNew(ctor) {
-            // create object with correct prototype using a do-nothing
-            // constructor
-            forceNew.prototype = ctor.prototype;
-            var t = new forceNew();
-            forceNew.prototype = null;	// clean up
-            return t;
-        }
-
-
-        function __declare(child, sup, proto) {
-            var childProto = {}, supers = [];
-            var unique = "declare" + ++classCounter, bases = [], staticBases = [];
-            var instanceSupers = [], staticSupers = [];
-            var meta = {
-                supers: instanceSupers,
-                unique: unique,
-                bases: bases,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-            var childMeta = {
-                supers: staticSupers,
-                unique: unique,
-                bases: staticBases,
-                isConstructor: true,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-
-            if (isHash(sup) && !proto) {
-                proto = sup;
-                sup = Base;
-            }
-
-            if ("function" === typeof sup || isArray(sup)) {
-                supers = isArray(sup) ? sup : [sup];
-                sup = supers.shift();
-                child.__meta = childMeta;
-                childProto = getNew(sup);
-                childProto.__meta = meta;
-                childProto.__getters__ = merge({}, childProto.__getters__ || {});
-                childProto.__setters__ = merge({}, childProto.__setters__ || {});
-                child.__getters__ = merge({}, child.__getters__ || {});
-                child.__setters__ = merge({}, child.__setters__ || {});
-                mixinSupers(sup.prototype, instanceSupers, bases);
-                mixinSupers(sup, staticSupers, staticBases);
-            } else {
-                child.__meta = childMeta;
-                childProto.__meta = meta;
-                childProto.__getters__ = childProto.__getters__ || {};
-                childProto.__setters__ = childProto.__setters__ || {};
-                child.__getters__ = child.__getters__ || {};
-                child.__setters__ = child.__setters__ || {};
-            }
-            child.prototype = childProto;
-            if (proto) {
-                var instance = meta.proto = proto.instance || {};
-                !instance.hasOwnProperty("constructor") && (instance.constructor = defaultFunction);
-                var stat = childMeta.proto = proto.static || {};
-                stat.init = stat.init || defaultFunction;
-                defineProps(childProto, instance);
-                defineProps(child, stat);
-            } else {
-                meta.proto = {};
-                childMeta.proto = {};
-                child.init = functionWrapper(defaultFunction, "init");
-                childProto.constructor = functionWrapper(defaultFunction, "constructor");
-            }
-            if (supers.length) {
-                mixin.apply(child, supers);
-            }
-            if (sup) {
-                //do this so we mixin our super methods directly but do not ov
-                merge(child, merge(merge({}, sup), child));
-            }
-            childProto._super = child._super = callSuper;
-            childProto._getSuper = child._getSuper = getSuper;
-            childProto._static = child;
-        }
-
-        function declare(sup, proto) {
-            function declared() {
-                this.constructor.apply(this, arguments);
-            }
-
-            __declare(declared, sup, proto);
-            return declared.init() || declared;
-        }
-
-        function singleton(sup, proto) {
-            var retInstance;
-
-            function declaredSingleton() {
-                if (!retInstance) {
-                    this.constructor.apply(this, arguments);
-                    retInstance = this;
-                }
-                return retInstance;
-            }
-
-            __declare(declaredSingleton, sup, proto);
-            return  declaredSingleton.init() || declaredSingleton;
-        }
-
-        Base = declare({
-            instance: {
-                "get": getter,
-                "set": setter
-            },
-
-            "static": {
-                "get": getter,
-                "set": setter,
-                mixin: mixin,
-                extend: extend,
-                as: _export
-            }
-        });
-
-        declare.singleton = singleton;
-        return declare;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = createDeclared();
-        }
-    } else if ("function" === typeof define) {
-        define(createDeclared);
-    } else {
-        this.declare = createDeclared();
-    }
-}());
-
-
-
-
-});
-
-require.define("/node_modules/ht/node_modules/array-extended/node_modules/is-extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/ht/node_modules/array-extended/node_modules/is-extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
+require.define("/node_modules/ht/node_modules/array-extended/node_modules/extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
     "use strict";
+    /*global extender isa, dateExtended*/
 
-    function defineIsa(extender) {
-
-        var undef, pSlice = Array.prototype.slice;
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return pSlice.call(args, slice);
-        }
-
-        //taken from node js assert.js
-        //https://github.com/joyent/node/blob/master/lib/assert.js
-        function deepEqual(actual, expected) {
-            // 7.1. All identical values are equivalent, as determined by ===.
-            if (actual === expected) {
-                return true;
-
-            } else if (Buffer && Buffer.isBuffer(actual) && Buffer.isBuffer(expected)) {
-                if (actual.length !== expected.length) {
-                    return false;
-                }
-
-                for (var i = 0; i < actual.length; i++) {
-                    if (actual[i] !== expected[i]) {
-                        return false;
-                    }
-                }
-
-                return true;
-
-                // 7.2. If the expected value is a Date object, the actual value is
-                // equivalent if it is also a Date object that refers to the same time.
-            } else if (actual instanceof Date && expected instanceof Date) {
-                return actual.getTime() === expected.getTime();
-
-                // 7.3 If the expected value is a RegExp object, the actual value is
-                // equivalent if it is also a RegExp object with the same source and
-                // properties (`global`, `multiline`, `lastIndex`, `ignoreCase`).
-            } else if (actual instanceof RegExp && expected instanceof RegExp) {
-                return actual.source === expected.source &&
-                    actual.global === expected.global &&
-                    actual.multiline === expected.multiline &&
-                    actual.lastIndex === expected.lastIndex &&
-                    actual.ignoreCase === expected.ignoreCase;
-
-                // 7.4. Other pairs that do not both pass typeof value == 'object',
-                // equivalence is determined by ==.
-            } else if (typeof actual !== 'object' && typeof expected !== 'object') {
-                return actual === expected;
-
-                // 7.5 For all other Object pairs, including Array objects, equivalence is
-                // determined by having the same number of owned properties (as verified
-                // with Object.prototype.hasOwnProperty.call), the same set of keys
-                // (although not necessarily the same order), equivalent values for every
-                // corresponding key, and an identical 'prototype' property. Note: this
-                // accounts for both named and indexed properties on Arrays.
-            } else {
-                return objEquiv(actual, expected);
-            }
-        }
+    function defineExtended(extender, require) {
 
 
-        function objEquiv(a, b) {
-            var key;
-            if (isUndefinedOrNull(a) || isUndefinedOrNull(b)) {
-                return false;
-            }
-            // an identical 'prototype' property.
-            if (a.prototype !== b.prototype) {
-                return false;
-            }
-            //~~~I've managed to break Object.keys through screwy arguments passing.
-            //   Converting to array solves the problem.
-            if (isArguments(a)) {
-                if (!isArguments(b)) {
-                    return false;
-                }
-                a = pSlice.call(a);
-                b = pSlice.call(b);
-                return deepEqual(a, b);
-            }
-            try {
-                var ka = Object.keys(a),
-                    kb = Object.keys(b),
-                    i;
-                // having the same number of owned properties (keys incorporates
-                // hasOwnProperty)
-                if (ka.length !== kb.length) {
-                    return false;
-                }
-                //the same set of keys (although not necessarily the same order),
-                ka.sort();
-                kb.sort();
-                //~~~cheap key test
-                for (i = ka.length - 1; i >= 0; i--) {
-                    if (ka[i] !== kb[i]) {
-                        return false;
-                    }
-                }
-                //equivalent values for every corresponding key, and
-                //~~~possibly expensive deep test
-                for (i = ka.length - 1; i >= 0; i--) {
-                    key = ka[i];
-                    if (!deepEqual(a[key], b[key])) {
-                        return false;
-                    }
-                }
-            } catch (e) {//happens when one is a string literal and the other isn't
-                return false;
-            }
-            return true;
-        }
-
-        function isFunction(obj) {
-            return typeof obj === "function";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function isEmpty(object) {
-            if (isObject(object)) {
-                for (var i in object) {
-                    if (object.hasOwnProperty(i)) {
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
-
-        function isBoolean(obj) {
-            return Object.prototype.toString.call(obj) === "[object Boolean]";
-        }
-
-        function isUndefined(obj) {
-            return obj !== null && obj === undef;
-        }
-
-        function isDefined(obj) {
-            return !isUndefined(obj);
-        }
-
-        function isUndefinedOrNull(obj) {
-            return isUndefined(obj) || isNull(obj);
-        }
-
-        function isNull(obj) {
-            return obj !== undef && obj === null;
-        }
-
-        function isArguments(object) {
-            return !isUndefinedOrNull(object) && Object.prototype.toString.call(object) === '[object Arguments]';
-        }
-
-
-        function isInstanceOf(obj, clazz) {
-            if (isFunction(clazz)) {
-                return obj instanceof clazz;
-            } else {
-                return false;
-            }
-        }
-
-        function isRegExp(obj) {
-            return !isUndefinedOrNull(obj) && (obj instanceof RegExp);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isDate(obj) {
-            return (!isUndefinedOrNull(obj) && typeof obj === "object" && obj instanceof Date);
-        }
-
-        function isString(obj) {
-            return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-        }
-
-        function isNumber(obj) {
-            return !isUndefinedOrNull(obj) && (typeof obj === "number" || obj instanceof Number);
-        }
-
-        function isTrue(obj) {
-            return obj === true;
-        }
-
-        function isFalse(obj) {
-            return obj === false;
-        }
-
-        function isNotNull(obj) {
-            return !isNull(obj);
-        }
-
-        function isEq(obj, obj2) {
-            return obj == obj2;
-        }
-
-        function isNeq(obj, obj2) {
-            /*jshint eqeqeq:false*/
-            return obj != obj2;
-        }
-
-        function isSeq(obj, obj2) {
-            return obj === obj2;
-        }
-
-        function isSneq(obj, obj2) {
-            return obj !== obj2;
-        }
-
-        function isIn(obj, arr) {
-            if (isArray(arr)) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (isEq(obj, arr[i])) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        function isNotIn(obj, arr) {
-            return !isIn(obj, arr);
-        }
-
-        function isLt(obj, obj2) {
-            return obj < obj2;
-        }
-
-        function isLte(obj, obj2) {
-            return obj <= obj2;
-        }
-
-        function isGt(obj, obj2) {
-            return obj > obj2;
-        }
-
-        function isGte(obj, obj2) {
-            return obj >= obj2;
-        }
-
-        function isLike(obj, reg) {
-            if (isString(reg)) {
-                reg = new RegExp(reg);
-            }
-            if (isRegExp(reg)) {
-                return reg.test("" + obj);
-            }
-            return false;
-        }
-
-        function isNotLike(obj, reg) {
-            return !isLike(obj, reg);
-        }
-
-        function contains(arr, obj) {
-            return isIn(obj, arr);
-        }
-
-        function notContains(arr, obj) {
-            return !isIn(obj, arr);
-        }
-
-        var isa = {
-            isFunction: isFunction,
-            isObject: isObject,
-            isEmpty: isEmpty,
-            isHash: isHash,
-            isNumber: isNumber,
-            isString: isString,
-            isDate: isDate,
-            isArray: isArray,
-            isBoolean: isBoolean,
-            isUndefined: isUndefined,
-            isDefined: isDefined,
-            isUndefinedOrNull: isUndefinedOrNull,
-            isNull: isNull,
-            isArguments: isArguments,
-            instanceOf: isInstanceOf,
-            isRegExp: isRegExp,
-            deepEqual: deepEqual,
-            isTrue: isTrue,
-            isFalse: isFalse,
-            isNotNull: isNotNull,
-            isEq: isEq,
-            isNeq: isNeq,
-            isSeq: isSeq,
-            isSneq: isSneq,
-            isIn: isIn,
-            isNotIn: isNotIn,
-            isLt: isLt,
-            isLte: isLte,
-            isGt: isGt,
-            isGte: isGte,
-            isLike: isLike,
-            isNotLike: isNotLike,
-            contains: contains,
-            notContains: notContains
-        };
-
-        var tester = {
-            constructor: function () {
-                this._testers = [];
-            },
-
-            noWrap: {
-                tester: function () {
-                    var testers = this._testers;
-                    return function tester(value) {
-                        var isa = false;
-                        for (var i = 0, l = testers.length; i < l && !isa; i++) {
-                            isa = testers[i](value);
+        var merge = (function merger() {
+            function _merge(target, source) {
+                var name, s;
+                for (name in source) {
+                    if (source.hasOwnProperty(name)) {
+                        s = source[name];
+                        if (!(name in target) || (target[name] !== s)) {
+                            target[name] = s;
                         }
-                        return isa;
-                    };
+                    }
                 }
+                return target;
             }
-        };
 
-        var switcher = {
-            constructor: function () {
-                this._cases = [];
-                this.__default = null;
-            },
-
-            def: function (val, fn) {
-                this.__default = fn;
-            },
-
-            noWrap: {
-                switcher: function () {
-                    var testers = this._cases, __default = this.__default;
-                    return function tester() {
-                        var handled = false, args = argsToArray(arguments), caseRet;
-                        for (var i = 0, l = testers.length; i < l && !handled; i++) {
-                            caseRet = testers[i](args);
-                            if (caseRet.length > 1) {
-                                if (caseRet[1] || caseRet[0]) {
-                                    return caseRet[1];
-                                }
-                            }
-                        }
-                        if (!handled && __default) {
-                            return  __default.apply(this, args);
-                        }
-                    };
+            return function merge(obj) {
+                if (!obj) {
+                    obj = {};
                 }
-            }
-        };
-
-        function addToTester(func) {
-            tester[func] = function isaTester() {
-                this._testers.push(isa[func]);
+                for (var i = 1, l = arguments.length; i < l; i++) {
+                    _merge(obj, arguments[i]);
+                }
+                return obj; // Object
             };
-        }
+        }());
 
-        function addToSwitcher(func) {
-            switcher[func] = function isaTester(val) {
-                var args = argsToArray(arguments, 1), isFunc = isa[func], handler, doBreak = true;
-                if (args.length <= isFunc.length - 1) {
-                    throw new TypeError("A handler must be defined when calling using switch");
-                } else {
-                    handler = args.pop();
-                    if (isBoolean(handler)) {
-                        doBreak = handler;
-                        handler = args.pop();
+        function getExtended() {
+
+            var loaded = {};
+
+
+            //getInitial instance;
+            var extended = extender.define();
+            extended.expose({
+                register: function register(alias, extendWith) {
+                    if (!extendWith) {
+                        extendWith = alias;
+                        alias = null;
                     }
-                }
-                if (!isFunction(handler)) {
-                    throw new TypeError("handler must be defined");
-                }
-                this._cases.push(function (testArgs) {
-                    var ret;
-                    if (isFunc.apply(isa, testArgs.concat(args))) {
-                        return [doBreak, handler.apply(this, testArgs)];
+                    var type = typeof extendWith;
+                    if (alias) {
+                        extended[alias] = extendWith;
+                    } else if (extendWith && type === "function") {
+                        extended.extend(extendWith);
+                    } else if (type === "object") {
+                        extended.expose(extendWith);
+                    } else {
+                        throw new TypeError("extended.register must be called with an extender function");
                     }
-                    return [false];
-                });
-            };
+                    return extended;
+                },
+
+                define: function () {
+                    return extender.define.apply(extender, arguments);
+                }
+            });
+
+            return extended;
         }
 
-        for (var i in isa) {
-            if (isa.hasOwnProperty(i)) {
-                addToSwitcher(i);
-                addToTester(i);
-            }
+        function extended() {
+            return getExtended();
         }
 
-        var is = extender.define(tester).expose(isa);
-        is.switcher = extender.define(switcher);
-        return is;
+        extended.define = function define() {
+            return extender.define.apply(extender, arguments);
+        };
 
+        return extended;
     }
 
     if ("undefined" !== typeof exports) {
         if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineIsa(require("extender"));
+            module.exports = defineExtended(require("extender"), require);
 
         }
     } else if ("function" === typeof define) {
         define(["require"], function (require) {
-            return defineIsa((require("extender")));
+            return defineExtended(require("extender"), require);
         });
     } else {
-        this.isa = defineIsa(this.extender);
+        this.extended = defineExtended(this.extender);
     }
 
 }).call(this);
+
+
+
+
+
+
+
 });
 
-require.define("/node_modules/ht/node_modules/array-extended/node_modules/is-extended/node_modules/extender/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
+require.define("/node_modules/ht/node_modules/array-extended/node_modules/extended/node_modules/extender/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
 });
 
-require.define("/node_modules/ht/node_modules/array-extended/node_modules/is-extended/node_modules/extender/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./extender.js");
+require.define("/node_modules/ht/node_modules/array-extended/node_modules/extended/node_modules/extender/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./extender.js");
 });
 
-require.define("/node_modules/ht/node_modules/array-extended/node_modules/is-extended/node_modules/extender/extender.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
+require.define("/node_modules/ht/node_modules/array-extended/node_modules/extended/node_modules/extender/extender.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
     /*jshint strict:false*/
 
 
@@ -12872,11 +10121,11 @@ require.define("/node_modules/ht/node_modules/array-extended/node_modules/is-ext
                     },
 
                     eq: function eq(val) {
-                        return _extender(this._value === val);
+                        return this["__extender__"](this._value === val);
                     },
 
                     neq: function neq(other) {
-                        return _extender(this._value !== other);
+                        return this["__extender__"](this._value !== other);
                     },
                     print: function () {
                         console.log(this._value);
@@ -12900,7 +10149,7 @@ require.define("/node_modules/ht/node_modules/array-extended/node_modules/is-ext
                         var args = slice.call(arguments);
                         args.unshift(this._value);
                         var ret = func.apply(this, args);
-                        return ret !== undef ? _extender(ret) : this;
+                        return ret !== undef ? this["__extender__"](ret) : this;
                     };
                 }
                 proto[name] = extendedMethod;
@@ -12947,14 +10196,15 @@ require.define("/node_modules/ht/node_modules/array-extended/node_modules/is-ext
             function _extender(obj) {
                 var ret = obj, i, l;
                 if (!(obj instanceof Base)) {
-                    var base = {}, instance = (base.instance = {});
+                    var OurBase = Base;
                     for (i = 0, l = defined.length; i < l; i++) {
                         var definer = defined[i];
                         if (definer[0](obj)) {
-                            merge(instance, definer[1]);
+                            OurBase = OurBase.extend({instance: definer[1]});
                         }
                     }
-                    ret = new (Base.extend(base))(obj);
+                    ret = new OurBase(obj);
+                    ret["__extender__"] = _extender;
                 }
                 return ret;
             }
@@ -12972,6 +10222,16 @@ require.define("/node_modules/ht/node_modules/array-extended/node_modules/is-ext
                     decorate = decorate || {};
                     var proto = {};
                     decorateProto(proto, decorate);
+                    //handle browsers like which skip over the constructor while looping
+                    if (!proto.hasOwnProperty("constructor")) {
+                        if (decorate.hasOwnProperty("constructor")) {
+                            addMethod(proto, "constructor", decorate.constructor);
+                        } else {
+                            proto.constructor = function () {
+                                this._super(arguments);
+                            };
+                        }
+                    }
                     defined.push([tester, proto]);
                 }
                 return _extender;
@@ -13029,887 +10289,6 @@ require.define("/node_modules/ht/node_modules/array-extended/node_modules/is-ext
     }
 
 }).call(this);
-});
-
-require.define("/node_modules/ht/node_modules/array-extended/node_modules/is-extended/node_modules/extender/node_modules/declare.js/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/ht/node_modules/array-extended/node_modules/is-extended/node_modules/extender/node_modules/declare.js/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./declare.js");
-});
-
-require.define("/node_modules/ht/node_modules/array-extended/node_modules/is-extended/node_modules/extender/node_modules/declare.js/declare.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-
-    /**
-     * @projectName declare
-     * @github http://github.com/doug-martin/declare.js
-     * @header
-     *
-     * Declare is a library designed to allow writing object oriented code the same way in both the browser and node.js.
-     *
-     * ##Installation
-     *
-     * `npm install declare.js`
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/declare.js/master/declare.js) ([minified](https://raw.github.com/doug-martin/declare.js/master/declare-min.js))
-     *
-     * ###Requirejs
-     *
-     * To use with requirejs place the `declare` source in the root scripts directory
-     *
-     * ```
-     *
-     * define(["declare"], function(declare){
-     *      return declare({
-     *          instance : {
-     *              hello : function(){
-     *                  return "world";
-     *              }
-     *          }
-     *      });
-     * });
-     *
-     * ```
-     *
-     *
-     * ##Usage
-     *
-     * declare.js provides
-     *
-     * Class methods
-     *
-     * * `as(module | object, name)` : exports the object to module or the object with the name
-     * * `mixin(mixin)` : mixes in an object but does not inherit directly from the object. **Note** this does not return a new class but changes the original class.
-     * * `extend(proto)` : extend a class with the given properties. A shortcut to `declare(Super, {})`;
-     *
-     * Instance methods
-     *
-     * * `_super(arguments)`: calls the super of the current method, you can pass in either the argments object or an array with arguments you want passed to super
-     * * `_getSuper()`: returns a this methods direct super.
-     * * `_static` : use to reference class properties and methods.
-     * * `get(prop)` : gets a property invoking the getter if it exists otherwise it just returns the named property on the object.
-     * * `set(prop, val)` : sets a property invoking the setter if it exists otherwise it just sets the named property on the object.
-     *
-     *
-     * ###Declaring a new Class
-     *
-     * Creating a new class with declare is easy!
-     *
-     * ```
-     *
-     * var Mammal = declare({
-     *      //define your instance methods and properties
-     *      instance : {
-     *
-     *          //will be called whenever a new instance is created
-     *          constructor: function(options) {
-     *              options = options || {};
-     *              this._super(arguments);
-     *              this._type = options.type || "mammal";
-     *          },
-     *
-     *          speak : function() {
-     *              return  "A mammal of type " + this._type + " sounds like";
-     *          },
-     *
-     *          //Define your getters
-     *          getters : {
-     *
-     *              //can be accessed by using the get method. (mammal.get("type"))
-     *              type : function() {
-     *                  return this._type;
-     *              }
-     *          },
-     *
-     *           //Define your setters
-     *          setters : {
-     *
-     *                //can be accessed by using the set method. (mammal.set("type", "mammalType"))
-     *              type : function(t) {
-     *                  this._type = t;
-     *              }
-     *          }
-     *      },
-     *
-     *      //Define your static methods
-     *      static : {
-     *
-     *          //Mammal.soundOff(); //"Im a mammal!!"
-     *          soundOff : function() {
-     *              return "Im a mammal!!";
-     *          }
-     *      }
-     * });
-     *
-     *
-     * ```
-     *
-     * You can use Mammal just like you would any other class.
-     *
-     * ```
-     * Mammal.soundOff("Im a mammal!!");
-     *
-     * var myMammal = new Mammal({type : "mymammal"});
-     * myMammal.speak(); // "A mammal of type mymammal sounds like"
-     * myMammal.get("type"); //"mymammal"
-     * myMammal.set("type", "mammal");
-     * myMammal.get("type"); //"mammal"
-     *
-     *
-     * ```
-     *
-     * ###Extending a class
-     *
-     * If you want to just extend a single class use the .extend method.
-     *
-     * ```
-     *
-     * var Wolf = Mammal.extend({
-     *
-     *   //define your instance method
-     *   instance: {
-     *
-     *        //You can override super constructors just be sure to call `_super`
-     *       constructor: function(options) {
-     *          options = options || {};
-     *          this._super(arguments); //call our super constructor.
-     *          this._sound = "growl";
-     *          this._color = options.color || "grey";
-     *      },
-     *
-     *      //override Mammals `speak` method by appending our own data to it.
-     *      speak : function() {
-     *          return this._super(arguments) + " a " + this._sound;
-     *      },
-     *
-     *      //add new getters for sound and color
-     *      getters : {
-     *
-     *           //new Wolf().get("type")
-     *           //notice color is read only as we did not define a setter
-     *          color : function() {
-     *              return this._color;
-     *          },
-     *
-     *          //new Wolf().get("sound")
-     *          sound : function() {
-     *              return this._sound;
-     *          }
-     *      },
-     *
-     *      setters : {
-     *
-     *          //new Wolf().set("sound", "howl")
-     *          sound : function(s) {
-     *              this._sound = s;
-     *          }
-     *      }
-     *
-     *  },
-     *
-     *  static : {
-     *
-     *      //You can override super static methods also! And you can still use _super
-     *      soundOff : function() {
-     *          //You can even call super in your statics!!!
-     *          //should return "I'm a mammal!! that growls"
-     *          return this._super(arguments) + " that growls";
-     *      }
-     *  }
-     * });
-     *
-     * Wolf.soundOff(); //Im a mammal!! that growls
-     *
-     * var myWolf = new Wolf();
-     * myWolf instanceof Mammal //true
-     * myWolf instanceof Wolf //true
-     *
-     * ```
-     *
-     * You can also extend a class by using the declare method and just pass in the super class.
-     *
-     * ```
-     * //Typical hierarchical inheritance
-     * // Mammal->Wolf->Dog
-     * var Dog = declare(Wolf, {
-     *    instance: {
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            //override Wolfs initialization of sound to woof.
-     *            this._sound = "woof";
-     *
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a growl thats domesticated"
-     *            return this._super(arguments) + " thats domesticated";
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'm a mammal!! that growls but now barks"
-     *            return this._super(arguments) + " but now barks";
-     *        }
-     *    }
-     * });
-     *
-     * Dog.soundOff(); //Im a mammal!! that growls but now barks
-     *
-     * var myDog = new Dog();
-     * myDog instanceof Mammal //true
-     * myDog instanceof Wolf //true
-     * myDog instanceof Dog //true
-     *
-     *
-     * //Notice you still get the extend method.
-     *
-     * // Mammal->Wolf->Dog->Breed
-     * var Breed = Dog.extend({
-     *    instance: {
-     *
-     *        //initialize outside of constructor
-     *        _pitch : "high",
-     *
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            this.breed = options.breed || "lab";
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a
-     *            //growl thats domesticated with a high pitch!"
-     *            return this._super(arguments) + " with a " + this._pitch + " pitch!";
-     *        },
-     *
-     *        getters : {
-     *            pitch : function() {
-     *                return this._pitch;
-     *            }
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'M A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *            return this._super(arguments).toUpperCase() + "!";
-     *        }
-     *    }
-     * });
-     *
-     *
-     * Breed.soundOff()//"IM A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *
-     * var myBreed = new Breed({color : "gold", type : "lab"}),
-     * myBreed instanceof Dog //true
-     * myBreed instanceof Wolf //true
-     * myBreed instanceof Mammal //true
-     * myBreed.speak() //"A mammal of type lab sounds like a woof thats domesticated with a high pitch!"
-     * myBreed.get("type") //"lab"
-     * myBreed.get("color") //"gold"
-     * myBreed.get("sound")" //"woof"
-     * ```
-     *
-     * ###Multiple Inheritance / Mixins
-     *
-     * declare also allows the use of multiple super classes.
-     * This is useful if you have generic classes that provide functionality but shouldnt be used on their own.
-     *
-     * Lets declare a mixin that allows us to watch for property changes.
-     *
-     * ```
-     * //Notice that we set up the functions outside of declare because we can reuse them
-     *
-     * function _set(prop, val) {
-     *     //get the old value
-     *     var oldVal = this.get(prop);
-     *     //call super to actually set the property
-     *     var ret = this._super(arguments);
-     *     //call our handlers
-     *     this.__callHandlers(prop, oldVal, val);
-     *     return ret;
-     * }
-     *
-     * function _callHandlers(prop, oldVal, newVal) {
-     *    //get our handlers for the property
-     *     var handlers = this.__watchers[prop], l;
-     *     //if the handlers exist and their length does not equal 0 then we call loop through them
-     *     if (handlers && (l = handlers.length) !== 0) {
-     *         for (var i = 0; i < l; i++) {
-     *             //call the handler
-     *             handlers[i].call(null, prop, oldVal, newVal);
-     *         }
-     *     }
-     * }
-     *
-     *
-     * //the watch function
-     * function _watch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         //if its not a function then its an invalid handler
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     if (!this.__watchers[prop]) {
-     *         //create the watchers if it doesnt exist
-     *         this.__watchers[prop] = [handler];
-     *     } else {
-     *         //otherwise just add it to the handlers array
-     *         this.__watchers[prop].push(handler);
-     *     }
-     * }
-     *
-     * function _unwatch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     var handlers = this.__watchers[prop], index;
-     *     if (handlers && (index = handlers.indexOf(handler)) !== -1) {
-     *        //remove the handler if it is found
-     *         handlers.splice(index, 1);
-     *     }
-     * }
-     *
-     * declare({
-     *     instance:{
-     *         constructor:function () {
-     *             this._super(arguments);
-     *             //set up our watchers
-     *             this.__watchers = {};
-     *         },
-     *
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set up our callhandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch function
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     },
-     *
-     *     "static":{
-     *
-     *         init:function () {
-     *             this._super(arguments);
-     *             this.__watchers = {};
-     *         },
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set our callHandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     }
-     * })
-     *
-     * ```
-     *
-     * Now lets use the mixin
-     *
-     * ```
-     * var WatchDog = declare([Dog, WatchMixin]);
-     *
-     * var watchDog = new WatchDog();
-     * //create our handler
-     * function watch(id, oldVal, newVal) {
-     *     console.log("watchdog's %s was %s, now %s", id, oldVal, newVal);
-     * }
-     *
-     * //watch for property changes
-     * watchDog.watch("type", watch);
-     * watchDog.watch("color", watch);
-     * watchDog.watch("sound", watch);
-     *
-     * //now set the properties each handler will be called
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * //unwatch the property changes
-     * watchDog.unwatch("type", watch);
-     * watchDog.unwatch("color", watch);
-     * watchDog.unwatch("sound", watch);
-     *
-     * //no handlers will be called this time
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * ```
-     *
-     * ###Accessing static methods and properties witin an instance.
-     *
-     * To access static properties on an instance use the `_static` property which is a reference to your constructor.
-     *
-     * For example if your in your constructor and you want to have configurable default values.
-     *
-     * ```
-     * consturctor : function constructor(opts){
-     *     this.opts = opts || {};
-     *     this._type = opts.type || this._static.DEFAULT_TYPE;
-     * }
-     * ```
-     *
-     *
-     *
-     * ###Creating a new instance of within an instance.
-     *
-     * Often times you want to create a new instance of an object within an instance. If your subclassed however you cannot return a new instance of the parent class as it will not be the right sub class. `declare` provides a way around this by setting the `_static` property on each isntance of the class.
-     *
-     * Lets add a reproduce method `Mammal`
-     *
-     * ```
-     * reproduce : function(options){
-     *     return new this._static(options);
-     * }
-     * ```
-     *
-     * Now in each subclass you can call reproduce and get the proper type.
-     *
-     * ```
-     * var myDog = new Dog();
-     * var myDogsChild = myDog.reproduce();
-     *
-     * myDogsChild instanceof Dog; //true
-     * ```
-     *
-     * ###Using the `as`
-     *
-     * `declare` also provides an `as` method which allows you to add your class to an object or if your using node.js you can pass in `module` and the class will be exported as the module.
-     *
-     * ```
-     * var animals = {};
-     *
-     * Mammal.as(animals, "Dog");
-     * Wolf.as(animals, "Wolf");
-     * Dog.as(animals, "Dog");
-     * Breed.as(animals, "Breed");
-     *
-     * var myDog = new animals.Dog();
-     *
-     * ```
-     *
-     * Or in node
-     *
-     * ```
-     * Mammal.as(exports, "Dog");
-     * Wolf.as(exports, "Wolf");
-     * Dog.as(exports, "Dog");
-     * Breed.as(exports, "Breed");
-     *
-     * ```
-     *
-     * To export a class as the `module` in node
-     *
-     * ```
-     * Mammal.as(module);
-     * ```
-     *
-     *
-     */
-    function createDeclared() {
-        var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function merge(target, source, exclude) {
-            var name, s;
-            for (name in source) {
-                if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function callSuper(args, a) {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                a && (args = a);
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, args);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getSuper() {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.bind(this);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getter(name) {
-            var getters = this.__getters__;
-            if (getters.hasOwnProperty(name)) {
-                return getters[name].apply(this);
-            } else {
-                return this[name];
-            }
-        }
-
-        function setter(name, val) {
-            var setters = this.__setters__;
-            if (isHash(name)) {
-                for (var i in name) {
-                    var prop = name[i];
-                    if (setters.hasOwnProperty(i)) {
-                        setters[name].call(this, prop);
-                    } else {
-                        this[i] = prop;
-                    }
-                }
-            } else {
-                if (setters.hasOwnProperty(name)) {
-                    return setters[name].apply(this, argsToArray(arguments, 1));
-                } else {
-                    return this[name] = val;
-                }
-            }
-        }
-
-
-        function defaultFunction() {
-            var meta = this.__meta || {},
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, arguments);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-
-        function functionWrapper(f, name) {
-            var wrapper = function wrapper() {
-                var ret, meta = this.__meta || {};
-                var orig = meta.superMeta;
-                meta.superMeta = {f: f, pos: 0, name: name};
-                ret = f.apply(this, arguments);
-                meta.superMeta = orig;
-                return ret;
-            };
-            wrapper._f = f;
-            return wrapper;
-        }
-
-        function defineMixinProps(child, proto) {
-
-            var operations = proto.setters || {}, __setters = child.__setters__, __getters = child.__getters__;
-            for (var i in operations) {
-                if (!__setters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            for (i in operations) {
-                if (!__getters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __getters[i] = operations[i];
-                }
-            }
-            for (var j in proto) {
-                if (j != "getters" && j != "setters") {
-                    var p = proto[j];
-                    if ("function" === typeof p) {
-                        if (!child.hasOwnProperty(j)) {
-                            child[j] = functionWrapper(defaultFunction, j);
-                        }
-                    } else {
-                        child[j] = p;
-                    }
-                }
-            }
-        }
-
-        function mixin() {
-            var args = argsToArray(arguments), l = args.length;
-            var child = this.prototype;
-            var childMeta = child.__meta, thisMeta = this.__meta, bases = child.__meta.bases, staticBases = bases.slice(),
-                staticSupers = thisMeta.supers || [], supers = childMeta.supers || [];
-            for (var i = 0; i < l; i++) {
-                var m = args[i], mProto = m.prototype;
-                var protoMeta = mProto.__meta, meta = m.__meta;
-                !protoMeta && (protoMeta = (mProto.__meta = {proto: mProto || {}}));
-                !meta && (meta = (m.__meta = {proto: m.__proto__ || {}}));
-                defineMixinProps(child, protoMeta.proto || {});
-                defineMixinProps(this, meta.proto || {});
-                //copy the bases for static,
-
-                mixinSupers(m.prototype, supers, bases);
-                mixinSupers(m, staticSupers, staticBases);
-            }
-            return this;
-        }
-
-        function mixinSupers(sup, arr, bases) {
-            var meta = sup.__meta;
-            !meta && (meta = (sup.__meta = {}));
-            var unique = sup.__meta.unique;
-            !unique && (meta.unique = "declare" + ++classCounter);
-            //check it we already have this super mixed into our prototype chain
-            //if true then we have already looped their supers!
-            if (indexOf(bases, unique) === -1) {
-                //add their id to our bases
-                bases.push(unique);
-                var supers = sup.__meta.supers || [], i = supers.length - 1 || 0;
-                while (i >= 0) {
-                    mixinSupers(supers[i--], arr, bases);
-                }
-                arr.unshift(sup);
-            }
-        }
-
-        function defineProps(child, proto) {
-            var operations = proto.setters,
-                __setters = child.__setters__,
-                __getters = child.__getters__;
-            if (operations) {
-                for (var i in operations) {
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            if (operations) {
-                for (i in operations) {
-                    __getters[i] = operations[i];
-                }
-            }
-            for (i in proto) {
-                if (i != "getters" && i != "setters") {
-                    var f = proto[i];
-                    if ("function" === typeof f) {
-                        var meta = f.__meta || {};
-                        if (!meta.isConstructor) {
-                            child[i] = functionWrapper(f, i);
-                        } else {
-                            child[i] = f;
-                        }
-                    } else {
-                        child[i] = f;
-                    }
-                }
-            }
-
-        }
-
-        function _export(obj, name) {
-            if (obj && name) {
-                obj[name] = this;
-            } else {
-                obj.exports = obj = this;
-            }
-            return this;
-        }
-
-        function extend(proto) {
-            return declare(this, proto);
-        }
-
-        function getNew(ctor) {
-            // create object with correct prototype using a do-nothing
-            // constructor
-            forceNew.prototype = ctor.prototype;
-            var t = new forceNew();
-            forceNew.prototype = null;	// clean up
-            return t;
-        }
-
-
-        function __declare(child, sup, proto) {
-            var childProto = {}, supers = [];
-            var unique = "declare" + ++classCounter, bases = [], staticBases = [];
-            var instanceSupers = [], staticSupers = [];
-            var meta = {
-                supers: instanceSupers,
-                unique: unique,
-                bases: bases,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-            var childMeta = {
-                supers: staticSupers,
-                unique: unique,
-                bases: staticBases,
-                isConstructor: true,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-
-            if (isHash(sup) && !proto) {
-                proto = sup;
-                sup = Base;
-            }
-
-            if ("function" === typeof sup || isArray(sup)) {
-                supers = isArray(sup) ? sup : [sup];
-                sup = supers.shift();
-                child.__meta = childMeta;
-                childProto = getNew(sup);
-                childProto.__meta = meta;
-                childProto.__getters__ = merge({}, childProto.__getters__ || {});
-                childProto.__setters__ = merge({}, childProto.__setters__ || {});
-                child.__getters__ = merge({}, child.__getters__ || {});
-                child.__setters__ = merge({}, child.__setters__ || {});
-                mixinSupers(sup.prototype, instanceSupers, bases);
-                mixinSupers(sup, staticSupers, staticBases);
-            } else {
-                child.__meta = childMeta;
-                childProto.__meta = meta;
-                childProto.__getters__ = childProto.__getters__ || {};
-                childProto.__setters__ = childProto.__setters__ || {};
-                child.__getters__ = child.__getters__ || {};
-                child.__setters__ = child.__setters__ || {};
-            }
-            child.prototype = childProto;
-            if (proto) {
-                var instance = meta.proto = proto.instance || {};
-                !instance.hasOwnProperty("constructor") && (instance.constructor = defaultFunction);
-                var stat = childMeta.proto = proto.static || {};
-                stat.init = stat.init || defaultFunction;
-                defineProps(childProto, instance);
-                defineProps(child, stat);
-            } else {
-                meta.proto = {};
-                childMeta.proto = {};
-                child.init = functionWrapper(defaultFunction, "init");
-                childProto.constructor = functionWrapper(defaultFunction, "constructor");
-            }
-            if (supers.length) {
-                mixin.apply(child, supers);
-            }
-            if (sup) {
-                //do this so we mixin our super methods directly but do not ov
-                merge(child, merge(merge({}, sup), child));
-            }
-            childProto._super = child._super = callSuper;
-            childProto._getSuper = child._getSuper = getSuper;
-            childProto._static = child;
-        }
-
-        function declare(sup, proto) {
-            function declared() {
-                this.constructor.apply(this, arguments);
-            }
-
-            __declare(declared, sup, proto);
-            return declared.init() || declared;
-        }
-
-        function singleton(sup, proto) {
-            var retInstance;
-
-            function declaredSingleton() {
-                if (!retInstance) {
-                    this.constructor.apply(this, arguments);
-                    retInstance = this;
-                }
-                return retInstance;
-            }
-
-            __declare(declaredSingleton, sup, proto);
-            return  declaredSingleton.init() || declaredSingleton;
-        }
-
-        Base = declare({
-            instance: {
-                "get": getter,
-                "set": setter
-            },
-
-            "static": {
-                "get": getter,
-                "set": setter,
-                mixin: mixin,
-                extend: extend,
-                as: _export
-            }
-        });
-
-        declare.singleton = singleton;
-        return declare;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = createDeclared();
-        }
-    } else if ("function" === typeof define) {
-        define(createDeclared);
-    } else {
-        this.declare = createDeclared();
-    }
-}());
-
-
-
-
 });
 
 require.define("/node_modules/leafy/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
@@ -15829,11 +12208,15 @@ require.define("/node_modules/leafy/node_modules/declare.js/declare.js",function
             child.prototype = childProto;
             if (proto) {
                 var instance = meta.proto = proto.instance || {};
-                !instance.hasOwnProperty("constructor") && (instance.constructor = defaultFunction);
                 var stat = childMeta.proto = proto.static || {};
                 stat.init = stat.init || defaultFunction;
                 defineProps(childProto, instance);
                 defineProps(child, stat);
+                if (!instance.hasOwnProperty("constructor")) {
+                    childProto.constructor = instance.constructor = functionWrapper(defaultFunction, "constructor");
+                } else {
+                    childProto.constructor = functionWrapper(instance.constructor, "constructor");
+                }
             } else {
                 meta.proto = {};
                 childMeta.proto = {};
@@ -15926,6 +12309,16 @@ require.define("/node_modules/leafy/node_modules/is-extended/index.js",function(
             return pSlice.call(args, slice);
         }
 
+        function keys(obj) {
+            var ret = [];
+            for (var i in obj) {
+                if (obj.hasOwnProperty(i)) {
+                    ret.push(i);
+                }
+            }
+            return ret;
+        }
+
         //taken from node js assert.js
         //https://github.com/joyent/node/blob/master/lib/assert.js
         function deepEqual(actual, expected) {
@@ -15963,6 +12356,8 @@ require.define("/node_modules/leafy/node_modules/is-extended/index.js",function(
 
                 // 7.4. Other pairs that do not both pass typeof value == 'object',
                 // equivalence is determined by ==.
+            } else if (isString(actual) && isString(expected) && actual !== expected) {
+                return false;
             } else if (typeof actual !== 'object' && typeof expected !== 'object') {
                 return actual === expected;
 
@@ -15998,8 +12393,8 @@ require.define("/node_modules/leafy/node_modules/is-extended/index.js",function(
                 return deepEqual(a, b);
             }
             try {
-                var ka = Object.keys(a),
-                    kb = Object.keys(b),
+                var ka = keys(a),
+                    kb = keys(b),
                     i;
                 // having the same number of owned properties (keys incorporates
                 // hasOwnProperty)
@@ -16076,8 +12471,15 @@ require.define("/node_modules/leafy/node_modules/is-extended/index.js",function(
             return obj !== undef && obj === null;
         }
 
-        function isArguments(object) {
+
+        var isArguments = function _isArguments(object) {
             return !isUndefinedOrNull(object) && Object.prototype.toString.call(object) === '[object Arguments]';
+        };
+
+        if (!isArguments(arguments)) {
+            isArguments = function _isArguments(obj) {
+                return !!(obj && obj.hasOwnProperty("callee"));
+            };
         }
 
 
@@ -16894,14 +13296,15 @@ require.define("/node_modules/leafy/node_modules/is-extended/node_modules/extend
             function _extender(obj) {
                 var ret = obj, i, l;
                 if (!(obj instanceof Base)) {
-                    var base = {}, instance = (base.instance = {"__extender__": _extender});
+                    var OurBase = Base;
                     for (i = 0, l = defined.length; i < l; i++) {
                         var definer = defined[i];
                         if (definer[0](obj)) {
-                            merge(instance, definer[1]);
+                            OurBase = OurBase.extend({instance: definer[1]});
                         }
                     }
-                    ret = new (Base.extend(base))(obj);
+                    ret = new OurBase(obj);
+                    ret["__extender__"] = _extender;
                 }
                 return ret;
             }
@@ -16919,6 +13322,16 @@ require.define("/node_modules/leafy/node_modules/is-extended/node_modules/extend
                     decorate = decorate || {};
                     var proto = {};
                     decorateProto(proto, decorate);
+                    //handle browsers like which skip over the constructor while looping
+                    if (!proto.hasOwnProperty("constructor")) {
+                        if (decorate.hasOwnProperty("constructor")) {
+                            addMethod(proto, "constructor", decorate.constructor);
+                        } else {
+                            proto.constructor = function () {
+                                this._super(arguments);
+                            };
+                        }
+                    }
                     defined.push([tester, proto]);
                 }
                 return _extender;
@@ -16978,887 +13391,6 @@ require.define("/node_modules/leafy/node_modules/is-extended/node_modules/extend
 }).call(this);
 });
 
-require.define("/node_modules/leafy/node_modules/is-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/is-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./declare.js");
-});
-
-require.define("/node_modules/leafy/node_modules/is-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/declare.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-
-    /**
-     * @projectName declare
-     * @github http://github.com/doug-martin/declare.js
-     * @header
-     *
-     * Declare is a library designed to allow writing object oriented code the same way in both the browser and node.js.
-     *
-     * ##Installation
-     *
-     * `npm install declare.js`
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/declare.js/master/declare.js) ([minified](https://raw.github.com/doug-martin/declare.js/master/declare-min.js))
-     *
-     * ###Requirejs
-     *
-     * To use with requirejs place the `declare` source in the root scripts directory
-     *
-     * ```
-     *
-     * define(["declare"], function(declare){
-     *      return declare({
-     *          instance : {
-     *              hello : function(){
-     *                  return "world";
-     *              }
-     *          }
-     *      });
-     * });
-     *
-     * ```
-     *
-     *
-     * ##Usage
-     *
-     * declare.js provides
-     *
-     * Class methods
-     *
-     * * `as(module | object, name)` : exports the object to module or the object with the name
-     * * `mixin(mixin)` : mixes in an object but does not inherit directly from the object. **Note** this does not return a new class but changes the original class.
-     * * `extend(proto)` : extend a class with the given properties. A shortcut to `declare(Super, {})`;
-     *
-     * Instance methods
-     *
-     * * `_super(arguments)`: calls the super of the current method, you can pass in either the argments object or an array with arguments you want passed to super
-     * * `_getSuper()`: returns a this methods direct super.
-     * * `_static` : use to reference class properties and methods.
-     * * `get(prop)` : gets a property invoking the getter if it exists otherwise it just returns the named property on the object.
-     * * `set(prop, val)` : sets a property invoking the setter if it exists otherwise it just sets the named property on the object.
-     *
-     *
-     * ###Declaring a new Class
-     *
-     * Creating a new class with declare is easy!
-     *
-     * ```
-     *
-     * var Mammal = declare({
-     *      //define your instance methods and properties
-     *      instance : {
-     *
-     *          //will be called whenever a new instance is created
-     *          constructor: function(options) {
-     *              options = options || {};
-     *              this._super(arguments);
-     *              this._type = options.type || "mammal";
-     *          },
-     *
-     *          speak : function() {
-     *              return  "A mammal of type " + this._type + " sounds like";
-     *          },
-     *
-     *          //Define your getters
-     *          getters : {
-     *
-     *              //can be accessed by using the get method. (mammal.get("type"))
-     *              type : function() {
-     *                  return this._type;
-     *              }
-     *          },
-     *
-     *           //Define your setters
-     *          setters : {
-     *
-     *                //can be accessed by using the set method. (mammal.set("type", "mammalType"))
-     *              type : function(t) {
-     *                  this._type = t;
-     *              }
-     *          }
-     *      },
-     *
-     *      //Define your static methods
-     *      static : {
-     *
-     *          //Mammal.soundOff(); //"Im a mammal!!"
-     *          soundOff : function() {
-     *              return "Im a mammal!!";
-     *          }
-     *      }
-     * });
-     *
-     *
-     * ```
-     *
-     * You can use Mammal just like you would any other class.
-     *
-     * ```
-     * Mammal.soundOff("Im a mammal!!");
-     *
-     * var myMammal = new Mammal({type : "mymammal"});
-     * myMammal.speak(); // "A mammal of type mymammal sounds like"
-     * myMammal.get("type"); //"mymammal"
-     * myMammal.set("type", "mammal");
-     * myMammal.get("type"); //"mammal"
-     *
-     *
-     * ```
-     *
-     * ###Extending a class
-     *
-     * If you want to just extend a single class use the .extend method.
-     *
-     * ```
-     *
-     * var Wolf = Mammal.extend({
-     *
-     *   //define your instance method
-     *   instance: {
-     *
-     *        //You can override super constructors just be sure to call `_super`
-     *       constructor: function(options) {
-     *          options = options || {};
-     *          this._super(arguments); //call our super constructor.
-     *          this._sound = "growl";
-     *          this._color = options.color || "grey";
-     *      },
-     *
-     *      //override Mammals `speak` method by appending our own data to it.
-     *      speak : function() {
-     *          return this._super(arguments) + " a " + this._sound;
-     *      },
-     *
-     *      //add new getters for sound and color
-     *      getters : {
-     *
-     *           //new Wolf().get("type")
-     *           //notice color is read only as we did not define a setter
-     *          color : function() {
-     *              return this._color;
-     *          },
-     *
-     *          //new Wolf().get("sound")
-     *          sound : function() {
-     *              return this._sound;
-     *          }
-     *      },
-     *
-     *      setters : {
-     *
-     *          //new Wolf().set("sound", "howl")
-     *          sound : function(s) {
-     *              this._sound = s;
-     *          }
-     *      }
-     *
-     *  },
-     *
-     *  static : {
-     *
-     *      //You can override super static methods also! And you can still use _super
-     *      soundOff : function() {
-     *          //You can even call super in your statics!!!
-     *          //should return "I'm a mammal!! that growls"
-     *          return this._super(arguments) + " that growls";
-     *      }
-     *  }
-     * });
-     *
-     * Wolf.soundOff(); //Im a mammal!! that growls
-     *
-     * var myWolf = new Wolf();
-     * myWolf instanceof Mammal //true
-     * myWolf instanceof Wolf //true
-     *
-     * ```
-     *
-     * You can also extend a class by using the declare method and just pass in the super class.
-     *
-     * ```
-     * //Typical hierarchical inheritance
-     * // Mammal->Wolf->Dog
-     * var Dog = declare(Wolf, {
-     *    instance: {
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            //override Wolfs initialization of sound to woof.
-     *            this._sound = "woof";
-     *
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a growl thats domesticated"
-     *            return this._super(arguments) + " thats domesticated";
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'm a mammal!! that growls but now barks"
-     *            return this._super(arguments) + " but now barks";
-     *        }
-     *    }
-     * });
-     *
-     * Dog.soundOff(); //Im a mammal!! that growls but now barks
-     *
-     * var myDog = new Dog();
-     * myDog instanceof Mammal //true
-     * myDog instanceof Wolf //true
-     * myDog instanceof Dog //true
-     *
-     *
-     * //Notice you still get the extend method.
-     *
-     * // Mammal->Wolf->Dog->Breed
-     * var Breed = Dog.extend({
-     *    instance: {
-     *
-     *        //initialize outside of constructor
-     *        _pitch : "high",
-     *
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            this.breed = options.breed || "lab";
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a
-     *            //growl thats domesticated with a high pitch!"
-     *            return this._super(arguments) + " with a " + this._pitch + " pitch!";
-     *        },
-     *
-     *        getters : {
-     *            pitch : function() {
-     *                return this._pitch;
-     *            }
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'M A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *            return this._super(arguments).toUpperCase() + "!";
-     *        }
-     *    }
-     * });
-     *
-     *
-     * Breed.soundOff()//"IM A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *
-     * var myBreed = new Breed({color : "gold", type : "lab"}),
-     * myBreed instanceof Dog //true
-     * myBreed instanceof Wolf //true
-     * myBreed instanceof Mammal //true
-     * myBreed.speak() //"A mammal of type lab sounds like a woof thats domesticated with a high pitch!"
-     * myBreed.get("type") //"lab"
-     * myBreed.get("color") //"gold"
-     * myBreed.get("sound")" //"woof"
-     * ```
-     *
-     * ###Multiple Inheritance / Mixins
-     *
-     * declare also allows the use of multiple super classes.
-     * This is useful if you have generic classes that provide functionality but shouldnt be used on their own.
-     *
-     * Lets declare a mixin that allows us to watch for property changes.
-     *
-     * ```
-     * //Notice that we set up the functions outside of declare because we can reuse them
-     *
-     * function _set(prop, val) {
-     *     //get the old value
-     *     var oldVal = this.get(prop);
-     *     //call super to actually set the property
-     *     var ret = this._super(arguments);
-     *     //call our handlers
-     *     this.__callHandlers(prop, oldVal, val);
-     *     return ret;
-     * }
-     *
-     * function _callHandlers(prop, oldVal, newVal) {
-     *    //get our handlers for the property
-     *     var handlers = this.__watchers[prop], l;
-     *     //if the handlers exist and their length does not equal 0 then we call loop through them
-     *     if (handlers && (l = handlers.length) !== 0) {
-     *         for (var i = 0; i < l; i++) {
-     *             //call the handler
-     *             handlers[i].call(null, prop, oldVal, newVal);
-     *         }
-     *     }
-     * }
-     *
-     *
-     * //the watch function
-     * function _watch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         //if its not a function then its an invalid handler
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     if (!this.__watchers[prop]) {
-     *         //create the watchers if it doesnt exist
-     *         this.__watchers[prop] = [handler];
-     *     } else {
-     *         //otherwise just add it to the handlers array
-     *         this.__watchers[prop].push(handler);
-     *     }
-     * }
-     *
-     * function _unwatch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     var handlers = this.__watchers[prop], index;
-     *     if (handlers && (index = handlers.indexOf(handler)) !== -1) {
-     *        //remove the handler if it is found
-     *         handlers.splice(index, 1);
-     *     }
-     * }
-     *
-     * declare({
-     *     instance:{
-     *         constructor:function () {
-     *             this._super(arguments);
-     *             //set up our watchers
-     *             this.__watchers = {};
-     *         },
-     *
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set up our callhandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch function
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     },
-     *
-     *     "static":{
-     *
-     *         init:function () {
-     *             this._super(arguments);
-     *             this.__watchers = {};
-     *         },
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set our callHandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     }
-     * })
-     *
-     * ```
-     *
-     * Now lets use the mixin
-     *
-     * ```
-     * var WatchDog = declare([Dog, WatchMixin]);
-     *
-     * var watchDog = new WatchDog();
-     * //create our handler
-     * function watch(id, oldVal, newVal) {
-     *     console.log("watchdog's %s was %s, now %s", id, oldVal, newVal);
-     * }
-     *
-     * //watch for property changes
-     * watchDog.watch("type", watch);
-     * watchDog.watch("color", watch);
-     * watchDog.watch("sound", watch);
-     *
-     * //now set the properties each handler will be called
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * //unwatch the property changes
-     * watchDog.unwatch("type", watch);
-     * watchDog.unwatch("color", watch);
-     * watchDog.unwatch("sound", watch);
-     *
-     * //no handlers will be called this time
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * ```
-     *
-     * ###Accessing static methods and properties witin an instance.
-     *
-     * To access static properties on an instance use the `_static` property which is a reference to your constructor.
-     *
-     * For example if your in your constructor and you want to have configurable default values.
-     *
-     * ```
-     * consturctor : function constructor(opts){
-     *     this.opts = opts || {};
-     *     this._type = opts.type || this._static.DEFAULT_TYPE;
-     * }
-     * ```
-     *
-     *
-     *
-     * ###Creating a new instance of within an instance.
-     *
-     * Often times you want to create a new instance of an object within an instance. If your subclassed however you cannot return a new instance of the parent class as it will not be the right sub class. `declare` provides a way around this by setting the `_static` property on each isntance of the class.
-     *
-     * Lets add a reproduce method `Mammal`
-     *
-     * ```
-     * reproduce : function(options){
-     *     return new this._static(options);
-     * }
-     * ```
-     *
-     * Now in each subclass you can call reproduce and get the proper type.
-     *
-     * ```
-     * var myDog = new Dog();
-     * var myDogsChild = myDog.reproduce();
-     *
-     * myDogsChild instanceof Dog; //true
-     * ```
-     *
-     * ###Using the `as`
-     *
-     * `declare` also provides an `as` method which allows you to add your class to an object or if your using node.js you can pass in `module` and the class will be exported as the module.
-     *
-     * ```
-     * var animals = {};
-     *
-     * Mammal.as(animals, "Dog");
-     * Wolf.as(animals, "Wolf");
-     * Dog.as(animals, "Dog");
-     * Breed.as(animals, "Breed");
-     *
-     * var myDog = new animals.Dog();
-     *
-     * ```
-     *
-     * Or in node
-     *
-     * ```
-     * Mammal.as(exports, "Dog");
-     * Wolf.as(exports, "Wolf");
-     * Dog.as(exports, "Dog");
-     * Breed.as(exports, "Breed");
-     *
-     * ```
-     *
-     * To export a class as the `module` in node
-     *
-     * ```
-     * Mammal.as(module);
-     * ```
-     *
-     *
-     */
-    function createDeclared() {
-        var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function merge(target, source, exclude) {
-            var name, s;
-            for (name in source) {
-                if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function callSuper(args, a) {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                a && (args = a);
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, args);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getSuper() {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.bind(this);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getter(name) {
-            var getters = this.__getters__;
-            if (getters.hasOwnProperty(name)) {
-                return getters[name].apply(this);
-            } else {
-                return this[name];
-            }
-        }
-
-        function setter(name, val) {
-            var setters = this.__setters__;
-            if (isHash(name)) {
-                for (var i in name) {
-                    var prop = name[i];
-                    if (setters.hasOwnProperty(i)) {
-                        setters[name].call(this, prop);
-                    } else {
-                        this[i] = prop;
-                    }
-                }
-            } else {
-                if (setters.hasOwnProperty(name)) {
-                    return setters[name].apply(this, argsToArray(arguments, 1));
-                } else {
-                    return this[name] = val;
-                }
-            }
-        }
-
-
-        function defaultFunction() {
-            var meta = this.__meta || {},
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, arguments);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-
-        function functionWrapper(f, name) {
-            var wrapper = function wrapper() {
-                var ret, meta = this.__meta || {};
-                var orig = meta.superMeta;
-                meta.superMeta = {f: f, pos: 0, name: name};
-                ret = f.apply(this, arguments);
-                meta.superMeta = orig;
-                return ret;
-            };
-            wrapper._f = f;
-            return wrapper;
-        }
-
-        function defineMixinProps(child, proto) {
-
-            var operations = proto.setters || {}, __setters = child.__setters__, __getters = child.__getters__;
-            for (var i in operations) {
-                if (!__setters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            for (i in operations) {
-                if (!__getters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __getters[i] = operations[i];
-                }
-            }
-            for (var j in proto) {
-                if (j != "getters" && j != "setters") {
-                    var p = proto[j];
-                    if ("function" === typeof p) {
-                        if (!child.hasOwnProperty(j)) {
-                            child[j] = functionWrapper(defaultFunction, j);
-                        }
-                    } else {
-                        child[j] = p;
-                    }
-                }
-            }
-        }
-
-        function mixin() {
-            var args = argsToArray(arguments), l = args.length;
-            var child = this.prototype;
-            var childMeta = child.__meta, thisMeta = this.__meta, bases = child.__meta.bases, staticBases = bases.slice(),
-                staticSupers = thisMeta.supers || [], supers = childMeta.supers || [];
-            for (var i = 0; i < l; i++) {
-                var m = args[i], mProto = m.prototype;
-                var protoMeta = mProto.__meta, meta = m.__meta;
-                !protoMeta && (protoMeta = (mProto.__meta = {proto: mProto || {}}));
-                !meta && (meta = (m.__meta = {proto: m.__proto__ || {}}));
-                defineMixinProps(child, protoMeta.proto || {});
-                defineMixinProps(this, meta.proto || {});
-                //copy the bases for static,
-
-                mixinSupers(m.prototype, supers, bases);
-                mixinSupers(m, staticSupers, staticBases);
-            }
-            return this;
-        }
-
-        function mixinSupers(sup, arr, bases) {
-            var meta = sup.__meta;
-            !meta && (meta = (sup.__meta = {}));
-            var unique = sup.__meta.unique;
-            !unique && (meta.unique = "declare" + ++classCounter);
-            //check it we already have this super mixed into our prototype chain
-            //if true then we have already looped their supers!
-            if (indexOf(bases, unique) === -1) {
-                //add their id to our bases
-                bases.push(unique);
-                var supers = sup.__meta.supers || [], i = supers.length - 1 || 0;
-                while (i >= 0) {
-                    mixinSupers(supers[i--], arr, bases);
-                }
-                arr.unshift(sup);
-            }
-        }
-
-        function defineProps(child, proto) {
-            var operations = proto.setters,
-                __setters = child.__setters__,
-                __getters = child.__getters__;
-            if (operations) {
-                for (var i in operations) {
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            if (operations) {
-                for (i in operations) {
-                    __getters[i] = operations[i];
-                }
-            }
-            for (i in proto) {
-                if (i != "getters" && i != "setters") {
-                    var f = proto[i];
-                    if ("function" === typeof f) {
-                        var meta = f.__meta || {};
-                        if (!meta.isConstructor) {
-                            child[i] = functionWrapper(f, i);
-                        } else {
-                            child[i] = f;
-                        }
-                    } else {
-                        child[i] = f;
-                    }
-                }
-            }
-
-        }
-
-        function _export(obj, name) {
-            if (obj && name) {
-                obj[name] = this;
-            } else {
-                obj.exports = obj = this;
-            }
-            return this;
-        }
-
-        function extend(proto) {
-            return declare(this, proto);
-        }
-
-        function getNew(ctor) {
-            // create object with correct prototype using a do-nothing
-            // constructor
-            forceNew.prototype = ctor.prototype;
-            var t = new forceNew();
-            forceNew.prototype = null;	// clean up
-            return t;
-        }
-
-
-        function __declare(child, sup, proto) {
-            var childProto = {}, supers = [];
-            var unique = "declare" + ++classCounter, bases = [], staticBases = [];
-            var instanceSupers = [], staticSupers = [];
-            var meta = {
-                supers: instanceSupers,
-                unique: unique,
-                bases: bases,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-            var childMeta = {
-                supers: staticSupers,
-                unique: unique,
-                bases: staticBases,
-                isConstructor: true,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-
-            if (isHash(sup) && !proto) {
-                proto = sup;
-                sup = Base;
-            }
-
-            if ("function" === typeof sup || isArray(sup)) {
-                supers = isArray(sup) ? sup : [sup];
-                sup = supers.shift();
-                child.__meta = childMeta;
-                childProto = getNew(sup);
-                childProto.__meta = meta;
-                childProto.__getters__ = merge({}, childProto.__getters__ || {});
-                childProto.__setters__ = merge({}, childProto.__setters__ || {});
-                child.__getters__ = merge({}, child.__getters__ || {});
-                child.__setters__ = merge({}, child.__setters__ || {});
-                mixinSupers(sup.prototype, instanceSupers, bases);
-                mixinSupers(sup, staticSupers, staticBases);
-            } else {
-                child.__meta = childMeta;
-                childProto.__meta = meta;
-                childProto.__getters__ = childProto.__getters__ || {};
-                childProto.__setters__ = childProto.__setters__ || {};
-                child.__getters__ = child.__getters__ || {};
-                child.__setters__ = child.__setters__ || {};
-            }
-            child.prototype = childProto;
-            if (proto) {
-                var instance = meta.proto = proto.instance || {};
-                !instance.hasOwnProperty("constructor") && (instance.constructor = defaultFunction);
-                var stat = childMeta.proto = proto.static || {};
-                stat.init = stat.init || defaultFunction;
-                defineProps(childProto, instance);
-                defineProps(child, stat);
-            } else {
-                meta.proto = {};
-                childMeta.proto = {};
-                child.init = functionWrapper(defaultFunction, "init");
-                childProto.constructor = functionWrapper(defaultFunction, "constructor");
-            }
-            if (supers.length) {
-                mixin.apply(child, supers);
-            }
-            if (sup) {
-                //do this so we mixin our super methods directly but do not ov
-                merge(child, merge(merge({}, sup), child));
-            }
-            childProto._super = child._super = callSuper;
-            childProto._getSuper = child._getSuper = getSuper;
-            childProto._static = child;
-        }
-
-        function declare(sup, proto) {
-            function declared() {
-                this.constructor.apply(this, arguments);
-            }
-
-            __declare(declared, sup, proto);
-            return declared.init() || declared;
-        }
-
-        function singleton(sup, proto) {
-            var retInstance;
-
-            function declaredSingleton() {
-                if (!retInstance) {
-                    this.constructor.apply(this, arguments);
-                    retInstance = this;
-                }
-                return retInstance;
-            }
-
-            __declare(declaredSingleton, sup, proto);
-            return  declaredSingleton.init() || declaredSingleton;
-        }
-
-        Base = declare({
-            instance: {
-                "get": getter,
-                "set": setter
-            },
-
-            "static": {
-                "get": getter,
-                "set": setter,
-                mixin: mixin,
-                extend: extend,
-                as: _export
-            }
-        });
-
-        declare.singleton = singleton;
-        return declare;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = createDeclared();
-        }
-    } else if ("function" === typeof define) {
-        define(createDeclared);
-    } else {
-        this.declare = createDeclared();
-    }
-}());
-
-
-
-
-});
-
 require.define("/node_modules/leafy/node_modules/string-extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
 });
 
@@ -17866,6 +13398,150 @@ require.define("/node_modules/leafy/node_modules/string-extended/index.js",funct
     "use strict";
 
     function defineString(extended, is, date) {
+
+        var stringify;
+        if (typeof JSON === "undefined") {
+            /*
+             json2.js
+             2012-10-08
+
+             Public Domain.
+
+             NO WARRANTY EXPRESSED OR IMPLIED. USE AT YOUR OWN RISK.
+             */
+
+            (function () {
+                function f(n) {
+                    // Format integers to have at least two digits.
+                    return n < 10 ? '0' + n : n;
+                }
+
+                var isPrimitive = is.tester().isString().isNumber().isBoolean().tester();
+
+                function toJSON(obj) {
+                    if (is.isDate(obj)) {
+                        return isFinite(obj.valueOf())
+                            ? obj.getUTCFullYear() + '-' +
+                            f(obj.getUTCMonth() + 1) + '-' +
+                            f(obj.getUTCDate()) + 'T' +
+                            f(obj.getUTCHours()) + ':' +
+                            f(obj.getUTCMinutes()) + ':' +
+                            f(obj.getUTCSeconds()) + 'Z'
+                            : null;
+                    } else if (isPrimitive(obj)) {
+                        return obj.valueOf();
+                    }
+                    return obj;
+                }
+
+                var cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
+                    escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
+                    gap,
+                    indent,
+                    meta = {    // table of character substitutions
+                        '\b': '\\b',
+                        '\t': '\\t',
+                        '\n': '\\n',
+                        '\f': '\\f',
+                        '\r': '\\r',
+                        '"': '\\"',
+                        '\\': '\\\\'
+                    },
+                    rep;
+
+
+                function quote(string) {
+                    escapable.lastIndex = 0;
+                    return escapable.test(string) ? '"' + string.replace(escapable, function (a) {
+                        var c = meta[a];
+                        return typeof c === 'string' ? c : '\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
+                    }) + '"' : '"' + string + '"';
+                }
+
+
+                function str(key, holder) {
+
+                    var i, k, v, length, mind = gap, partial, value = holder[key];
+                    if (value) {
+                        value = toJSON(value);
+                    }
+                    if (typeof rep === 'function') {
+                        value = rep.call(holder, key, value);
+                    }
+                    switch (typeof value) {
+                        case 'string':
+                            return quote(value);
+                        case 'number':
+                            return isFinite(value) ? String(value) : 'null';
+                        case 'boolean':
+                        case 'null':
+                            return String(value);
+                        case 'object':
+                            if (!value) {
+                                return 'null';
+                            }
+                            gap += indent;
+                            partial = [];
+                            if (Object.prototype.toString.apply(value) === '[object Array]') {
+                                length = value.length;
+                                for (i = 0; i < length; i += 1) {
+                                    partial[i] = str(i, value) || 'null';
+                                }
+                                v = partial.length === 0 ? '[]' : gap ? '[\n' + gap + partial.join(',\n' + gap) + '\n' + mind + ']' : '[' + partial.join(',') + ']';
+                                gap = mind;
+                                return v;
+                            }
+                            if (rep && typeof rep === 'object') {
+                                length = rep.length;
+                                for (i = 0; i < length; i += 1) {
+                                    if (typeof rep[i] === 'string') {
+                                        k = rep[i];
+                                        v = str(k, value);
+                                        if (v) {
+                                            partial.push(quote(k) + (gap ? ': ' : ':') + v);
+                                        }
+                                    }
+                                }
+                            } else {
+                                for (k in value) {
+                                    if (Object.prototype.hasOwnProperty.call(value, k)) {
+                                        v = str(k, value);
+                                        if (v) {
+                                            partial.push(quote(k) + (gap ? ': ' : ':') + v);
+                                        }
+                                    }
+                                }
+                            }
+                            v = partial.length === 0 ? '{}' : gap ? '{\n' + gap + partial.join(',\n' + gap) + '\n' + mind + '}' : '{' + partial.join(',') + '}';
+                            gap = mind;
+                            return v;
+                    }
+                }
+
+                stringify = function (value, replacer, space) {
+                    var i;
+                    gap = '';
+                    indent = '';
+                    if (typeof space === 'number') {
+                        for (i = 0; i < space; i += 1) {
+                            indent += ' ';
+                        }
+                    } else if (typeof space === 'string') {
+                        indent = space;
+                    }
+                    rep = replacer;
+                    if (replacer && typeof replacer !== 'function' &&
+                        (typeof replacer !== 'object' ||
+                            typeof replacer.length !== 'number')) {
+                        throw new Error('JSON.stringify');
+                    }
+                    return str('', {'': value});
+                };
+            }());
+        }else{
+            stringify = JSON.stringify;
+        }
+
 
         var isHash = is.isHash, aSlice = Array.prototype.slice;
 
@@ -17926,7 +13602,7 @@ require.define("/node_modules/leafy/node_modules/string-extended/index.js",funct
                 }
             }
             try {
-                ret = JSON.stringify(object, null, spacing);
+                ret = stringify(object, null, spacing);
             } catch (e) {
                 throw new Error("stringExtended.format : Unable to parse json from ", object);
             }
@@ -18206,7 +13882,7 @@ require.define("/node_modules/leafy/node_modules/string-extended/index.js",funct
                         ret = replacer.toUTCString();
                     } else if (m === "%j") {
                         try {
-                            ret = JSON.stringify(replacer);
+                            ret = stringify(replacer);
                         } catch (e) {
                             throw new Error("stringExtended.format : Unable to parse json from ", replacer);
                         }
@@ -18902,14 +14578,15 @@ require.define("/node_modules/leafy/node_modules/string-extended/node_modules/ex
             function _extender(obj) {
                 var ret = obj, i, l;
                 if (!(obj instanceof Base)) {
-                    var base = {}, instance = (base.instance = {"__extender__": _extender});
+                    var OurBase = Base;
                     for (i = 0, l = defined.length; i < l; i++) {
                         var definer = defined[i];
                         if (definer[0](obj)) {
-                            merge(instance, definer[1]);
+                            OurBase = OurBase.extend({instance: definer[1]});
                         }
                     }
-                    ret = new (Base.extend(base))(obj);
+                    ret = new OurBase(obj);
+                    ret["__extender__"] = _extender;
                 }
                 return ret;
             }
@@ -18927,6 +14604,16 @@ require.define("/node_modules/leafy/node_modules/string-extended/node_modules/ex
                     decorate = decorate || {};
                     var proto = {};
                     decorateProto(proto, decorate);
+                    //handle browsers like which skip over the constructor while looping
+                    if (!proto.hasOwnProperty("constructor")) {
+                        if (decorate.hasOwnProperty("constructor")) {
+                            addMethod(proto, "constructor", decorate.constructor);
+                        } else {
+                            proto.constructor = function () {
+                                this._super(arguments);
+                            };
+                        }
+                    }
                     defined.push([tester, proto]);
                 }
                 return _extender;
@@ -18984,2835 +14671,6 @@ require.define("/node_modules/leafy/node_modules/string-extended/node_modules/ex
     }
 
 }).call(this);
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./declare.js");
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/declare.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-
-    /**
-     * @projectName declare
-     * @github http://github.com/doug-martin/declare.js
-     * @header
-     *
-     * Declare is a library designed to allow writing object oriented code the same way in both the browser and node.js.
-     *
-     * ##Installation
-     *
-     * `npm install declare.js`
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/declare.js/master/declare.js) ([minified](https://raw.github.com/doug-martin/declare.js/master/declare-min.js))
-     *
-     * ###Requirejs
-     *
-     * To use with requirejs place the `declare` source in the root scripts directory
-     *
-     * ```
-     *
-     * define(["declare"], function(declare){
-     *      return declare({
-     *          instance : {
-     *              hello : function(){
-     *                  return "world";
-     *              }
-     *          }
-     *      });
-     * });
-     *
-     * ```
-     *
-     *
-     * ##Usage
-     *
-     * declare.js provides
-     *
-     * Class methods
-     *
-     * * `as(module | object, name)` : exports the object to module or the object with the name
-     * * `mixin(mixin)` : mixes in an object but does not inherit directly from the object. **Note** this does not return a new class but changes the original class.
-     * * `extend(proto)` : extend a class with the given properties. A shortcut to `declare(Super, {})`;
-     *
-     * Instance methods
-     *
-     * * `_super(arguments)`: calls the super of the current method, you can pass in either the argments object or an array with arguments you want passed to super
-     * * `_getSuper()`: returns a this methods direct super.
-     * * `_static` : use to reference class properties and methods.
-     * * `get(prop)` : gets a property invoking the getter if it exists otherwise it just returns the named property on the object.
-     * * `set(prop, val)` : sets a property invoking the setter if it exists otherwise it just sets the named property on the object.
-     *
-     *
-     * ###Declaring a new Class
-     *
-     * Creating a new class with declare is easy!
-     *
-     * ```
-     *
-     * var Mammal = declare({
-     *      //define your instance methods and properties
-     *      instance : {
-     *
-     *          //will be called whenever a new instance is created
-     *          constructor: function(options) {
-     *              options = options || {};
-     *              this._super(arguments);
-     *              this._type = options.type || "mammal";
-     *          },
-     *
-     *          speak : function() {
-     *              return  "A mammal of type " + this._type + " sounds like";
-     *          },
-     *
-     *          //Define your getters
-     *          getters : {
-     *
-     *              //can be accessed by using the get method. (mammal.get("type"))
-     *              type : function() {
-     *                  return this._type;
-     *              }
-     *          },
-     *
-     *           //Define your setters
-     *          setters : {
-     *
-     *                //can be accessed by using the set method. (mammal.set("type", "mammalType"))
-     *              type : function(t) {
-     *                  this._type = t;
-     *              }
-     *          }
-     *      },
-     *
-     *      //Define your static methods
-     *      static : {
-     *
-     *          //Mammal.soundOff(); //"Im a mammal!!"
-     *          soundOff : function() {
-     *              return "Im a mammal!!";
-     *          }
-     *      }
-     * });
-     *
-     *
-     * ```
-     *
-     * You can use Mammal just like you would any other class.
-     *
-     * ```
-     * Mammal.soundOff("Im a mammal!!");
-     *
-     * var myMammal = new Mammal({type : "mymammal"});
-     * myMammal.speak(); // "A mammal of type mymammal sounds like"
-     * myMammal.get("type"); //"mymammal"
-     * myMammal.set("type", "mammal");
-     * myMammal.get("type"); //"mammal"
-     *
-     *
-     * ```
-     *
-     * ###Extending a class
-     *
-     * If you want to just extend a single class use the .extend method.
-     *
-     * ```
-     *
-     * var Wolf = Mammal.extend({
-     *
-     *   //define your instance method
-     *   instance: {
-     *
-     *        //You can override super constructors just be sure to call `_super`
-     *       constructor: function(options) {
-     *          options = options || {};
-     *          this._super(arguments); //call our super constructor.
-     *          this._sound = "growl";
-     *          this._color = options.color || "grey";
-     *      },
-     *
-     *      //override Mammals `speak` method by appending our own data to it.
-     *      speak : function() {
-     *          return this._super(arguments) + " a " + this._sound;
-     *      },
-     *
-     *      //add new getters for sound and color
-     *      getters : {
-     *
-     *           //new Wolf().get("type")
-     *           //notice color is read only as we did not define a setter
-     *          color : function() {
-     *              return this._color;
-     *          },
-     *
-     *          //new Wolf().get("sound")
-     *          sound : function() {
-     *              return this._sound;
-     *          }
-     *      },
-     *
-     *      setters : {
-     *
-     *          //new Wolf().set("sound", "howl")
-     *          sound : function(s) {
-     *              this._sound = s;
-     *          }
-     *      }
-     *
-     *  },
-     *
-     *  static : {
-     *
-     *      //You can override super static methods also! And you can still use _super
-     *      soundOff : function() {
-     *          //You can even call super in your statics!!!
-     *          //should return "I'm a mammal!! that growls"
-     *          return this._super(arguments) + " that growls";
-     *      }
-     *  }
-     * });
-     *
-     * Wolf.soundOff(); //Im a mammal!! that growls
-     *
-     * var myWolf = new Wolf();
-     * myWolf instanceof Mammal //true
-     * myWolf instanceof Wolf //true
-     *
-     * ```
-     *
-     * You can also extend a class by using the declare method and just pass in the super class.
-     *
-     * ```
-     * //Typical hierarchical inheritance
-     * // Mammal->Wolf->Dog
-     * var Dog = declare(Wolf, {
-     *    instance: {
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            //override Wolfs initialization of sound to woof.
-     *            this._sound = "woof";
-     *
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a growl thats domesticated"
-     *            return this._super(arguments) + " thats domesticated";
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'm a mammal!! that growls but now barks"
-     *            return this._super(arguments) + " but now barks";
-     *        }
-     *    }
-     * });
-     *
-     * Dog.soundOff(); //Im a mammal!! that growls but now barks
-     *
-     * var myDog = new Dog();
-     * myDog instanceof Mammal //true
-     * myDog instanceof Wolf //true
-     * myDog instanceof Dog //true
-     *
-     *
-     * //Notice you still get the extend method.
-     *
-     * // Mammal->Wolf->Dog->Breed
-     * var Breed = Dog.extend({
-     *    instance: {
-     *
-     *        //initialize outside of constructor
-     *        _pitch : "high",
-     *
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            this.breed = options.breed || "lab";
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a
-     *            //growl thats domesticated with a high pitch!"
-     *            return this._super(arguments) + " with a " + this._pitch + " pitch!";
-     *        },
-     *
-     *        getters : {
-     *            pitch : function() {
-     *                return this._pitch;
-     *            }
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'M A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *            return this._super(arguments).toUpperCase() + "!";
-     *        }
-     *    }
-     * });
-     *
-     *
-     * Breed.soundOff()//"IM A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *
-     * var myBreed = new Breed({color : "gold", type : "lab"}),
-     * myBreed instanceof Dog //true
-     * myBreed instanceof Wolf //true
-     * myBreed instanceof Mammal //true
-     * myBreed.speak() //"A mammal of type lab sounds like a woof thats domesticated with a high pitch!"
-     * myBreed.get("type") //"lab"
-     * myBreed.get("color") //"gold"
-     * myBreed.get("sound")" //"woof"
-     * ```
-     *
-     * ###Multiple Inheritance / Mixins
-     *
-     * declare also allows the use of multiple super classes.
-     * This is useful if you have generic classes that provide functionality but shouldnt be used on their own.
-     *
-     * Lets declare a mixin that allows us to watch for property changes.
-     *
-     * ```
-     * //Notice that we set up the functions outside of declare because we can reuse them
-     *
-     * function _set(prop, val) {
-     *     //get the old value
-     *     var oldVal = this.get(prop);
-     *     //call super to actually set the property
-     *     var ret = this._super(arguments);
-     *     //call our handlers
-     *     this.__callHandlers(prop, oldVal, val);
-     *     return ret;
-     * }
-     *
-     * function _callHandlers(prop, oldVal, newVal) {
-     *    //get our handlers for the property
-     *     var handlers = this.__watchers[prop], l;
-     *     //if the handlers exist and their length does not equal 0 then we call loop through them
-     *     if (handlers && (l = handlers.length) !== 0) {
-     *         for (var i = 0; i < l; i++) {
-     *             //call the handler
-     *             handlers[i].call(null, prop, oldVal, newVal);
-     *         }
-     *     }
-     * }
-     *
-     *
-     * //the watch function
-     * function _watch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         //if its not a function then its an invalid handler
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     if (!this.__watchers[prop]) {
-     *         //create the watchers if it doesnt exist
-     *         this.__watchers[prop] = [handler];
-     *     } else {
-     *         //otherwise just add it to the handlers array
-     *         this.__watchers[prop].push(handler);
-     *     }
-     * }
-     *
-     * function _unwatch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     var handlers = this.__watchers[prop], index;
-     *     if (handlers && (index = handlers.indexOf(handler)) !== -1) {
-     *        //remove the handler if it is found
-     *         handlers.splice(index, 1);
-     *     }
-     * }
-     *
-     * declare({
-     *     instance:{
-     *         constructor:function () {
-     *             this._super(arguments);
-     *             //set up our watchers
-     *             this.__watchers = {};
-     *         },
-     *
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set up our callhandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch function
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     },
-     *
-     *     "static":{
-     *
-     *         init:function () {
-     *             this._super(arguments);
-     *             this.__watchers = {};
-     *         },
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set our callHandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     }
-     * })
-     *
-     * ```
-     *
-     * Now lets use the mixin
-     *
-     * ```
-     * var WatchDog = declare([Dog, WatchMixin]);
-     *
-     * var watchDog = new WatchDog();
-     * //create our handler
-     * function watch(id, oldVal, newVal) {
-     *     console.log("watchdog's %s was %s, now %s", id, oldVal, newVal);
-     * }
-     *
-     * //watch for property changes
-     * watchDog.watch("type", watch);
-     * watchDog.watch("color", watch);
-     * watchDog.watch("sound", watch);
-     *
-     * //now set the properties each handler will be called
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * //unwatch the property changes
-     * watchDog.unwatch("type", watch);
-     * watchDog.unwatch("color", watch);
-     * watchDog.unwatch("sound", watch);
-     *
-     * //no handlers will be called this time
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * ```
-     *
-     * ###Accessing static methods and properties witin an instance.
-     *
-     * To access static properties on an instance use the `_static` property which is a reference to your constructor.
-     *
-     * For example if your in your constructor and you want to have configurable default values.
-     *
-     * ```
-     * consturctor : function constructor(opts){
-     *     this.opts = opts || {};
-     *     this._type = opts.type || this._static.DEFAULT_TYPE;
-     * }
-     * ```
-     *
-     *
-     *
-     * ###Creating a new instance of within an instance.
-     *
-     * Often times you want to create a new instance of an object within an instance. If your subclassed however you cannot return a new instance of the parent class as it will not be the right sub class. `declare` provides a way around this by setting the `_static` property on each isntance of the class.
-     *
-     * Lets add a reproduce method `Mammal`
-     *
-     * ```
-     * reproduce : function(options){
-     *     return new this._static(options);
-     * }
-     * ```
-     *
-     * Now in each subclass you can call reproduce and get the proper type.
-     *
-     * ```
-     * var myDog = new Dog();
-     * var myDogsChild = myDog.reproduce();
-     *
-     * myDogsChild instanceof Dog; //true
-     * ```
-     *
-     * ###Using the `as`
-     *
-     * `declare` also provides an `as` method which allows you to add your class to an object or if your using node.js you can pass in `module` and the class will be exported as the module.
-     *
-     * ```
-     * var animals = {};
-     *
-     * Mammal.as(animals, "Dog");
-     * Wolf.as(animals, "Wolf");
-     * Dog.as(animals, "Dog");
-     * Breed.as(animals, "Breed");
-     *
-     * var myDog = new animals.Dog();
-     *
-     * ```
-     *
-     * Or in node
-     *
-     * ```
-     * Mammal.as(exports, "Dog");
-     * Wolf.as(exports, "Wolf");
-     * Dog.as(exports, "Dog");
-     * Breed.as(exports, "Breed");
-     *
-     * ```
-     *
-     * To export a class as the `module` in node
-     *
-     * ```
-     * Mammal.as(module);
-     * ```
-     *
-     *
-     */
-    function createDeclared() {
-        var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function merge(target, source, exclude) {
-            var name, s;
-            for (name in source) {
-                if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function callSuper(args, a) {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                a && (args = a);
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, args);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getSuper() {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.bind(this);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getter(name) {
-            var getters = this.__getters__;
-            if (getters.hasOwnProperty(name)) {
-                return getters[name].apply(this);
-            } else {
-                return this[name];
-            }
-        }
-
-        function setter(name, val) {
-            var setters = this.__setters__;
-            if (isHash(name)) {
-                for (var i in name) {
-                    var prop = name[i];
-                    if (setters.hasOwnProperty(i)) {
-                        setters[name].call(this, prop);
-                    } else {
-                        this[i] = prop;
-                    }
-                }
-            } else {
-                if (setters.hasOwnProperty(name)) {
-                    return setters[name].apply(this, argsToArray(arguments, 1));
-                } else {
-                    return this[name] = val;
-                }
-            }
-        }
-
-
-        function defaultFunction() {
-            var meta = this.__meta || {},
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, arguments);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-
-        function functionWrapper(f, name) {
-            var wrapper = function wrapper() {
-                var ret, meta = this.__meta || {};
-                var orig = meta.superMeta;
-                meta.superMeta = {f: f, pos: 0, name: name};
-                ret = f.apply(this, arguments);
-                meta.superMeta = orig;
-                return ret;
-            };
-            wrapper._f = f;
-            return wrapper;
-        }
-
-        function defineMixinProps(child, proto) {
-
-            var operations = proto.setters || {}, __setters = child.__setters__, __getters = child.__getters__;
-            for (var i in operations) {
-                if (!__setters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            for (i in operations) {
-                if (!__getters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __getters[i] = operations[i];
-                }
-            }
-            for (var j in proto) {
-                if (j != "getters" && j != "setters") {
-                    var p = proto[j];
-                    if ("function" === typeof p) {
-                        if (!child.hasOwnProperty(j)) {
-                            child[j] = functionWrapper(defaultFunction, j);
-                        }
-                    } else {
-                        child[j] = p;
-                    }
-                }
-            }
-        }
-
-        function mixin() {
-            var args = argsToArray(arguments), l = args.length;
-            var child = this.prototype;
-            var childMeta = child.__meta, thisMeta = this.__meta, bases = child.__meta.bases, staticBases = bases.slice(),
-                staticSupers = thisMeta.supers || [], supers = childMeta.supers || [];
-            for (var i = 0; i < l; i++) {
-                var m = args[i], mProto = m.prototype;
-                var protoMeta = mProto.__meta, meta = m.__meta;
-                !protoMeta && (protoMeta = (mProto.__meta = {proto: mProto || {}}));
-                !meta && (meta = (m.__meta = {proto: m.__proto__ || {}}));
-                defineMixinProps(child, protoMeta.proto || {});
-                defineMixinProps(this, meta.proto || {});
-                //copy the bases for static,
-
-                mixinSupers(m.prototype, supers, bases);
-                mixinSupers(m, staticSupers, staticBases);
-            }
-            return this;
-        }
-
-        function mixinSupers(sup, arr, bases) {
-            var meta = sup.__meta;
-            !meta && (meta = (sup.__meta = {}));
-            var unique = sup.__meta.unique;
-            !unique && (meta.unique = "declare" + ++classCounter);
-            //check it we already have this super mixed into our prototype chain
-            //if true then we have already looped their supers!
-            if (indexOf(bases, unique) === -1) {
-                //add their id to our bases
-                bases.push(unique);
-                var supers = sup.__meta.supers || [], i = supers.length - 1 || 0;
-                while (i >= 0) {
-                    mixinSupers(supers[i--], arr, bases);
-                }
-                arr.unshift(sup);
-            }
-        }
-
-        function defineProps(child, proto) {
-            var operations = proto.setters,
-                __setters = child.__setters__,
-                __getters = child.__getters__;
-            if (operations) {
-                for (var i in operations) {
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            if (operations) {
-                for (i in operations) {
-                    __getters[i] = operations[i];
-                }
-            }
-            for (i in proto) {
-                if (i != "getters" && i != "setters") {
-                    var f = proto[i];
-                    if ("function" === typeof f) {
-                        var meta = f.__meta || {};
-                        if (!meta.isConstructor) {
-                            child[i] = functionWrapper(f, i);
-                        } else {
-                            child[i] = f;
-                        }
-                    } else {
-                        child[i] = f;
-                    }
-                }
-            }
-
-        }
-
-        function _export(obj, name) {
-            if (obj && name) {
-                obj[name] = this;
-            } else {
-                obj.exports = obj = this;
-            }
-            return this;
-        }
-
-        function extend(proto) {
-            return declare(this, proto);
-        }
-
-        function getNew(ctor) {
-            // create object with correct prototype using a do-nothing
-            // constructor
-            forceNew.prototype = ctor.prototype;
-            var t = new forceNew();
-            forceNew.prototype = null;	// clean up
-            return t;
-        }
-
-
-        function __declare(child, sup, proto) {
-            var childProto = {}, supers = [];
-            var unique = "declare" + ++classCounter, bases = [], staticBases = [];
-            var instanceSupers = [], staticSupers = [];
-            var meta = {
-                supers: instanceSupers,
-                unique: unique,
-                bases: bases,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-            var childMeta = {
-                supers: staticSupers,
-                unique: unique,
-                bases: staticBases,
-                isConstructor: true,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-
-            if (isHash(sup) && !proto) {
-                proto = sup;
-                sup = Base;
-            }
-
-            if ("function" === typeof sup || isArray(sup)) {
-                supers = isArray(sup) ? sup : [sup];
-                sup = supers.shift();
-                child.__meta = childMeta;
-                childProto = getNew(sup);
-                childProto.__meta = meta;
-                childProto.__getters__ = merge({}, childProto.__getters__ || {});
-                childProto.__setters__ = merge({}, childProto.__setters__ || {});
-                child.__getters__ = merge({}, child.__getters__ || {});
-                child.__setters__ = merge({}, child.__setters__ || {});
-                mixinSupers(sup.prototype, instanceSupers, bases);
-                mixinSupers(sup, staticSupers, staticBases);
-            } else {
-                child.__meta = childMeta;
-                childProto.__meta = meta;
-                childProto.__getters__ = childProto.__getters__ || {};
-                childProto.__setters__ = childProto.__setters__ || {};
-                child.__getters__ = child.__getters__ || {};
-                child.__setters__ = child.__setters__ || {};
-            }
-            child.prototype = childProto;
-            if (proto) {
-                var instance = meta.proto = proto.instance || {};
-                !instance.hasOwnProperty("constructor") && (instance.constructor = defaultFunction);
-                var stat = childMeta.proto = proto.static || {};
-                stat.init = stat.init || defaultFunction;
-                defineProps(childProto, instance);
-                defineProps(child, stat);
-            } else {
-                meta.proto = {};
-                childMeta.proto = {};
-                child.init = functionWrapper(defaultFunction, "init");
-                childProto.constructor = functionWrapper(defaultFunction, "constructor");
-            }
-            if (supers.length) {
-                mixin.apply(child, supers);
-            }
-            if (sup) {
-                //do this so we mixin our super methods directly but do not ov
-                merge(child, merge(merge({}, sup), child));
-            }
-            childProto._super = child._super = callSuper;
-            childProto._getSuper = child._getSuper = getSuper;
-            childProto._static = child;
-        }
-
-        function declare(sup, proto) {
-            function declared() {
-                this.constructor.apply(this, arguments);
-            }
-
-            __declare(declared, sup, proto);
-            return declared.init() || declared;
-        }
-
-        function singleton(sup, proto) {
-            var retInstance;
-
-            function declaredSingleton() {
-                if (!retInstance) {
-                    this.constructor.apply(this, arguments);
-                    retInstance = this;
-                }
-                return retInstance;
-            }
-
-            __declare(declaredSingleton, sup, proto);
-            return  declaredSingleton.init() || declaredSingleton;
-        }
-
-        Base = declare({
-            instance: {
-                "get": getter,
-                "set": setter
-            },
-
-            "static": {
-                "get": getter,
-                "set": setter,
-                mixin: mixin,
-                extend: extend,
-                as: _export
-            }
-        });
-
-        declare.singleton = singleton;
-        return declare;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = createDeclared();
-        }
-    } else if ("function" === typeof define) {
-        define(createDeclared);
-    } else {
-        this.declare = createDeclared();
-    }
-}());
-
-
-
-
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/is-extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/is-extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    "use strict";
-
-    function defineIsa(extended) {
-
-        var undef, pSlice = Array.prototype.slice;
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return pSlice.call(args, slice);
-        }
-
-        //taken from node js assert.js
-        //https://github.com/joyent/node/blob/master/lib/assert.js
-        function deepEqual(actual, expected) {
-            // 7.1. All identical values are equivalent, as determined by ===.
-            if (actual === expected) {
-                return true;
-
-            } else if (typeof Buffer !== "undefined" && Buffer.isBuffer(actual) && Buffer.isBuffer(expected)) {
-                if (actual.length !== expected.length) {
-                    return false;
-                }
-
-                for (var i = 0; i < actual.length; i++) {
-                    if (actual[i] !== expected[i]) {
-                        return false;
-                    }
-                }
-
-                return true;
-
-                // 7.2. If the expected value is a Date object, the actual value is
-                // equivalent if it is also a Date object that refers to the same time.
-            } else if (actual instanceof Date && expected instanceof Date) {
-                return actual.getTime() === expected.getTime();
-
-                // 7.3 If the expected value is a RegExp object, the actual value is
-                // equivalent if it is also a RegExp object with the same source and
-                // properties (`global`, `multiline`, `lastIndex`, `ignoreCase`).
-            } else if (actual instanceof RegExp && expected instanceof RegExp) {
-                return actual.source === expected.source &&
-                    actual.global === expected.global &&
-                    actual.multiline === expected.multiline &&
-                    actual.lastIndex === expected.lastIndex &&
-                    actual.ignoreCase === expected.ignoreCase;
-
-                // 7.4. Other pairs that do not both pass typeof value == 'object',
-                // equivalence is determined by ==.
-            } else if (typeof actual !== 'object' && typeof expected !== 'object') {
-                return actual === expected;
-
-                // 7.5 For all other Object pairs, including Array objects, equivalence is
-                // determined by having the same number of owned properties (as verified
-                // with Object.prototype.hasOwnProperty.call), the same set of keys
-                // (although not necessarily the same order), equivalent values for every
-                // corresponding key, and an identical 'prototype' property. Note: this
-                // accounts for both named and indexed properties on Arrays.
-            } else {
-                return objEquiv(actual, expected);
-            }
-        }
-
-
-        function objEquiv(a, b) {
-            var key;
-            if (isUndefinedOrNull(a) || isUndefinedOrNull(b)) {
-                return false;
-            }
-            // an identical 'prototype' property.
-            if (a.prototype !== b.prototype) {
-                return false;
-            }
-            //~~~I've managed to break Object.keys through screwy arguments passing.
-            //   Converting to array solves the problem.
-            if (isArguments(a)) {
-                if (!isArguments(b)) {
-                    return false;
-                }
-                a = pSlice.call(a);
-                b = pSlice.call(b);
-                return deepEqual(a, b);
-            }
-            try {
-                var ka = Object.keys(a),
-                    kb = Object.keys(b),
-                    i;
-                // having the same number of owned properties (keys incorporates
-                // hasOwnProperty)
-                if (ka.length !== kb.length) {
-                    return false;
-                }
-                //the same set of keys (although not necessarily the same order),
-                ka.sort();
-                kb.sort();
-                //~~~cheap key test
-                for (i = ka.length - 1; i >= 0; i--) {
-                    if (ka[i] !== kb[i]) {
-                        return false;
-                    }
-                }
-                //equivalent values for every corresponding key, and
-                //~~~possibly expensive deep test
-                for (i = ka.length - 1; i >= 0; i--) {
-                    key = ka[i];
-                    if (!deepEqual(a[key], b[key])) {
-                        return false;
-                    }
-                }
-            } catch (e) {//happens when one is a string literal and the other isn't
-                return false;
-            }
-            return true;
-        }
-
-        function isFunction(obj) {
-            return typeof obj === "function";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function isEmpty(object) {
-            if (isObject(object)) {
-                for (var i in object) {
-                    if (object.hasOwnProperty(i)) {
-                        return false;
-                    }
-                }
-            } else if (isString(object) && object === "") {
-                return true;
-            }
-            return true;
-        }
-
-        function isBoolean(obj) {
-            return Object.prototype.toString.call(obj) === "[object Boolean]";
-        }
-
-        function isUndefined(obj) {
-            return obj !== null && obj === undef;
-        }
-
-        function isDefined(obj) {
-            return !isUndefined(obj);
-        }
-
-        function isUndefinedOrNull(obj) {
-            return isUndefined(obj) || isNull(obj);
-        }
-
-        function isNull(obj) {
-            return obj !== undef && obj === null;
-        }
-
-        function isArguments(object) {
-            return !isUndefinedOrNull(object) && Object.prototype.toString.call(object) === '[object Arguments]';
-        }
-
-
-        function isInstanceOf(obj, clazz) {
-            if (isFunction(clazz)) {
-                return obj instanceof clazz;
-            } else {
-                return false;
-            }
-        }
-
-        function isRegExp(obj) {
-            return !isUndefinedOrNull(obj) && (obj instanceof RegExp);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isDate(obj) {
-            return (!isUndefinedOrNull(obj) && typeof obj === "object" && obj instanceof Date);
-        }
-
-        function isString(obj) {
-            return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-        }
-
-        function isNumber(obj) {
-            return !isUndefinedOrNull(obj) && (typeof obj === "number" || obj instanceof Number);
-        }
-
-        function isTrue(obj) {
-            return obj === true;
-        }
-
-        function isFalse(obj) {
-            return obj === false;
-        }
-
-        function isNotNull(obj) {
-            return !isNull(obj);
-        }
-
-        function isEq(obj, obj2) {
-            return obj == obj2;
-        }
-
-        function isNeq(obj, obj2) {
-            /*jshint eqeqeq:false*/
-            return obj != obj2;
-        }
-
-        function isSeq(obj, obj2) {
-            return obj === obj2;
-        }
-
-        function isSneq(obj, obj2) {
-            return obj !== obj2;
-        }
-
-        function isIn(obj, arr) {
-            if (isArray(arr)) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (isEq(obj, arr[i])) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        function isNotIn(obj, arr) {
-            return !isIn(obj, arr);
-        }
-
-        function isLt(obj, obj2) {
-            return obj < obj2;
-        }
-
-        function isLte(obj, obj2) {
-            return obj <= obj2;
-        }
-
-        function isGt(obj, obj2) {
-            return obj > obj2;
-        }
-
-        function isGte(obj, obj2) {
-            return obj >= obj2;
-        }
-
-        function isLike(obj, reg) {
-            if (isString(reg)) {
-                reg = new RegExp(reg);
-            }
-            if (isRegExp(reg)) {
-                return reg.test("" + obj);
-            }
-            return false;
-        }
-
-        function isNotLike(obj, reg) {
-            return !isLike(obj, reg);
-        }
-
-        function contains(arr, obj) {
-            return isIn(obj, arr);
-        }
-
-        function notContains(arr, obj) {
-            return !isIn(obj, arr);
-        }
-
-        var isa = {
-            isFunction: isFunction,
-            isObject: isObject,
-            isEmpty: isEmpty,
-            isHash: isHash,
-            isNumber: isNumber,
-            isString: isString,
-            isDate: isDate,
-            isArray: isArray,
-            isBoolean: isBoolean,
-            isUndefined: isUndefined,
-            isDefined: isDefined,
-            isUndefinedOrNull: isUndefinedOrNull,
-            isNull: isNull,
-            isArguments: isArguments,
-            instanceOf: isInstanceOf,
-            isRegExp: isRegExp,
-            deepEqual: deepEqual,
-            isTrue: isTrue,
-            isFalse: isFalse,
-            isNotNull: isNotNull,
-            isEq: isEq,
-            isNeq: isNeq,
-            isSeq: isSeq,
-            isSneq: isSneq,
-            isIn: isIn,
-            isNotIn: isNotIn,
-            isLt: isLt,
-            isLte: isLte,
-            isGt: isGt,
-            isGte: isGte,
-            isLike: isLike,
-            isNotLike: isNotLike,
-            contains: contains,
-            notContains: notContains
-        };
-
-        var tester = {
-            constructor: function () {
-                this._testers = [];
-            },
-
-            noWrap: {
-                tester: function () {
-                    var testers = this._testers;
-                    return function tester(value) {
-                        var isa = false;
-                        for (var i = 0, l = testers.length; i < l && !isa; i++) {
-                            isa = testers[i](value);
-                        }
-                        return isa;
-                    };
-                }
-            }
-        };
-
-        var switcher = {
-            constructor: function () {
-                this._cases = [];
-                this.__default = null;
-            },
-
-            def: function (val, fn) {
-                this.__default = fn;
-            },
-
-            noWrap: {
-                switcher: function () {
-                    var testers = this._cases, __default = this.__default;
-                    return function tester() {
-                        var handled = false, args = argsToArray(arguments), caseRet;
-                        for (var i = 0, l = testers.length; i < l && !handled; i++) {
-                            caseRet = testers[i](args);
-                            if (caseRet.length > 1) {
-                                if (caseRet[1] || caseRet[0]) {
-                                    return caseRet[1];
-                                }
-                            }
-                        }
-                        if (!handled && __default) {
-                            return  __default.apply(this, args);
-                        }
-                    };
-                }
-            }
-        };
-
-        function addToTester(func) {
-            tester[func] = function isaTester() {
-                this._testers.push(isa[func]);
-            };
-        }
-
-        function addToSwitcher(func) {
-            switcher[func] = function isaTester() {
-                var args = argsToArray(arguments, 1), isFunc = isa[func], handler, doBreak = true;
-                if (args.length <= isFunc.length - 1) {
-                    throw new TypeError("A handler must be defined when calling using switch");
-                } else {
-                    handler = args.pop();
-                    if (isBoolean(handler)) {
-                        doBreak = handler;
-                        handler = args.pop();
-                    }
-                }
-                if (!isFunction(handler)) {
-                    throw new TypeError("handler must be defined");
-                }
-                this._cases.push(function (testArgs) {
-                    if (isFunc.apply(isa, testArgs.concat(args))) {
-                        return [doBreak, handler.apply(this, testArgs)];
-                    }
-                    return [false];
-                });
-            };
-        }
-
-        for (var i in isa) {
-            if (isa.hasOwnProperty(i)) {
-                addToSwitcher(i);
-                addToTester(i);
-            }
-        }
-
-        var is = extended.define(isa).expose(isa);
-        is.tester = extended.define(tester);
-        is.switcher = extended.define(switcher);
-        return is;
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineIsa(require("extended"));
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineIsa((require("extended")));
-        });
-    } else {
-        this.is = defineIsa(this.extended);
-    }
-
-}).call(this);
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/is-extended/node_modules/extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/is-extended/node_modules/extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    "use strict";
-    /*global extender isa, dateExtended*/
-
-    function defineExtended(extender, require) {
-
-
-        var merge = (function merger() {
-            function _merge(target, source) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name)) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
-            }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                for (var i = 1, l = arguments.length; i < l; i++) {
-                    _merge(obj, arguments[i]);
-                }
-                return obj; // Object
-            };
-        }());
-
-        function getExtended() {
-
-            var loaded = {};
-
-
-            //getInitial instance;
-            var extended = extender.define();
-            extended.expose({
-                register: function register(alias, extendWith) {
-                    if (!extendWith) {
-                        extendWith = alias;
-                        alias = null;
-                    }
-                    var type = typeof extendWith;
-                    if (alias) {
-                        extended[alias] = extendWith;
-                    } else if (extendWith && type === "function") {
-                        extended.extend(extendWith);
-                    } else if (type === "object") {
-                        extended.expose(extendWith);
-                    } else {
-                        throw new TypeError("extended.register must be called with an extender function");
-                    }
-                    return extended;
-                },
-
-                define: function () {
-                    return extender.define.apply(extender, arguments);
-                }
-            });
-
-            return extended;
-        }
-
-        function extended() {
-            return getExtended();
-        }
-
-        extended.define = function define() {
-            return extender.define.apply(extender, arguments);
-        };
-
-        return extended;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtended(require("extender"), require);
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineExtended(require("extender"), require);
-        });
-    } else {
-        this.extended = defineExtended(this.extender);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./extender.js");
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/extender.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    /*jshint strict:false*/
-
-
-    /**
-     *
-     * @projectName extender
-     * @github http://github.com/doug-martin/extender
-     * @header
-     * [![build status](https://secure.travis-ci.org/doug-martin/extender.png)](http://travis-ci.org/doug-martin/extender)
-     * # Extender
-     *
-     * `extender` is a library that helps in making chainable APIs, by creating a function that accepts different values and returns an object decorated with functions based on the type.
-     *
-     * ## Why Is Extender Different?
-     *
-     * Extender is different than normal chaining because is does more than return `this`. It decorates your values in a type safe manner.
-     *
-     * For example if you return an array from a string based method then the returned value will be decorated with array methods and not the string methods. This allow you as the developer to focus on your API and not worrying about how to properly build and connect your API.
-     *
-     *
-     * ## Installation
-     *
-     * ```
-     * npm install extender
-     * ```
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/extender/master/extender.js) ([minified](https://raw.github.com/doug-martin/extender/master/extender-min.js))
-     *
-     * **Note** `extender` depends on [`declare.js`](http://doug-martin.github.com/declare.js/).
-     *
-     * ### Requirejs
-     *
-     * To use with requirejs place the `extend` source in the root scripts directory
-     *
-     * ```javascript
-     *
-     * define(["extender"], function(extender){
-     * });
-     *
-     * ```
-     *
-     *
-     * ## Usage
-     *
-     * **`extender.define(tester, decorations)`**
-     *
-     * To create your own extender call the `extender.define` function.
-     *
-     * This function accepts an optional tester which is used to determine a value should be decorated with the specified `decorations`
-     *
-     * ```javascript
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     *
-     * var myExtender = extender.define(isString, {
-     *		multiply: function (str, times) {
-     *			var ret = str;
-     *			for (var i = 1; i < times; i++) {
-     *				ret += str;
-     *			}
-     *			return ret;
-     *		},
-     *		toArray: function (str, delim) {
-     *			delim = delim || "";
-     *			return str.split(delim);
-     *		}
-     *	});
-     *
-     * myExtender("hello").multiply(2).value(); //hellohello
-     *
-     * ```
-     *
-     * If you do not specify a tester function and just pass in an object of `functions` then all values passed in will be decorated with methods.
-     *
-     * ```javascript
-     *
-     * function isUndefined(obj) {
-     *     var undef;
-     *     return obj === undef;
-     * }
-     *
-     * function isUndefinedOrNull(obj) {
-     *	var undef;
-     *     return obj === undef || obj === null;
-     * }
-     *
-     * function isArray(obj) {
-     *     return Object.prototype.toString.call(obj) === "[object Array]";
-     * }
-     *
-     * function isBoolean(obj) {
-     *     var undef, type = typeof obj;
-     *     return !isUndefinedOrNull(obj) && type === "boolean" || type === "Boolean";
-     * }
-     *
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     * var myExtender = extender.define({
-     *	isUndefined : isUndefined,
-     *	isUndefinedOrNull : isUndefinedOrNull,
-     *	isArray : isArray,
-     *	isBoolean : isBoolean,
-     *	isString : isString
-     * });
-     *
-     * ```
-     *
-     * To use
-     *
-     * ```
-     * var undef;
-     * myExtender("hello").isUndefined().value(); //false
-     * myExtender(undef).isUndefined().value(); //true
-     * ```
-     *
-     * You can also chain extenders so that they accept multiple types and decorates accordingly.
-     *
-     * ```javascript
-     * myExtender
-     *     .define(isArray, {
-     *		pluck: function (arr, m) {
-     *			var ret = [];
-     *			for (var i = 0, l = arr.length; i < l; i++) {
-     *				ret.push(arr[i][m]);
-     *			}
-     *			return ret;
-     *		}
-     *	})
-     *     .define(isBoolean, {
-     *		invert: function (val) {
-     *			return !val;
-     *		}
-     *	});
-     *
-     * myExtender([{a: "a"},{a: "b"},{a: "c"}]).pluck("a").value(); //["a", "b", "c"]
-     * myExtender("I love javascript!").toArray(/\s+/).pluck("0"); //["I", "l", "j"]
-     *
-     * ```
-     *
-     * Notice that we reuse the same extender as defined above.
-     *
-     * **Return Values**
-     *
-     * When creating an extender if you return a value from one of the decoration functions then that value will also be decorated. If you do not return any values then the extender will be returned.
-     *
-     * **Default decoration methods**
-     *
-     * By default every value passed into an extender is decorated with the following methods.
-     *
-     * * `value` : The value this extender represents.
-     * * `eq(otherValue)` : Tests strict equality of the currently represented value to the `otherValue`
-     * * `neq(oterValue)` : Tests strict inequality of the currently represented value.
-     * * `print` : logs the current value to the console.
-     *
-     * **Extender initialization**
-     *
-     * When creating an extender you can also specify a constructor which will be invoked with the current value.
-     *
-     * ```javascript
-     * myExtender.define(isString, {
-     *	constructor : function(val){
-     *     //set our value to the string trimmed
-     *		this._value = val.trimRight().trimLeft();
-     *	}
-     * });
-     * ```
-     *
-     * **`noWrap`**
-     *
-     * `extender` also allows you to specify methods that should not have the value wrapped providing a cleaner exit function other than `value()`.
-     *
-     * For example suppose you have an API that allows you to build a validator, rather than forcing the user to invoke the `value` method you could add a method called `validator` which makes more syntactic sense.
-     *
-     * ```
-     *
-     * var myValidator = extender.define({
-     *     //chainable validation methods
-     *     //...
-     *     //end chainable validation methods
-     *
-     *     noWrap : {
-     *         validator : function(){
-     *             //return your validator
-     *         }
-     *     }
-     * });
-     *
-     * myValidator().isNotNull().isEmailAddress().validator(); //now you dont need to call .value()
-     *
-     *
-     * ```
-     * **`extender.extend(extendr)`**
-     *
-     * You may also compose extenders through the use of `extender.extend(extender)`, which will return an entirely new extender that is the composition of extenders.
-     *
-     * Suppose you have the following two extenders.
-     *
-     * ```javascript
-     * var myExtender = extender
-     *        .define({
-     *            isFunction: is.function,
-     *            isNumber: is.number,
-     *            isString: is.string,
-     *            isDate: is.date,
-     *            isArray: is.array,
-     *            isBoolean: is.boolean,
-     *            isUndefined: is.undefined,
-     *            isDefined: is.defined,
-     *            isUndefinedOrNull: is.undefinedOrNull,
-     *            isNull: is.null,
-     *            isArguments: is.arguments,
-     *            isInstanceOf: is.instanceOf,
-     *            isRegExp: is.regExp
-     *        });
-     * var myExtender2 = extender.define(is.array, {
-     *     pluck: function (arr, m) {
-     *         var ret = [];
-     *         for (var i = 0, l = arr.length; i < l; i++) {
-     *             ret.push(arr[i][m]);
-     *         }
-     *         return ret;
-     *     },
-     *
-     *     noWrap: {
-     *         pluckPlain: function (arr, m) {
-     *             var ret = [];
-     *             for (var i = 0, l = arr.length; i < l; i++) {
-     *                 ret.push(arr[i][m]);
-     *             }
-     *             return ret;
-     *         }
-     *     }
-     * });
-     *
-     *
-     * ```
-     *
-     * And you do not want to alter either of them but instead what to create a third that is the union of the two.
-     *
-     *
-     * ```javascript
-     * var composed = extender.extend(myExtender).extend(myExtender2);
-     * ```
-     * So now you can use the new extender with the joined functionality if `myExtender` and `myExtender2`.
-     *
-     * ```javascript
-     * var extended = composed([
-     *      {a: "a"},
-     *      {a: "b"},
-     *      {a: "c"}
-     * ]);
-     * extended.isArray().value(); //true
-     * extended.pluck("a").value(); // ["a", "b", "c"]);
-     *
-     * ```
-     *
-     * **Note** `myExtender` and `myExtender2` will **NOT** be altered.
-     *
-     * **`extender.expose(methods)`**
-     *
-     * The `expose` method allows you to add methods to your extender that are not wrapped or automatically chained by exposing them on the extender directly.
-     *
-     * ```
-     * var isMethods = {
-     *      isFunction: is.function,
-     *      isNumber: is.number,
-     *      isString: is.string,
-     *      isDate: is.date,
-     *      isArray: is.array,
-     *      isBoolean: is.boolean,
-     *      isUndefined: is.undefined,
-     *      isDefined: is.defined,
-     *      isUndefinedOrNull: is.undefinedOrNull,
-     *      isNull: is.null,
-     *      isArguments: is.arguments,
-     *      isInstanceOf: is.instanceOf,
-     *      isRegExp: is.regExp
-     * };
-     *
-     * var myExtender = extender.define(isMethods).expose(isMethods);
-     *
-     * myExtender.isArray([]); //true
-     * myExtender([]).isArray([]).value(); //true
-     *
-     * ```
-     *
-     *
-     * **Using `instanceof`**
-     *
-     * When using extenders you can test if a value is an `instanceof` of an extender by using the instanceof operator.
-     *
-     * ```javascript
-     * var str = myExtender("hello");
-     *
-     * str instanceof myExtender; //true
-     * ```
-     *
-     * ## Examples
-     *
-     * To see more examples click [here](https://github.com/doug-martin/extender/tree/master/examples)
-     */
-    function defineExtender(declare) {
-
-
-        var slice = Array.prototype.slice, undef;
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        var merge = (function merger() {
-            function _merge(target, source, exclude) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
-            }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                var l = arguments.length;
-                var exclude = arguments[arguments.length - 1];
-                if (isArray(exclude)) {
-                    l--;
-                } else {
-                    exclude = [];
-                }
-                for (var i = 1; i < l; i++) {
-                    _merge(obj, arguments[i], exclude);
-                }
-                return obj; // Object
-            };
-        }());
-
-
-        function extender(supers) {
-            supers = supers || [];
-            var Base = declare({
-                instance: {
-                    constructor: function (value) {
-                        this._value = value;
-                    },
-
-                    value: function () {
-                        return this._value;
-                    },
-
-                    eq: function eq(val) {
-                        return this["__extender__"](this._value === val);
-                    },
-
-                    neq: function neq(other) {
-                        return this["__extender__"](this._value !== other);
-                    },
-                    print: function () {
-                        console.log(this._value);
-                        return this;
-                    }
-                }
-            }), defined = [];
-
-            function addMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        var ret = func.apply(this, args);
-                        return ret !== undef ? this["__extender__"](ret) : this;
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function addNoWrapMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        return func.apply(this, args);
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function decorateProto(proto, decoration, nowrap) {
-                for (var i in decoration) {
-                    if (decoration.hasOwnProperty(i)) {
-                        if (i !== "getters" && i !== "setters") {
-                            if (i === "noWrap") {
-                                decorateProto(proto, decoration[i], true);
-                            } else if (nowrap) {
-                                addNoWrapMethod(proto, i, decoration[i]);
-                            } else {
-                                addMethod(proto, i, decoration[i]);
-                            }
-                        } else {
-                            proto[i] = decoration[i];
-                        }
-                    }
-                }
-            }
-
-            function _extender(obj) {
-                var ret = obj, i, l;
-                if (!(obj instanceof Base)) {
-                    var base = {}, instance = (base.instance = {"__extender__": _extender});
-                    for (i = 0, l = defined.length; i < l; i++) {
-                        var definer = defined[i];
-                        if (definer[0](obj)) {
-                            merge(instance, definer[1]);
-                        }
-                    }
-                    ret = new (Base.extend(base))(obj);
-                }
-                return ret;
-            }
-
-            function always() {
-                return true;
-            }
-
-            function define(tester, decorate) {
-                if (arguments.length) {
-                    if (typeof tester === "object") {
-                        decorate = tester;
-                        tester = always;
-                    }
-                    decorate = decorate || {};
-                    var proto = {};
-                    decorateProto(proto, decorate);
-                    defined.push([tester, proto]);
-                }
-                return _extender;
-            }
-
-            function extend(supr) {
-                if (supr && supr.hasOwnProperty("__defined__")) {
-                    _extender["__defined__"] = defined = defined.concat(supr["__defined__"]);
-                }
-                merge(_extender, supr, ["define", "extend", "expose", "__defined__"]);
-                return _extender;
-            }
-
-            _extender.define = define;
-            _extender.extend = extend;
-            _extender.expose = function expose() {
-                var methods;
-                for (var i = 0, l = arguments.length; i < l; i++) {
-                    methods = arguments[i];
-                    if (typeof methods === "object") {
-                        merge(_extender, methods, ["define", "extend", "expose", "__defined__"]);
-                    }
-                }
-                return _extender;
-            };
-            _extender["__defined__"] = defined;
-
-
-            return _extender;
-        }
-
-        return {
-            define: function () {
-                return extender().define.apply(extender, arguments);
-            },
-
-            extend: function (supr) {
-                return extender().define().extend(supr);
-            }
-        };
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtender(require("declare.js"));
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineExtender((require("declare.js")));
-        });
-    } else {
-        this.extender = defineExtender(this.declare);
-    }
-
-}).call(this);
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./declare.js");
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/declare.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-
-    /**
-     * @projectName declare
-     * @github http://github.com/doug-martin/declare.js
-     * @header
-     *
-     * Declare is a library designed to allow writing object oriented code the same way in both the browser and node.js.
-     *
-     * ##Installation
-     *
-     * `npm install declare.js`
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/declare.js/master/declare.js) ([minified](https://raw.github.com/doug-martin/declare.js/master/declare-min.js))
-     *
-     * ###Requirejs
-     *
-     * To use with requirejs place the `declare` source in the root scripts directory
-     *
-     * ```
-     *
-     * define(["declare"], function(declare){
-     *      return declare({
-     *          instance : {
-     *              hello : function(){
-     *                  return "world";
-     *              }
-     *          }
-     *      });
-     * });
-     *
-     * ```
-     *
-     *
-     * ##Usage
-     *
-     * declare.js provides
-     *
-     * Class methods
-     *
-     * * `as(module | object, name)` : exports the object to module or the object with the name
-     * * `mixin(mixin)` : mixes in an object but does not inherit directly from the object. **Note** this does not return a new class but changes the original class.
-     * * `extend(proto)` : extend a class with the given properties. A shortcut to `declare(Super, {})`;
-     *
-     * Instance methods
-     *
-     * * `_super(arguments)`: calls the super of the current method, you can pass in either the argments object or an array with arguments you want passed to super
-     * * `_getSuper()`: returns a this methods direct super.
-     * * `_static` : use to reference class properties and methods.
-     * * `get(prop)` : gets a property invoking the getter if it exists otherwise it just returns the named property on the object.
-     * * `set(prop, val)` : sets a property invoking the setter if it exists otherwise it just sets the named property on the object.
-     *
-     *
-     * ###Declaring a new Class
-     *
-     * Creating a new class with declare is easy!
-     *
-     * ```
-     *
-     * var Mammal = declare({
-     *      //define your instance methods and properties
-     *      instance : {
-     *
-     *          //will be called whenever a new instance is created
-     *          constructor: function(options) {
-     *              options = options || {};
-     *              this._super(arguments);
-     *              this._type = options.type || "mammal";
-     *          },
-     *
-     *          speak : function() {
-     *              return  "A mammal of type " + this._type + " sounds like";
-     *          },
-     *
-     *          //Define your getters
-     *          getters : {
-     *
-     *              //can be accessed by using the get method. (mammal.get("type"))
-     *              type : function() {
-     *                  return this._type;
-     *              }
-     *          },
-     *
-     *           //Define your setters
-     *          setters : {
-     *
-     *                //can be accessed by using the set method. (mammal.set("type", "mammalType"))
-     *              type : function(t) {
-     *                  this._type = t;
-     *              }
-     *          }
-     *      },
-     *
-     *      //Define your static methods
-     *      static : {
-     *
-     *          //Mammal.soundOff(); //"Im a mammal!!"
-     *          soundOff : function() {
-     *              return "Im a mammal!!";
-     *          }
-     *      }
-     * });
-     *
-     *
-     * ```
-     *
-     * You can use Mammal just like you would any other class.
-     *
-     * ```
-     * Mammal.soundOff("Im a mammal!!");
-     *
-     * var myMammal = new Mammal({type : "mymammal"});
-     * myMammal.speak(); // "A mammal of type mymammal sounds like"
-     * myMammal.get("type"); //"mymammal"
-     * myMammal.set("type", "mammal");
-     * myMammal.get("type"); //"mammal"
-     *
-     *
-     * ```
-     *
-     * ###Extending a class
-     *
-     * If you want to just extend a single class use the .extend method.
-     *
-     * ```
-     *
-     * var Wolf = Mammal.extend({
-     *
-     *   //define your instance method
-     *   instance: {
-     *
-     *        //You can override super constructors just be sure to call `_super`
-     *       constructor: function(options) {
-     *          options = options || {};
-     *          this._super(arguments); //call our super constructor.
-     *          this._sound = "growl";
-     *          this._color = options.color || "grey";
-     *      },
-     *
-     *      //override Mammals `speak` method by appending our own data to it.
-     *      speak : function() {
-     *          return this._super(arguments) + " a " + this._sound;
-     *      },
-     *
-     *      //add new getters for sound and color
-     *      getters : {
-     *
-     *           //new Wolf().get("type")
-     *           //notice color is read only as we did not define a setter
-     *          color : function() {
-     *              return this._color;
-     *          },
-     *
-     *          //new Wolf().get("sound")
-     *          sound : function() {
-     *              return this._sound;
-     *          }
-     *      },
-     *
-     *      setters : {
-     *
-     *          //new Wolf().set("sound", "howl")
-     *          sound : function(s) {
-     *              this._sound = s;
-     *          }
-     *      }
-     *
-     *  },
-     *
-     *  static : {
-     *
-     *      //You can override super static methods also! And you can still use _super
-     *      soundOff : function() {
-     *          //You can even call super in your statics!!!
-     *          //should return "I'm a mammal!! that growls"
-     *          return this._super(arguments) + " that growls";
-     *      }
-     *  }
-     * });
-     *
-     * Wolf.soundOff(); //Im a mammal!! that growls
-     *
-     * var myWolf = new Wolf();
-     * myWolf instanceof Mammal //true
-     * myWolf instanceof Wolf //true
-     *
-     * ```
-     *
-     * You can also extend a class by using the declare method and just pass in the super class.
-     *
-     * ```
-     * //Typical hierarchical inheritance
-     * // Mammal->Wolf->Dog
-     * var Dog = declare(Wolf, {
-     *    instance: {
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            //override Wolfs initialization of sound to woof.
-     *            this._sound = "woof";
-     *
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a growl thats domesticated"
-     *            return this._super(arguments) + " thats domesticated";
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'm a mammal!! that growls but now barks"
-     *            return this._super(arguments) + " but now barks";
-     *        }
-     *    }
-     * });
-     *
-     * Dog.soundOff(); //Im a mammal!! that growls but now barks
-     *
-     * var myDog = new Dog();
-     * myDog instanceof Mammal //true
-     * myDog instanceof Wolf //true
-     * myDog instanceof Dog //true
-     *
-     *
-     * //Notice you still get the extend method.
-     *
-     * // Mammal->Wolf->Dog->Breed
-     * var Breed = Dog.extend({
-     *    instance: {
-     *
-     *        //initialize outside of constructor
-     *        _pitch : "high",
-     *
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            this.breed = options.breed || "lab";
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a
-     *            //growl thats domesticated with a high pitch!"
-     *            return this._super(arguments) + " with a " + this._pitch + " pitch!";
-     *        },
-     *
-     *        getters : {
-     *            pitch : function() {
-     *                return this._pitch;
-     *            }
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'M A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *            return this._super(arguments).toUpperCase() + "!";
-     *        }
-     *    }
-     * });
-     *
-     *
-     * Breed.soundOff()//"IM A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *
-     * var myBreed = new Breed({color : "gold", type : "lab"}),
-     * myBreed instanceof Dog //true
-     * myBreed instanceof Wolf //true
-     * myBreed instanceof Mammal //true
-     * myBreed.speak() //"A mammal of type lab sounds like a woof thats domesticated with a high pitch!"
-     * myBreed.get("type") //"lab"
-     * myBreed.get("color") //"gold"
-     * myBreed.get("sound")" //"woof"
-     * ```
-     *
-     * ###Multiple Inheritance / Mixins
-     *
-     * declare also allows the use of multiple super classes.
-     * This is useful if you have generic classes that provide functionality but shouldnt be used on their own.
-     *
-     * Lets declare a mixin that allows us to watch for property changes.
-     *
-     * ```
-     * //Notice that we set up the functions outside of declare because we can reuse them
-     *
-     * function _set(prop, val) {
-     *     //get the old value
-     *     var oldVal = this.get(prop);
-     *     //call super to actually set the property
-     *     var ret = this._super(arguments);
-     *     //call our handlers
-     *     this.__callHandlers(prop, oldVal, val);
-     *     return ret;
-     * }
-     *
-     * function _callHandlers(prop, oldVal, newVal) {
-     *    //get our handlers for the property
-     *     var handlers = this.__watchers[prop], l;
-     *     //if the handlers exist and their length does not equal 0 then we call loop through them
-     *     if (handlers && (l = handlers.length) !== 0) {
-     *         for (var i = 0; i < l; i++) {
-     *             //call the handler
-     *             handlers[i].call(null, prop, oldVal, newVal);
-     *         }
-     *     }
-     * }
-     *
-     *
-     * //the watch function
-     * function _watch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         //if its not a function then its an invalid handler
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     if (!this.__watchers[prop]) {
-     *         //create the watchers if it doesnt exist
-     *         this.__watchers[prop] = [handler];
-     *     } else {
-     *         //otherwise just add it to the handlers array
-     *         this.__watchers[prop].push(handler);
-     *     }
-     * }
-     *
-     * function _unwatch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     var handlers = this.__watchers[prop], index;
-     *     if (handlers && (index = handlers.indexOf(handler)) !== -1) {
-     *        //remove the handler if it is found
-     *         handlers.splice(index, 1);
-     *     }
-     * }
-     *
-     * declare({
-     *     instance:{
-     *         constructor:function () {
-     *             this._super(arguments);
-     *             //set up our watchers
-     *             this.__watchers = {};
-     *         },
-     *
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set up our callhandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch function
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     },
-     *
-     *     "static":{
-     *
-     *         init:function () {
-     *             this._super(arguments);
-     *             this.__watchers = {};
-     *         },
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set our callHandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     }
-     * })
-     *
-     * ```
-     *
-     * Now lets use the mixin
-     *
-     * ```
-     * var WatchDog = declare([Dog, WatchMixin]);
-     *
-     * var watchDog = new WatchDog();
-     * //create our handler
-     * function watch(id, oldVal, newVal) {
-     *     console.log("watchdog's %s was %s, now %s", id, oldVal, newVal);
-     * }
-     *
-     * //watch for property changes
-     * watchDog.watch("type", watch);
-     * watchDog.watch("color", watch);
-     * watchDog.watch("sound", watch);
-     *
-     * //now set the properties each handler will be called
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * //unwatch the property changes
-     * watchDog.unwatch("type", watch);
-     * watchDog.unwatch("color", watch);
-     * watchDog.unwatch("sound", watch);
-     *
-     * //no handlers will be called this time
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * ```
-     *
-     * ###Accessing static methods and properties witin an instance.
-     *
-     * To access static properties on an instance use the `_static` property which is a reference to your constructor.
-     *
-     * For example if your in your constructor and you want to have configurable default values.
-     *
-     * ```
-     * consturctor : function constructor(opts){
-     *     this.opts = opts || {};
-     *     this._type = opts.type || this._static.DEFAULT_TYPE;
-     * }
-     * ```
-     *
-     *
-     *
-     * ###Creating a new instance of within an instance.
-     *
-     * Often times you want to create a new instance of an object within an instance. If your subclassed however you cannot return a new instance of the parent class as it will not be the right sub class. `declare` provides a way around this by setting the `_static` property on each isntance of the class.
-     *
-     * Lets add a reproduce method `Mammal`
-     *
-     * ```
-     * reproduce : function(options){
-     *     return new this._static(options);
-     * }
-     * ```
-     *
-     * Now in each subclass you can call reproduce and get the proper type.
-     *
-     * ```
-     * var myDog = new Dog();
-     * var myDogsChild = myDog.reproduce();
-     *
-     * myDogsChild instanceof Dog; //true
-     * ```
-     *
-     * ###Using the `as`
-     *
-     * `declare` also provides an `as` method which allows you to add your class to an object or if your using node.js you can pass in `module` and the class will be exported as the module.
-     *
-     * ```
-     * var animals = {};
-     *
-     * Mammal.as(animals, "Dog");
-     * Wolf.as(animals, "Wolf");
-     * Dog.as(animals, "Dog");
-     * Breed.as(animals, "Breed");
-     *
-     * var myDog = new animals.Dog();
-     *
-     * ```
-     *
-     * Or in node
-     *
-     * ```
-     * Mammal.as(exports, "Dog");
-     * Wolf.as(exports, "Wolf");
-     * Dog.as(exports, "Dog");
-     * Breed.as(exports, "Breed");
-     *
-     * ```
-     *
-     * To export a class as the `module` in node
-     *
-     * ```
-     * Mammal.as(module);
-     * ```
-     *
-     *
-     */
-    function createDeclared() {
-        var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function merge(target, source, exclude) {
-            var name, s;
-            for (name in source) {
-                if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function callSuper(args, a) {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                a && (args = a);
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, args);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getSuper() {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.bind(this);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getter(name) {
-            var getters = this.__getters__;
-            if (getters.hasOwnProperty(name)) {
-                return getters[name].apply(this);
-            } else {
-                return this[name];
-            }
-        }
-
-        function setter(name, val) {
-            var setters = this.__setters__;
-            if (isHash(name)) {
-                for (var i in name) {
-                    var prop = name[i];
-                    if (setters.hasOwnProperty(i)) {
-                        setters[name].call(this, prop);
-                    } else {
-                        this[i] = prop;
-                    }
-                }
-            } else {
-                if (setters.hasOwnProperty(name)) {
-                    return setters[name].apply(this, argsToArray(arguments, 1));
-                } else {
-                    return this[name] = val;
-                }
-            }
-        }
-
-
-        function defaultFunction() {
-            var meta = this.__meta || {},
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, arguments);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-
-        function functionWrapper(f, name) {
-            var wrapper = function wrapper() {
-                var ret, meta = this.__meta || {};
-                var orig = meta.superMeta;
-                meta.superMeta = {f: f, pos: 0, name: name};
-                ret = f.apply(this, arguments);
-                meta.superMeta = orig;
-                return ret;
-            };
-            wrapper._f = f;
-            return wrapper;
-        }
-
-        function defineMixinProps(child, proto) {
-
-            var operations = proto.setters || {}, __setters = child.__setters__, __getters = child.__getters__;
-            for (var i in operations) {
-                if (!__setters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            for (i in operations) {
-                if (!__getters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __getters[i] = operations[i];
-                }
-            }
-            for (var j in proto) {
-                if (j != "getters" && j != "setters") {
-                    var p = proto[j];
-                    if ("function" === typeof p) {
-                        if (!child.hasOwnProperty(j)) {
-                            child[j] = functionWrapper(defaultFunction, j);
-                        }
-                    } else {
-                        child[j] = p;
-                    }
-                }
-            }
-        }
-
-        function mixin() {
-            var args = argsToArray(arguments), l = args.length;
-            var child = this.prototype;
-            var childMeta = child.__meta, thisMeta = this.__meta, bases = child.__meta.bases, staticBases = bases.slice(),
-                staticSupers = thisMeta.supers || [], supers = childMeta.supers || [];
-            for (var i = 0; i < l; i++) {
-                var m = args[i], mProto = m.prototype;
-                var protoMeta = mProto.__meta, meta = m.__meta;
-                !protoMeta && (protoMeta = (mProto.__meta = {proto: mProto || {}}));
-                !meta && (meta = (m.__meta = {proto: m.__proto__ || {}}));
-                defineMixinProps(child, protoMeta.proto || {});
-                defineMixinProps(this, meta.proto || {});
-                //copy the bases for static,
-
-                mixinSupers(m.prototype, supers, bases);
-                mixinSupers(m, staticSupers, staticBases);
-            }
-            return this;
-        }
-
-        function mixinSupers(sup, arr, bases) {
-            var meta = sup.__meta;
-            !meta && (meta = (sup.__meta = {}));
-            var unique = sup.__meta.unique;
-            !unique && (meta.unique = "declare" + ++classCounter);
-            //check it we already have this super mixed into our prototype chain
-            //if true then we have already looped their supers!
-            if (indexOf(bases, unique) === -1) {
-                //add their id to our bases
-                bases.push(unique);
-                var supers = sup.__meta.supers || [], i = supers.length - 1 || 0;
-                while (i >= 0) {
-                    mixinSupers(supers[i--], arr, bases);
-                }
-                arr.unshift(sup);
-            }
-        }
-
-        function defineProps(child, proto) {
-            var operations = proto.setters,
-                __setters = child.__setters__,
-                __getters = child.__getters__;
-            if (operations) {
-                for (var i in operations) {
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            if (operations) {
-                for (i in operations) {
-                    __getters[i] = operations[i];
-                }
-            }
-            for (i in proto) {
-                if (i != "getters" && i != "setters") {
-                    var f = proto[i];
-                    if ("function" === typeof f) {
-                        var meta = f.__meta || {};
-                        if (!meta.isConstructor) {
-                            child[i] = functionWrapper(f, i);
-                        } else {
-                            child[i] = f;
-                        }
-                    } else {
-                        child[i] = f;
-                    }
-                }
-            }
-
-        }
-
-        function _export(obj, name) {
-            if (obj && name) {
-                obj[name] = this;
-            } else {
-                obj.exports = obj = this;
-            }
-            return this;
-        }
-
-        function extend(proto) {
-            return declare(this, proto);
-        }
-
-        function getNew(ctor) {
-            // create object with correct prototype using a do-nothing
-            // constructor
-            forceNew.prototype = ctor.prototype;
-            var t = new forceNew();
-            forceNew.prototype = null;	// clean up
-            return t;
-        }
-
-
-        function __declare(child, sup, proto) {
-            var childProto = {}, supers = [];
-            var unique = "declare" + ++classCounter, bases = [], staticBases = [];
-            var instanceSupers = [], staticSupers = [];
-            var meta = {
-                supers: instanceSupers,
-                unique: unique,
-                bases: bases,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-            var childMeta = {
-                supers: staticSupers,
-                unique: unique,
-                bases: staticBases,
-                isConstructor: true,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-
-            if (isHash(sup) && !proto) {
-                proto = sup;
-                sup = Base;
-            }
-
-            if ("function" === typeof sup || isArray(sup)) {
-                supers = isArray(sup) ? sup : [sup];
-                sup = supers.shift();
-                child.__meta = childMeta;
-                childProto = getNew(sup);
-                childProto.__meta = meta;
-                childProto.__getters__ = merge({}, childProto.__getters__ || {});
-                childProto.__setters__ = merge({}, childProto.__setters__ || {});
-                child.__getters__ = merge({}, child.__getters__ || {});
-                child.__setters__ = merge({}, child.__setters__ || {});
-                mixinSupers(sup.prototype, instanceSupers, bases);
-                mixinSupers(sup, staticSupers, staticBases);
-            } else {
-                child.__meta = childMeta;
-                childProto.__meta = meta;
-                childProto.__getters__ = childProto.__getters__ || {};
-                childProto.__setters__ = childProto.__setters__ || {};
-                child.__getters__ = child.__getters__ || {};
-                child.__setters__ = child.__setters__ || {};
-            }
-            child.prototype = childProto;
-            if (proto) {
-                var instance = meta.proto = proto.instance || {};
-                !instance.hasOwnProperty("constructor") && (instance.constructor = defaultFunction);
-                var stat = childMeta.proto = proto.static || {};
-                stat.init = stat.init || defaultFunction;
-                defineProps(childProto, instance);
-                defineProps(child, stat);
-            } else {
-                meta.proto = {};
-                childMeta.proto = {};
-                child.init = functionWrapper(defaultFunction, "init");
-                childProto.constructor = functionWrapper(defaultFunction, "constructor");
-            }
-            if (supers.length) {
-                mixin.apply(child, supers);
-            }
-            if (sup) {
-                //do this so we mixin our super methods directly but do not ov
-                merge(child, merge(merge({}, sup), child));
-            }
-            childProto._super = child._super = callSuper;
-            childProto._getSuper = child._getSuper = getSuper;
-            childProto._static = child;
-        }
-
-        function declare(sup, proto) {
-            function declared() {
-                this.constructor.apply(this, arguments);
-            }
-
-            __declare(declared, sup, proto);
-            return declared.init() || declared;
-        }
-
-        function singleton(sup, proto) {
-            var retInstance;
-
-            function declaredSingleton() {
-                if (!retInstance) {
-                    this.constructor.apply(this, arguments);
-                    retInstance = this;
-                }
-                return retInstance;
-            }
-
-            __declare(declaredSingleton, sup, proto);
-            return  declaredSingleton.init() || declaredSingleton;
-        }
-
-        Base = declare({
-            instance: {
-                "get": getter,
-                "set": setter
-            },
-
-            "static": {
-                "get": getter,
-                "set": setter,
-                mixin: mixin,
-                extend: extend,
-                as: _export
-            }
-        });
-
-        declare.singleton = singleton;
-        return declare;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = createDeclared();
-        }
-    } else if ("function" === typeof define) {
-        define(createDeclared);
-    } else {
-        this.declare = createDeclared();
-    }
-}());
-
-
-
-
 });
 
 require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
@@ -21821,7 +14679,7 @@ require.define("/node_modules/leafy/node_modules/string-extended/node_modules/da
 require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
     "use strict";
 
-    function defineDate(extended, is) {
+    function defineDate(extended, is, array) {
 
         function _pad(string, length, ch, end) {
             string = "" + string; //check for numbers
@@ -21955,7 +14813,7 @@ require.define("/node_modules/leafy/node_modules/string-extended/node_modules/da
                             weeks = parseInt(days / 7, 10);
                             // Mark the date advanced by the number of
                             // round weeks (may be zero)
-                            var dtMark = new Date(date1);
+                            var dtMark = new Date(+date1);
                             dtMark.setDate(dtMark[utc ? "getUTCDate" : "getDate"]() + (weeks * 7));
                             var dayMark = dtMark[utc ? "getUTCDay" : "getDay"]();
 
@@ -22267,8 +15125,8 @@ require.define("/node_modules/leafy/node_modules/string-extended/node_modules/da
              * @returns -1 if date1 is < date2 0 if date1 === date2  1 if date1 > date2
              */
             compare: function (/*Date*/date1, /*Date*/date2, /*String*/portion) {
-                date1 = new Date(date1);
-                date2 = new Date((date2 || new Date()));
+                date1 = new Date(+date1);
+                date2 = new Date(+(date2 || new Date()));
 
                 if (portion === "date") {
                     // Ignore times and compare dates.
@@ -22345,7 +15203,7 @@ require.define("/node_modules/leafy/node_modules/string-extended/node_modules/da
                 var res = addTransform(interval, date, amount || 0);
                 amount = res[0];
                 var property = res[1];
-                var sum = new Date(date);
+                var sum = new Date(+date);
                 var fixOvershoot = res[2];
                 if (property) {
                     sum["set" + property](sum["get" + property]() + amount);
@@ -22593,7 +15451,7 @@ require.define("/node_modules/leafy/node_modules/string-extended/node_modules/da
             };
         }
 
-        var intervals = ["year", "month", "day", "hour", "minute", "second"], interval;
+        var intervals = ["year", "month", "day", "hour", "minute", "second"];
         for (var i = 0, l = intervals.length; i < l; i++) {
             addInterval(intervals[i]);
         }
@@ -22659,10 +15517,10 @@ require.define("/node_modules/leafy/node_modules/string-extended/node_modules/da
                                 }
                                 //Case-insensitive comparison
                                 v = v.toLowerCase();
-                                days = days.map(function (d) {
+                                days = array.map(days, function (d) {
                                     return d.toLowerCase();
                                 });
-                                var d = days.indexOf(v);
+                                var d = array.indexOf(days, v);
                                 if (d === -1) {
                                     v = parseInt(v, 10);
                                     if (isNaN(v) || v > days.length) {
@@ -22707,8 +15565,8 @@ require.define("/node_modules/leafy/node_modules/string-extended/node_modules/da
                         result[3] = 0; //12am -> 0
                     }
                     var dateObject = new Date(result[0], result[1], result[2], result[3], result[4], result[5], result[6]); // Date
-                    var dateToken = (tokens.indexOf('d') !== -1),
-                        monthToken = (tokens.indexOf('M') !== -1),
+                    var dateToken = (array.indexOf(tokens, 'd') !== -1),
+                        monthToken = (array.indexOf(tokens, 'M') !== -1),
                         month = result[1],
                         day = result[2],
                         dateMonth = dateObject.getMonth(),
@@ -22746,3490 +15604,21 @@ require.define("/node_modules/leafy/node_modules/string-extended/node_modules/da
 
     if ("undefined" !== typeof exports) {
         if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineDate(require("extended"), require("is-extended"));
+            module.exports = defineDate(require("extended"), require("is-extended"), require("array-extended"));
 
         }
     } else if ("function" === typeof define) {
         define(["require"], function (require) {
-            return defineDate(require("extended"), require("is-extended"));
+            return defineDate(require("extended"), require("is-extended"), require("array-extended"));
         });
     } else {
-        this.dateExtended = defineDate(this.extended, this.isExtended);
+        this.dateExtended = defineDate(this.extended, this.isExtended, this.arrayExtended);
     }
 
 }).call(this);
 
 
 
-
-
-
-
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    "use strict";
-    /*global extender isa, dateExtended*/
-
-    function defineExtended(extender, require) {
-
-
-        var merge = (function merger() {
-            function _merge(target, source) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name)) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
-            }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                for (var i = 1, l = arguments.length; i < l; i++) {
-                    _merge(obj, arguments[i]);
-                }
-                return obj; // Object
-            };
-        }());
-
-        function getExtended() {
-
-            var loaded = {};
-
-
-            //getInitial instance;
-            var extended = extender.define();
-            extended.expose({
-                register: function register(alias, extendWith) {
-                    if (!extendWith) {
-                        extendWith = alias;
-                        alias = null;
-                    }
-                    var type = typeof extendWith;
-                    if (alias) {
-                        extended[alias] = extendWith;
-                    } else if (extendWith && type === "function") {
-                        extended.extend(extendWith);
-                    } else if (type === "object") {
-                        extended.expose(extendWith);
-                    } else {
-                        throw new TypeError("extended.register must be called with an extender function");
-                    }
-                    return extended;
-                },
-
-                define: function () {
-                    return extender.define.apply(extender, arguments);
-                }
-            });
-
-            return extended;
-        }
-
-        function extended() {
-            return getExtended();
-        }
-
-        extended.define = function define() {
-            return extender.define.apply(extender, arguments);
-        };
-
-        return extended;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtended(require("extender"), require);
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineExtended(require("extender"), require);
-        });
-    } else {
-        this.extended = defineExtended(this.extender);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/extended/node_modules/extender/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/extended/node_modules/extender/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./extender.js");
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/extended/node_modules/extender/extender.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    /*jshint strict:false*/
-
-
-    /**
-     *
-     * @projectName extender
-     * @github http://github.com/doug-martin/extender
-     * @header
-     * [![build status](https://secure.travis-ci.org/doug-martin/extender.png)](http://travis-ci.org/doug-martin/extender)
-     * # Extender
-     *
-     * `extender` is a library that helps in making chainable APIs, by creating a function that accepts different values and returns an object decorated with functions based on the type.
-     *
-     * ## Why Is Extender Different?
-     *
-     * Extender is different than normal chaining because is does more than return `this`. It decorates your values in a type safe manner.
-     *
-     * For example if you return an array from a string based method then the returned value will be decorated with array methods and not the string methods. This allow you as the developer to focus on your API and not worrying about how to properly build and connect your API.
-     *
-     *
-     * ## Installation
-     *
-     * ```
-     * npm install extender
-     * ```
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/extender/master/extender.js) ([minified](https://raw.github.com/doug-martin/extender/master/extender-min.js))
-     *
-     * **Note** `extender` depends on [`declare.js`](http://doug-martin.github.com/declare.js/).
-     *
-     * ### Requirejs
-     *
-     * To use with requirejs place the `extend` source in the root scripts directory
-     *
-     * ```javascript
-     *
-     * define(["extender"], function(extender){
-     * });
-     *
-     * ```
-     *
-     *
-     * ## Usage
-     *
-     * **`extender.define(tester, decorations)`**
-     *
-     * To create your own extender call the `extender.define` function.
-     *
-     * This function accepts an optional tester which is used to determine a value should be decorated with the specified `decorations`
-     *
-     * ```javascript
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     *
-     * var myExtender = extender.define(isString, {
-     *		multiply: function (str, times) {
-     *			var ret = str;
-     *			for (var i = 1; i < times; i++) {
-     *				ret += str;
-     *			}
-     *			return ret;
-     *		},
-     *		toArray: function (str, delim) {
-     *			delim = delim || "";
-     *			return str.split(delim);
-     *		}
-     *	});
-     *
-     * myExtender("hello").multiply(2).value(); //hellohello
-     *
-     * ```
-     *
-     * If you do not specify a tester function and just pass in an object of `functions` then all values passed in will be decorated with methods.
-     *
-     * ```javascript
-     *
-     * function isUndefined(obj) {
-     *     var undef;
-     *     return obj === undef;
-     * }
-     *
-     * function isUndefinedOrNull(obj) {
-     *	var undef;
-     *     return obj === undef || obj === null;
-     * }
-     *
-     * function isArray(obj) {
-     *     return Object.prototype.toString.call(obj) === "[object Array]";
-     * }
-     *
-     * function isBoolean(obj) {
-     *     var undef, type = typeof obj;
-     *     return !isUndefinedOrNull(obj) && type === "boolean" || type === "Boolean";
-     * }
-     *
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     * var myExtender = extender.define({
-     *	isUndefined : isUndefined,
-     *	isUndefinedOrNull : isUndefinedOrNull,
-     *	isArray : isArray,
-     *	isBoolean : isBoolean,
-     *	isString : isString
-     * });
-     *
-     * ```
-     *
-     * To use
-     *
-     * ```
-     * var undef;
-     * myExtender("hello").isUndefined().value(); //false
-     * myExtender(undef).isUndefined().value(); //true
-     * ```
-     *
-     * You can also chain extenders so that they accept multiple types and decorates accordingly.
-     *
-     * ```javascript
-     * myExtender
-     *     .define(isArray, {
-     *		pluck: function (arr, m) {
-     *			var ret = [];
-     *			for (var i = 0, l = arr.length; i < l; i++) {
-     *				ret.push(arr[i][m]);
-     *			}
-     *			return ret;
-     *		}
-     *	})
-     *     .define(isBoolean, {
-     *		invert: function (val) {
-     *			return !val;
-     *		}
-     *	});
-     *
-     * myExtender([{a: "a"},{a: "b"},{a: "c"}]).pluck("a").value(); //["a", "b", "c"]
-     * myExtender("I love javascript!").toArray(/\s+/).pluck("0"); //["I", "l", "j"]
-     *
-     * ```
-     *
-     * Notice that we reuse the same extender as defined above.
-     *
-     * **Return Values**
-     *
-     * When creating an extender if you return a value from one of the decoration functions then that value will also be decorated. If you do not return any values then the extender will be returned.
-     *
-     * **Default decoration methods**
-     *
-     * By default every value passed into an extender is decorated with the following methods.
-     *
-     * * `value` : The value this extender represents.
-     * * `eq(otherValue)` : Tests strict equality of the currently represented value to the `otherValue`
-     * * `neq(oterValue)` : Tests strict inequality of the currently represented value.
-     * * `print` : logs the current value to the console.
-     *
-     * **Extender initialization**
-     *
-     * When creating an extender you can also specify a constructor which will be invoked with the current value.
-     *
-     * ```javascript
-     * myExtender.define(isString, {
-     *	constructor : function(val){
-     *     //set our value to the string trimmed
-     *		this._value = val.trimRight().trimLeft();
-     *	}
-     * });
-     * ```
-     *
-     * **`noWrap`**
-     *
-     * `extender` also allows you to specify methods that should not have the value wrapped providing a cleaner exit function other than `value()`.
-     *
-     * For example suppose you have an API that allows you to build a validator, rather than forcing the user to invoke the `value` method you could add a method called `validator` which makes more syntactic sense.
-     *
-     * ```
-     *
-     * var myValidator = extender.define({
-     *     //chainable validation methods
-     *     //...
-     *     //end chainable validation methods
-     *
-     *     noWrap : {
-     *         validator : function(){
-     *             //return your validator
-     *         }
-     *     }
-     * });
-     *
-     * myValidator().isNotNull().isEmailAddress().validator(); //now you dont need to call .value()
-     *
-     *
-     * ```
-     * **`extender.extend(extendr)`**
-     *
-     * You may also compose extenders through the use of `extender.extend(extender)`, which will return an entirely new extender that is the composition of extenders.
-     *
-     * Suppose you have the following two extenders.
-     *
-     * ```javascript
-     * var myExtender = extender
-     *        .define({
-     *            isFunction: is.function,
-     *            isNumber: is.number,
-     *            isString: is.string,
-     *            isDate: is.date,
-     *            isArray: is.array,
-     *            isBoolean: is.boolean,
-     *            isUndefined: is.undefined,
-     *            isDefined: is.defined,
-     *            isUndefinedOrNull: is.undefinedOrNull,
-     *            isNull: is.null,
-     *            isArguments: is.arguments,
-     *            isInstanceOf: is.instanceOf,
-     *            isRegExp: is.regExp
-     *        });
-     * var myExtender2 = extender.define(is.array, {
-     *     pluck: function (arr, m) {
-     *         var ret = [];
-     *         for (var i = 0, l = arr.length; i < l; i++) {
-     *             ret.push(arr[i][m]);
-     *         }
-     *         return ret;
-     *     },
-     *
-     *     noWrap: {
-     *         pluckPlain: function (arr, m) {
-     *             var ret = [];
-     *             for (var i = 0, l = arr.length; i < l; i++) {
-     *                 ret.push(arr[i][m]);
-     *             }
-     *             return ret;
-     *         }
-     *     }
-     * });
-     *
-     *
-     * ```
-     *
-     * And you do not want to alter either of them but instead what to create a third that is the union of the two.
-     *
-     *
-     * ```javascript
-     * var composed = extender.extend(myExtender).extend(myExtender2);
-     * ```
-     * So now you can use the new extender with the joined functionality if `myExtender` and `myExtender2`.
-     *
-     * ```javascript
-     * var extended = composed([
-     *      {a: "a"},
-     *      {a: "b"},
-     *      {a: "c"}
-     * ]);
-     * extended.isArray().value(); //true
-     * extended.pluck("a").value(); // ["a", "b", "c"]);
-     *
-     * ```
-     *
-     * **Note** `myExtender` and `myExtender2` will **NOT** be altered.
-     *
-     * **`extender.expose(methods)`**
-     *
-     * The `expose` method allows you to add methods to your extender that are not wrapped or automatically chained by exposing them on the extender directly.
-     *
-     * ```
-     * var isMethods = {
-     *      isFunction: is.function,
-     *      isNumber: is.number,
-     *      isString: is.string,
-     *      isDate: is.date,
-     *      isArray: is.array,
-     *      isBoolean: is.boolean,
-     *      isUndefined: is.undefined,
-     *      isDefined: is.defined,
-     *      isUndefinedOrNull: is.undefinedOrNull,
-     *      isNull: is.null,
-     *      isArguments: is.arguments,
-     *      isInstanceOf: is.instanceOf,
-     *      isRegExp: is.regExp
-     * };
-     *
-     * var myExtender = extender.define(isMethods).expose(isMethods);
-     *
-     * myExtender.isArray([]); //true
-     * myExtender([]).isArray([]).value(); //true
-     *
-     * ```
-     *
-     *
-     * **Using `instanceof`**
-     *
-     * When using extenders you can test if a value is an `instanceof` of an extender by using the instanceof operator.
-     *
-     * ```javascript
-     * var str = myExtender("hello");
-     *
-     * str instanceof myExtender; //true
-     * ```
-     *
-     * ## Examples
-     *
-     * To see more examples click [here](https://github.com/doug-martin/extender/tree/master/examples)
-     */
-    function defineExtender(declare) {
-
-
-        var slice = Array.prototype.slice, undef;
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        var merge = (function merger() {
-            function _merge(target, source, exclude) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
-            }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                var l = arguments.length;
-                var exclude = arguments[arguments.length - 1];
-                if (isArray(exclude)) {
-                    l--;
-                } else {
-                    exclude = [];
-                }
-                for (var i = 1; i < l; i++) {
-                    _merge(obj, arguments[i], exclude);
-                }
-                return obj; // Object
-            };
-        }());
-
-
-        function extender(supers) {
-            supers = supers || [];
-            var Base = declare({
-                instance: {
-                    constructor: function (value) {
-                        this._value = value;
-                    },
-
-                    value: function () {
-                        return this._value;
-                    },
-
-                    eq: function eq(val) {
-                        return this["__extender__"](this._value === val);
-                    },
-
-                    neq: function neq(other) {
-                        return this["__extender__"](this._value !== other);
-                    },
-                    print: function () {
-                        console.log(this._value);
-                        return this;
-                    }
-                }
-            }), defined = [];
-
-            function addMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        var ret = func.apply(this, args);
-                        return ret !== undef ? this["__extender__"](ret) : this;
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function addNoWrapMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        return func.apply(this, args);
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function decorateProto(proto, decoration, nowrap) {
-                for (var i in decoration) {
-                    if (decoration.hasOwnProperty(i)) {
-                        if (i !== "getters" && i !== "setters") {
-                            if (i === "noWrap") {
-                                decorateProto(proto, decoration[i], true);
-                            } else if (nowrap) {
-                                addNoWrapMethod(proto, i, decoration[i]);
-                            } else {
-                                addMethod(proto, i, decoration[i]);
-                            }
-                        } else {
-                            proto[i] = decoration[i];
-                        }
-                    }
-                }
-            }
-
-            function _extender(obj) {
-                var ret = obj, i, l;
-                if (!(obj instanceof Base)) {
-                    var base = {}, instance = (base.instance = {"__extender__": _extender});
-                    for (i = 0, l = defined.length; i < l; i++) {
-                        var definer = defined[i];
-                        if (definer[0](obj)) {
-                            merge(instance, definer[1]);
-                        }
-                    }
-                    ret = new (Base.extend(base))(obj);
-                }
-                return ret;
-            }
-
-            function always() {
-                return true;
-            }
-
-            function define(tester, decorate) {
-                if (arguments.length) {
-                    if (typeof tester === "object") {
-                        decorate = tester;
-                        tester = always;
-                    }
-                    decorate = decorate || {};
-                    var proto = {};
-                    decorateProto(proto, decorate);
-                    defined.push([tester, proto]);
-                }
-                return _extender;
-            }
-
-            function extend(supr) {
-                if (supr && supr.hasOwnProperty("__defined__")) {
-                    _extender["__defined__"] = defined = defined.concat(supr["__defined__"]);
-                }
-                merge(_extender, supr, ["define", "extend", "expose", "__defined__"]);
-                return _extender;
-            }
-
-            _extender.define = define;
-            _extender.extend = extend;
-            _extender.expose = function expose() {
-                var methods;
-                for (var i = 0, l = arguments.length; i < l; i++) {
-                    methods = arguments[i];
-                    if (typeof methods === "object") {
-                        merge(_extender, methods, ["define", "extend", "expose", "__defined__"]);
-                    }
-                }
-                return _extender;
-            };
-            _extender["__defined__"] = defined;
-
-
-            return _extender;
-        }
-
-        return {
-            define: function () {
-                return extender().define.apply(extender, arguments);
-            },
-
-            extend: function (supr) {
-                return extender().define().extend(supr);
-            }
-        };
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtender(require("declare.js"));
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineExtender((require("declare.js")));
-        });
-    } else {
-        this.extender = defineExtender(this.declare);
-    }
-
-}).call(this);
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./declare.js");
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/declare.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-
-    /**
-     * @projectName declare
-     * @github http://github.com/doug-martin/declare.js
-     * @header
-     *
-     * Declare is a library designed to allow writing object oriented code the same way in both the browser and node.js.
-     *
-     * ##Installation
-     *
-     * `npm install declare.js`
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/declare.js/master/declare.js) ([minified](https://raw.github.com/doug-martin/declare.js/master/declare-min.js))
-     *
-     * ###Requirejs
-     *
-     * To use with requirejs place the `declare` source in the root scripts directory
-     *
-     * ```
-     *
-     * define(["declare"], function(declare){
-     *      return declare({
-     *          instance : {
-     *              hello : function(){
-     *                  return "world";
-     *              }
-     *          }
-     *      });
-     * });
-     *
-     * ```
-     *
-     *
-     * ##Usage
-     *
-     * declare.js provides
-     *
-     * Class methods
-     *
-     * * `as(module | object, name)` : exports the object to module or the object with the name
-     * * `mixin(mixin)` : mixes in an object but does not inherit directly from the object. **Note** this does not return a new class but changes the original class.
-     * * `extend(proto)` : extend a class with the given properties. A shortcut to `declare(Super, {})`;
-     *
-     * Instance methods
-     *
-     * * `_super(arguments)`: calls the super of the current method, you can pass in either the argments object or an array with arguments you want passed to super
-     * * `_getSuper()`: returns a this methods direct super.
-     * * `_static` : use to reference class properties and methods.
-     * * `get(prop)` : gets a property invoking the getter if it exists otherwise it just returns the named property on the object.
-     * * `set(prop, val)` : sets a property invoking the setter if it exists otherwise it just sets the named property on the object.
-     *
-     *
-     * ###Declaring a new Class
-     *
-     * Creating a new class with declare is easy!
-     *
-     * ```
-     *
-     * var Mammal = declare({
-     *      //define your instance methods and properties
-     *      instance : {
-     *
-     *          //will be called whenever a new instance is created
-     *          constructor: function(options) {
-     *              options = options || {};
-     *              this._super(arguments);
-     *              this._type = options.type || "mammal";
-     *          },
-     *
-     *          speak : function() {
-     *              return  "A mammal of type " + this._type + " sounds like";
-     *          },
-     *
-     *          //Define your getters
-     *          getters : {
-     *
-     *              //can be accessed by using the get method. (mammal.get("type"))
-     *              type : function() {
-     *                  return this._type;
-     *              }
-     *          },
-     *
-     *           //Define your setters
-     *          setters : {
-     *
-     *                //can be accessed by using the set method. (mammal.set("type", "mammalType"))
-     *              type : function(t) {
-     *                  this._type = t;
-     *              }
-     *          }
-     *      },
-     *
-     *      //Define your static methods
-     *      static : {
-     *
-     *          //Mammal.soundOff(); //"Im a mammal!!"
-     *          soundOff : function() {
-     *              return "Im a mammal!!";
-     *          }
-     *      }
-     * });
-     *
-     *
-     * ```
-     *
-     * You can use Mammal just like you would any other class.
-     *
-     * ```
-     * Mammal.soundOff("Im a mammal!!");
-     *
-     * var myMammal = new Mammal({type : "mymammal"});
-     * myMammal.speak(); // "A mammal of type mymammal sounds like"
-     * myMammal.get("type"); //"mymammal"
-     * myMammal.set("type", "mammal");
-     * myMammal.get("type"); //"mammal"
-     *
-     *
-     * ```
-     *
-     * ###Extending a class
-     *
-     * If you want to just extend a single class use the .extend method.
-     *
-     * ```
-     *
-     * var Wolf = Mammal.extend({
-     *
-     *   //define your instance method
-     *   instance: {
-     *
-     *        //You can override super constructors just be sure to call `_super`
-     *       constructor: function(options) {
-     *          options = options || {};
-     *          this._super(arguments); //call our super constructor.
-     *          this._sound = "growl";
-     *          this._color = options.color || "grey";
-     *      },
-     *
-     *      //override Mammals `speak` method by appending our own data to it.
-     *      speak : function() {
-     *          return this._super(arguments) + " a " + this._sound;
-     *      },
-     *
-     *      //add new getters for sound and color
-     *      getters : {
-     *
-     *           //new Wolf().get("type")
-     *           //notice color is read only as we did not define a setter
-     *          color : function() {
-     *              return this._color;
-     *          },
-     *
-     *          //new Wolf().get("sound")
-     *          sound : function() {
-     *              return this._sound;
-     *          }
-     *      },
-     *
-     *      setters : {
-     *
-     *          //new Wolf().set("sound", "howl")
-     *          sound : function(s) {
-     *              this._sound = s;
-     *          }
-     *      }
-     *
-     *  },
-     *
-     *  static : {
-     *
-     *      //You can override super static methods also! And you can still use _super
-     *      soundOff : function() {
-     *          //You can even call super in your statics!!!
-     *          //should return "I'm a mammal!! that growls"
-     *          return this._super(arguments) + " that growls";
-     *      }
-     *  }
-     * });
-     *
-     * Wolf.soundOff(); //Im a mammal!! that growls
-     *
-     * var myWolf = new Wolf();
-     * myWolf instanceof Mammal //true
-     * myWolf instanceof Wolf //true
-     *
-     * ```
-     *
-     * You can also extend a class by using the declare method and just pass in the super class.
-     *
-     * ```
-     * //Typical hierarchical inheritance
-     * // Mammal->Wolf->Dog
-     * var Dog = declare(Wolf, {
-     *    instance: {
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            //override Wolfs initialization of sound to woof.
-     *            this._sound = "woof";
-     *
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a growl thats domesticated"
-     *            return this._super(arguments) + " thats domesticated";
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'm a mammal!! that growls but now barks"
-     *            return this._super(arguments) + " but now barks";
-     *        }
-     *    }
-     * });
-     *
-     * Dog.soundOff(); //Im a mammal!! that growls but now barks
-     *
-     * var myDog = new Dog();
-     * myDog instanceof Mammal //true
-     * myDog instanceof Wolf //true
-     * myDog instanceof Dog //true
-     *
-     *
-     * //Notice you still get the extend method.
-     *
-     * // Mammal->Wolf->Dog->Breed
-     * var Breed = Dog.extend({
-     *    instance: {
-     *
-     *        //initialize outside of constructor
-     *        _pitch : "high",
-     *
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            this.breed = options.breed || "lab";
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a
-     *            //growl thats domesticated with a high pitch!"
-     *            return this._super(arguments) + " with a " + this._pitch + " pitch!";
-     *        },
-     *
-     *        getters : {
-     *            pitch : function() {
-     *                return this._pitch;
-     *            }
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'M A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *            return this._super(arguments).toUpperCase() + "!";
-     *        }
-     *    }
-     * });
-     *
-     *
-     * Breed.soundOff()//"IM A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *
-     * var myBreed = new Breed({color : "gold", type : "lab"}),
-     * myBreed instanceof Dog //true
-     * myBreed instanceof Wolf //true
-     * myBreed instanceof Mammal //true
-     * myBreed.speak() //"A mammal of type lab sounds like a woof thats domesticated with a high pitch!"
-     * myBreed.get("type") //"lab"
-     * myBreed.get("color") //"gold"
-     * myBreed.get("sound")" //"woof"
-     * ```
-     *
-     * ###Multiple Inheritance / Mixins
-     *
-     * declare also allows the use of multiple super classes.
-     * This is useful if you have generic classes that provide functionality but shouldnt be used on their own.
-     *
-     * Lets declare a mixin that allows us to watch for property changes.
-     *
-     * ```
-     * //Notice that we set up the functions outside of declare because we can reuse them
-     *
-     * function _set(prop, val) {
-     *     //get the old value
-     *     var oldVal = this.get(prop);
-     *     //call super to actually set the property
-     *     var ret = this._super(arguments);
-     *     //call our handlers
-     *     this.__callHandlers(prop, oldVal, val);
-     *     return ret;
-     * }
-     *
-     * function _callHandlers(prop, oldVal, newVal) {
-     *    //get our handlers for the property
-     *     var handlers = this.__watchers[prop], l;
-     *     //if the handlers exist and their length does not equal 0 then we call loop through them
-     *     if (handlers && (l = handlers.length) !== 0) {
-     *         for (var i = 0; i < l; i++) {
-     *             //call the handler
-     *             handlers[i].call(null, prop, oldVal, newVal);
-     *         }
-     *     }
-     * }
-     *
-     *
-     * //the watch function
-     * function _watch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         //if its not a function then its an invalid handler
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     if (!this.__watchers[prop]) {
-     *         //create the watchers if it doesnt exist
-     *         this.__watchers[prop] = [handler];
-     *     } else {
-     *         //otherwise just add it to the handlers array
-     *         this.__watchers[prop].push(handler);
-     *     }
-     * }
-     *
-     * function _unwatch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     var handlers = this.__watchers[prop], index;
-     *     if (handlers && (index = handlers.indexOf(handler)) !== -1) {
-     *        //remove the handler if it is found
-     *         handlers.splice(index, 1);
-     *     }
-     * }
-     *
-     * declare({
-     *     instance:{
-     *         constructor:function () {
-     *             this._super(arguments);
-     *             //set up our watchers
-     *             this.__watchers = {};
-     *         },
-     *
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set up our callhandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch function
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     },
-     *
-     *     "static":{
-     *
-     *         init:function () {
-     *             this._super(arguments);
-     *             this.__watchers = {};
-     *         },
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set our callHandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     }
-     * })
-     *
-     * ```
-     *
-     * Now lets use the mixin
-     *
-     * ```
-     * var WatchDog = declare([Dog, WatchMixin]);
-     *
-     * var watchDog = new WatchDog();
-     * //create our handler
-     * function watch(id, oldVal, newVal) {
-     *     console.log("watchdog's %s was %s, now %s", id, oldVal, newVal);
-     * }
-     *
-     * //watch for property changes
-     * watchDog.watch("type", watch);
-     * watchDog.watch("color", watch);
-     * watchDog.watch("sound", watch);
-     *
-     * //now set the properties each handler will be called
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * //unwatch the property changes
-     * watchDog.unwatch("type", watch);
-     * watchDog.unwatch("color", watch);
-     * watchDog.unwatch("sound", watch);
-     *
-     * //no handlers will be called this time
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * ```
-     *
-     * ###Accessing static methods and properties witin an instance.
-     *
-     * To access static properties on an instance use the `_static` property which is a reference to your constructor.
-     *
-     * For example if your in your constructor and you want to have configurable default values.
-     *
-     * ```
-     * consturctor : function constructor(opts){
-     *     this.opts = opts || {};
-     *     this._type = opts.type || this._static.DEFAULT_TYPE;
-     * }
-     * ```
-     *
-     *
-     *
-     * ###Creating a new instance of within an instance.
-     *
-     * Often times you want to create a new instance of an object within an instance. If your subclassed however you cannot return a new instance of the parent class as it will not be the right sub class. `declare` provides a way around this by setting the `_static` property on each isntance of the class.
-     *
-     * Lets add a reproduce method `Mammal`
-     *
-     * ```
-     * reproduce : function(options){
-     *     return new this._static(options);
-     * }
-     * ```
-     *
-     * Now in each subclass you can call reproduce and get the proper type.
-     *
-     * ```
-     * var myDog = new Dog();
-     * var myDogsChild = myDog.reproduce();
-     *
-     * myDogsChild instanceof Dog; //true
-     * ```
-     *
-     * ###Using the `as`
-     *
-     * `declare` also provides an `as` method which allows you to add your class to an object or if your using node.js you can pass in `module` and the class will be exported as the module.
-     *
-     * ```
-     * var animals = {};
-     *
-     * Mammal.as(animals, "Dog");
-     * Wolf.as(animals, "Wolf");
-     * Dog.as(animals, "Dog");
-     * Breed.as(animals, "Breed");
-     *
-     * var myDog = new animals.Dog();
-     *
-     * ```
-     *
-     * Or in node
-     *
-     * ```
-     * Mammal.as(exports, "Dog");
-     * Wolf.as(exports, "Wolf");
-     * Dog.as(exports, "Dog");
-     * Breed.as(exports, "Breed");
-     *
-     * ```
-     *
-     * To export a class as the `module` in node
-     *
-     * ```
-     * Mammal.as(module);
-     * ```
-     *
-     *
-     */
-    function createDeclared() {
-        var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function merge(target, source, exclude) {
-            var name, s;
-            for (name in source) {
-                if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function callSuper(args, a) {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                a && (args = a);
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, args);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getSuper() {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.bind(this);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getter(name) {
-            var getters = this.__getters__;
-            if (getters.hasOwnProperty(name)) {
-                return getters[name].apply(this);
-            } else {
-                return this[name];
-            }
-        }
-
-        function setter(name, val) {
-            var setters = this.__setters__;
-            if (isHash(name)) {
-                for (var i in name) {
-                    var prop = name[i];
-                    if (setters.hasOwnProperty(i)) {
-                        setters[name].call(this, prop);
-                    } else {
-                        this[i] = prop;
-                    }
-                }
-            } else {
-                if (setters.hasOwnProperty(name)) {
-                    return setters[name].apply(this, argsToArray(arguments, 1));
-                } else {
-                    return this[name] = val;
-                }
-            }
-        }
-
-
-        function defaultFunction() {
-            var meta = this.__meta || {},
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, arguments);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-
-        function functionWrapper(f, name) {
-            var wrapper = function wrapper() {
-                var ret, meta = this.__meta || {};
-                var orig = meta.superMeta;
-                meta.superMeta = {f: f, pos: 0, name: name};
-                ret = f.apply(this, arguments);
-                meta.superMeta = orig;
-                return ret;
-            };
-            wrapper._f = f;
-            return wrapper;
-        }
-
-        function defineMixinProps(child, proto) {
-
-            var operations = proto.setters || {}, __setters = child.__setters__, __getters = child.__getters__;
-            for (var i in operations) {
-                if (!__setters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            for (i in operations) {
-                if (!__getters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __getters[i] = operations[i];
-                }
-            }
-            for (var j in proto) {
-                if (j != "getters" && j != "setters") {
-                    var p = proto[j];
-                    if ("function" === typeof p) {
-                        if (!child.hasOwnProperty(j)) {
-                            child[j] = functionWrapper(defaultFunction, j);
-                        }
-                    } else {
-                        child[j] = p;
-                    }
-                }
-            }
-        }
-
-        function mixin() {
-            var args = argsToArray(arguments), l = args.length;
-            var child = this.prototype;
-            var childMeta = child.__meta, thisMeta = this.__meta, bases = child.__meta.bases, staticBases = bases.slice(),
-                staticSupers = thisMeta.supers || [], supers = childMeta.supers || [];
-            for (var i = 0; i < l; i++) {
-                var m = args[i], mProto = m.prototype;
-                var protoMeta = mProto.__meta, meta = m.__meta;
-                !protoMeta && (protoMeta = (mProto.__meta = {proto: mProto || {}}));
-                !meta && (meta = (m.__meta = {proto: m.__proto__ || {}}));
-                defineMixinProps(child, protoMeta.proto || {});
-                defineMixinProps(this, meta.proto || {});
-                //copy the bases for static,
-
-                mixinSupers(m.prototype, supers, bases);
-                mixinSupers(m, staticSupers, staticBases);
-            }
-            return this;
-        }
-
-        function mixinSupers(sup, arr, bases) {
-            var meta = sup.__meta;
-            !meta && (meta = (sup.__meta = {}));
-            var unique = sup.__meta.unique;
-            !unique && (meta.unique = "declare" + ++classCounter);
-            //check it we already have this super mixed into our prototype chain
-            //if true then we have already looped their supers!
-            if (indexOf(bases, unique) === -1) {
-                //add their id to our bases
-                bases.push(unique);
-                var supers = sup.__meta.supers || [], i = supers.length - 1 || 0;
-                while (i >= 0) {
-                    mixinSupers(supers[i--], arr, bases);
-                }
-                arr.unshift(sup);
-            }
-        }
-
-        function defineProps(child, proto) {
-            var operations = proto.setters,
-                __setters = child.__setters__,
-                __getters = child.__getters__;
-            if (operations) {
-                for (var i in operations) {
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            if (operations) {
-                for (i in operations) {
-                    __getters[i] = operations[i];
-                }
-            }
-            for (i in proto) {
-                if (i != "getters" && i != "setters") {
-                    var f = proto[i];
-                    if ("function" === typeof f) {
-                        var meta = f.__meta || {};
-                        if (!meta.isConstructor) {
-                            child[i] = functionWrapper(f, i);
-                        } else {
-                            child[i] = f;
-                        }
-                    } else {
-                        child[i] = f;
-                    }
-                }
-            }
-
-        }
-
-        function _export(obj, name) {
-            if (obj && name) {
-                obj[name] = this;
-            } else {
-                obj.exports = obj = this;
-            }
-            return this;
-        }
-
-        function extend(proto) {
-            return declare(this, proto);
-        }
-
-        function getNew(ctor) {
-            // create object with correct prototype using a do-nothing
-            // constructor
-            forceNew.prototype = ctor.prototype;
-            var t = new forceNew();
-            forceNew.prototype = null;	// clean up
-            return t;
-        }
-
-
-        function __declare(child, sup, proto) {
-            var childProto = {}, supers = [];
-            var unique = "declare" + ++classCounter, bases = [], staticBases = [];
-            var instanceSupers = [], staticSupers = [];
-            var meta = {
-                supers: instanceSupers,
-                unique: unique,
-                bases: bases,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-            var childMeta = {
-                supers: staticSupers,
-                unique: unique,
-                bases: staticBases,
-                isConstructor: true,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-
-            if (isHash(sup) && !proto) {
-                proto = sup;
-                sup = Base;
-            }
-
-            if ("function" === typeof sup || isArray(sup)) {
-                supers = isArray(sup) ? sup : [sup];
-                sup = supers.shift();
-                child.__meta = childMeta;
-                childProto = getNew(sup);
-                childProto.__meta = meta;
-                childProto.__getters__ = merge({}, childProto.__getters__ || {});
-                childProto.__setters__ = merge({}, childProto.__setters__ || {});
-                child.__getters__ = merge({}, child.__getters__ || {});
-                child.__setters__ = merge({}, child.__setters__ || {});
-                mixinSupers(sup.prototype, instanceSupers, bases);
-                mixinSupers(sup, staticSupers, staticBases);
-            } else {
-                child.__meta = childMeta;
-                childProto.__meta = meta;
-                childProto.__getters__ = childProto.__getters__ || {};
-                childProto.__setters__ = childProto.__setters__ || {};
-                child.__getters__ = child.__getters__ || {};
-                child.__setters__ = child.__setters__ || {};
-            }
-            child.prototype = childProto;
-            if (proto) {
-                var instance = meta.proto = proto.instance || {};
-                !instance.hasOwnProperty("constructor") && (instance.constructor = defaultFunction);
-                var stat = childMeta.proto = proto.static || {};
-                stat.init = stat.init || defaultFunction;
-                defineProps(childProto, instance);
-                defineProps(child, stat);
-            } else {
-                meta.proto = {};
-                childMeta.proto = {};
-                child.init = functionWrapper(defaultFunction, "init");
-                childProto.constructor = functionWrapper(defaultFunction, "constructor");
-            }
-            if (supers.length) {
-                mixin.apply(child, supers);
-            }
-            if (sup) {
-                //do this so we mixin our super methods directly but do not ov
-                merge(child, merge(merge({}, sup), child));
-            }
-            childProto._super = child._super = callSuper;
-            childProto._getSuper = child._getSuper = getSuper;
-            childProto._static = child;
-        }
-
-        function declare(sup, proto) {
-            function declared() {
-                this.constructor.apply(this, arguments);
-            }
-
-            __declare(declared, sup, proto);
-            return declared.init() || declared;
-        }
-
-        function singleton(sup, proto) {
-            var retInstance;
-
-            function declaredSingleton() {
-                if (!retInstance) {
-                    this.constructor.apply(this, arguments);
-                    retInstance = this;
-                }
-                return retInstance;
-            }
-
-            __declare(declaredSingleton, sup, proto);
-            return  declaredSingleton.init() || declaredSingleton;
-        }
-
-        Base = declare({
-            instance: {
-                "get": getter,
-                "set": setter
-            },
-
-            "static": {
-                "get": getter,
-                "set": setter,
-                mixin: mixin,
-                extend: extend,
-                as: _export
-            }
-        });
-
-        declare.singleton = singleton;
-        return declare;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = createDeclared();
-        }
-    } else if ("function" === typeof define) {
-        define(createDeclared);
-    } else {
-        this.declare = createDeclared();
-    }
-}());
-
-
-
-
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/is-extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/is-extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    "use strict";
-
-    function defineIsa(extended) {
-
-        var undef, pSlice = Array.prototype.slice;
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return pSlice.call(args, slice);
-        }
-
-        //taken from node js assert.js
-        //https://github.com/joyent/node/blob/master/lib/assert.js
-        function deepEqual(actual, expected) {
-            // 7.1. All identical values are equivalent, as determined by ===.
-            if (actual === expected) {
-                return true;
-
-            } else if (typeof Buffer !== "undefined" && Buffer.isBuffer(actual) && Buffer.isBuffer(expected)) {
-                if (actual.length !== expected.length) {
-                    return false;
-                }
-
-                for (var i = 0; i < actual.length; i++) {
-                    if (actual[i] !== expected[i]) {
-                        return false;
-                    }
-                }
-
-                return true;
-
-                // 7.2. If the expected value is a Date object, the actual value is
-                // equivalent if it is also a Date object that refers to the same time.
-            } else if (actual instanceof Date && expected instanceof Date) {
-                return actual.getTime() === expected.getTime();
-
-                // 7.3 If the expected value is a RegExp object, the actual value is
-                // equivalent if it is also a RegExp object with the same source and
-                // properties (`global`, `multiline`, `lastIndex`, `ignoreCase`).
-            } else if (actual instanceof RegExp && expected instanceof RegExp) {
-                return actual.source === expected.source &&
-                    actual.global === expected.global &&
-                    actual.multiline === expected.multiline &&
-                    actual.lastIndex === expected.lastIndex &&
-                    actual.ignoreCase === expected.ignoreCase;
-
-                // 7.4. Other pairs that do not both pass typeof value == 'object',
-                // equivalence is determined by ==.
-            } else if (typeof actual !== 'object' && typeof expected !== 'object') {
-                return actual === expected;
-
-                // 7.5 For all other Object pairs, including Array objects, equivalence is
-                // determined by having the same number of owned properties (as verified
-                // with Object.prototype.hasOwnProperty.call), the same set of keys
-                // (although not necessarily the same order), equivalent values for every
-                // corresponding key, and an identical 'prototype' property. Note: this
-                // accounts for both named and indexed properties on Arrays.
-            } else {
-                return objEquiv(actual, expected);
-            }
-        }
-
-
-        function objEquiv(a, b) {
-            var key;
-            if (isUndefinedOrNull(a) || isUndefinedOrNull(b)) {
-                return false;
-            }
-            // an identical 'prototype' property.
-            if (a.prototype !== b.prototype) {
-                return false;
-            }
-            //~~~I've managed to break Object.keys through screwy arguments passing.
-            //   Converting to array solves the problem.
-            if (isArguments(a)) {
-                if (!isArguments(b)) {
-                    return false;
-                }
-                a = pSlice.call(a);
-                b = pSlice.call(b);
-                return deepEqual(a, b);
-            }
-            try {
-                var ka = Object.keys(a),
-                    kb = Object.keys(b),
-                    i;
-                // having the same number of owned properties (keys incorporates
-                // hasOwnProperty)
-                if (ka.length !== kb.length) {
-                    return false;
-                }
-                //the same set of keys (although not necessarily the same order),
-                ka.sort();
-                kb.sort();
-                //~~~cheap key test
-                for (i = ka.length - 1; i >= 0; i--) {
-                    if (ka[i] !== kb[i]) {
-                        return false;
-                    }
-                }
-                //equivalent values for every corresponding key, and
-                //~~~possibly expensive deep test
-                for (i = ka.length - 1; i >= 0; i--) {
-                    key = ka[i];
-                    if (!deepEqual(a[key], b[key])) {
-                        return false;
-                    }
-                }
-            } catch (e) {//happens when one is a string literal and the other isn't
-                return false;
-            }
-            return true;
-        }
-
-        function isFunction(obj) {
-            return typeof obj === "function";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function isEmpty(object) {
-            if (isObject(object)) {
-                for (var i in object) {
-                    if (object.hasOwnProperty(i)) {
-                        return false;
-                    }
-                }
-            } else if (isString(object) && object === "") {
-                return true;
-            }
-            return true;
-        }
-
-        function isBoolean(obj) {
-            return Object.prototype.toString.call(obj) === "[object Boolean]";
-        }
-
-        function isUndefined(obj) {
-            return obj !== null && obj === undef;
-        }
-
-        function isDefined(obj) {
-            return !isUndefined(obj);
-        }
-
-        function isUndefinedOrNull(obj) {
-            return isUndefined(obj) || isNull(obj);
-        }
-
-        function isNull(obj) {
-            return obj !== undef && obj === null;
-        }
-
-        function isArguments(object) {
-            return !isUndefinedOrNull(object) && Object.prototype.toString.call(object) === '[object Arguments]';
-        }
-
-
-        function isInstanceOf(obj, clazz) {
-            if (isFunction(clazz)) {
-                return obj instanceof clazz;
-            } else {
-                return false;
-            }
-        }
-
-        function isRegExp(obj) {
-            return !isUndefinedOrNull(obj) && (obj instanceof RegExp);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isDate(obj) {
-            return (!isUndefinedOrNull(obj) && typeof obj === "object" && obj instanceof Date);
-        }
-
-        function isString(obj) {
-            return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-        }
-
-        function isNumber(obj) {
-            return !isUndefinedOrNull(obj) && (typeof obj === "number" || obj instanceof Number);
-        }
-
-        function isTrue(obj) {
-            return obj === true;
-        }
-
-        function isFalse(obj) {
-            return obj === false;
-        }
-
-        function isNotNull(obj) {
-            return !isNull(obj);
-        }
-
-        function isEq(obj, obj2) {
-            return obj == obj2;
-        }
-
-        function isNeq(obj, obj2) {
-            /*jshint eqeqeq:false*/
-            return obj != obj2;
-        }
-
-        function isSeq(obj, obj2) {
-            return obj === obj2;
-        }
-
-        function isSneq(obj, obj2) {
-            return obj !== obj2;
-        }
-
-        function isIn(obj, arr) {
-            if (isArray(arr)) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (isEq(obj, arr[i])) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        function isNotIn(obj, arr) {
-            return !isIn(obj, arr);
-        }
-
-        function isLt(obj, obj2) {
-            return obj < obj2;
-        }
-
-        function isLte(obj, obj2) {
-            return obj <= obj2;
-        }
-
-        function isGt(obj, obj2) {
-            return obj > obj2;
-        }
-
-        function isGte(obj, obj2) {
-            return obj >= obj2;
-        }
-
-        function isLike(obj, reg) {
-            if (isString(reg)) {
-                reg = new RegExp(reg);
-            }
-            if (isRegExp(reg)) {
-                return reg.test("" + obj);
-            }
-            return false;
-        }
-
-        function isNotLike(obj, reg) {
-            return !isLike(obj, reg);
-        }
-
-        function contains(arr, obj) {
-            return isIn(obj, arr);
-        }
-
-        function notContains(arr, obj) {
-            return !isIn(obj, arr);
-        }
-
-        var isa = {
-            isFunction: isFunction,
-            isObject: isObject,
-            isEmpty: isEmpty,
-            isHash: isHash,
-            isNumber: isNumber,
-            isString: isString,
-            isDate: isDate,
-            isArray: isArray,
-            isBoolean: isBoolean,
-            isUndefined: isUndefined,
-            isDefined: isDefined,
-            isUndefinedOrNull: isUndefinedOrNull,
-            isNull: isNull,
-            isArguments: isArguments,
-            instanceOf: isInstanceOf,
-            isRegExp: isRegExp,
-            deepEqual: deepEqual,
-            isTrue: isTrue,
-            isFalse: isFalse,
-            isNotNull: isNotNull,
-            isEq: isEq,
-            isNeq: isNeq,
-            isSeq: isSeq,
-            isSneq: isSneq,
-            isIn: isIn,
-            isNotIn: isNotIn,
-            isLt: isLt,
-            isLte: isLte,
-            isGt: isGt,
-            isGte: isGte,
-            isLike: isLike,
-            isNotLike: isNotLike,
-            contains: contains,
-            notContains: notContains
-        };
-
-        var tester = {
-            constructor: function () {
-                this._testers = [];
-            },
-
-            noWrap: {
-                tester: function () {
-                    var testers = this._testers;
-                    return function tester(value) {
-                        var isa = false;
-                        for (var i = 0, l = testers.length; i < l && !isa; i++) {
-                            isa = testers[i](value);
-                        }
-                        return isa;
-                    };
-                }
-            }
-        };
-
-        var switcher = {
-            constructor: function () {
-                this._cases = [];
-                this.__default = null;
-            },
-
-            def: function (val, fn) {
-                this.__default = fn;
-            },
-
-            noWrap: {
-                switcher: function () {
-                    var testers = this._cases, __default = this.__default;
-                    return function tester() {
-                        var handled = false, args = argsToArray(arguments), caseRet;
-                        for (var i = 0, l = testers.length; i < l && !handled; i++) {
-                            caseRet = testers[i](args);
-                            if (caseRet.length > 1) {
-                                if (caseRet[1] || caseRet[0]) {
-                                    return caseRet[1];
-                                }
-                            }
-                        }
-                        if (!handled && __default) {
-                            return  __default.apply(this, args);
-                        }
-                    };
-                }
-            }
-        };
-
-        function addToTester(func) {
-            tester[func] = function isaTester() {
-                this._testers.push(isa[func]);
-            };
-        }
-
-        function addToSwitcher(func) {
-            switcher[func] = function isaTester() {
-                var args = argsToArray(arguments, 1), isFunc = isa[func], handler, doBreak = true;
-                if (args.length <= isFunc.length - 1) {
-                    throw new TypeError("A handler must be defined when calling using switch");
-                } else {
-                    handler = args.pop();
-                    if (isBoolean(handler)) {
-                        doBreak = handler;
-                        handler = args.pop();
-                    }
-                }
-                if (!isFunction(handler)) {
-                    throw new TypeError("handler must be defined");
-                }
-                this._cases.push(function (testArgs) {
-                    if (isFunc.apply(isa, testArgs.concat(args))) {
-                        return [doBreak, handler.apply(this, testArgs)];
-                    }
-                    return [false];
-                });
-            };
-        }
-
-        for (var i in isa) {
-            if (isa.hasOwnProperty(i)) {
-                addToSwitcher(i);
-                addToTester(i);
-            }
-        }
-
-        var is = extended.define(isa).expose(isa);
-        is.tester = extended.define(tester);
-        is.switcher = extended.define(switcher);
-        return is;
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineIsa(require("extended"));
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineIsa((require("extended")));
-        });
-    } else {
-        this.is = defineIsa(this.extended);
-    }
-
-}).call(this);
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/is-extended/node_modules/extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/is-extended/node_modules/extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    "use strict";
-    /*global extender isa, dateExtended*/
-
-    function defineExtended(extender, require) {
-
-
-        var merge = (function merger() {
-            function _merge(target, source) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name)) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
-            }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                for (var i = 1, l = arguments.length; i < l; i++) {
-                    _merge(obj, arguments[i]);
-                }
-                return obj; // Object
-            };
-        }());
-
-        function getExtended() {
-
-            var loaded = {};
-
-
-            //getInitial instance;
-            var extended = extender.define();
-            extended.expose({
-                register: function register(alias, extendWith) {
-                    if (!extendWith) {
-                        extendWith = alias;
-                        alias = null;
-                    }
-                    var type = typeof extendWith;
-                    if (alias) {
-                        extended[alias] = extendWith;
-                    } else if (extendWith && type === "function") {
-                        extended.extend(extendWith);
-                    } else if (type === "object") {
-                        extended.expose(extendWith);
-                    } else {
-                        throw new TypeError("extended.register must be called with an extender function");
-                    }
-                    return extended;
-                },
-
-                define: function () {
-                    return extender.define.apply(extender, arguments);
-                }
-            });
-
-            return extended;
-        }
-
-        function extended() {
-            return getExtended();
-        }
-
-        extended.define = function define() {
-            return extender.define.apply(extender, arguments);
-        };
-
-        return extended;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtended(require("extender"), require);
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineExtended(require("extender"), require);
-        });
-    } else {
-        this.extended = defineExtended(this.extender);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./extender.js");
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/extender.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    /*jshint strict:false*/
-
-
-    /**
-     *
-     * @projectName extender
-     * @github http://github.com/doug-martin/extender
-     * @header
-     * [![build status](https://secure.travis-ci.org/doug-martin/extender.png)](http://travis-ci.org/doug-martin/extender)
-     * # Extender
-     *
-     * `extender` is a library that helps in making chainable APIs, by creating a function that accepts different values and returns an object decorated with functions based on the type.
-     *
-     * ## Why Is Extender Different?
-     *
-     * Extender is different than normal chaining because is does more than return `this`. It decorates your values in a type safe manner.
-     *
-     * For example if you return an array from a string based method then the returned value will be decorated with array methods and not the string methods. This allow you as the developer to focus on your API and not worrying about how to properly build and connect your API.
-     *
-     *
-     * ## Installation
-     *
-     * ```
-     * npm install extender
-     * ```
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/extender/master/extender.js) ([minified](https://raw.github.com/doug-martin/extender/master/extender-min.js))
-     *
-     * **Note** `extender` depends on [`declare.js`](http://doug-martin.github.com/declare.js/).
-     *
-     * ### Requirejs
-     *
-     * To use with requirejs place the `extend` source in the root scripts directory
-     *
-     * ```javascript
-     *
-     * define(["extender"], function(extender){
-     * });
-     *
-     * ```
-     *
-     *
-     * ## Usage
-     *
-     * **`extender.define(tester, decorations)`**
-     *
-     * To create your own extender call the `extender.define` function.
-     *
-     * This function accepts an optional tester which is used to determine a value should be decorated with the specified `decorations`
-     *
-     * ```javascript
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     *
-     * var myExtender = extender.define(isString, {
-     *		multiply: function (str, times) {
-     *			var ret = str;
-     *			for (var i = 1; i < times; i++) {
-     *				ret += str;
-     *			}
-     *			return ret;
-     *		},
-     *		toArray: function (str, delim) {
-     *			delim = delim || "";
-     *			return str.split(delim);
-     *		}
-     *	});
-     *
-     * myExtender("hello").multiply(2).value(); //hellohello
-     *
-     * ```
-     *
-     * If you do not specify a tester function and just pass in an object of `functions` then all values passed in will be decorated with methods.
-     *
-     * ```javascript
-     *
-     * function isUndefined(obj) {
-     *     var undef;
-     *     return obj === undef;
-     * }
-     *
-     * function isUndefinedOrNull(obj) {
-     *	var undef;
-     *     return obj === undef || obj === null;
-     * }
-     *
-     * function isArray(obj) {
-     *     return Object.prototype.toString.call(obj) === "[object Array]";
-     * }
-     *
-     * function isBoolean(obj) {
-     *     var undef, type = typeof obj;
-     *     return !isUndefinedOrNull(obj) && type === "boolean" || type === "Boolean";
-     * }
-     *
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     * var myExtender = extender.define({
-     *	isUndefined : isUndefined,
-     *	isUndefinedOrNull : isUndefinedOrNull,
-     *	isArray : isArray,
-     *	isBoolean : isBoolean,
-     *	isString : isString
-     * });
-     *
-     * ```
-     *
-     * To use
-     *
-     * ```
-     * var undef;
-     * myExtender("hello").isUndefined().value(); //false
-     * myExtender(undef).isUndefined().value(); //true
-     * ```
-     *
-     * You can also chain extenders so that they accept multiple types and decorates accordingly.
-     *
-     * ```javascript
-     * myExtender
-     *     .define(isArray, {
-     *		pluck: function (arr, m) {
-     *			var ret = [];
-     *			for (var i = 0, l = arr.length; i < l; i++) {
-     *				ret.push(arr[i][m]);
-     *			}
-     *			return ret;
-     *		}
-     *	})
-     *     .define(isBoolean, {
-     *		invert: function (val) {
-     *			return !val;
-     *		}
-     *	});
-     *
-     * myExtender([{a: "a"},{a: "b"},{a: "c"}]).pluck("a").value(); //["a", "b", "c"]
-     * myExtender("I love javascript!").toArray(/\s+/).pluck("0"); //["I", "l", "j"]
-     *
-     * ```
-     *
-     * Notice that we reuse the same extender as defined above.
-     *
-     * **Return Values**
-     *
-     * When creating an extender if you return a value from one of the decoration functions then that value will also be decorated. If you do not return any values then the extender will be returned.
-     *
-     * **Default decoration methods**
-     *
-     * By default every value passed into an extender is decorated with the following methods.
-     *
-     * * `value` : The value this extender represents.
-     * * `eq(otherValue)` : Tests strict equality of the currently represented value to the `otherValue`
-     * * `neq(oterValue)` : Tests strict inequality of the currently represented value.
-     * * `print` : logs the current value to the console.
-     *
-     * **Extender initialization**
-     *
-     * When creating an extender you can also specify a constructor which will be invoked with the current value.
-     *
-     * ```javascript
-     * myExtender.define(isString, {
-     *	constructor : function(val){
-     *     //set our value to the string trimmed
-     *		this._value = val.trimRight().trimLeft();
-     *	}
-     * });
-     * ```
-     *
-     * **`noWrap`**
-     *
-     * `extender` also allows you to specify methods that should not have the value wrapped providing a cleaner exit function other than `value()`.
-     *
-     * For example suppose you have an API that allows you to build a validator, rather than forcing the user to invoke the `value` method you could add a method called `validator` which makes more syntactic sense.
-     *
-     * ```
-     *
-     * var myValidator = extender.define({
-     *     //chainable validation methods
-     *     //...
-     *     //end chainable validation methods
-     *
-     *     noWrap : {
-     *         validator : function(){
-     *             //return your validator
-     *         }
-     *     }
-     * });
-     *
-     * myValidator().isNotNull().isEmailAddress().validator(); //now you dont need to call .value()
-     *
-     *
-     * ```
-     * **`extender.extend(extendr)`**
-     *
-     * You may also compose extenders through the use of `extender.extend(extender)`, which will return an entirely new extender that is the composition of extenders.
-     *
-     * Suppose you have the following two extenders.
-     *
-     * ```javascript
-     * var myExtender = extender
-     *        .define({
-     *            isFunction: is.function,
-     *            isNumber: is.number,
-     *            isString: is.string,
-     *            isDate: is.date,
-     *            isArray: is.array,
-     *            isBoolean: is.boolean,
-     *            isUndefined: is.undefined,
-     *            isDefined: is.defined,
-     *            isUndefinedOrNull: is.undefinedOrNull,
-     *            isNull: is.null,
-     *            isArguments: is.arguments,
-     *            isInstanceOf: is.instanceOf,
-     *            isRegExp: is.regExp
-     *        });
-     * var myExtender2 = extender.define(is.array, {
-     *     pluck: function (arr, m) {
-     *         var ret = [];
-     *         for (var i = 0, l = arr.length; i < l; i++) {
-     *             ret.push(arr[i][m]);
-     *         }
-     *         return ret;
-     *     },
-     *
-     *     noWrap: {
-     *         pluckPlain: function (arr, m) {
-     *             var ret = [];
-     *             for (var i = 0, l = arr.length; i < l; i++) {
-     *                 ret.push(arr[i][m]);
-     *             }
-     *             return ret;
-     *         }
-     *     }
-     * });
-     *
-     *
-     * ```
-     *
-     * And you do not want to alter either of them but instead what to create a third that is the union of the two.
-     *
-     *
-     * ```javascript
-     * var composed = extender.extend(myExtender).extend(myExtender2);
-     * ```
-     * So now you can use the new extender with the joined functionality if `myExtender` and `myExtender2`.
-     *
-     * ```javascript
-     * var extended = composed([
-     *      {a: "a"},
-     *      {a: "b"},
-     *      {a: "c"}
-     * ]);
-     * extended.isArray().value(); //true
-     * extended.pluck("a").value(); // ["a", "b", "c"]);
-     *
-     * ```
-     *
-     * **Note** `myExtender` and `myExtender2` will **NOT** be altered.
-     *
-     * **`extender.expose(methods)`**
-     *
-     * The `expose` method allows you to add methods to your extender that are not wrapped or automatically chained by exposing them on the extender directly.
-     *
-     * ```
-     * var isMethods = {
-     *      isFunction: is.function,
-     *      isNumber: is.number,
-     *      isString: is.string,
-     *      isDate: is.date,
-     *      isArray: is.array,
-     *      isBoolean: is.boolean,
-     *      isUndefined: is.undefined,
-     *      isDefined: is.defined,
-     *      isUndefinedOrNull: is.undefinedOrNull,
-     *      isNull: is.null,
-     *      isArguments: is.arguments,
-     *      isInstanceOf: is.instanceOf,
-     *      isRegExp: is.regExp
-     * };
-     *
-     * var myExtender = extender.define(isMethods).expose(isMethods);
-     *
-     * myExtender.isArray([]); //true
-     * myExtender([]).isArray([]).value(); //true
-     *
-     * ```
-     *
-     *
-     * **Using `instanceof`**
-     *
-     * When using extenders you can test if a value is an `instanceof` of an extender by using the instanceof operator.
-     *
-     * ```javascript
-     * var str = myExtender("hello");
-     *
-     * str instanceof myExtender; //true
-     * ```
-     *
-     * ## Examples
-     *
-     * To see more examples click [here](https://github.com/doug-martin/extender/tree/master/examples)
-     */
-    function defineExtender(declare) {
-
-
-        var slice = Array.prototype.slice, undef;
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        var merge = (function merger() {
-            function _merge(target, source, exclude) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
-            }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                var l = arguments.length;
-                var exclude = arguments[arguments.length - 1];
-                if (isArray(exclude)) {
-                    l--;
-                } else {
-                    exclude = [];
-                }
-                for (var i = 1; i < l; i++) {
-                    _merge(obj, arguments[i], exclude);
-                }
-                return obj; // Object
-            };
-        }());
-
-
-        function extender(supers) {
-            supers = supers || [];
-            var Base = declare({
-                instance: {
-                    constructor: function (value) {
-                        this._value = value;
-                    },
-
-                    value: function () {
-                        return this._value;
-                    },
-
-                    eq: function eq(val) {
-                        return this["__extender__"](this._value === val);
-                    },
-
-                    neq: function neq(other) {
-                        return this["__extender__"](this._value !== other);
-                    },
-                    print: function () {
-                        console.log(this._value);
-                        return this;
-                    }
-                }
-            }), defined = [];
-
-            function addMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        var ret = func.apply(this, args);
-                        return ret !== undef ? this["__extender__"](ret) : this;
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function addNoWrapMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        return func.apply(this, args);
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function decorateProto(proto, decoration, nowrap) {
-                for (var i in decoration) {
-                    if (decoration.hasOwnProperty(i)) {
-                        if (i !== "getters" && i !== "setters") {
-                            if (i === "noWrap") {
-                                decorateProto(proto, decoration[i], true);
-                            } else if (nowrap) {
-                                addNoWrapMethod(proto, i, decoration[i]);
-                            } else {
-                                addMethod(proto, i, decoration[i]);
-                            }
-                        } else {
-                            proto[i] = decoration[i];
-                        }
-                    }
-                }
-            }
-
-            function _extender(obj) {
-                var ret = obj, i, l;
-                if (!(obj instanceof Base)) {
-                    var base = {}, instance = (base.instance = {"__extender__": _extender});
-                    for (i = 0, l = defined.length; i < l; i++) {
-                        var definer = defined[i];
-                        if (definer[0](obj)) {
-                            merge(instance, definer[1]);
-                        }
-                    }
-                    ret = new (Base.extend(base))(obj);
-                }
-                return ret;
-            }
-
-            function always() {
-                return true;
-            }
-
-            function define(tester, decorate) {
-                if (arguments.length) {
-                    if (typeof tester === "object") {
-                        decorate = tester;
-                        tester = always;
-                    }
-                    decorate = decorate || {};
-                    var proto = {};
-                    decorateProto(proto, decorate);
-                    defined.push([tester, proto]);
-                }
-                return _extender;
-            }
-
-            function extend(supr) {
-                if (supr && supr.hasOwnProperty("__defined__")) {
-                    _extender["__defined__"] = defined = defined.concat(supr["__defined__"]);
-                }
-                merge(_extender, supr, ["define", "extend", "expose", "__defined__"]);
-                return _extender;
-            }
-
-            _extender.define = define;
-            _extender.extend = extend;
-            _extender.expose = function expose() {
-                var methods;
-                for (var i = 0, l = arguments.length; i < l; i++) {
-                    methods = arguments[i];
-                    if (typeof methods === "object") {
-                        merge(_extender, methods, ["define", "extend", "expose", "__defined__"]);
-                    }
-                }
-                return _extender;
-            };
-            _extender["__defined__"] = defined;
-
-
-            return _extender;
-        }
-
-        return {
-            define: function () {
-                return extender().define.apply(extender, arguments);
-            },
-
-            extend: function (supr) {
-                return extender().define().extend(supr);
-            }
-        };
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtender(require("declare.js"));
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineExtender((require("declare.js")));
-        });
-    } else {
-        this.extender = defineExtender(this.declare);
-    }
-
-}).call(this);
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./declare.js");
-});
-
-require.define("/node_modules/leafy/node_modules/string-extended/node_modules/date-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/declare.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-
-    /**
-     * @projectName declare
-     * @github http://github.com/doug-martin/declare.js
-     * @header
-     *
-     * Declare is a library designed to allow writing object oriented code the same way in both the browser and node.js.
-     *
-     * ##Installation
-     *
-     * `npm install declare.js`
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/declare.js/master/declare.js) ([minified](https://raw.github.com/doug-martin/declare.js/master/declare-min.js))
-     *
-     * ###Requirejs
-     *
-     * To use with requirejs place the `declare` source in the root scripts directory
-     *
-     * ```
-     *
-     * define(["declare"], function(declare){
-     *      return declare({
-     *          instance : {
-     *              hello : function(){
-     *                  return "world";
-     *              }
-     *          }
-     *      });
-     * });
-     *
-     * ```
-     *
-     *
-     * ##Usage
-     *
-     * declare.js provides
-     *
-     * Class methods
-     *
-     * * `as(module | object, name)` : exports the object to module or the object with the name
-     * * `mixin(mixin)` : mixes in an object but does not inherit directly from the object. **Note** this does not return a new class but changes the original class.
-     * * `extend(proto)` : extend a class with the given properties. A shortcut to `declare(Super, {})`;
-     *
-     * Instance methods
-     *
-     * * `_super(arguments)`: calls the super of the current method, you can pass in either the argments object or an array with arguments you want passed to super
-     * * `_getSuper()`: returns a this methods direct super.
-     * * `_static` : use to reference class properties and methods.
-     * * `get(prop)` : gets a property invoking the getter if it exists otherwise it just returns the named property on the object.
-     * * `set(prop, val)` : sets a property invoking the setter if it exists otherwise it just sets the named property on the object.
-     *
-     *
-     * ###Declaring a new Class
-     *
-     * Creating a new class with declare is easy!
-     *
-     * ```
-     *
-     * var Mammal = declare({
-     *      //define your instance methods and properties
-     *      instance : {
-     *
-     *          //will be called whenever a new instance is created
-     *          constructor: function(options) {
-     *              options = options || {};
-     *              this._super(arguments);
-     *              this._type = options.type || "mammal";
-     *          },
-     *
-     *          speak : function() {
-     *              return  "A mammal of type " + this._type + " sounds like";
-     *          },
-     *
-     *          //Define your getters
-     *          getters : {
-     *
-     *              //can be accessed by using the get method. (mammal.get("type"))
-     *              type : function() {
-     *                  return this._type;
-     *              }
-     *          },
-     *
-     *           //Define your setters
-     *          setters : {
-     *
-     *                //can be accessed by using the set method. (mammal.set("type", "mammalType"))
-     *              type : function(t) {
-     *                  this._type = t;
-     *              }
-     *          }
-     *      },
-     *
-     *      //Define your static methods
-     *      static : {
-     *
-     *          //Mammal.soundOff(); //"Im a mammal!!"
-     *          soundOff : function() {
-     *              return "Im a mammal!!";
-     *          }
-     *      }
-     * });
-     *
-     *
-     * ```
-     *
-     * You can use Mammal just like you would any other class.
-     *
-     * ```
-     * Mammal.soundOff("Im a mammal!!");
-     *
-     * var myMammal = new Mammal({type : "mymammal"});
-     * myMammal.speak(); // "A mammal of type mymammal sounds like"
-     * myMammal.get("type"); //"mymammal"
-     * myMammal.set("type", "mammal");
-     * myMammal.get("type"); //"mammal"
-     *
-     *
-     * ```
-     *
-     * ###Extending a class
-     *
-     * If you want to just extend a single class use the .extend method.
-     *
-     * ```
-     *
-     * var Wolf = Mammal.extend({
-     *
-     *   //define your instance method
-     *   instance: {
-     *
-     *        //You can override super constructors just be sure to call `_super`
-     *       constructor: function(options) {
-     *          options = options || {};
-     *          this._super(arguments); //call our super constructor.
-     *          this._sound = "growl";
-     *          this._color = options.color || "grey";
-     *      },
-     *
-     *      //override Mammals `speak` method by appending our own data to it.
-     *      speak : function() {
-     *          return this._super(arguments) + " a " + this._sound;
-     *      },
-     *
-     *      //add new getters for sound and color
-     *      getters : {
-     *
-     *           //new Wolf().get("type")
-     *           //notice color is read only as we did not define a setter
-     *          color : function() {
-     *              return this._color;
-     *          },
-     *
-     *          //new Wolf().get("sound")
-     *          sound : function() {
-     *              return this._sound;
-     *          }
-     *      },
-     *
-     *      setters : {
-     *
-     *          //new Wolf().set("sound", "howl")
-     *          sound : function(s) {
-     *              this._sound = s;
-     *          }
-     *      }
-     *
-     *  },
-     *
-     *  static : {
-     *
-     *      //You can override super static methods also! And you can still use _super
-     *      soundOff : function() {
-     *          //You can even call super in your statics!!!
-     *          //should return "I'm a mammal!! that growls"
-     *          return this._super(arguments) + " that growls";
-     *      }
-     *  }
-     * });
-     *
-     * Wolf.soundOff(); //Im a mammal!! that growls
-     *
-     * var myWolf = new Wolf();
-     * myWolf instanceof Mammal //true
-     * myWolf instanceof Wolf //true
-     *
-     * ```
-     *
-     * You can also extend a class by using the declare method and just pass in the super class.
-     *
-     * ```
-     * //Typical hierarchical inheritance
-     * // Mammal->Wolf->Dog
-     * var Dog = declare(Wolf, {
-     *    instance: {
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            //override Wolfs initialization of sound to woof.
-     *            this._sound = "woof";
-     *
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a growl thats domesticated"
-     *            return this._super(arguments) + " thats domesticated";
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'm a mammal!! that growls but now barks"
-     *            return this._super(arguments) + " but now barks";
-     *        }
-     *    }
-     * });
-     *
-     * Dog.soundOff(); //Im a mammal!! that growls but now barks
-     *
-     * var myDog = new Dog();
-     * myDog instanceof Mammal //true
-     * myDog instanceof Wolf //true
-     * myDog instanceof Dog //true
-     *
-     *
-     * //Notice you still get the extend method.
-     *
-     * // Mammal->Wolf->Dog->Breed
-     * var Breed = Dog.extend({
-     *    instance: {
-     *
-     *        //initialize outside of constructor
-     *        _pitch : "high",
-     *
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            this.breed = options.breed || "lab";
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a
-     *            //growl thats domesticated with a high pitch!"
-     *            return this._super(arguments) + " with a " + this._pitch + " pitch!";
-     *        },
-     *
-     *        getters : {
-     *            pitch : function() {
-     *                return this._pitch;
-     *            }
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'M A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *            return this._super(arguments).toUpperCase() + "!";
-     *        }
-     *    }
-     * });
-     *
-     *
-     * Breed.soundOff()//"IM A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *
-     * var myBreed = new Breed({color : "gold", type : "lab"}),
-     * myBreed instanceof Dog //true
-     * myBreed instanceof Wolf //true
-     * myBreed instanceof Mammal //true
-     * myBreed.speak() //"A mammal of type lab sounds like a woof thats domesticated with a high pitch!"
-     * myBreed.get("type") //"lab"
-     * myBreed.get("color") //"gold"
-     * myBreed.get("sound")" //"woof"
-     * ```
-     *
-     * ###Multiple Inheritance / Mixins
-     *
-     * declare also allows the use of multiple super classes.
-     * This is useful if you have generic classes that provide functionality but shouldnt be used on their own.
-     *
-     * Lets declare a mixin that allows us to watch for property changes.
-     *
-     * ```
-     * //Notice that we set up the functions outside of declare because we can reuse them
-     *
-     * function _set(prop, val) {
-     *     //get the old value
-     *     var oldVal = this.get(prop);
-     *     //call super to actually set the property
-     *     var ret = this._super(arguments);
-     *     //call our handlers
-     *     this.__callHandlers(prop, oldVal, val);
-     *     return ret;
-     * }
-     *
-     * function _callHandlers(prop, oldVal, newVal) {
-     *    //get our handlers for the property
-     *     var handlers = this.__watchers[prop], l;
-     *     //if the handlers exist and their length does not equal 0 then we call loop through them
-     *     if (handlers && (l = handlers.length) !== 0) {
-     *         for (var i = 0; i < l; i++) {
-     *             //call the handler
-     *             handlers[i].call(null, prop, oldVal, newVal);
-     *         }
-     *     }
-     * }
-     *
-     *
-     * //the watch function
-     * function _watch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         //if its not a function then its an invalid handler
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     if (!this.__watchers[prop]) {
-     *         //create the watchers if it doesnt exist
-     *         this.__watchers[prop] = [handler];
-     *     } else {
-     *         //otherwise just add it to the handlers array
-     *         this.__watchers[prop].push(handler);
-     *     }
-     * }
-     *
-     * function _unwatch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     var handlers = this.__watchers[prop], index;
-     *     if (handlers && (index = handlers.indexOf(handler)) !== -1) {
-     *        //remove the handler if it is found
-     *         handlers.splice(index, 1);
-     *     }
-     * }
-     *
-     * declare({
-     *     instance:{
-     *         constructor:function () {
-     *             this._super(arguments);
-     *             //set up our watchers
-     *             this.__watchers = {};
-     *         },
-     *
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set up our callhandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch function
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     },
-     *
-     *     "static":{
-     *
-     *         init:function () {
-     *             this._super(arguments);
-     *             this.__watchers = {};
-     *         },
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set our callHandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     }
-     * })
-     *
-     * ```
-     *
-     * Now lets use the mixin
-     *
-     * ```
-     * var WatchDog = declare([Dog, WatchMixin]);
-     *
-     * var watchDog = new WatchDog();
-     * //create our handler
-     * function watch(id, oldVal, newVal) {
-     *     console.log("watchdog's %s was %s, now %s", id, oldVal, newVal);
-     * }
-     *
-     * //watch for property changes
-     * watchDog.watch("type", watch);
-     * watchDog.watch("color", watch);
-     * watchDog.watch("sound", watch);
-     *
-     * //now set the properties each handler will be called
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * //unwatch the property changes
-     * watchDog.unwatch("type", watch);
-     * watchDog.unwatch("color", watch);
-     * watchDog.unwatch("sound", watch);
-     *
-     * //no handlers will be called this time
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * ```
-     *
-     * ###Accessing static methods and properties witin an instance.
-     *
-     * To access static properties on an instance use the `_static` property which is a reference to your constructor.
-     *
-     * For example if your in your constructor and you want to have configurable default values.
-     *
-     * ```
-     * consturctor : function constructor(opts){
-     *     this.opts = opts || {};
-     *     this._type = opts.type || this._static.DEFAULT_TYPE;
-     * }
-     * ```
-     *
-     *
-     *
-     * ###Creating a new instance of within an instance.
-     *
-     * Often times you want to create a new instance of an object within an instance. If your subclassed however you cannot return a new instance of the parent class as it will not be the right sub class. `declare` provides a way around this by setting the `_static` property on each isntance of the class.
-     *
-     * Lets add a reproduce method `Mammal`
-     *
-     * ```
-     * reproduce : function(options){
-     *     return new this._static(options);
-     * }
-     * ```
-     *
-     * Now in each subclass you can call reproduce and get the proper type.
-     *
-     * ```
-     * var myDog = new Dog();
-     * var myDogsChild = myDog.reproduce();
-     *
-     * myDogsChild instanceof Dog; //true
-     * ```
-     *
-     * ###Using the `as`
-     *
-     * `declare` also provides an `as` method which allows you to add your class to an object or if your using node.js you can pass in `module` and the class will be exported as the module.
-     *
-     * ```
-     * var animals = {};
-     *
-     * Mammal.as(animals, "Dog");
-     * Wolf.as(animals, "Wolf");
-     * Dog.as(animals, "Dog");
-     * Breed.as(animals, "Breed");
-     *
-     * var myDog = new animals.Dog();
-     *
-     * ```
-     *
-     * Or in node
-     *
-     * ```
-     * Mammal.as(exports, "Dog");
-     * Wolf.as(exports, "Wolf");
-     * Dog.as(exports, "Dog");
-     * Breed.as(exports, "Breed");
-     *
-     * ```
-     *
-     * To export a class as the `module` in node
-     *
-     * ```
-     * Mammal.as(module);
-     * ```
-     *
-     *
-     */
-    function createDeclared() {
-        var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function merge(target, source, exclude) {
-            var name, s;
-            for (name in source) {
-                if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function callSuper(args, a) {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                a && (args = a);
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, args);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getSuper() {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.bind(this);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getter(name) {
-            var getters = this.__getters__;
-            if (getters.hasOwnProperty(name)) {
-                return getters[name].apply(this);
-            } else {
-                return this[name];
-            }
-        }
-
-        function setter(name, val) {
-            var setters = this.__setters__;
-            if (isHash(name)) {
-                for (var i in name) {
-                    var prop = name[i];
-                    if (setters.hasOwnProperty(i)) {
-                        setters[name].call(this, prop);
-                    } else {
-                        this[i] = prop;
-                    }
-                }
-            } else {
-                if (setters.hasOwnProperty(name)) {
-                    return setters[name].apply(this, argsToArray(arguments, 1));
-                } else {
-                    return this[name] = val;
-                }
-            }
-        }
-
-
-        function defaultFunction() {
-            var meta = this.__meta || {},
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, arguments);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-
-        function functionWrapper(f, name) {
-            var wrapper = function wrapper() {
-                var ret, meta = this.__meta || {};
-                var orig = meta.superMeta;
-                meta.superMeta = {f: f, pos: 0, name: name};
-                ret = f.apply(this, arguments);
-                meta.superMeta = orig;
-                return ret;
-            };
-            wrapper._f = f;
-            return wrapper;
-        }
-
-        function defineMixinProps(child, proto) {
-
-            var operations = proto.setters || {}, __setters = child.__setters__, __getters = child.__getters__;
-            for (var i in operations) {
-                if (!__setters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            for (i in operations) {
-                if (!__getters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __getters[i] = operations[i];
-                }
-            }
-            for (var j in proto) {
-                if (j != "getters" && j != "setters") {
-                    var p = proto[j];
-                    if ("function" === typeof p) {
-                        if (!child.hasOwnProperty(j)) {
-                            child[j] = functionWrapper(defaultFunction, j);
-                        }
-                    } else {
-                        child[j] = p;
-                    }
-                }
-            }
-        }
-
-        function mixin() {
-            var args = argsToArray(arguments), l = args.length;
-            var child = this.prototype;
-            var childMeta = child.__meta, thisMeta = this.__meta, bases = child.__meta.bases, staticBases = bases.slice(),
-                staticSupers = thisMeta.supers || [], supers = childMeta.supers || [];
-            for (var i = 0; i < l; i++) {
-                var m = args[i], mProto = m.prototype;
-                var protoMeta = mProto.__meta, meta = m.__meta;
-                !protoMeta && (protoMeta = (mProto.__meta = {proto: mProto || {}}));
-                !meta && (meta = (m.__meta = {proto: m.__proto__ || {}}));
-                defineMixinProps(child, protoMeta.proto || {});
-                defineMixinProps(this, meta.proto || {});
-                //copy the bases for static,
-
-                mixinSupers(m.prototype, supers, bases);
-                mixinSupers(m, staticSupers, staticBases);
-            }
-            return this;
-        }
-
-        function mixinSupers(sup, arr, bases) {
-            var meta = sup.__meta;
-            !meta && (meta = (sup.__meta = {}));
-            var unique = sup.__meta.unique;
-            !unique && (meta.unique = "declare" + ++classCounter);
-            //check it we already have this super mixed into our prototype chain
-            //if true then we have already looped their supers!
-            if (indexOf(bases, unique) === -1) {
-                //add their id to our bases
-                bases.push(unique);
-                var supers = sup.__meta.supers || [], i = supers.length - 1 || 0;
-                while (i >= 0) {
-                    mixinSupers(supers[i--], arr, bases);
-                }
-                arr.unshift(sup);
-            }
-        }
-
-        function defineProps(child, proto) {
-            var operations = proto.setters,
-                __setters = child.__setters__,
-                __getters = child.__getters__;
-            if (operations) {
-                for (var i in operations) {
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            if (operations) {
-                for (i in operations) {
-                    __getters[i] = operations[i];
-                }
-            }
-            for (i in proto) {
-                if (i != "getters" && i != "setters") {
-                    var f = proto[i];
-                    if ("function" === typeof f) {
-                        var meta = f.__meta || {};
-                        if (!meta.isConstructor) {
-                            child[i] = functionWrapper(f, i);
-                        } else {
-                            child[i] = f;
-                        }
-                    } else {
-                        child[i] = f;
-                    }
-                }
-            }
-
-        }
-
-        function _export(obj, name) {
-            if (obj && name) {
-                obj[name] = this;
-            } else {
-                obj.exports = obj = this;
-            }
-            return this;
-        }
-
-        function extend(proto) {
-            return declare(this, proto);
-        }
-
-        function getNew(ctor) {
-            // create object with correct prototype using a do-nothing
-            // constructor
-            forceNew.prototype = ctor.prototype;
-            var t = new forceNew();
-            forceNew.prototype = null;	// clean up
-            return t;
-        }
-
-
-        function __declare(child, sup, proto) {
-            var childProto = {}, supers = [];
-            var unique = "declare" + ++classCounter, bases = [], staticBases = [];
-            var instanceSupers = [], staticSupers = [];
-            var meta = {
-                supers: instanceSupers,
-                unique: unique,
-                bases: bases,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-            var childMeta = {
-                supers: staticSupers,
-                unique: unique,
-                bases: staticBases,
-                isConstructor: true,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-
-            if (isHash(sup) && !proto) {
-                proto = sup;
-                sup = Base;
-            }
-
-            if ("function" === typeof sup || isArray(sup)) {
-                supers = isArray(sup) ? sup : [sup];
-                sup = supers.shift();
-                child.__meta = childMeta;
-                childProto = getNew(sup);
-                childProto.__meta = meta;
-                childProto.__getters__ = merge({}, childProto.__getters__ || {});
-                childProto.__setters__ = merge({}, childProto.__setters__ || {});
-                child.__getters__ = merge({}, child.__getters__ || {});
-                child.__setters__ = merge({}, child.__setters__ || {});
-                mixinSupers(sup.prototype, instanceSupers, bases);
-                mixinSupers(sup, staticSupers, staticBases);
-            } else {
-                child.__meta = childMeta;
-                childProto.__meta = meta;
-                childProto.__getters__ = childProto.__getters__ || {};
-                childProto.__setters__ = childProto.__setters__ || {};
-                child.__getters__ = child.__getters__ || {};
-                child.__setters__ = child.__setters__ || {};
-            }
-            child.prototype = childProto;
-            if (proto) {
-                var instance = meta.proto = proto.instance || {};
-                !instance.hasOwnProperty("constructor") && (instance.constructor = defaultFunction);
-                var stat = childMeta.proto = proto.static || {};
-                stat.init = stat.init || defaultFunction;
-                defineProps(childProto, instance);
-                defineProps(child, stat);
-            } else {
-                meta.proto = {};
-                childMeta.proto = {};
-                child.init = functionWrapper(defaultFunction, "init");
-                childProto.constructor = functionWrapper(defaultFunction, "constructor");
-            }
-            if (supers.length) {
-                mixin.apply(child, supers);
-            }
-            if (sup) {
-                //do this so we mixin our super methods directly but do not ov
-                merge(child, merge(merge({}, sup), child));
-            }
-            childProto._super = child._super = callSuper;
-            childProto._getSuper = child._getSuper = getSuper;
-            childProto._static = child;
-        }
-
-        function declare(sup, proto) {
-            function declared() {
-                this.constructor.apply(this, arguments);
-            }
-
-            __declare(declared, sup, proto);
-            return declared.init() || declared;
-        }
-
-        function singleton(sup, proto) {
-            var retInstance;
-
-            function declaredSingleton() {
-                if (!retInstance) {
-                    this.constructor.apply(this, arguments);
-                    retInstance = this;
-                }
-                return retInstance;
-            }
-
-            __declare(declaredSingleton, sup, proto);
-            return  declaredSingleton.init() || declaredSingleton;
-        }
-
-        Base = declare({
-            instance: {
-                "get": getter,
-                "set": setter
-            },
-
-            "static": {
-                "get": getter,
-                "set": setter,
-                mixin: mixin,
-                extend: extend,
-                as: _export
-            }
-        });
-
-        declare.singleton = singleton;
-        return declare;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = createDeclared();
-        }
-    } else if ("function" === typeof define) {
-        define(createDeclared);
-    } else {
-        this.declare = createDeclared();
-    }
-}());
 
 
 
@@ -27455,14 +16844,15 @@ require.define("/node_modules/leafy/node_modules/array-extended/node_modules/ext
             function _extender(obj) {
                 var ret = obj, i, l;
                 if (!(obj instanceof Base)) {
-                    var base = {}, instance = (base.instance = {"__extender__": _extender});
+                    var OurBase = Base;
                     for (i = 0, l = defined.length; i < l; i++) {
                         var definer = defined[i];
                         if (definer[0](obj)) {
-                            merge(instance, definer[1]);
+                            OurBase = OurBase.extend({instance: definer[1]});
                         }
                     }
-                    ret = new (Base.extend(base))(obj);
+                    ret = new OurBase(obj);
+                    ret["__extender__"] = _extender;
                 }
                 return ret;
             }
@@ -27480,6 +16870,16 @@ require.define("/node_modules/leafy/node_modules/array-extended/node_modules/ext
                     decorate = decorate || {};
                     var proto = {};
                     decorateProto(proto, decorate);
+                    //handle browsers like which skip over the constructor while looping
+                    if (!proto.hasOwnProperty("constructor")) {
+                        if (decorate.hasOwnProperty("constructor")) {
+                            addMethod(proto, "constructor", decorate.constructor);
+                        } else {
+                            proto.constructor = function () {
+                                this._super(arguments);
+                            };
+                        }
+                    }
                     defined.push([tester, proto]);
                 }
                 return _extender;
@@ -27537,2835 +16937,6 @@ require.define("/node_modules/leafy/node_modules/array-extended/node_modules/ext
     }
 
 }).call(this);
-});
-
-require.define("/node_modules/leafy/node_modules/array-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/array-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./declare.js");
-});
-
-require.define("/node_modules/leafy/node_modules/array-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/declare.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-
-    /**
-     * @projectName declare
-     * @github http://github.com/doug-martin/declare.js
-     * @header
-     *
-     * Declare is a library designed to allow writing object oriented code the same way in both the browser and node.js.
-     *
-     * ##Installation
-     *
-     * `npm install declare.js`
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/declare.js/master/declare.js) ([minified](https://raw.github.com/doug-martin/declare.js/master/declare-min.js))
-     *
-     * ###Requirejs
-     *
-     * To use with requirejs place the `declare` source in the root scripts directory
-     *
-     * ```
-     *
-     * define(["declare"], function(declare){
-     *      return declare({
-     *          instance : {
-     *              hello : function(){
-     *                  return "world";
-     *              }
-     *          }
-     *      });
-     * });
-     *
-     * ```
-     *
-     *
-     * ##Usage
-     *
-     * declare.js provides
-     *
-     * Class methods
-     *
-     * * `as(module | object, name)` : exports the object to module or the object with the name
-     * * `mixin(mixin)` : mixes in an object but does not inherit directly from the object. **Note** this does not return a new class but changes the original class.
-     * * `extend(proto)` : extend a class with the given properties. A shortcut to `declare(Super, {})`;
-     *
-     * Instance methods
-     *
-     * * `_super(arguments)`: calls the super of the current method, you can pass in either the argments object or an array with arguments you want passed to super
-     * * `_getSuper()`: returns a this methods direct super.
-     * * `_static` : use to reference class properties and methods.
-     * * `get(prop)` : gets a property invoking the getter if it exists otherwise it just returns the named property on the object.
-     * * `set(prop, val)` : sets a property invoking the setter if it exists otherwise it just sets the named property on the object.
-     *
-     *
-     * ###Declaring a new Class
-     *
-     * Creating a new class with declare is easy!
-     *
-     * ```
-     *
-     * var Mammal = declare({
-     *      //define your instance methods and properties
-     *      instance : {
-     *
-     *          //will be called whenever a new instance is created
-     *          constructor: function(options) {
-     *              options = options || {};
-     *              this._super(arguments);
-     *              this._type = options.type || "mammal";
-     *          },
-     *
-     *          speak : function() {
-     *              return  "A mammal of type " + this._type + " sounds like";
-     *          },
-     *
-     *          //Define your getters
-     *          getters : {
-     *
-     *              //can be accessed by using the get method. (mammal.get("type"))
-     *              type : function() {
-     *                  return this._type;
-     *              }
-     *          },
-     *
-     *           //Define your setters
-     *          setters : {
-     *
-     *                //can be accessed by using the set method. (mammal.set("type", "mammalType"))
-     *              type : function(t) {
-     *                  this._type = t;
-     *              }
-     *          }
-     *      },
-     *
-     *      //Define your static methods
-     *      static : {
-     *
-     *          //Mammal.soundOff(); //"Im a mammal!!"
-     *          soundOff : function() {
-     *              return "Im a mammal!!";
-     *          }
-     *      }
-     * });
-     *
-     *
-     * ```
-     *
-     * You can use Mammal just like you would any other class.
-     *
-     * ```
-     * Mammal.soundOff("Im a mammal!!");
-     *
-     * var myMammal = new Mammal({type : "mymammal"});
-     * myMammal.speak(); // "A mammal of type mymammal sounds like"
-     * myMammal.get("type"); //"mymammal"
-     * myMammal.set("type", "mammal");
-     * myMammal.get("type"); //"mammal"
-     *
-     *
-     * ```
-     *
-     * ###Extending a class
-     *
-     * If you want to just extend a single class use the .extend method.
-     *
-     * ```
-     *
-     * var Wolf = Mammal.extend({
-     *
-     *   //define your instance method
-     *   instance: {
-     *
-     *        //You can override super constructors just be sure to call `_super`
-     *       constructor: function(options) {
-     *          options = options || {};
-     *          this._super(arguments); //call our super constructor.
-     *          this._sound = "growl";
-     *          this._color = options.color || "grey";
-     *      },
-     *
-     *      //override Mammals `speak` method by appending our own data to it.
-     *      speak : function() {
-     *          return this._super(arguments) + " a " + this._sound;
-     *      },
-     *
-     *      //add new getters for sound and color
-     *      getters : {
-     *
-     *           //new Wolf().get("type")
-     *           //notice color is read only as we did not define a setter
-     *          color : function() {
-     *              return this._color;
-     *          },
-     *
-     *          //new Wolf().get("sound")
-     *          sound : function() {
-     *              return this._sound;
-     *          }
-     *      },
-     *
-     *      setters : {
-     *
-     *          //new Wolf().set("sound", "howl")
-     *          sound : function(s) {
-     *              this._sound = s;
-     *          }
-     *      }
-     *
-     *  },
-     *
-     *  static : {
-     *
-     *      //You can override super static methods also! And you can still use _super
-     *      soundOff : function() {
-     *          //You can even call super in your statics!!!
-     *          //should return "I'm a mammal!! that growls"
-     *          return this._super(arguments) + " that growls";
-     *      }
-     *  }
-     * });
-     *
-     * Wolf.soundOff(); //Im a mammal!! that growls
-     *
-     * var myWolf = new Wolf();
-     * myWolf instanceof Mammal //true
-     * myWolf instanceof Wolf //true
-     *
-     * ```
-     *
-     * You can also extend a class by using the declare method and just pass in the super class.
-     *
-     * ```
-     * //Typical hierarchical inheritance
-     * // Mammal->Wolf->Dog
-     * var Dog = declare(Wolf, {
-     *    instance: {
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            //override Wolfs initialization of sound to woof.
-     *            this._sound = "woof";
-     *
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a growl thats domesticated"
-     *            return this._super(arguments) + " thats domesticated";
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'm a mammal!! that growls but now barks"
-     *            return this._super(arguments) + " but now barks";
-     *        }
-     *    }
-     * });
-     *
-     * Dog.soundOff(); //Im a mammal!! that growls but now barks
-     *
-     * var myDog = new Dog();
-     * myDog instanceof Mammal //true
-     * myDog instanceof Wolf //true
-     * myDog instanceof Dog //true
-     *
-     *
-     * //Notice you still get the extend method.
-     *
-     * // Mammal->Wolf->Dog->Breed
-     * var Breed = Dog.extend({
-     *    instance: {
-     *
-     *        //initialize outside of constructor
-     *        _pitch : "high",
-     *
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            this.breed = options.breed || "lab";
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a
-     *            //growl thats domesticated with a high pitch!"
-     *            return this._super(arguments) + " with a " + this._pitch + " pitch!";
-     *        },
-     *
-     *        getters : {
-     *            pitch : function() {
-     *                return this._pitch;
-     *            }
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'M A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *            return this._super(arguments).toUpperCase() + "!";
-     *        }
-     *    }
-     * });
-     *
-     *
-     * Breed.soundOff()//"IM A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *
-     * var myBreed = new Breed({color : "gold", type : "lab"}),
-     * myBreed instanceof Dog //true
-     * myBreed instanceof Wolf //true
-     * myBreed instanceof Mammal //true
-     * myBreed.speak() //"A mammal of type lab sounds like a woof thats domesticated with a high pitch!"
-     * myBreed.get("type") //"lab"
-     * myBreed.get("color") //"gold"
-     * myBreed.get("sound")" //"woof"
-     * ```
-     *
-     * ###Multiple Inheritance / Mixins
-     *
-     * declare also allows the use of multiple super classes.
-     * This is useful if you have generic classes that provide functionality but shouldnt be used on their own.
-     *
-     * Lets declare a mixin that allows us to watch for property changes.
-     *
-     * ```
-     * //Notice that we set up the functions outside of declare because we can reuse them
-     *
-     * function _set(prop, val) {
-     *     //get the old value
-     *     var oldVal = this.get(prop);
-     *     //call super to actually set the property
-     *     var ret = this._super(arguments);
-     *     //call our handlers
-     *     this.__callHandlers(prop, oldVal, val);
-     *     return ret;
-     * }
-     *
-     * function _callHandlers(prop, oldVal, newVal) {
-     *    //get our handlers for the property
-     *     var handlers = this.__watchers[prop], l;
-     *     //if the handlers exist and their length does not equal 0 then we call loop through them
-     *     if (handlers && (l = handlers.length) !== 0) {
-     *         for (var i = 0; i < l; i++) {
-     *             //call the handler
-     *             handlers[i].call(null, prop, oldVal, newVal);
-     *         }
-     *     }
-     * }
-     *
-     *
-     * //the watch function
-     * function _watch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         //if its not a function then its an invalid handler
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     if (!this.__watchers[prop]) {
-     *         //create the watchers if it doesnt exist
-     *         this.__watchers[prop] = [handler];
-     *     } else {
-     *         //otherwise just add it to the handlers array
-     *         this.__watchers[prop].push(handler);
-     *     }
-     * }
-     *
-     * function _unwatch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     var handlers = this.__watchers[prop], index;
-     *     if (handlers && (index = handlers.indexOf(handler)) !== -1) {
-     *        //remove the handler if it is found
-     *         handlers.splice(index, 1);
-     *     }
-     * }
-     *
-     * declare({
-     *     instance:{
-     *         constructor:function () {
-     *             this._super(arguments);
-     *             //set up our watchers
-     *             this.__watchers = {};
-     *         },
-     *
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set up our callhandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch function
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     },
-     *
-     *     "static":{
-     *
-     *         init:function () {
-     *             this._super(arguments);
-     *             this.__watchers = {};
-     *         },
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set our callHandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     }
-     * })
-     *
-     * ```
-     *
-     * Now lets use the mixin
-     *
-     * ```
-     * var WatchDog = declare([Dog, WatchMixin]);
-     *
-     * var watchDog = new WatchDog();
-     * //create our handler
-     * function watch(id, oldVal, newVal) {
-     *     console.log("watchdog's %s was %s, now %s", id, oldVal, newVal);
-     * }
-     *
-     * //watch for property changes
-     * watchDog.watch("type", watch);
-     * watchDog.watch("color", watch);
-     * watchDog.watch("sound", watch);
-     *
-     * //now set the properties each handler will be called
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * //unwatch the property changes
-     * watchDog.unwatch("type", watch);
-     * watchDog.unwatch("color", watch);
-     * watchDog.unwatch("sound", watch);
-     *
-     * //no handlers will be called this time
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * ```
-     *
-     * ###Accessing static methods and properties witin an instance.
-     *
-     * To access static properties on an instance use the `_static` property which is a reference to your constructor.
-     *
-     * For example if your in your constructor and you want to have configurable default values.
-     *
-     * ```
-     * consturctor : function constructor(opts){
-     *     this.opts = opts || {};
-     *     this._type = opts.type || this._static.DEFAULT_TYPE;
-     * }
-     * ```
-     *
-     *
-     *
-     * ###Creating a new instance of within an instance.
-     *
-     * Often times you want to create a new instance of an object within an instance. If your subclassed however you cannot return a new instance of the parent class as it will not be the right sub class. `declare` provides a way around this by setting the `_static` property on each isntance of the class.
-     *
-     * Lets add a reproduce method `Mammal`
-     *
-     * ```
-     * reproduce : function(options){
-     *     return new this._static(options);
-     * }
-     * ```
-     *
-     * Now in each subclass you can call reproduce and get the proper type.
-     *
-     * ```
-     * var myDog = new Dog();
-     * var myDogsChild = myDog.reproduce();
-     *
-     * myDogsChild instanceof Dog; //true
-     * ```
-     *
-     * ###Using the `as`
-     *
-     * `declare` also provides an `as` method which allows you to add your class to an object or if your using node.js you can pass in `module` and the class will be exported as the module.
-     *
-     * ```
-     * var animals = {};
-     *
-     * Mammal.as(animals, "Dog");
-     * Wolf.as(animals, "Wolf");
-     * Dog.as(animals, "Dog");
-     * Breed.as(animals, "Breed");
-     *
-     * var myDog = new animals.Dog();
-     *
-     * ```
-     *
-     * Or in node
-     *
-     * ```
-     * Mammal.as(exports, "Dog");
-     * Wolf.as(exports, "Wolf");
-     * Dog.as(exports, "Dog");
-     * Breed.as(exports, "Breed");
-     *
-     * ```
-     *
-     * To export a class as the `module` in node
-     *
-     * ```
-     * Mammal.as(module);
-     * ```
-     *
-     *
-     */
-    function createDeclared() {
-        var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function merge(target, source, exclude) {
-            var name, s;
-            for (name in source) {
-                if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function callSuper(args, a) {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                a && (args = a);
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, args);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getSuper() {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.bind(this);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getter(name) {
-            var getters = this.__getters__;
-            if (getters.hasOwnProperty(name)) {
-                return getters[name].apply(this);
-            } else {
-                return this[name];
-            }
-        }
-
-        function setter(name, val) {
-            var setters = this.__setters__;
-            if (isHash(name)) {
-                for (var i in name) {
-                    var prop = name[i];
-                    if (setters.hasOwnProperty(i)) {
-                        setters[name].call(this, prop);
-                    } else {
-                        this[i] = prop;
-                    }
-                }
-            } else {
-                if (setters.hasOwnProperty(name)) {
-                    return setters[name].apply(this, argsToArray(arguments, 1));
-                } else {
-                    return this[name] = val;
-                }
-            }
-        }
-
-
-        function defaultFunction() {
-            var meta = this.__meta || {},
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, arguments);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-
-        function functionWrapper(f, name) {
-            var wrapper = function wrapper() {
-                var ret, meta = this.__meta || {};
-                var orig = meta.superMeta;
-                meta.superMeta = {f: f, pos: 0, name: name};
-                ret = f.apply(this, arguments);
-                meta.superMeta = orig;
-                return ret;
-            };
-            wrapper._f = f;
-            return wrapper;
-        }
-
-        function defineMixinProps(child, proto) {
-
-            var operations = proto.setters || {}, __setters = child.__setters__, __getters = child.__getters__;
-            for (var i in operations) {
-                if (!__setters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            for (i in operations) {
-                if (!__getters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __getters[i] = operations[i];
-                }
-            }
-            for (var j in proto) {
-                if (j != "getters" && j != "setters") {
-                    var p = proto[j];
-                    if ("function" === typeof p) {
-                        if (!child.hasOwnProperty(j)) {
-                            child[j] = functionWrapper(defaultFunction, j);
-                        }
-                    } else {
-                        child[j] = p;
-                    }
-                }
-            }
-        }
-
-        function mixin() {
-            var args = argsToArray(arguments), l = args.length;
-            var child = this.prototype;
-            var childMeta = child.__meta, thisMeta = this.__meta, bases = child.__meta.bases, staticBases = bases.slice(),
-                staticSupers = thisMeta.supers || [], supers = childMeta.supers || [];
-            for (var i = 0; i < l; i++) {
-                var m = args[i], mProto = m.prototype;
-                var protoMeta = mProto.__meta, meta = m.__meta;
-                !protoMeta && (protoMeta = (mProto.__meta = {proto: mProto || {}}));
-                !meta && (meta = (m.__meta = {proto: m.__proto__ || {}}));
-                defineMixinProps(child, protoMeta.proto || {});
-                defineMixinProps(this, meta.proto || {});
-                //copy the bases for static,
-
-                mixinSupers(m.prototype, supers, bases);
-                mixinSupers(m, staticSupers, staticBases);
-            }
-            return this;
-        }
-
-        function mixinSupers(sup, arr, bases) {
-            var meta = sup.__meta;
-            !meta && (meta = (sup.__meta = {}));
-            var unique = sup.__meta.unique;
-            !unique && (meta.unique = "declare" + ++classCounter);
-            //check it we already have this super mixed into our prototype chain
-            //if true then we have already looped their supers!
-            if (indexOf(bases, unique) === -1) {
-                //add their id to our bases
-                bases.push(unique);
-                var supers = sup.__meta.supers || [], i = supers.length - 1 || 0;
-                while (i >= 0) {
-                    mixinSupers(supers[i--], arr, bases);
-                }
-                arr.unshift(sup);
-            }
-        }
-
-        function defineProps(child, proto) {
-            var operations = proto.setters,
-                __setters = child.__setters__,
-                __getters = child.__getters__;
-            if (operations) {
-                for (var i in operations) {
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            if (operations) {
-                for (i in operations) {
-                    __getters[i] = operations[i];
-                }
-            }
-            for (i in proto) {
-                if (i != "getters" && i != "setters") {
-                    var f = proto[i];
-                    if ("function" === typeof f) {
-                        var meta = f.__meta || {};
-                        if (!meta.isConstructor) {
-                            child[i] = functionWrapper(f, i);
-                        } else {
-                            child[i] = f;
-                        }
-                    } else {
-                        child[i] = f;
-                    }
-                }
-            }
-
-        }
-
-        function _export(obj, name) {
-            if (obj && name) {
-                obj[name] = this;
-            } else {
-                obj.exports = obj = this;
-            }
-            return this;
-        }
-
-        function extend(proto) {
-            return declare(this, proto);
-        }
-
-        function getNew(ctor) {
-            // create object with correct prototype using a do-nothing
-            // constructor
-            forceNew.prototype = ctor.prototype;
-            var t = new forceNew();
-            forceNew.prototype = null;	// clean up
-            return t;
-        }
-
-
-        function __declare(child, sup, proto) {
-            var childProto = {}, supers = [];
-            var unique = "declare" + ++classCounter, bases = [], staticBases = [];
-            var instanceSupers = [], staticSupers = [];
-            var meta = {
-                supers: instanceSupers,
-                unique: unique,
-                bases: bases,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-            var childMeta = {
-                supers: staticSupers,
-                unique: unique,
-                bases: staticBases,
-                isConstructor: true,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-
-            if (isHash(sup) && !proto) {
-                proto = sup;
-                sup = Base;
-            }
-
-            if ("function" === typeof sup || isArray(sup)) {
-                supers = isArray(sup) ? sup : [sup];
-                sup = supers.shift();
-                child.__meta = childMeta;
-                childProto = getNew(sup);
-                childProto.__meta = meta;
-                childProto.__getters__ = merge({}, childProto.__getters__ || {});
-                childProto.__setters__ = merge({}, childProto.__setters__ || {});
-                child.__getters__ = merge({}, child.__getters__ || {});
-                child.__setters__ = merge({}, child.__setters__ || {});
-                mixinSupers(sup.prototype, instanceSupers, bases);
-                mixinSupers(sup, staticSupers, staticBases);
-            } else {
-                child.__meta = childMeta;
-                childProto.__meta = meta;
-                childProto.__getters__ = childProto.__getters__ || {};
-                childProto.__setters__ = childProto.__setters__ || {};
-                child.__getters__ = child.__getters__ || {};
-                child.__setters__ = child.__setters__ || {};
-            }
-            child.prototype = childProto;
-            if (proto) {
-                var instance = meta.proto = proto.instance || {};
-                !instance.hasOwnProperty("constructor") && (instance.constructor = defaultFunction);
-                var stat = childMeta.proto = proto.static || {};
-                stat.init = stat.init || defaultFunction;
-                defineProps(childProto, instance);
-                defineProps(child, stat);
-            } else {
-                meta.proto = {};
-                childMeta.proto = {};
-                child.init = functionWrapper(defaultFunction, "init");
-                childProto.constructor = functionWrapper(defaultFunction, "constructor");
-            }
-            if (supers.length) {
-                mixin.apply(child, supers);
-            }
-            if (sup) {
-                //do this so we mixin our super methods directly but do not ov
-                merge(child, merge(merge({}, sup), child));
-            }
-            childProto._super = child._super = callSuper;
-            childProto._getSuper = child._getSuper = getSuper;
-            childProto._static = child;
-        }
-
-        function declare(sup, proto) {
-            function declared() {
-                this.constructor.apply(this, arguments);
-            }
-
-            __declare(declared, sup, proto);
-            return declared.init() || declared;
-        }
-
-        function singleton(sup, proto) {
-            var retInstance;
-
-            function declaredSingleton() {
-                if (!retInstance) {
-                    this.constructor.apply(this, arguments);
-                    retInstance = this;
-                }
-                return retInstance;
-            }
-
-            __declare(declaredSingleton, sup, proto);
-            return  declaredSingleton.init() || declaredSingleton;
-        }
-
-        Base = declare({
-            instance: {
-                "get": getter,
-                "set": setter
-            },
-
-            "static": {
-                "get": getter,
-                "set": setter,
-                mixin: mixin,
-                extend: extend,
-                as: _export
-            }
-        });
-
-        declare.singleton = singleton;
-        return declare;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = createDeclared();
-        }
-    } else if ("function" === typeof define) {
-        define(createDeclared);
-    } else {
-        this.declare = createDeclared();
-    }
-}());
-
-
-
-
-});
-
-require.define("/node_modules/leafy/node_modules/array-extended/node_modules/is-extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/array-extended/node_modules/is-extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    "use strict";
-
-    function defineIsa(extended) {
-
-        var undef, pSlice = Array.prototype.slice;
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return pSlice.call(args, slice);
-        }
-
-        //taken from node js assert.js
-        //https://github.com/joyent/node/blob/master/lib/assert.js
-        function deepEqual(actual, expected) {
-            // 7.1. All identical values are equivalent, as determined by ===.
-            if (actual === expected) {
-                return true;
-
-            } else if (typeof Buffer !== "undefined" && Buffer.isBuffer(actual) && Buffer.isBuffer(expected)) {
-                if (actual.length !== expected.length) {
-                    return false;
-                }
-
-                for (var i = 0; i < actual.length; i++) {
-                    if (actual[i] !== expected[i]) {
-                        return false;
-                    }
-                }
-
-                return true;
-
-                // 7.2. If the expected value is a Date object, the actual value is
-                // equivalent if it is also a Date object that refers to the same time.
-            } else if (actual instanceof Date && expected instanceof Date) {
-                return actual.getTime() === expected.getTime();
-
-                // 7.3 If the expected value is a RegExp object, the actual value is
-                // equivalent if it is also a RegExp object with the same source and
-                // properties (`global`, `multiline`, `lastIndex`, `ignoreCase`).
-            } else if (actual instanceof RegExp && expected instanceof RegExp) {
-                return actual.source === expected.source &&
-                    actual.global === expected.global &&
-                    actual.multiline === expected.multiline &&
-                    actual.lastIndex === expected.lastIndex &&
-                    actual.ignoreCase === expected.ignoreCase;
-
-                // 7.4. Other pairs that do not both pass typeof value == 'object',
-                // equivalence is determined by ==.
-            } else if (typeof actual !== 'object' && typeof expected !== 'object') {
-                return actual === expected;
-
-                // 7.5 For all other Object pairs, including Array objects, equivalence is
-                // determined by having the same number of owned properties (as verified
-                // with Object.prototype.hasOwnProperty.call), the same set of keys
-                // (although not necessarily the same order), equivalent values for every
-                // corresponding key, and an identical 'prototype' property. Note: this
-                // accounts for both named and indexed properties on Arrays.
-            } else {
-                return objEquiv(actual, expected);
-            }
-        }
-
-
-        function objEquiv(a, b) {
-            var key;
-            if (isUndefinedOrNull(a) || isUndefinedOrNull(b)) {
-                return false;
-            }
-            // an identical 'prototype' property.
-            if (a.prototype !== b.prototype) {
-                return false;
-            }
-            //~~~I've managed to break Object.keys through screwy arguments passing.
-            //   Converting to array solves the problem.
-            if (isArguments(a)) {
-                if (!isArguments(b)) {
-                    return false;
-                }
-                a = pSlice.call(a);
-                b = pSlice.call(b);
-                return deepEqual(a, b);
-            }
-            try {
-                var ka = Object.keys(a),
-                    kb = Object.keys(b),
-                    i;
-                // having the same number of owned properties (keys incorporates
-                // hasOwnProperty)
-                if (ka.length !== kb.length) {
-                    return false;
-                }
-                //the same set of keys (although not necessarily the same order),
-                ka.sort();
-                kb.sort();
-                //~~~cheap key test
-                for (i = ka.length - 1; i >= 0; i--) {
-                    if (ka[i] !== kb[i]) {
-                        return false;
-                    }
-                }
-                //equivalent values for every corresponding key, and
-                //~~~possibly expensive deep test
-                for (i = ka.length - 1; i >= 0; i--) {
-                    key = ka[i];
-                    if (!deepEqual(a[key], b[key])) {
-                        return false;
-                    }
-                }
-            } catch (e) {//happens when one is a string literal and the other isn't
-                return false;
-            }
-            return true;
-        }
-
-        function isFunction(obj) {
-            return typeof obj === "function";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function isEmpty(object) {
-            if (isObject(object)) {
-                for (var i in object) {
-                    if (object.hasOwnProperty(i)) {
-                        return false;
-                    }
-                }
-            } else if (isString(object) && object === "") {
-                return true;
-            }
-            return true;
-        }
-
-        function isBoolean(obj) {
-            return Object.prototype.toString.call(obj) === "[object Boolean]";
-        }
-
-        function isUndefined(obj) {
-            return obj !== null && obj === undef;
-        }
-
-        function isDefined(obj) {
-            return !isUndefined(obj);
-        }
-
-        function isUndefinedOrNull(obj) {
-            return isUndefined(obj) || isNull(obj);
-        }
-
-        function isNull(obj) {
-            return obj !== undef && obj === null;
-        }
-
-        function isArguments(object) {
-            return !isUndefinedOrNull(object) && Object.prototype.toString.call(object) === '[object Arguments]';
-        }
-
-
-        function isInstanceOf(obj, clazz) {
-            if (isFunction(clazz)) {
-                return obj instanceof clazz;
-            } else {
-                return false;
-            }
-        }
-
-        function isRegExp(obj) {
-            return !isUndefinedOrNull(obj) && (obj instanceof RegExp);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isDate(obj) {
-            return (!isUndefinedOrNull(obj) && typeof obj === "object" && obj instanceof Date);
-        }
-
-        function isString(obj) {
-            return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-        }
-
-        function isNumber(obj) {
-            return !isUndefinedOrNull(obj) && (typeof obj === "number" || obj instanceof Number);
-        }
-
-        function isTrue(obj) {
-            return obj === true;
-        }
-
-        function isFalse(obj) {
-            return obj === false;
-        }
-
-        function isNotNull(obj) {
-            return !isNull(obj);
-        }
-
-        function isEq(obj, obj2) {
-            return obj == obj2;
-        }
-
-        function isNeq(obj, obj2) {
-            /*jshint eqeqeq:false*/
-            return obj != obj2;
-        }
-
-        function isSeq(obj, obj2) {
-            return obj === obj2;
-        }
-
-        function isSneq(obj, obj2) {
-            return obj !== obj2;
-        }
-
-        function isIn(obj, arr) {
-            if (isArray(arr)) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (isEq(obj, arr[i])) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        function isNotIn(obj, arr) {
-            return !isIn(obj, arr);
-        }
-
-        function isLt(obj, obj2) {
-            return obj < obj2;
-        }
-
-        function isLte(obj, obj2) {
-            return obj <= obj2;
-        }
-
-        function isGt(obj, obj2) {
-            return obj > obj2;
-        }
-
-        function isGte(obj, obj2) {
-            return obj >= obj2;
-        }
-
-        function isLike(obj, reg) {
-            if (isString(reg)) {
-                reg = new RegExp(reg);
-            }
-            if (isRegExp(reg)) {
-                return reg.test("" + obj);
-            }
-            return false;
-        }
-
-        function isNotLike(obj, reg) {
-            return !isLike(obj, reg);
-        }
-
-        function contains(arr, obj) {
-            return isIn(obj, arr);
-        }
-
-        function notContains(arr, obj) {
-            return !isIn(obj, arr);
-        }
-
-        var isa = {
-            isFunction: isFunction,
-            isObject: isObject,
-            isEmpty: isEmpty,
-            isHash: isHash,
-            isNumber: isNumber,
-            isString: isString,
-            isDate: isDate,
-            isArray: isArray,
-            isBoolean: isBoolean,
-            isUndefined: isUndefined,
-            isDefined: isDefined,
-            isUndefinedOrNull: isUndefinedOrNull,
-            isNull: isNull,
-            isArguments: isArguments,
-            instanceOf: isInstanceOf,
-            isRegExp: isRegExp,
-            deepEqual: deepEqual,
-            isTrue: isTrue,
-            isFalse: isFalse,
-            isNotNull: isNotNull,
-            isEq: isEq,
-            isNeq: isNeq,
-            isSeq: isSeq,
-            isSneq: isSneq,
-            isIn: isIn,
-            isNotIn: isNotIn,
-            isLt: isLt,
-            isLte: isLte,
-            isGt: isGt,
-            isGte: isGte,
-            isLike: isLike,
-            isNotLike: isNotLike,
-            contains: contains,
-            notContains: notContains
-        };
-
-        var tester = {
-            constructor: function () {
-                this._testers = [];
-            },
-
-            noWrap: {
-                tester: function () {
-                    var testers = this._testers;
-                    return function tester(value) {
-                        var isa = false;
-                        for (var i = 0, l = testers.length; i < l && !isa; i++) {
-                            isa = testers[i](value);
-                        }
-                        return isa;
-                    };
-                }
-            }
-        };
-
-        var switcher = {
-            constructor: function () {
-                this._cases = [];
-                this.__default = null;
-            },
-
-            def: function (val, fn) {
-                this.__default = fn;
-            },
-
-            noWrap: {
-                switcher: function () {
-                    var testers = this._cases, __default = this.__default;
-                    return function tester() {
-                        var handled = false, args = argsToArray(arguments), caseRet;
-                        for (var i = 0, l = testers.length; i < l && !handled; i++) {
-                            caseRet = testers[i](args);
-                            if (caseRet.length > 1) {
-                                if (caseRet[1] || caseRet[0]) {
-                                    return caseRet[1];
-                                }
-                            }
-                        }
-                        if (!handled && __default) {
-                            return  __default.apply(this, args);
-                        }
-                    };
-                }
-            }
-        };
-
-        function addToTester(func) {
-            tester[func] = function isaTester() {
-                this._testers.push(isa[func]);
-            };
-        }
-
-        function addToSwitcher(func) {
-            switcher[func] = function isaTester() {
-                var args = argsToArray(arguments, 1), isFunc = isa[func], handler, doBreak = true;
-                if (args.length <= isFunc.length - 1) {
-                    throw new TypeError("A handler must be defined when calling using switch");
-                } else {
-                    handler = args.pop();
-                    if (isBoolean(handler)) {
-                        doBreak = handler;
-                        handler = args.pop();
-                    }
-                }
-                if (!isFunction(handler)) {
-                    throw new TypeError("handler must be defined");
-                }
-                this._cases.push(function (testArgs) {
-                    if (isFunc.apply(isa, testArgs.concat(args))) {
-                        return [doBreak, handler.apply(this, testArgs)];
-                    }
-                    return [false];
-                });
-            };
-        }
-
-        for (var i in isa) {
-            if (isa.hasOwnProperty(i)) {
-                addToSwitcher(i);
-                addToTester(i);
-            }
-        }
-
-        var is = extended.define(isa).expose(isa);
-        is.tester = extended.define(tester);
-        is.switcher = extended.define(switcher);
-        return is;
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineIsa(require("extended"));
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineIsa((require("extended")));
-        });
-    } else {
-        this.is = defineIsa(this.extended);
-    }
-
-}).call(this);
-});
-
-require.define("/node_modules/leafy/node_modules/array-extended/node_modules/is-extended/node_modules/extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/array-extended/node_modules/is-extended/node_modules/extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    "use strict";
-    /*global extender isa, dateExtended*/
-
-    function defineExtended(extender, require) {
-
-
-        var merge = (function merger() {
-            function _merge(target, source) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name)) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
-            }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                for (var i = 1, l = arguments.length; i < l; i++) {
-                    _merge(obj, arguments[i]);
-                }
-                return obj; // Object
-            };
-        }());
-
-        function getExtended() {
-
-            var loaded = {};
-
-
-            //getInitial instance;
-            var extended = extender.define();
-            extended.expose({
-                register: function register(alias, extendWith) {
-                    if (!extendWith) {
-                        extendWith = alias;
-                        alias = null;
-                    }
-                    var type = typeof extendWith;
-                    if (alias) {
-                        extended[alias] = extendWith;
-                    } else if (extendWith && type === "function") {
-                        extended.extend(extendWith);
-                    } else if (type === "object") {
-                        extended.expose(extendWith);
-                    } else {
-                        throw new TypeError("extended.register must be called with an extender function");
-                    }
-                    return extended;
-                },
-
-                define: function () {
-                    return extender.define.apply(extender, arguments);
-                }
-            });
-
-            return extended;
-        }
-
-        function extended() {
-            return getExtended();
-        }
-
-        extended.define = function define() {
-            return extender.define.apply(extender, arguments);
-        };
-
-        return extended;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtended(require("extender"), require);
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineExtended(require("extender"), require);
-        });
-    } else {
-        this.extended = defineExtended(this.extender);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-});
-
-require.define("/node_modules/leafy/node_modules/array-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/array-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./extender.js");
-});
-
-require.define("/node_modules/leafy/node_modules/array-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/extender.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    /*jshint strict:false*/
-
-
-    /**
-     *
-     * @projectName extender
-     * @github http://github.com/doug-martin/extender
-     * @header
-     * [![build status](https://secure.travis-ci.org/doug-martin/extender.png)](http://travis-ci.org/doug-martin/extender)
-     * # Extender
-     *
-     * `extender` is a library that helps in making chainable APIs, by creating a function that accepts different values and returns an object decorated with functions based on the type.
-     *
-     * ## Why Is Extender Different?
-     *
-     * Extender is different than normal chaining because is does more than return `this`. It decorates your values in a type safe manner.
-     *
-     * For example if you return an array from a string based method then the returned value will be decorated with array methods and not the string methods. This allow you as the developer to focus on your API and not worrying about how to properly build and connect your API.
-     *
-     *
-     * ## Installation
-     *
-     * ```
-     * npm install extender
-     * ```
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/extender/master/extender.js) ([minified](https://raw.github.com/doug-martin/extender/master/extender-min.js))
-     *
-     * **Note** `extender` depends on [`declare.js`](http://doug-martin.github.com/declare.js/).
-     *
-     * ### Requirejs
-     *
-     * To use with requirejs place the `extend` source in the root scripts directory
-     *
-     * ```javascript
-     *
-     * define(["extender"], function(extender){
-     * });
-     *
-     * ```
-     *
-     *
-     * ## Usage
-     *
-     * **`extender.define(tester, decorations)`**
-     *
-     * To create your own extender call the `extender.define` function.
-     *
-     * This function accepts an optional tester which is used to determine a value should be decorated with the specified `decorations`
-     *
-     * ```javascript
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     *
-     * var myExtender = extender.define(isString, {
-     *		multiply: function (str, times) {
-     *			var ret = str;
-     *			for (var i = 1; i < times; i++) {
-     *				ret += str;
-     *			}
-     *			return ret;
-     *		},
-     *		toArray: function (str, delim) {
-     *			delim = delim || "";
-     *			return str.split(delim);
-     *		}
-     *	});
-     *
-     * myExtender("hello").multiply(2).value(); //hellohello
-     *
-     * ```
-     *
-     * If you do not specify a tester function and just pass in an object of `functions` then all values passed in will be decorated with methods.
-     *
-     * ```javascript
-     *
-     * function isUndefined(obj) {
-     *     var undef;
-     *     return obj === undef;
-     * }
-     *
-     * function isUndefinedOrNull(obj) {
-     *	var undef;
-     *     return obj === undef || obj === null;
-     * }
-     *
-     * function isArray(obj) {
-     *     return Object.prototype.toString.call(obj) === "[object Array]";
-     * }
-     *
-     * function isBoolean(obj) {
-     *     var undef, type = typeof obj;
-     *     return !isUndefinedOrNull(obj) && type === "boolean" || type === "Boolean";
-     * }
-     *
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     * var myExtender = extender.define({
-     *	isUndefined : isUndefined,
-     *	isUndefinedOrNull : isUndefinedOrNull,
-     *	isArray : isArray,
-     *	isBoolean : isBoolean,
-     *	isString : isString
-     * });
-     *
-     * ```
-     *
-     * To use
-     *
-     * ```
-     * var undef;
-     * myExtender("hello").isUndefined().value(); //false
-     * myExtender(undef).isUndefined().value(); //true
-     * ```
-     *
-     * You can also chain extenders so that they accept multiple types and decorates accordingly.
-     *
-     * ```javascript
-     * myExtender
-     *     .define(isArray, {
-     *		pluck: function (arr, m) {
-     *			var ret = [];
-     *			for (var i = 0, l = arr.length; i < l; i++) {
-     *				ret.push(arr[i][m]);
-     *			}
-     *			return ret;
-     *		}
-     *	})
-     *     .define(isBoolean, {
-     *		invert: function (val) {
-     *			return !val;
-     *		}
-     *	});
-     *
-     * myExtender([{a: "a"},{a: "b"},{a: "c"}]).pluck("a").value(); //["a", "b", "c"]
-     * myExtender("I love javascript!").toArray(/\s+/).pluck("0"); //["I", "l", "j"]
-     *
-     * ```
-     *
-     * Notice that we reuse the same extender as defined above.
-     *
-     * **Return Values**
-     *
-     * When creating an extender if you return a value from one of the decoration functions then that value will also be decorated. If you do not return any values then the extender will be returned.
-     *
-     * **Default decoration methods**
-     *
-     * By default every value passed into an extender is decorated with the following methods.
-     *
-     * * `value` : The value this extender represents.
-     * * `eq(otherValue)` : Tests strict equality of the currently represented value to the `otherValue`
-     * * `neq(oterValue)` : Tests strict inequality of the currently represented value.
-     * * `print` : logs the current value to the console.
-     *
-     * **Extender initialization**
-     *
-     * When creating an extender you can also specify a constructor which will be invoked with the current value.
-     *
-     * ```javascript
-     * myExtender.define(isString, {
-     *	constructor : function(val){
-     *     //set our value to the string trimmed
-     *		this._value = val.trimRight().trimLeft();
-     *	}
-     * });
-     * ```
-     *
-     * **`noWrap`**
-     *
-     * `extender` also allows you to specify methods that should not have the value wrapped providing a cleaner exit function other than `value()`.
-     *
-     * For example suppose you have an API that allows you to build a validator, rather than forcing the user to invoke the `value` method you could add a method called `validator` which makes more syntactic sense.
-     *
-     * ```
-     *
-     * var myValidator = extender.define({
-     *     //chainable validation methods
-     *     //...
-     *     //end chainable validation methods
-     *
-     *     noWrap : {
-     *         validator : function(){
-     *             //return your validator
-     *         }
-     *     }
-     * });
-     *
-     * myValidator().isNotNull().isEmailAddress().validator(); //now you dont need to call .value()
-     *
-     *
-     * ```
-     * **`extender.extend(extendr)`**
-     *
-     * You may also compose extenders through the use of `extender.extend(extender)`, which will return an entirely new extender that is the composition of extenders.
-     *
-     * Suppose you have the following two extenders.
-     *
-     * ```javascript
-     * var myExtender = extender
-     *        .define({
-     *            isFunction: is.function,
-     *            isNumber: is.number,
-     *            isString: is.string,
-     *            isDate: is.date,
-     *            isArray: is.array,
-     *            isBoolean: is.boolean,
-     *            isUndefined: is.undefined,
-     *            isDefined: is.defined,
-     *            isUndefinedOrNull: is.undefinedOrNull,
-     *            isNull: is.null,
-     *            isArguments: is.arguments,
-     *            isInstanceOf: is.instanceOf,
-     *            isRegExp: is.regExp
-     *        });
-     * var myExtender2 = extender.define(is.array, {
-     *     pluck: function (arr, m) {
-     *         var ret = [];
-     *         for (var i = 0, l = arr.length; i < l; i++) {
-     *             ret.push(arr[i][m]);
-     *         }
-     *         return ret;
-     *     },
-     *
-     *     noWrap: {
-     *         pluckPlain: function (arr, m) {
-     *             var ret = [];
-     *             for (var i = 0, l = arr.length; i < l; i++) {
-     *                 ret.push(arr[i][m]);
-     *             }
-     *             return ret;
-     *         }
-     *     }
-     * });
-     *
-     *
-     * ```
-     *
-     * And you do not want to alter either of them but instead what to create a third that is the union of the two.
-     *
-     *
-     * ```javascript
-     * var composed = extender.extend(myExtender).extend(myExtender2);
-     * ```
-     * So now you can use the new extender with the joined functionality if `myExtender` and `myExtender2`.
-     *
-     * ```javascript
-     * var extended = composed([
-     *      {a: "a"},
-     *      {a: "b"},
-     *      {a: "c"}
-     * ]);
-     * extended.isArray().value(); //true
-     * extended.pluck("a").value(); // ["a", "b", "c"]);
-     *
-     * ```
-     *
-     * **Note** `myExtender` and `myExtender2` will **NOT** be altered.
-     *
-     * **`extender.expose(methods)`**
-     *
-     * The `expose` method allows you to add methods to your extender that are not wrapped or automatically chained by exposing them on the extender directly.
-     *
-     * ```
-     * var isMethods = {
-     *      isFunction: is.function,
-     *      isNumber: is.number,
-     *      isString: is.string,
-     *      isDate: is.date,
-     *      isArray: is.array,
-     *      isBoolean: is.boolean,
-     *      isUndefined: is.undefined,
-     *      isDefined: is.defined,
-     *      isUndefinedOrNull: is.undefinedOrNull,
-     *      isNull: is.null,
-     *      isArguments: is.arguments,
-     *      isInstanceOf: is.instanceOf,
-     *      isRegExp: is.regExp
-     * };
-     *
-     * var myExtender = extender.define(isMethods).expose(isMethods);
-     *
-     * myExtender.isArray([]); //true
-     * myExtender([]).isArray([]).value(); //true
-     *
-     * ```
-     *
-     *
-     * **Using `instanceof`**
-     *
-     * When using extenders you can test if a value is an `instanceof` of an extender by using the instanceof operator.
-     *
-     * ```javascript
-     * var str = myExtender("hello");
-     *
-     * str instanceof myExtender; //true
-     * ```
-     *
-     * ## Examples
-     *
-     * To see more examples click [here](https://github.com/doug-martin/extender/tree/master/examples)
-     */
-    function defineExtender(declare) {
-
-
-        var slice = Array.prototype.slice, undef;
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        var merge = (function merger() {
-            function _merge(target, source, exclude) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
-            }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                var l = arguments.length;
-                var exclude = arguments[arguments.length - 1];
-                if (isArray(exclude)) {
-                    l--;
-                } else {
-                    exclude = [];
-                }
-                for (var i = 1; i < l; i++) {
-                    _merge(obj, arguments[i], exclude);
-                }
-                return obj; // Object
-            };
-        }());
-
-
-        function extender(supers) {
-            supers = supers || [];
-            var Base = declare({
-                instance: {
-                    constructor: function (value) {
-                        this._value = value;
-                    },
-
-                    value: function () {
-                        return this._value;
-                    },
-
-                    eq: function eq(val) {
-                        return this["__extender__"](this._value === val);
-                    },
-
-                    neq: function neq(other) {
-                        return this["__extender__"](this._value !== other);
-                    },
-                    print: function () {
-                        console.log(this._value);
-                        return this;
-                    }
-                }
-            }), defined = [];
-
-            function addMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        var ret = func.apply(this, args);
-                        return ret !== undef ? this["__extender__"](ret) : this;
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function addNoWrapMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        return func.apply(this, args);
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function decorateProto(proto, decoration, nowrap) {
-                for (var i in decoration) {
-                    if (decoration.hasOwnProperty(i)) {
-                        if (i !== "getters" && i !== "setters") {
-                            if (i === "noWrap") {
-                                decorateProto(proto, decoration[i], true);
-                            } else if (nowrap) {
-                                addNoWrapMethod(proto, i, decoration[i]);
-                            } else {
-                                addMethod(proto, i, decoration[i]);
-                            }
-                        } else {
-                            proto[i] = decoration[i];
-                        }
-                    }
-                }
-            }
-
-            function _extender(obj) {
-                var ret = obj, i, l;
-                if (!(obj instanceof Base)) {
-                    var base = {}, instance = (base.instance = {"__extender__": _extender});
-                    for (i = 0, l = defined.length; i < l; i++) {
-                        var definer = defined[i];
-                        if (definer[0](obj)) {
-                            merge(instance, definer[1]);
-                        }
-                    }
-                    ret = new (Base.extend(base))(obj);
-                }
-                return ret;
-            }
-
-            function always() {
-                return true;
-            }
-
-            function define(tester, decorate) {
-                if (arguments.length) {
-                    if (typeof tester === "object") {
-                        decorate = tester;
-                        tester = always;
-                    }
-                    decorate = decorate || {};
-                    var proto = {};
-                    decorateProto(proto, decorate);
-                    defined.push([tester, proto]);
-                }
-                return _extender;
-            }
-
-            function extend(supr) {
-                if (supr && supr.hasOwnProperty("__defined__")) {
-                    _extender["__defined__"] = defined = defined.concat(supr["__defined__"]);
-                }
-                merge(_extender, supr, ["define", "extend", "expose", "__defined__"]);
-                return _extender;
-            }
-
-            _extender.define = define;
-            _extender.extend = extend;
-            _extender.expose = function expose() {
-                var methods;
-                for (var i = 0, l = arguments.length; i < l; i++) {
-                    methods = arguments[i];
-                    if (typeof methods === "object") {
-                        merge(_extender, methods, ["define", "extend", "expose", "__defined__"]);
-                    }
-                }
-                return _extender;
-            };
-            _extender["__defined__"] = defined;
-
-
-            return _extender;
-        }
-
-        return {
-            define: function () {
-                return extender().define.apply(extender, arguments);
-            },
-
-            extend: function (supr) {
-                return extender().define().extend(supr);
-            }
-        };
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtender(require("declare.js"));
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineExtender((require("declare.js")));
-        });
-    } else {
-        this.extender = defineExtender(this.declare);
-    }
-
-}).call(this);
-});
-
-require.define("/node_modules/leafy/node_modules/array-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/leafy/node_modules/array-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./declare.js");
-});
-
-require.define("/node_modules/leafy/node_modules/array-extended/node_modules/is-extended/node_modules/extended/node_modules/extender/node_modules/declare.js/declare.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-
-    /**
-     * @projectName declare
-     * @github http://github.com/doug-martin/declare.js
-     * @header
-     *
-     * Declare is a library designed to allow writing object oriented code the same way in both the browser and node.js.
-     *
-     * ##Installation
-     *
-     * `npm install declare.js`
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/declare.js/master/declare.js) ([minified](https://raw.github.com/doug-martin/declare.js/master/declare-min.js))
-     *
-     * ###Requirejs
-     *
-     * To use with requirejs place the `declare` source in the root scripts directory
-     *
-     * ```
-     *
-     * define(["declare"], function(declare){
-     *      return declare({
-     *          instance : {
-     *              hello : function(){
-     *                  return "world";
-     *              }
-     *          }
-     *      });
-     * });
-     *
-     * ```
-     *
-     *
-     * ##Usage
-     *
-     * declare.js provides
-     *
-     * Class methods
-     *
-     * * `as(module | object, name)` : exports the object to module or the object with the name
-     * * `mixin(mixin)` : mixes in an object but does not inherit directly from the object. **Note** this does not return a new class but changes the original class.
-     * * `extend(proto)` : extend a class with the given properties. A shortcut to `declare(Super, {})`;
-     *
-     * Instance methods
-     *
-     * * `_super(arguments)`: calls the super of the current method, you can pass in either the argments object or an array with arguments you want passed to super
-     * * `_getSuper()`: returns a this methods direct super.
-     * * `_static` : use to reference class properties and methods.
-     * * `get(prop)` : gets a property invoking the getter if it exists otherwise it just returns the named property on the object.
-     * * `set(prop, val)` : sets a property invoking the setter if it exists otherwise it just sets the named property on the object.
-     *
-     *
-     * ###Declaring a new Class
-     *
-     * Creating a new class with declare is easy!
-     *
-     * ```
-     *
-     * var Mammal = declare({
-     *      //define your instance methods and properties
-     *      instance : {
-     *
-     *          //will be called whenever a new instance is created
-     *          constructor: function(options) {
-     *              options = options || {};
-     *              this._super(arguments);
-     *              this._type = options.type || "mammal";
-     *          },
-     *
-     *          speak : function() {
-     *              return  "A mammal of type " + this._type + " sounds like";
-     *          },
-     *
-     *          //Define your getters
-     *          getters : {
-     *
-     *              //can be accessed by using the get method. (mammal.get("type"))
-     *              type : function() {
-     *                  return this._type;
-     *              }
-     *          },
-     *
-     *           //Define your setters
-     *          setters : {
-     *
-     *                //can be accessed by using the set method. (mammal.set("type", "mammalType"))
-     *              type : function(t) {
-     *                  this._type = t;
-     *              }
-     *          }
-     *      },
-     *
-     *      //Define your static methods
-     *      static : {
-     *
-     *          //Mammal.soundOff(); //"Im a mammal!!"
-     *          soundOff : function() {
-     *              return "Im a mammal!!";
-     *          }
-     *      }
-     * });
-     *
-     *
-     * ```
-     *
-     * You can use Mammal just like you would any other class.
-     *
-     * ```
-     * Mammal.soundOff("Im a mammal!!");
-     *
-     * var myMammal = new Mammal({type : "mymammal"});
-     * myMammal.speak(); // "A mammal of type mymammal sounds like"
-     * myMammal.get("type"); //"mymammal"
-     * myMammal.set("type", "mammal");
-     * myMammal.get("type"); //"mammal"
-     *
-     *
-     * ```
-     *
-     * ###Extending a class
-     *
-     * If you want to just extend a single class use the .extend method.
-     *
-     * ```
-     *
-     * var Wolf = Mammal.extend({
-     *
-     *   //define your instance method
-     *   instance: {
-     *
-     *        //You can override super constructors just be sure to call `_super`
-     *       constructor: function(options) {
-     *          options = options || {};
-     *          this._super(arguments); //call our super constructor.
-     *          this._sound = "growl";
-     *          this._color = options.color || "grey";
-     *      },
-     *
-     *      //override Mammals `speak` method by appending our own data to it.
-     *      speak : function() {
-     *          return this._super(arguments) + " a " + this._sound;
-     *      },
-     *
-     *      //add new getters for sound and color
-     *      getters : {
-     *
-     *           //new Wolf().get("type")
-     *           //notice color is read only as we did not define a setter
-     *          color : function() {
-     *              return this._color;
-     *          },
-     *
-     *          //new Wolf().get("sound")
-     *          sound : function() {
-     *              return this._sound;
-     *          }
-     *      },
-     *
-     *      setters : {
-     *
-     *          //new Wolf().set("sound", "howl")
-     *          sound : function(s) {
-     *              this._sound = s;
-     *          }
-     *      }
-     *
-     *  },
-     *
-     *  static : {
-     *
-     *      //You can override super static methods also! And you can still use _super
-     *      soundOff : function() {
-     *          //You can even call super in your statics!!!
-     *          //should return "I'm a mammal!! that growls"
-     *          return this._super(arguments) + " that growls";
-     *      }
-     *  }
-     * });
-     *
-     * Wolf.soundOff(); //Im a mammal!! that growls
-     *
-     * var myWolf = new Wolf();
-     * myWolf instanceof Mammal //true
-     * myWolf instanceof Wolf //true
-     *
-     * ```
-     *
-     * You can also extend a class by using the declare method and just pass in the super class.
-     *
-     * ```
-     * //Typical hierarchical inheritance
-     * // Mammal->Wolf->Dog
-     * var Dog = declare(Wolf, {
-     *    instance: {
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            //override Wolfs initialization of sound to woof.
-     *            this._sound = "woof";
-     *
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a growl thats domesticated"
-     *            return this._super(arguments) + " thats domesticated";
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'm a mammal!! that growls but now barks"
-     *            return this._super(arguments) + " but now barks";
-     *        }
-     *    }
-     * });
-     *
-     * Dog.soundOff(); //Im a mammal!! that growls but now barks
-     *
-     * var myDog = new Dog();
-     * myDog instanceof Mammal //true
-     * myDog instanceof Wolf //true
-     * myDog instanceof Dog //true
-     *
-     *
-     * //Notice you still get the extend method.
-     *
-     * // Mammal->Wolf->Dog->Breed
-     * var Breed = Dog.extend({
-     *    instance: {
-     *
-     *        //initialize outside of constructor
-     *        _pitch : "high",
-     *
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            this.breed = options.breed || "lab";
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a
-     *            //growl thats domesticated with a high pitch!"
-     *            return this._super(arguments) + " with a " + this._pitch + " pitch!";
-     *        },
-     *
-     *        getters : {
-     *            pitch : function() {
-     *                return this._pitch;
-     *            }
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'M A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *            return this._super(arguments).toUpperCase() + "!";
-     *        }
-     *    }
-     * });
-     *
-     *
-     * Breed.soundOff()//"IM A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *
-     * var myBreed = new Breed({color : "gold", type : "lab"}),
-     * myBreed instanceof Dog //true
-     * myBreed instanceof Wolf //true
-     * myBreed instanceof Mammal //true
-     * myBreed.speak() //"A mammal of type lab sounds like a woof thats domesticated with a high pitch!"
-     * myBreed.get("type") //"lab"
-     * myBreed.get("color") //"gold"
-     * myBreed.get("sound")" //"woof"
-     * ```
-     *
-     * ###Multiple Inheritance / Mixins
-     *
-     * declare also allows the use of multiple super classes.
-     * This is useful if you have generic classes that provide functionality but shouldnt be used on their own.
-     *
-     * Lets declare a mixin that allows us to watch for property changes.
-     *
-     * ```
-     * //Notice that we set up the functions outside of declare because we can reuse them
-     *
-     * function _set(prop, val) {
-     *     //get the old value
-     *     var oldVal = this.get(prop);
-     *     //call super to actually set the property
-     *     var ret = this._super(arguments);
-     *     //call our handlers
-     *     this.__callHandlers(prop, oldVal, val);
-     *     return ret;
-     * }
-     *
-     * function _callHandlers(prop, oldVal, newVal) {
-     *    //get our handlers for the property
-     *     var handlers = this.__watchers[prop], l;
-     *     //if the handlers exist and their length does not equal 0 then we call loop through them
-     *     if (handlers && (l = handlers.length) !== 0) {
-     *         for (var i = 0; i < l; i++) {
-     *             //call the handler
-     *             handlers[i].call(null, prop, oldVal, newVal);
-     *         }
-     *     }
-     * }
-     *
-     *
-     * //the watch function
-     * function _watch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         //if its not a function then its an invalid handler
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     if (!this.__watchers[prop]) {
-     *         //create the watchers if it doesnt exist
-     *         this.__watchers[prop] = [handler];
-     *     } else {
-     *         //otherwise just add it to the handlers array
-     *         this.__watchers[prop].push(handler);
-     *     }
-     * }
-     *
-     * function _unwatch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     var handlers = this.__watchers[prop], index;
-     *     if (handlers && (index = handlers.indexOf(handler)) !== -1) {
-     *        //remove the handler if it is found
-     *         handlers.splice(index, 1);
-     *     }
-     * }
-     *
-     * declare({
-     *     instance:{
-     *         constructor:function () {
-     *             this._super(arguments);
-     *             //set up our watchers
-     *             this.__watchers = {};
-     *         },
-     *
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set up our callhandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch function
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     },
-     *
-     *     "static":{
-     *
-     *         init:function () {
-     *             this._super(arguments);
-     *             this.__watchers = {};
-     *         },
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set our callHandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     }
-     * })
-     *
-     * ```
-     *
-     * Now lets use the mixin
-     *
-     * ```
-     * var WatchDog = declare([Dog, WatchMixin]);
-     *
-     * var watchDog = new WatchDog();
-     * //create our handler
-     * function watch(id, oldVal, newVal) {
-     *     console.log("watchdog's %s was %s, now %s", id, oldVal, newVal);
-     * }
-     *
-     * //watch for property changes
-     * watchDog.watch("type", watch);
-     * watchDog.watch("color", watch);
-     * watchDog.watch("sound", watch);
-     *
-     * //now set the properties each handler will be called
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * //unwatch the property changes
-     * watchDog.unwatch("type", watch);
-     * watchDog.unwatch("color", watch);
-     * watchDog.unwatch("sound", watch);
-     *
-     * //no handlers will be called this time
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * ```
-     *
-     * ###Accessing static methods and properties witin an instance.
-     *
-     * To access static properties on an instance use the `_static` property which is a reference to your constructor.
-     *
-     * For example if your in your constructor and you want to have configurable default values.
-     *
-     * ```
-     * consturctor : function constructor(opts){
-     *     this.opts = opts || {};
-     *     this._type = opts.type || this._static.DEFAULT_TYPE;
-     * }
-     * ```
-     *
-     *
-     *
-     * ###Creating a new instance of within an instance.
-     *
-     * Often times you want to create a new instance of an object within an instance. If your subclassed however you cannot return a new instance of the parent class as it will not be the right sub class. `declare` provides a way around this by setting the `_static` property on each isntance of the class.
-     *
-     * Lets add a reproduce method `Mammal`
-     *
-     * ```
-     * reproduce : function(options){
-     *     return new this._static(options);
-     * }
-     * ```
-     *
-     * Now in each subclass you can call reproduce and get the proper type.
-     *
-     * ```
-     * var myDog = new Dog();
-     * var myDogsChild = myDog.reproduce();
-     *
-     * myDogsChild instanceof Dog; //true
-     * ```
-     *
-     * ###Using the `as`
-     *
-     * `declare` also provides an `as` method which allows you to add your class to an object or if your using node.js you can pass in `module` and the class will be exported as the module.
-     *
-     * ```
-     * var animals = {};
-     *
-     * Mammal.as(animals, "Dog");
-     * Wolf.as(animals, "Wolf");
-     * Dog.as(animals, "Dog");
-     * Breed.as(animals, "Breed");
-     *
-     * var myDog = new animals.Dog();
-     *
-     * ```
-     *
-     * Or in node
-     *
-     * ```
-     * Mammal.as(exports, "Dog");
-     * Wolf.as(exports, "Wolf");
-     * Dog.as(exports, "Dog");
-     * Breed.as(exports, "Breed");
-     *
-     * ```
-     *
-     * To export a class as the `module` in node
-     *
-     * ```
-     * Mammal.as(module);
-     * ```
-     *
-     *
-     */
-    function createDeclared() {
-        var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function merge(target, source, exclude) {
-            var name, s;
-            for (name in source) {
-                if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function callSuper(args, a) {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                a && (args = a);
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, args);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getSuper() {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.bind(this);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getter(name) {
-            var getters = this.__getters__;
-            if (getters.hasOwnProperty(name)) {
-                return getters[name].apply(this);
-            } else {
-                return this[name];
-            }
-        }
-
-        function setter(name, val) {
-            var setters = this.__setters__;
-            if (isHash(name)) {
-                for (var i in name) {
-                    var prop = name[i];
-                    if (setters.hasOwnProperty(i)) {
-                        setters[name].call(this, prop);
-                    } else {
-                        this[i] = prop;
-                    }
-                }
-            } else {
-                if (setters.hasOwnProperty(name)) {
-                    return setters[name].apply(this, argsToArray(arguments, 1));
-                } else {
-                    return this[name] = val;
-                }
-            }
-        }
-
-
-        function defaultFunction() {
-            var meta = this.__meta || {},
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, arguments);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-
-        function functionWrapper(f, name) {
-            var wrapper = function wrapper() {
-                var ret, meta = this.__meta || {};
-                var orig = meta.superMeta;
-                meta.superMeta = {f: f, pos: 0, name: name};
-                ret = f.apply(this, arguments);
-                meta.superMeta = orig;
-                return ret;
-            };
-            wrapper._f = f;
-            return wrapper;
-        }
-
-        function defineMixinProps(child, proto) {
-
-            var operations = proto.setters || {}, __setters = child.__setters__, __getters = child.__getters__;
-            for (var i in operations) {
-                if (!__setters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            for (i in operations) {
-                if (!__getters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __getters[i] = operations[i];
-                }
-            }
-            for (var j in proto) {
-                if (j != "getters" && j != "setters") {
-                    var p = proto[j];
-                    if ("function" === typeof p) {
-                        if (!child.hasOwnProperty(j)) {
-                            child[j] = functionWrapper(defaultFunction, j);
-                        }
-                    } else {
-                        child[j] = p;
-                    }
-                }
-            }
-        }
-
-        function mixin() {
-            var args = argsToArray(arguments), l = args.length;
-            var child = this.prototype;
-            var childMeta = child.__meta, thisMeta = this.__meta, bases = child.__meta.bases, staticBases = bases.slice(),
-                staticSupers = thisMeta.supers || [], supers = childMeta.supers || [];
-            for (var i = 0; i < l; i++) {
-                var m = args[i], mProto = m.prototype;
-                var protoMeta = mProto.__meta, meta = m.__meta;
-                !protoMeta && (protoMeta = (mProto.__meta = {proto: mProto || {}}));
-                !meta && (meta = (m.__meta = {proto: m.__proto__ || {}}));
-                defineMixinProps(child, protoMeta.proto || {});
-                defineMixinProps(this, meta.proto || {});
-                //copy the bases for static,
-
-                mixinSupers(m.prototype, supers, bases);
-                mixinSupers(m, staticSupers, staticBases);
-            }
-            return this;
-        }
-
-        function mixinSupers(sup, arr, bases) {
-            var meta = sup.__meta;
-            !meta && (meta = (sup.__meta = {}));
-            var unique = sup.__meta.unique;
-            !unique && (meta.unique = "declare" + ++classCounter);
-            //check it we already have this super mixed into our prototype chain
-            //if true then we have already looped their supers!
-            if (indexOf(bases, unique) === -1) {
-                //add their id to our bases
-                bases.push(unique);
-                var supers = sup.__meta.supers || [], i = supers.length - 1 || 0;
-                while (i >= 0) {
-                    mixinSupers(supers[i--], arr, bases);
-                }
-                arr.unshift(sup);
-            }
-        }
-
-        function defineProps(child, proto) {
-            var operations = proto.setters,
-                __setters = child.__setters__,
-                __getters = child.__getters__;
-            if (operations) {
-                for (var i in operations) {
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            if (operations) {
-                for (i in operations) {
-                    __getters[i] = operations[i];
-                }
-            }
-            for (i in proto) {
-                if (i != "getters" && i != "setters") {
-                    var f = proto[i];
-                    if ("function" === typeof f) {
-                        var meta = f.__meta || {};
-                        if (!meta.isConstructor) {
-                            child[i] = functionWrapper(f, i);
-                        } else {
-                            child[i] = f;
-                        }
-                    } else {
-                        child[i] = f;
-                    }
-                }
-            }
-
-        }
-
-        function _export(obj, name) {
-            if (obj && name) {
-                obj[name] = this;
-            } else {
-                obj.exports = obj = this;
-            }
-            return this;
-        }
-
-        function extend(proto) {
-            return declare(this, proto);
-        }
-
-        function getNew(ctor) {
-            // create object with correct prototype using a do-nothing
-            // constructor
-            forceNew.prototype = ctor.prototype;
-            var t = new forceNew();
-            forceNew.prototype = null;	// clean up
-            return t;
-        }
-
-
-        function __declare(child, sup, proto) {
-            var childProto = {}, supers = [];
-            var unique = "declare" + ++classCounter, bases = [], staticBases = [];
-            var instanceSupers = [], staticSupers = [];
-            var meta = {
-                supers: instanceSupers,
-                unique: unique,
-                bases: bases,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-            var childMeta = {
-                supers: staticSupers,
-                unique: unique,
-                bases: staticBases,
-                isConstructor: true,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-
-            if (isHash(sup) && !proto) {
-                proto = sup;
-                sup = Base;
-            }
-
-            if ("function" === typeof sup || isArray(sup)) {
-                supers = isArray(sup) ? sup : [sup];
-                sup = supers.shift();
-                child.__meta = childMeta;
-                childProto = getNew(sup);
-                childProto.__meta = meta;
-                childProto.__getters__ = merge({}, childProto.__getters__ || {});
-                childProto.__setters__ = merge({}, childProto.__setters__ || {});
-                child.__getters__ = merge({}, child.__getters__ || {});
-                child.__setters__ = merge({}, child.__setters__ || {});
-                mixinSupers(sup.prototype, instanceSupers, bases);
-                mixinSupers(sup, staticSupers, staticBases);
-            } else {
-                child.__meta = childMeta;
-                childProto.__meta = meta;
-                childProto.__getters__ = childProto.__getters__ || {};
-                childProto.__setters__ = childProto.__setters__ || {};
-                child.__getters__ = child.__getters__ || {};
-                child.__setters__ = child.__setters__ || {};
-            }
-            child.prototype = childProto;
-            if (proto) {
-                var instance = meta.proto = proto.instance || {};
-                !instance.hasOwnProperty("constructor") && (instance.constructor = defaultFunction);
-                var stat = childMeta.proto = proto.static || {};
-                stat.init = stat.init || defaultFunction;
-                defineProps(childProto, instance);
-                defineProps(child, stat);
-            } else {
-                meta.proto = {};
-                childMeta.proto = {};
-                child.init = functionWrapper(defaultFunction, "init");
-                childProto.constructor = functionWrapper(defaultFunction, "constructor");
-            }
-            if (supers.length) {
-                mixin.apply(child, supers);
-            }
-            if (sup) {
-                //do this so we mixin our super methods directly but do not ov
-                merge(child, merge(merge({}, sup), child));
-            }
-            childProto._super = child._super = callSuper;
-            childProto._getSuper = child._getSuper = getSuper;
-            childProto._static = child;
-        }
-
-        function declare(sup, proto) {
-            function declared() {
-                this.constructor.apply(this, arguments);
-            }
-
-            __declare(declared, sup, proto);
-            return declared.init() || declared;
-        }
-
-        function singleton(sup, proto) {
-            var retInstance;
-
-            function declaredSingleton() {
-                if (!retInstance) {
-                    this.constructor.apply(this, arguments);
-                    retInstance = this;
-                }
-                return retInstance;
-            }
-
-            __declare(declaredSingleton, sup, proto);
-            return  declaredSingleton.init() || declaredSingleton;
-        }
-
-        Base = declare({
-            instance: {
-                "get": getter,
-                "set": setter
-            },
-
-            "static": {
-                "get": getter,
-                "set": setter,
-                mixin: mixin,
-                extend: extend,
-                as: _export
-            }
-        });
-
-        declare.singleton = singleton;
-        return declare;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = createDeclared();
-        }
-    } else if ("function" === typeof define) {
-        define(createDeclared);
-    } else {
-        this.declare = createDeclared();
-    }
-}());
-
-
-
-
 });
 
 require.define("fs",function(require,module,exports,__dirname,__filename,process,global){// nothing to see here... no file methods for the browser
@@ -30504,7 +17075,7 @@ var AlphaNode = Node.extend({
         },
 
         toString: function () {
-            return JSON.stringify(this.constraint.constraint);
+            return extd.format("%j", this.constraint.constraint);
         },
 
         equal: function (constraint) {
@@ -30764,7 +17335,7 @@ var JoinNode = Node.extend({
         },
 
         toString: function () {
-            return "JoinNode " + JSON.stringify(this.leftMemory.values()) + " " + JSON.stringify(this.rightMemory.values());
+            return "JoinNode " + extd.format("%j", this.leftMemory.values()) + " " + extd.format("%j", this.rightMemory.values());
         },
 
         retractResolve: function (match) {
@@ -30871,7 +17442,7 @@ var NotNode = JoinNode.extend({
 
 
         toString: function () {
-            return "NotNode " + JSON.stringify(this.leftMemory.values()) + " " + JSON.stringify(this.rightMemory.values());
+            return "NotNode " + extd.format("%j", this.leftMemory.values()) + " " + extd.format("%j", this.rightMemory.values());
         },
 
 
@@ -31265,11 +17836,11 @@ require.define("/lib/pattern.js",function(require,module,exports,__dirname,__fil
             },
 
             hashCode: function () {
-                return [this.type, this.alias, JSON.stringify(this.conditions), +Date].join(":");
+                return [this.type, this.alias, extd.format("%j", this.conditions), +Date].join(":");
             },
 
             toString: function () {
-                return JSON.stringify(this.constraints);
+                return extd.format("%j", this.constraints);
             }
         }
     }).as(exports, "ObjectPattern");
@@ -31503,7 +18074,11 @@ var lang = {
     },
 
     prop: function (name, prop) {
-        return [this.parse(name), this.parse(prop)].join(".");
+        if(prop[2] === "function"){
+            return [this.parse(name), this.parse(prop)].join(".");
+        }else{
+            return [this.parse(name), "['",  this.parse(prop), "']"].join("");
+        }
     },
 
     unminus: function (lhs) {
@@ -31580,11 +18155,11 @@ var lang = {
         return [lhs, "(", args, ")"].join("");
     },
 
-    string: function (lhs) {
+    "string": function (lhs) {
         return "'" + lhs + "'";
     },
 
-    number: function (lhs) {
+    "number": function (lhs) {
         return lhs;
     },
 
@@ -31617,11 +18192,12 @@ var toJs = exports.toJs = function (rule) {
         }
         ret.push(";");
         return ret.join("");
-    }).join(""), " return !!(", js, ");", "};})()"].join("");
+    }).join(""), " return !!(", js, ");};})()"].join("");
 };
 
 exports.getMatcher = function (rule) {
-    return eval(toJs(rule));
+    var js = toJs(rule);
+    return eval(js);
 };
 
 exports.toConstraints = function (constraint, reference) {
@@ -32836,13 +19412,15 @@ if (typeof require !== 'undefined' && typeof exports !== 'undefined') {
 require.define("/lib/parser/nools/nool.parser.js",function(require,module,exports,__dirname,__filename,process,global){"use strict";
 
 var tokens = require("./tokens.js"),
+    extd = require("../../extended"),
+    keys = extd.hash.keys,
     utils = require("./util.js");
 
 var parse = function (src, keywords, context) {
     var orig = src;
     src = src.replace(/\/\/(.*)\n/g, "");
 
-    var blockTypes = new RegExp("^(" + Object.keys(keywords).join("|") + ")"), index;
+    var blockTypes = new RegExp("^(" + keys(keywords).join("|") + ")"), index;
     while (src && (index = utils.findNextTokenIndex(src)) !== -1) {
         src = src.substr(index);
         var blockType = src.match(blockTypes);
@@ -32850,7 +19428,7 @@ var parse = function (src, keywords, context) {
             blockType = blockType[1];
             if (blockType in keywords) {
                 try {
-                    src = keywords[blockType](src, context, parse).trim();
+                    src = keywords[blockType](src, context, parse).replace(/^\s*|\s*$/g, "");
                 } catch (e) {
                     throw new Error("Invalid " + blockType + " definition \n" + e.message + "; \nstarting at : " + orig);
                 }
@@ -32907,7 +19485,7 @@ var ruleTokens = {
 
     when: (function () {
 
-        var ruleRegExp = /^(\w+) *\: *(\w+)(.*)/;
+        var ruleRegExp = /^(\w+) *: *(\w+)(.*)/;
         var joinFunc = function (m, str) {
             return "; " + str;
         };
@@ -32916,14 +19494,14 @@ var ruleTokens = {
         var parseRules = function (str) {
             var rules = [];
             var ruleLines = str.split(";"), l = ruleLines.length, ruleLine;
-            for (var i = 0; i < l && (ruleLine = ruleLines[i].trim().replace(/\n/g, "")); i++) {
+            for (var i = 0; i < l && (ruleLine = ruleLines[i].replace(/^\s*|\s*$/g, "").replace(/\n/g, "")); i++) {
                 if (!isWhiteSpace(ruleLine)) {
                     var rule = [];
                     if (predicateExp.test(ruleLine)) {
                         var m = ruleLine.match(predicateExp);
-                        var pred = m[1].trim();
+                        var pred = m[1].replace(/^\s*|\s*$/g, "");
                         rule.push(pred);
-                        ruleLine = m[2].trim();
+                        ruleLine = m[2].replace(/^\s*|\s*$/g, "");
                         if (pred === "or") {
                             rule = rule.concat(parseRules(ruleLine.replace(/,\s*(\w+\s*:)/, joinFunc)));
                             rules.push(rule);
@@ -32934,15 +19512,15 @@ var ruleTokens = {
                     var parts = ruleLine.match(ruleRegExp);
                     if (parts && parts.length) {
                         rule.push(parts[2], parts[1]);
-                        var constraints = parts[3].trim();
+                        var constraints = parts[3].replace(/^\s*|\s*$/g, "");
                         var hashParts = constraints.match(constraintRegExp);
                         if (hashParts) {
                             var hash = hashParts[1], constraint = constraints.replace(hash, "");
                             if (constraint) {
-                                rule.push(constraint.trim());
+                                rule.push(constraint.replace(/^\s*|\s*$/g, ""));
                             }
                             if (hash) {
-                                rule.push(JSON.parse(hash.replace(/(\w+)\s*:\s*(\w+)/g, '"$1" : "$2"')));
+                                rule.push(eval("(" + hash.replace(/(\w+)\s*:\s*(\w+)/g, '"$1" : "$2"') + ")"));
                             }
                         } else if (constraints && !isWhiteSpace(constraints)) {
                             rule.push(constraints);
@@ -32956,8 +19534,8 @@ var ruleTokens = {
             return rules;
         };
 
-        return function (orig, context, parse) {
-            var src = orig.replace(/^when\s*/, "");
+        return function (orig, context) {
+            var src = orig.replace(/^when\s*/, "").replace(/^\s*|\s*$/g, "");
             if (utils.findNextToken(src) === "{") {
                 var body = utils.getTokensBetween(src, "{", "}", true).join("");
                 src = src.replace(body, "");
@@ -32970,11 +19548,10 @@ var ruleTokens = {
     })(),
 
     then: (function () {
-        return function (orig, context, parse) {
+        return function (orig, context) {
             if (!context.action) {
-                var src = orig.replace(/^then\s*/, "");
+                var src = orig.replace(/^then\s*/, "").replace(/^\s*|\s*$/g, "");
                 if (utils.findNextToken(src) === "{") {
-                    var rule = {};
                     var body = utils.getTokensBetween(src, "{", "}", true).join("");
                     src = src.replace(body, "");
                     if (!context.action) {
@@ -32998,10 +19575,9 @@ var ruleTokens = {
 module.exports = {
     "define": function (orig, context) {
         var src = orig.replace(/^define\s*/, "");
-        var ret = {};
         var name = src.match(/^([a-zA-Z_$][0-9a-zA-Z_$]*)/);
         if (name) {
-            src = src.replace(name[0], "");
+            src = src.replace(name[0], "").replace(/^\s*|\s*$/g, "");
             if (utils.findNextToken(src) === "{") {
                 name = name[1];
                 var body = utils.getTokensBetween(src, "{", "}", true).join("");
@@ -33019,14 +19595,13 @@ module.exports = {
 
     "function": function (orig, context) {
         var src = orig.replace(/^function\s*/, "");
-        var ret = {};
         var name = src.match(/^([a-zA-Z_$][0-9a-zA-Z_$]*)\s*/);
         if (name) {
             src = src.replace(name[0], "");
             if (utils.findNextToken(src) === "(") {
                 name = name[1];
                 var params = utils.getParamList(src);
-                src = src.replace(params, "");
+                src = src.replace(params, "").replace(/^\s*|\s*$/g, "");
                 if (utils.findNextToken(src) === "{") {
                     var body = utils.getTokensBetween(src, "{", "}", true).join("");
                     src = src.replace(body, "");
@@ -33048,7 +19623,7 @@ module.exports = {
         var src = orig.replace(/^rule\s*/, "");
         var name = src.match(/^([a-zA-Z_$][0-9a-zA-Z_$]*)/);
         if (name) {
-            src = src.replace(name[0], "");
+            src = src.replace(name[0], "").replace(/^\s*|\s*$/g, "");
             if (utils.findNextToken(src) === "{") {
                 name = name[1];
                 var rule = {name: name, options: {}, constraints: null, action: null};
@@ -33093,8 +19668,9 @@ require.define("/lib/parser/nools/util.js",function(require,module,exports,__dir
         if (!stop) {
             stop = TOKEN_INVERTS[start];
         }
+        str = Object(str);
         var startPushing = false, token, cursor = 0, found = false;
-        while ((token = str[cursor])) {
+        while ((token = str.charAt(cursor++))) {
             if (token === start) {
                 depth++;
                 if (!startPushing) {
@@ -33118,7 +19694,6 @@ require.define("/lib/parser/nools/util.js",function(require,module,exports,__dir
             } else if (startPushing) {
                 ret.push(token);
             }
-            cursor++;
         }
         if(!found){
             throw new Error("Unable to match " + start + " in " + str);
