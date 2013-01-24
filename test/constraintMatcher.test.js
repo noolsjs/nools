@@ -96,6 +96,18 @@ it.describe("constraint matcher",function (it) {
 
         });
 
+
+        it.should("check notLike operator", function () {
+
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a !=~ /hello/"))({a: "hello"}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !=~ /world/"))({a: "hello"}));
+
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a !=~ /^hello world$/"))({a: "hello world"}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !=~ /^hello world$/"))({a: "hello world2"}));
+
+
+        });
+
         it.should("check and operator", function () {
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 'hello' and a.world eq 'world'"))({"a": {hello: "hello", world: "world"}}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 'hello' and a.world eq 'world'"))({a: {hello: "world", world: "hello"}}));
@@ -118,6 +130,11 @@ it.describe("constraint matcher",function (it) {
         it.should("check with in operator", function () {
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a in [1,2,3,4]"))({a: 1}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a in ['a','b','c']"))({a: 1}));
+        });
+
+        it.should("check with notIn operator", function () {
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a notIn [1,2,3,4]"))({a: 1}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a notIn ['a','b','c']"))({a: 1}));
         });
 
         it.should("allow properties with in", function () {

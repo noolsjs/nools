@@ -84,6 +84,27 @@ it.describe("A Parser",function (it) {
             'like'
         ]);
 
+        assert.deepEqual(parser.parseConstraint("a !=~ /hello/"), [
+            ['a', null, 'identifier'],
+            [/hello/, null, 'regexp'],
+            'notLike'
+        ]);
+        assert.deepEqual(parser.parseConstraint("a notLike /hello/"), [
+            ['a', null, 'identifier'],
+            [/hello/, null, 'regexp'],
+            'notLike'
+        ]);
+        assert.deepEqual(parser.parseConstraint("a !=~ /^hello$/"), [
+            ['a', null, 'identifier'],
+            [/^hello$/, null, 'regexp'],
+            'notLike'
+        ]);
+        assert.deepEqual(parser.parseConstraint("a notLike /^hello$/"), [
+            ['a', null, 'identifier'],
+            [/^hello$/, null, 'regexp'],
+            'notLike'
+        ]);
+
         assert.deepEqual(parser.parseConstraint("a > 1"), [
             ['a', null, 'identifier'],
             [1, null, 'number'],
@@ -804,6 +825,26 @@ it.describe("A Parser",function (it) {
                 "array"
             ],
             "in"
+        ]);
+    });
+
+    it.should("parse the notIn operator", function () {
+        assert.deepEqual(parser.parseConstraint("1 notIn [1,2,3]"), [
+            [1, null, "number"],
+            [
+                [
+                    [
+                        [1, null, "number"],
+                        [2, null, "number"],
+                        "arguments"
+                    ],
+                    [3, null, "number"],
+                    "arguments"
+                ],
+                null,
+                "array"
+            ],
+            "notIn"
         ]);
     });
 

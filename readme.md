@@ -5,8 +5,9 @@ Nools is a rules engine for node based on the [rete](http://en.wikipedia.org/wik
 
 # Installation
 
-    npm install nools
-
+```
+npm install nools
+```
 
 #Usage
 
