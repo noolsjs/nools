@@ -1,0 +1,137 @@
+define Cell {
+    state : "dead",
+    evaluated: false,
+    __queuedState : null,
+    constructor: function(){
+        this.neighbors = [];
+    },
+
+    numberOfLiveNeighbors: function(){
+        var live = 0, neighbors = this.neighbors, neighbor;
+        for(var i = 0, l = neighbors.length; i < l; i++){
+            if(neighbors[i].state === "live"){
+                live++;
+            }
+        }
+        return live;
+    },
+
+    addNeighbor: function(neighbor){
+        this.neighbors.push(neighbor);
+        neighbor.neighbors.push(this);
+        return this;
+    },
+
+    queueNextState: function(state){
+        if(this.state !== state){
+            this.__queuedState = state;
+        }
+    },
+
+    transition: function(){
+        var ret = false;
+        if(this.__queuedState !== null){
+            this.state = this.__queuedState;
+            this.__queuedState = null;
+            ret = true;
+        }
+        return ret;
+    }
+
+}
+
+function loop(cells, cb){
+    var rows = cells.length, cols = cells[0].length;
+    for (var i = 0; i < rows; i++) {
+        for (var j = 0; j < cols; j++) {
+            cb(cells[i][j], i, j, cells);
+        }
+    }
+}
+
+rule Populate {
+      when {
+             state: String state == 'populate';
+             cells: Array;
+      }
+      then {
+            loop(cells, function(cell){
+                assert(cell);
+            })
+            emit("evaluate");
+            retract(state);
+            assert("evaluate");
+      }
+}
+
+rule KillTheLonely{
+    when {
+        state: String state == 'evaluate';
+        c : Cell c.state == 'live' && c.numberOfLiveNeighbors() < 2;
+    }
+    then {
+        c.queueNextState("dead");
+    }
+}
+
+rule KillTheOverCrowded{
+    when {
+        state: String state == 'evaluate';
+        c : Cell c.state == 'live' && c.numberOfLiveNeighbors() > 3;
+    }
+    then {
+        c.queueNextState("dead");
+    }
+}
+
+rule GiveBirth{
+    when {
+        state: String state == 'evaluate';
+        c : Cell c.state == 'dead' && c.numberOfLiveNeighbors() == 3;
+    }
+    then {
+        c.queueNextState("live");
+    }
+}
+
+
+rule ShouldTransition {
+    when {
+        state: String state == 'evaluate';
+    }
+    then {
+         retract(state);
+         assert("transition");
+    }
+}
+
+rule Transition {
+     when {
+         cells: Array;
+         state: String state == 'transition';
+     }
+     then {
+        retract(state);
+        var transitioned = false;
+        loop(cells, function(cell){
+            retract(cell);
+            if(cell.transition()){
+                emit("cell-transition", cell);
+                transitioned = true;
+            }
+        });
+        assert(transitioned ? "populate" : "done");
+     }
+}
+
+
+rule Done {
+    when {
+        cells: Array;
+        state: String state == 'done';
+    }
+    then {
+         console.log("Done");
+    }
+}
+
