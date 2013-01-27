@@ -290,38 +290,49 @@ it.describe("constraint matcher",function (it) {
 
     it.describe("#toConstraints", function (it) {
 
-        it.should("create the correct atoms for and expressions", function () {
-            var atoms = constraintMatcher.toConstraints(parser.parseConstraint("isFalse(a)"), "a");
+        it.should("create for expressions", function () {
+            var atoms = constraintMatcher.toConstraints(parser.parseConstraint("isFalse(a)"), {alias: "a"});
             assert.lengthOf(atoms, 1);
             assert.equal(atoms[0].type, "equality");
 
-            atoms = constraintMatcher.toConstraints(parser.parseConstraint("isTrue(b)"), "a");
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("isTrue(b)"), {alias: "a"});
             assert.lengthOf(atoms, 1);
             assert.equal(atoms[0].type, "reference");
 
-            atoms = constraintMatcher.toConstraints(parser.parseConstraint("isTrue(b) && isFalse(a)"), "a");
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("isTrue(b) && isFalse(a)"), {alias: "a"});
             assert.lengthOf(atoms, 2);
             assert.equal(atoms[0].type, "reference");
             assert.equal(atoms[1].type, "equality");
 
-            atoms = constraintMatcher.toConstraints(parser.parseConstraint("isTrue(b) || isFalse(a)"), "a");
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("isTrue(b) || isFalse(a)"), {alias: "a"});
             assert.lengthOf(atoms, 1);
             assert.equal(atoms[0].type, "equality");
 
-            atoms = constraintMatcher.toConstraints(parser.parseConstraint("isNumber(b) || isFalse(a) && b == 1"), "a");
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("isNumber(b) || isFalse(a) && b == 1"), {alias: "a"});
             assert.lengthOf(atoms, 1);
             assert.equal(atoms[0].type, "equality");
 
-            atoms = constraintMatcher.toConstraints(parser.parseConstraint("(isNumber(b) || isFalse(a)) && b == 1"), "a");
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("(isNumber(b) || isFalse(a)) && b == 1"), {alias: "a"});
             assert.lengthOf(atoms, 2);
             assert.equal(atoms[0].type, "equality");
             assert.equal(atoms[1].type, "reference");
 
-            atoms = constraintMatcher.toConstraints(parser.parseConstraint("a.name == 'bob' && isFalse(a.flag) && b == 1"), "a");
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("a.name == 'bob' && isFalse(a.flag) && b == 1"), {alias: "a"});
             assert.lengthOf(atoms, 3);
             assert.equal(atoms[0].type, "equality");
             assert.equal(atoms[1].type, "equality");
             assert.equal(atoms[2].type, "reference");
+        });
+
+        it.should("create correct pattern depending on scope", function () {
+            var atoms = constraintMatcher.toConstraints(parser.parseConstraint("isEmail(a)"), {alias: "a", scope: {isEmail: function () {
+            }}});
+            assert.lengthOf(atoms, 1);
+            assert.equal(atoms[0].type, "equality");
+
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("isEmail(a)"), {alias: "a"});
+            assert.lengthOf(atoms, 1);
+            assert.equal(atoms[0].type, "reference");
         });
 
     });

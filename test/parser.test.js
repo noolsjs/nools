@@ -715,23 +715,27 @@ it.describe("A Parser",function (it) {
             [
                 [
                     [
-                        ["a", null, "identifier"],
-                        ["name", null, "identifier"],
-                        "prop"
+                        [
+                            ["a", null, "identifier"],
+                            ["name", null, "identifier"],
+                            "prop"
+                        ],
+                        ["bob", null, "string"],
+                        "eq"
                     ],
-                    ["bob", null, "string"],
-                    "eq"
-                ],
-                [
                     [
-                        ["a", null, "identifier"],
-                        ["age", null, "identifier"],
-                        "prop"
+                        [
+                            ["a", null, "identifier"],
+                            ["age", null, "identifier"],
+                            "prop"
+                        ],
+                        [10, null, "number"],
+                        "gte"
                     ],
-                    [10, null, "number"],
-                    "gte"
+                    "and"
                 ],
-                "and"
+                null,
+                "composite"
             ],
             "or"
         ]);
@@ -739,23 +743,27 @@ it.describe("A Parser",function (it) {
             [
                 [
                     [
-                        ["a", null, "identifier"],
-                        ["name", null, "identifier"],
-                        "prop"
+                        [
+                            ["a", null, "identifier"],
+                            ["name", null, "identifier"],
+                            "prop"
+                        ],
+                        ["a", null, "string"],
+                        "eq"
                     ],
-                    ["a", null, "string"],
-                    "eq"
-                ],
-                [
                     [
-                        ["a", null, "identifier"],
-                        ["name", null, "identifier"],
-                        "prop"
+                        [
+                            ["a", null, "identifier"],
+                            ["name", null, "identifier"],
+                            "prop"
+                        ],
+                        ["bob", null, "string"],
+                        "eq"
                     ],
-                    ["bob", null, "string"],
-                    "eq"
+                    "and"
                 ],
-                "and"
+                null,
+                'composite'
             ],
             [
                 [
@@ -849,3 +857,4 @@ it.describe("A Parser",function (it) {
     });
 
 }).as(module);
+

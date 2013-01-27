@@ -18,8 +18,6 @@ it.describe("nools", function (it) {
 
 it.describe("Flow",function (it) {
 
-    it.ignoreErrors(false);
-
     it.describe("#rule", function (it) {
         var called = 0;
         var flow = nools.flow("test flow");
