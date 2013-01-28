@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RequireJS Manners</title>
+
+    <script data-main="scripts/main" src="scripts/require.js"></script>
+</head>
+<body>
+<div id="output"></div>
+
+<script type="text/javascript">
+    require([
+        'parse/simple'
+    ], function (flow) {
+
+        var Message = flow.getDefined("Message"),
+                session = flow.getSession();
+        //assert your different messages
+        session.assert(new Message("goodbye"));
+        session.assert(new Message("hello"));
+        session.assert(new Message("hello world"));
+        session.match();
+
+    })
+</script>
+</body>
+</html>

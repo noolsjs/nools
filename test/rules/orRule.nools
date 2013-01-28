@@ -1,3 +1,9 @@
+define Count{
+    constructor: function(){
+        this.called = 0;
+    }
+}
+
 rule hello {
     when {
         or(

@@ -1,29 +1,54 @@
 {
-    "name": "nools",
-    "description": "A rules engine for node",
-    "version": "0.0.5",
-    "keywords" : ["rules", "flow", "rules engine", "rools", "drools", "async", "flow control"],
-    "repository": {
-        "type": "git",
-        "url": "git@github.com:C2FO/nools.git"
-    },
-    "dependencies" : {
-        "comb" : "~0.1.7"
-    },
-    "devDependencies" : {
-        "it" : "~0.0.5",
-        "jison" : "~0.3.2"
-    },
-    "homepage": "http://c2fo.github.com/nools",
-    "author": "Doug Martin (http://c2fo.com)",
-    "main": "index.js",
-    "scripts" : {
-        "test" : "it"
-    },
-    "directories": {
-        "lib": "lib"
-    },
-    "engines": {
-        "node": ">= 0.6.1"
-    }
+  "name": "nools",
+  "description": "A rules engine for node",
+  "version": "0.1.0",
+  "bin": {
+    "nools": "./bin/nools"
+  },
+  "keywords": [
+    "rules",
+    "flow",
+    "rules engine",
+    "rools",
+    "drools",
+    "async",
+    "flow control"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:C2FO/nools.git"
+  },
+  "dependencies": {
+    "declare.js": "~0.0.3",
+    "extended": "~0.0.3",
+    "is-extended": "~0.0.3",
+    "string-extended": "~0.0.3",
+    "array-extended": "~0.0.3",
+    "date-extended": "~0.0.3",
+    "function-extended": "~0.0.3",
+    "object-extended": "~0.0.3",
+    "promise-extended": "~0.0.3",
+    "leafy": "~0.0.1",
+    "ht": "~0.0.1",
+    "commander": "~1.1.1"
+  },
+  "devDependencies": {
+    "it": "~0.2.0",
+    "jison": ">=0.3.2",
+    "grunt-it": "~0.2.1",
+    "grunt-browserify": "~0.1.2"
+  },
+  "homepage": "http://c2fo.github.com/nools",
+  "author": "Doug Martin (http://c2fo.com)",
+  "main": "index.js",
+  "scripts": {
+    "test": "it -r dot",
+    "create-doc": "rm -rf docs/* && coddoc -f multi-html -d ./lib --dir ./docs"
+  },
+  "directories": {
+    "lib": "lib"
+  },
+  "engines": {
+    "node": ">= 0.6.1"
+  }
 }

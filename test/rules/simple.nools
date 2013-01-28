@@ -21,5 +21,6 @@ rule Goodbye {
         m : Message m.message =~ /.*goodbye$/
     }
     then {
+        emit("found-goodbye", m);
     }
 }

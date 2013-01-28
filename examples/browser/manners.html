@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manners</title>
+</head>
+<body onload="init()">
+
+<div id="output"></div>
+
+<script type="text/javascript" src="../../nools.js"></script>
+<script type="text/javascript" src="./rules/manners.js"></script>
+<script type="text/javascript">
+    function init() {
+
+        var guests = [
+            { name: 'n1', sex: 'f', hobby: 'h3' },
+            { name: 'n1', sex: 'f', hobby: 'h1' },
+            { name: 'n1', sex: 'f', hobby: 'h2' },
+            { name: 'n2', sex: 'f', hobby: 'h3' },
+            { name: 'n2', sex: 'f', hobby: 'h2' },
+            { name: 'n3', sex: 'm', hobby: 'h1' },
+            { name: 'n3', sex: 'm', hobby: 'h3' },
+            { name: 'n4', sex: 'm', hobby: 'h2' },
+            { name: 'n4', sex: 'm', hobby: 'h1' },
+            { name: 'n5', sex: 'm', hobby: 'h2' },
+            { name: 'n5', sex: 'm', hobby: 'h3' },
+            { name: 'n6', sex: 'm', hobby: 'h2' },
+            { name: 'n6', sex: 'm', hobby: 'h1' },
+            { name: 'n7', sex: 'f', hobby: 'h2' },
+            { name: 'n7', sex: 'f', hobby: 'h1' },
+            { name: 'n7', sex: 'f', hobby: 'h3' },
+            { name: 'n8', sex: 'f', hobby: 'h3' },
+            { name: 'n8', sex: 'f', hobby: 'h2' },
+            { name: 'n9', sex: 'f', hobby: 'h1' },
+            { name: 'n9', sex: 'f', hobby: 'h3' },
+            { name: 'n9', sex: 'f', hobby: 'h2' },
+            { name: 'n10', sex: 'm', hobby: 'h2' },
+            { name: 'n10', sex: 'm', hobby: 'h3' },
+            { name: 'n11', sex: 'm', hobby: 'h3' },
+            { name: 'n11', sex: 'm', hobby: 'h2' },
+            { name: 'n11', sex: 'm', hobby: 'h1' },
+            { name: 'n12', sex: 'm', hobby: 'h3' },
+            { name: 'n12', sex: 'm', hobby: 'h1' },
+            { name: 'n13', sex: 'm', hobby: 'h2' },
+            { name: 'n13', sex: 'm', hobby: 'h3' },
+            { name: 'n13', sex: 'm', hobby: 'h1' },
+            { name: 'n14', sex: 'f', hobby: 'h3' },
+            { name: 'n14', sex: 'f', hobby: 'h1' },
+            { name: 'n15', sex: 'f', hobby: 'h3' },
+            { name: 'n15', sex: 'f', hobby: 'h1' },
+            { name: 'n15', sex: 'f', hobby: 'h2' },
+            { name: 'n16', sex: 'f', hobby: 'h3' },
+            { name: 'n16', sex: 'f', hobby: 'h2' },
+            { name: 'n16', sex: 'f', hobby: 'h1' }
+        ];
+
+        var seat = { seat: 16 };
+        var start = { state: 'start' };
+
+        var flow = nools.getFlow("manners"),
+                Guest = flow.getDefined("guest"),
+                LastSeat = flow.getDefined("lastSeat"),
+                Context = flow.getDefined("context"),
+                Count = flow.getDefined("count"),
+                session = flow.getSession();
+
+        for (var i = 0, l = guests.length; i < l; i++) {
+            session.assert(new Guest(guests[i]));
+        }
+        session.assert(new LastSeat(seat));
+        session.assert(new Context(start));
+        session.assert(new Count({value: 1}));
+
+        var start = new Date();
+        session.match().both(function () {
+            document.getElementById("output").innerHTML +="Duration " + (new Date() - start) + "ms";
+        });
+
+    }
+</script>
+
+</body>
+</html>

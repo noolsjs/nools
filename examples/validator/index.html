@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validators</title>
+    <link type="text/css" rel="stylesheet" href="./assets/validator.css">
+</head>
+<body onload="init()">
+
+<form>
+    <div class="errors"></div>
+    <div class="container">
+        <input name="firstName" type="text" placeholder="First Name"/>
+        <input name="lastName" type="text" placeholder="Last Name"/>
+        <input name="dob" type="date" placeholder="Date Of Birth"/>
+        <input name="email" type="email" placeholder="Email Address"/>
+        <input class='button' type="submit"/>
+    </div>
+</form>
+
+<script src="http://code.jquery.com/jquery-1.9.0.min.js"></script>
+<script type="text/javascript" src="../../nools.js"></script>
+<script type="text/javascript" src="./rules/validator.js"></script>
+<script type="text/javascript">
+
+    var init = (function () {
+        var flow = nools.getFlow("validator"), Model = flow.getDefined("model");
+
+        function validate(model) {
+            $(".errors").html("");
+            return flow.getSession(model).match().then(function () {
+                var errors = model.errors;
+                for (var i = 0, l = errors.length; i < l; i++) {
+                    $(".errors").append("<div>" + errors[i] + "</div>");
+                }
+            });
+        }
+
+        return function init() {
+
+            $("form").on("submit", function () {
+                var model = new Model({});
+                $("input[type='text'], input[type='date'], input[type='email']").each(function () {
+                    var $this = $(this);
+                    model[$this.attr("name")] = $this.val();
+                });
+                if (model.dob) {
+                    var dob = model.dob.split("-");
+                    model.dob = new Date(dob[0], dob[1], dob[2]);
+                }
+                validate(model);
+                return false;
+            });
+
+        }
+    }());
+</script>
+
+</body>
+</html>

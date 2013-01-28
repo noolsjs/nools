@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fibonacci DSL</title>
+</head>
+<body onload="init()">
+
+<div id="output"></div>
+
+<script type="text/javascript" src="../../nools.js"></script>
+<script type="text/javascript" src="./rules/fibonacci.js"></script>
+<script type="text/javascript">
+    function init() {
+
+        var outputDiv = document.getElementById("output");
+
+        function log(str) {
+            outputDiv.innerHTML += str + "</br>";
+        }
+
+        var flow = nools.getFlow("fibonacci");
+        var Fibonacci = flow.getDefined("fibonacci"), Result = flow.getDefined("result");
+
+        var r1 = new Result(),
+                session1 = flow.getSession(new Fibonacci({sequence: 10}), r1),
+                s1 = +(new Date());
+        session1.match().then(function () {
+
+            log(r1.result + " [" + (new Date - s1) + "ms]");
+            session1.dispose();
+        });
+
+        var r2 = new Result(),
+                session2 = flow.getSession(new Fibonacci({sequence: 150}), r2),
+                s2 = +(new Date());
+        session2.match().then(function () {
+            log(r2.result + " [" + (new Date - s2) + "ms]");
+            session1.dispose();
+        });
+
+        var r3 = new Result(),
+                session3 = flow.getSession(new Fibonacci({sequence: 1000}), r3),
+                s3 = +(new Date());
+        session3.match().then(function () {
+            log(r3.result + " [" + (new Date - s3) + "ms]");
+            session1.dispose();
+        });
+
+
+    }
+</script>
+
+</body>
+</html>

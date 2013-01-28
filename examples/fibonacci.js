@@ -14,25 +14,24 @@ var Result = function (result) {
 
 var flow = nools.flow("Fibonacci Flow", function (flow) {
 
-    flow.rule("Recurse", {priority:1}, [
+    flow.rule("Recurse", {priority: 1}, [
         ["not", Fibonacci, "f", "f.sequence == 1"],
         [Fibonacci, "f1", "f1.sequence != 1"]
     ], function (facts) {
-        var f2 = new Fibonacci(facts.f1.sequence - 1);
-        this.assert(f2);
+        this.assert(new Fibonacci(facts.f1.sequence - 1));
     });
 
     flow.rule("Bootstrap", [
         Fibonacci, "f", "f.value == -1 && (f.sequence == 1 || f.sequence == 2)"
     ], function (facts) {
-        var f = facts.f;
-        f.value = 1;
-        this.modify(f);
+        this.modify(facts.f, function () {
+            this.value = 1;
+        });
     });
 
     flow.rule("Calculate", [
-        [Fibonacci, "f1", "f1.value != -1", {sequence:"s1"}],
-        [Fibonacci, "f2", "f2.value != -1 && f2.sequence == s1 + 1", {sequence:"s2"}],
+        [Fibonacci, "f1", "f1.value != -1", {sequence: "s1"}],
+        [Fibonacci, "f2", "f2.value != -1 && f2.sequence == s1 + 1", {sequence: "s2"}],
         [Fibonacci, "f3", "f3.value == -1 && f3.sequence == s2 + 1"],
         [Result, "r"]
     ], function (facts) {

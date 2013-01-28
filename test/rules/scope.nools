@@ -1,0 +1,29 @@
+define Message {
+    message : "",
+    constructor : function (message) {
+       this.message = message;
+    }
+}
+
+function matches(str, regex){
+    return regex.test(str);
+}
+
+rule Hello {
+    when {
+        m : Message matches(m.message, /^hello(\\s*world)?$/);
+    }
+    then {
+        modify(m, function(){
+            this.message += " goodbye";
+        })
+    }
+}
+
+rule Goodbye {
+    when {
+        m : Message matches(m.message, /.*goodbye$/);
+    }
+    then {
+    }
+}

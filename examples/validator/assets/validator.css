@@ -1,0 +1,71 @@
+form {
+    background: -webkit-gradient(linear, bottom, left 175px, from(#CCCCCC), to(#EEEEEE));
+    background: -moz-linear-gradient(bottom, #CCCCCC, #EEEEEE 175px);
+    margin: auto;
+    position: relative;
+    width: 550px;
+    height: 500px;
+    font-family: Tahoma, Geneva, sans-serif;
+    font-size: 14px;
+    font-style: italic;
+    line-height: 24px;
+    font-weight: bold;
+    color: #09C;
+    text-decoration: none;
+    -webkit-border-radius: 10px;
+    -moz-border-radius: 10px;
+    border-radius: 10px;
+    padding: 10px;
+    border: 1px solid #999;
+    border: inset 1px solid #333;
+    -webkit-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3);
+    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3);
+}
+
+.errors {
+    color: #f90008;
+}
+
+input {
+    margin-top: 30px;
+    margin-bottom: 20px;
+    width: 375px;
+    display: block;
+    border: 1px solid #999;
+    height: 40px;
+    font-size: 1.2em;
+    -webkit-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3);
+    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3);
+}
+
+input[type="submit"] {
+    width: 100px;
+    float: right;
+    right: 20px;
+    bottom: 20px;
+    background: #09C;
+    color: #fff;
+    font-family: Tahoma, Geneva, sans-serif;
+    height: 30px;
+    -webkit-border-radius: 15px;
+    -moz-border-radius: 15px;
+    border-radius: 15px;
+    border: 1px solid #999;
+}
+
+input[type="submit"]:hover {
+    background: #fff;
+    color: #09C;
+}
+
+textarea:focus, input:focus {
+    border: 1px solid #09C;
+}
+
+.container {
+    margin-left: auto;
+    margin-right: auto;
+    width: 400px;
+}
