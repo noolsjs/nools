@@ -68,7 +68,7 @@ var run = (function () {
     return function (pattern) {
         createPattern(pattern);
         var session = flow.getSession("populate", cells);
-        session.on("print", print);
+        session.on("evaluate", print);
         return session.match().then(function () {
             print();
             session.dispose();
