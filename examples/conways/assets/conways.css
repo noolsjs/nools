@@ -88,8 +88,7 @@ input[type="submit"], input[type="button"] {
     height: 10px;
     display: table-cell;
     border: 1px solid #cbcbcb;
-    content: " ",
-    -webkit-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
+    content: " ", -webkit-box-shadow : 0 px 0 px 8 px rgba ( 0, 0, 0, 0.2 );
     -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
     box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
 }

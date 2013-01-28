@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fibonacci DSL</title>
+</head>
+<body onload="init()">
+
+<div id="output"></div>
+
+<script type="text/javascript" src="../../nools.js"></script>
+<script type="text/nools" id="simple">
+define Message {
+    message : "",
+    constructor : function (message) {
+        this.message = message;
+    }
+}
+
+rule Hello {
+    when {
+        m : Message m.message =~ /^hello(\\s*world)?$/
+    }
+    then {
+        modify(m, function(){
+            this.message += " goodbye";
+        });
+    }
+}
+
+rule Goodbye {
+    when {
+        m : Message m.message =~ /.*goodbye$/
+    }
+    then {
+        document.getElementById("output").innerHTML += m.message + "</br>";
+    }
+}
+</script>
+<script type="text/javascript">
+    function init() {
+
+       var flow = nools.compile(document.getElementById("simple").innerHTML, {name: "simple"}),
+                Message = flow.getDefined("message"),
+                session = flow.getSession();
+        //assert your different messages
+        session.assert(new Message("goodbye"));
+        session.assert(new Message("hello"));
+        session.assert(new Message("hello world"));
+        session.match();
+
+    }
+</script>
+
+</body>
+</html>
