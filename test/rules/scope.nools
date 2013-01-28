@@ -5,9 +5,13 @@ define Message {
     }
 }
 
+function matches(str, regex){
+    return regex.test(str);
+}
+
 rule Hello {
     when {
-        m : Message m.message =~ /^hello(\\s*world)?$/
+        m : Message matches(m.message, /^hello(\\s*world)?$/);
     }
     then {
         modify(m, function(){
@@ -18,9 +22,8 @@ rule Hello {
 
 rule Goodbye {
     when {
-        m : Message m.message =~ /.*goodbye$/
+        m : Message matches(m.message, /.*goodbye$/);
     }
     then {
-        emit("found-goodbye", m);
     }
 }

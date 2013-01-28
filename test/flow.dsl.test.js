@@ -48,6 +48,25 @@ it.describe("Flow dsl",function (it) {
 
     });
 
+    it.describe("scoped functions", function (it) {
+        var flow = nools.compile(__dirname + "/rules/scope.nools"),
+            Message = flow.getDefined("Message"),
+            session;
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("call the scoped function", function (next) {
+            var m = new Message("hello");
+            session.once("assert", function (fact) {
+                assert.deepEqual(fact, m);
+                next();
+            });
+            session.assert(m);
+        });
+    });
+
     it.describe("events", function (it) {
 
         it.timeout(1000);
@@ -105,6 +124,15 @@ it.describe("Flow dsl",function (it) {
                 next();
             });
 
+        });
+
+        it.should("emit events from within the then action", function (next) {
+            session.on("found-goodbye", function (message) {
+                assert.equal(message.message, "hello goodbye");
+                next();
+            });
+            session.assert(new Message("hello"));
+            session.match();
         });
 
     });

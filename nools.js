@@ -9597,9 +9597,11 @@ function createRule(name, options, conditions, cb) {
             }
 
         };
-        var l = conditions.length, patterns = [];
+        var l = conditions.length, patterns = [], condition;
         for (var i = 0; i < l; i++) {
-            extd.forEach(parsePattern(conditions[i]), _mergePatterns);
+            condition = conditions[i];
+            condition.scope = scope;
+            extd.forEach(parsePattern(condition), _mergePatterns);
 
         }
         rules = extd.map(patterns, function (patterns) {
@@ -10297,7 +10299,7 @@ var tokens = require("./tokens.js"),
 
 var parse = function (src, keywords, context) {
     var orig = src;
-    src = src.replace(/\/\/(.*)\n/g, "");
+    src = src.replace(/\/\/(.*)[\n|\r|\r\n]/g, "").replace(/\n|\r|\r\n/g, " ");
 
     var blockTypes = new RegExp("^(" + keys(keywords).join("|") + ")"), index;
     while (src && (index = utils.findNextTokenIndex(src)) !== -1) {
@@ -10341,7 +10343,7 @@ var isWhiteSpace = function (str) {
 var ruleTokens = {
 
     salience: (function () {
-        var salienceRegexp = /^(salience|priority)\s*:\s*(\d+)\s*[,;]?/;
+        var salienceRegexp = /^(salience|priority)\s*:\s*-?(\d+)\s*[,;]?/;
         return function (src, context) {
             if (salienceRegexp.test(src)) {
                 var parts = src.match(salienceRegexp),
@@ -10531,11 +10533,11 @@ require.define("/lib/parser/nools/util.js",function(require,module,exports,__dir
     var WHITE_SPACE_REG = /[\s|\n|\r|\t]/;
 
     var TOKEN_INVERTS = {
-        "{":"}",
-        "}":"{",
-        "(":")",
-        ")":"(",
-        "[":"]"
+        "{": "}",
+        "}": "{",
+        "(": ")",
+        ")": "(",
+        "[": "]"
     };
 
     var getTokensBetween = exports.getTokensBetween = function (str, start, stop, includeStartEnd) {
@@ -10574,7 +10576,7 @@ require.define("/lib/parser/nools/util.js",function(require,module,exports,__dir
                 ret.push(token);
             }
         }
-        if(!found){
+        if (!found) {
             throw new Error("Unable to match " + start + " in " + str);
         }
         return ret;
@@ -10592,7 +10594,7 @@ require.define("/lib/parser/nools/util.js",function(require,module,exports,__dir
             endIndex = l;
         }
         for (; startIndex < endIndex; startIndex++) {
-            var c = str[startIndex];
+            var c = str.charAt(startIndex);
             if (!WHITE_SPACE_REG.test(c)) {
                 ret = startIndex;
                 break;
@@ -10601,8 +10603,8 @@ require.define("/lib/parser/nools/util.js",function(require,module,exports,__dir
         return ret;
     };
 
-    var findNextToken = exports.findNextToken = function(str, startIndex, endIndex){
-       return str.charAt(findNextTokenIndex(str, startIndex, endIndex));
+    exports.findNextToken = function (str, startIndex, endIndex) {
+        return str.charAt(findNextTokenIndex(str, startIndex, endIndex));
     };
 
 

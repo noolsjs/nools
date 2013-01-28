@@ -56,6 +56,25 @@ it.describe("Flow compiled",function (it) {
 
     });
 
+    it.describe("scoped functions", function (it) {
+        var session, Message;
+        it.beforeAll(function () {
+            require("./rules/scope-compiled");
+            var flow = nools.getFlow("scope-compiled");
+            Message = flow.getDefined("message");
+            session = flow.getSession();
+        });
+
+        it.should("call the scoped function", function (next) {
+            var m = new Message("hello");
+            session.once("assert", function (fact) {
+                assert.deepEqual(fact, m);
+                next();
+            });
+            session.assert(m);
+        });
+    });
+
     it.describe("events", function (it) {
 
         it.timeout(1000);
