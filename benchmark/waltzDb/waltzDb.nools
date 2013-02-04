@@ -217,7 +217,7 @@ rule make_3_junction {
         edge1 : Edge edge1.joined == false {p1 : basePoint, p2 : p1};
         edge2 : Edge edge2.joined == false && edge2.p1 == basePoint && edge2.p2 != p1 {p2 : p2};
         edge3 : Edge edge3.joined == false && edge3.p1 == basePoint && edge3.p2 != p1 && edge3.p2 != p2 {p2 : p3};
-    }    
+    }
     then {
         var junction = new Junction({
             basePoint : basePoint,
@@ -230,7 +230,7 @@ rule make_3_junction {
         modify( edge1, function(){this.joined = true; this.type = '3j';});
         modify( edge2, function(){this.joined = true; this.type = '3j';});
         modify( edge3, function(){this.joined = true; this.type = '3j';});
-     }   
+     }
 }
 
 //(p make_L
@@ -255,7 +255,7 @@ rule make_L {
         edge1 : Edge edge1.joined == false {p1 : basePoint, p2 : p2};
         edge2 : Edge edge2.p1 == basePoint &&  edge2.p2 != p2 && edge2.joined == false {p2 : p3};
         not(e : Edge e.p1 == basePoint && e.p2 != p2 &&  e.p2 != p3 );
-    }    
+    }
     then {
         var junction = new Junction({type : "2j", name : "L", basePoint : basePoint, p1 : p2, p2 : p3, visited : "no"} );
         assert( junction );
@@ -275,11 +275,11 @@ rule done_detecting {
     when {
         stage : Stage stage.value == 'DETECT_JUNCTIONS';
         not( e : Edge e.joined == false );
-    }    
+    }
     then {
         modify(stage, function(){this.value = 'FIND_INITIAL_BOUNDARY' });
         console.log( "Stage: FIND_INITIAL_BOUNDARY" );
-     }   
+     }
 }
 
 
@@ -301,14 +301,14 @@ rule initial_boundary_junction_L {
         e1 : Edge e1.p1 == basePoint &&  e1.p2 == p1;
         e2 : Edge e2.p1 == basePoint && e2.p2 == p2;
         not(j : Junction j.type == '2j' && j.basePoint > basePoint );
-    }    
+    }
     then {
         modify(junction, function(){ this.visited =  "yes" });
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : "B", labelId : "1" }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : "B", labelId : "1" } ) );
         modify(stage, function(){ this.value = 'FIND_SECOND_BOUNDARY' });
         console.log( "FIND_SECOND_BOUNDARY" );
-    }    
+    }
 }
 
 //(p initial_boundary_junction_arrow
@@ -341,7 +341,7 @@ rule initial_boundary_junction_arrow {
         modify( stage, function() {this.value = 'FIND_SECOND_BOUNDARY';});
         console.log( "FIND_SECOND_BOUNDARY" );
     }
-}    
+}
 
 
 //(p second_boundary_junction_L

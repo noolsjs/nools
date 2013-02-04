@@ -57,7 +57,7 @@ rule Populate {
       then {
             loop(cells, function(cell){
                 assert(cell);
-            })
+            });
             emit("evaluate");
             retract(state);
             assert("evaluate");

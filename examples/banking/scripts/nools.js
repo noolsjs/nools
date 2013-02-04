@@ -1236,7 +1236,7 @@ var Flow = declare(EventEmitter, {
                         var activation = agenda.pop();
                         activation.used = true;
                         flow.emit("fire", activation.rule.name, activation.match.factHash);
-                        when(activation.rule.fire(flow, activation.match)).then(function () {
+                        activation.rule.fire(flow, activation.match).then(function () {
                             if (flow.__wmAltered) {
                                 rootNode.incrementCounter();
                                 flow.__wmAltered = false;
@@ -6626,25 +6626,19 @@ require.define("/node_modules/ht/index.js",function(require,module,exports,__dir
 
                 constructor: function () {
                     this.__entries = [];
-                    this.__keys = [];
-                    this.__values = [];
                 },
 
                 pushValue: function (key, value) {
-                    this.__keys.push(key);
-                    this.__values.push(value);
                     this.__entries.push({key: key, value: value});
                     return value;
                 },
 
                 remove: function (key) {
-                    var ret = null, map = this.__entries, val, keys = this.__keys, vals = this.__values;
+                    var ret = null, map = this.__entries, val;
                     var i = map.length - 1;
                     for (; i >= 0; i--) {
                         if (!!(val = map[i]) && val.key === key) {
-                            map.splice(i, 1);
-                            keys.splice(i, 1);
-                            vals.splice(i, 1);
+                            map[i] = null;
                             return val.value;
                         }
                     }
@@ -6652,12 +6646,11 @@ require.define("/node_modules/ht/index.js",function(require,module,exports,__dir
                 },
 
                 "set": function (key, value) {
-                    var ret = null, map = this.__entries, vals = this.__values;
+                    var ret = null, map = this.__entries;
                     var i = map.length - 1;
                     for (; i >= 0; i--) {
                         var val = map[i];
                         if (val && key === val.key) {
-                            vals[i] = value;
                             val.value = value;
                             ret = value;
                             break;
@@ -6682,16 +6675,42 @@ require.define("/node_modules/ht/index.js",function(require,module,exports,__dir
                     return ret;
                 },
 
-                getEntrySet: function () {
-                    return this.__entries;
+                getEntrySet: function (arr) {
+                    var map = this.__entries, l = map.length;
+                    if (l) {
+                        for (var i = 0; i < l; i++) {
+                            var e = map[i];
+                            if (e) {
+                                arr.push(e);
+                            }
+                        }
+                    }
                 },
 
-                getKeys: function () {
-                    return this.__keys;
+                getKeys: function (arr) {
+                    var map = this.__entries, l = map.length;
+                    if (l) {
+                        for (var i = 0; i < l; i++) {
+                            var e = map[i];
+                            if (e) {
+                                arr.push(e.key);
+                            }
+                        }
+                    }
+                    return arr;
                 },
 
                 getValues: function (arr) {
-                    return this.__values;
+                    var map = this.__entries, l = map.length;
+                    if (l) {
+                        for (var i = 0; i < l; i++) {
+                            var e = map[i];
+                            if (e) {
+                                arr.push(e.value);
+                            }
+                        }
+                    }
+                    return arr;
                 }
             }
         });
@@ -6704,11 +6723,11 @@ require.define("/node_modules/ht/index.js",function(require,module,exports,__dir
                     this.__map = {};
                 },
 
-                entrySet: function () {
-                    var ret = [], map = this.__map;
-                    for (var i in map) {
-                        if (map.hasOwnProperty(i)) {
-                            ret = ret.concat(map[i].getEntrySet());
+                __entrySet: function () {
+                    var ret = [];
+                    for (var i in this.__map) {
+                        if (this.__map.hasOwnProperty(i)) {
+                            this.__map[i].getEntrySet(ret);
                         }
                     }
                     return ret;
@@ -6774,7 +6793,7 @@ require.define("/node_modules/ht/index.js",function(require,module,exports,__dir
                 },
 
                 filter: function (cb, scope) {
-                    var es = this.entrySet(), ret = new this._static();
+                    var es = this.__entrySet(), ret = new this._static();
                     es = _.filter(es, cb, scope);
                     for (var i = es.length - 1; i >= 0; i--) {
                         var e = es[i];
@@ -6784,32 +6803,32 @@ require.define("/node_modules/ht/index.js",function(require,module,exports,__dir
                 },
 
                 forEach: function (cb, scope) {
-                    var es = this.entrySet();
+                    var es = this.__entrySet();
                     _.forEach(es, cb, scope);
                 },
 
                 every: function (cb, scope) {
-                    var es = this.entrySet();
+                    var es = this.__entrySet();
                     return _.every(es, cb, scope);
                 },
 
                 map: function (cb, scope) {
-                    var es = this.entrySet();
+                    var es = this.__entrySet();
                     return _.map(es, cb, scope);
                 },
 
                 some: function (cb, scope) {
-                    var es = this.entrySet();
+                    var es = this.__entrySet();
                     return _.some(es, cb, scope);
                 },
 
                 reduce: function (cb, scope) {
-                    var es = this.entrySet();
+                    var es = this.__entrySet();
                     return _.reduce(es, cb, scope);
                 },
 
                 reduceRight: function (cb, scope) {
-                    var es = this.entrySet();
+                    var es = this.__entrySet();
                     return _.reduceRight(es, cb, scope);
                 },
 
@@ -6820,9 +6839,9 @@ require.define("/node_modules/ht/index.js",function(require,module,exports,__dir
                 keys: function () {
                     var ret = [], map = this.__map;
                     for (var i in map) {
-                        //if (map.hasOwnProperty(i)) {
-                        ret = ret.concat(map[i].getKeys());
-                        //}
+                        if (map.hasOwnProperty(i)) {
+                            map[i].getKeys(ret);
+                        }
                     }
                     return ret;
                 },
@@ -6830,11 +6849,15 @@ require.define("/node_modules/ht/index.js",function(require,module,exports,__dir
                 values: function () {
                     var ret = [], map = this.__map;
                     for (var i in map) {
-                        //if (map.hasOwnProperty(i)) {
-                        ret = ret.concat(map[i].getValues());
-                        //}
+                        if (map.hasOwnProperty(i)) {
+                            map[i].getValues(ret);
+                        }
                     }
                     return ret;
+                },
+
+                entrySet: function () {
+                    return this.__entrySet();
                 },
 
                 isEmpty: function () {
@@ -6858,2651 +6881,6 @@ require.define("/node_modules/ht/index.js",function(require,module,exports,__dir
         });
     } else {
         this.Ht = defineHt(this.extended().register("declare", this.declare).register(this.isExtended).register(this.arrayExtended));
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-});
-
-require.define("/node_modules/ht/node_modules/extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/ht/node_modules/extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    "use strict";
-    /*global extender isa, dateExtended*/
-
-    function defineExtended(extender, require) {
-
-
-        var merge = (function merger() {
-            function _merge(target, source) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name)) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
-            }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                for (var i = 1, l = arguments.length; i < l; i++) {
-                    _merge(obj, arguments[i]);
-                }
-                return obj; // Object
-            };
-        }());
-
-        function getExtended() {
-
-            var loaded = {};
-
-
-            //getInitial instance;
-            var extended = extender.define();
-            extended.expose({
-                register: function register(alias, extendWith) {
-                    if (!extendWith) {
-                        extendWith = alias;
-                        alias = null;
-                    }
-                    var type = typeof extendWith;
-                    if (alias) {
-                        extended[alias] = extendWith;
-                    } else if (extendWith && type === "function") {
-                        extended.extend(extendWith);
-                    } else if (type === "object") {
-                        extended.expose(extendWith);
-                    } else {
-                        throw new TypeError("extended.register must be called with an extender function");
-                    }
-                    return extended;
-                },
-
-                define: function () {
-                    return extender.define.apply(extender, arguments);
-                }
-            });
-
-            return extended;
-        }
-
-        function extended() {
-            return getExtended();
-        }
-
-        extended.define = function define() {
-            return extender.define.apply(extender, arguments);
-        };
-
-        return extended;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtended(require("extender"), require);
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineExtended(require("extender"), require);
-        });
-    } else {
-        this.extended = defineExtended(this.extender);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-});
-
-require.define("/node_modules/ht/node_modules/extended/node_modules/extender/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/ht/node_modules/extended/node_modules/extender/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./extender.js");
-});
-
-require.define("/node_modules/ht/node_modules/extended/node_modules/extender/extender.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    /*jshint strict:false*/
-
-
-    /**
-     *
-     * @projectName extender
-     * @github http://github.com/doug-martin/extender
-     * @header
-     * [![build status](https://secure.travis-ci.org/doug-martin/extender.png)](http://travis-ci.org/doug-martin/extender)
-     * # Extender
-     *
-     * `extender` is a library that helps in making chainable APIs, by creating a function that accepts different values and returns an object decorated with functions based on the type.
-     *
-     * ## Why Is Extender Different?
-     *
-     * Extender is different than normal chaining because is does more than return `this`. It decorates your values in a type safe manner.
-     *
-     * For example if you return an array from a string based method then the returned value will be decorated with array methods and not the string methods. This allow you as the developer to focus on your API and not worrying about how to properly build and connect your API.
-     *
-     *
-     * ## Installation
-     *
-     * ```
-     * npm install extender
-     * ```
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/extender/master/extender.js) ([minified](https://raw.github.com/doug-martin/extender/master/extender-min.js))
-     *
-     * **Note** `extender` depends on [`declare.js`](http://doug-martin.github.com/declare.js/).
-     *
-     * ### Requirejs
-     *
-     * To use with requirejs place the `extend` source in the root scripts directory
-     *
-     * ```javascript
-     *
-     * define(["extender"], function(extender){
-     * });
-     *
-     * ```
-     *
-     *
-     * ## Usage
-     *
-     * **`extender.define(tester, decorations)`**
-     *
-     * To create your own extender call the `extender.define` function.
-     *
-     * This function accepts an optional tester which is used to determine a value should be decorated with the specified `decorations`
-     *
-     * ```javascript
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     *
-     * var myExtender = extender.define(isString, {
-     *		multiply: function (str, times) {
-     *			var ret = str;
-     *			for (var i = 1; i < times; i++) {
-     *				ret += str;
-     *			}
-     *			return ret;
-     *		},
-     *		toArray: function (str, delim) {
-     *			delim = delim || "";
-     *			return str.split(delim);
-     *		}
-     *	});
-     *
-     * myExtender("hello").multiply(2).value(); //hellohello
-     *
-     * ```
-     *
-     * If you do not specify a tester function and just pass in an object of `functions` then all values passed in will be decorated with methods.
-     *
-     * ```javascript
-     *
-     * function isUndefined(obj) {
-     *     var undef;
-     *     return obj === undef;
-     * }
-     *
-     * function isUndefinedOrNull(obj) {
-     *	var undef;
-     *     return obj === undef || obj === null;
-     * }
-     *
-     * function isArray(obj) {
-     *     return Object.prototype.toString.call(obj) === "[object Array]";
-     * }
-     *
-     * function isBoolean(obj) {
-     *     var undef, type = typeof obj;
-     *     return !isUndefinedOrNull(obj) && type === "boolean" || type === "Boolean";
-     * }
-     *
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     * var myExtender = extender.define({
-     *	isUndefined : isUndefined,
-     *	isUndefinedOrNull : isUndefinedOrNull,
-     *	isArray : isArray,
-     *	isBoolean : isBoolean,
-     *	isString : isString
-     * });
-     *
-     * ```
-     *
-     * To use
-     *
-     * ```
-     * var undef;
-     * myExtender("hello").isUndefined().value(); //false
-     * myExtender(undef).isUndefined().value(); //true
-     * ```
-     *
-     * You can also chain extenders so that they accept multiple types and decorates accordingly.
-     *
-     * ```javascript
-     * myExtender
-     *     .define(isArray, {
-     *		pluck: function (arr, m) {
-     *			var ret = [];
-     *			for (var i = 0, l = arr.length; i < l; i++) {
-     *				ret.push(arr[i][m]);
-     *			}
-     *			return ret;
-     *		}
-     *	})
-     *     .define(isBoolean, {
-     *		invert: function (val) {
-     *			return !val;
-     *		}
-     *	});
-     *
-     * myExtender([{a: "a"},{a: "b"},{a: "c"}]).pluck("a").value(); //["a", "b", "c"]
-     * myExtender("I love javascript!").toArray(/\s+/).pluck("0"); //["I", "l", "j"]
-     *
-     * ```
-     *
-     * Notice that we reuse the same extender as defined above.
-     *
-     * **Return Values**
-     *
-     * When creating an extender if you return a value from one of the decoration functions then that value will also be decorated. If you do not return any values then the extender will be returned.
-     *
-     * **Default decoration methods**
-     *
-     * By default every value passed into an extender is decorated with the following methods.
-     *
-     * * `value` : The value this extender represents.
-     * * `eq(otherValue)` : Tests strict equality of the currently represented value to the `otherValue`
-     * * `neq(oterValue)` : Tests strict inequality of the currently represented value.
-     * * `print` : logs the current value to the console.
-     *
-     * **Extender initialization**
-     *
-     * When creating an extender you can also specify a constructor which will be invoked with the current value.
-     *
-     * ```javascript
-     * myExtender.define(isString, {
-     *	constructor : function(val){
-     *     //set our value to the string trimmed
-     *		this._value = val.trimRight().trimLeft();
-     *	}
-     * });
-     * ```
-     *
-     * **`noWrap`**
-     *
-     * `extender` also allows you to specify methods that should not have the value wrapped providing a cleaner exit function other than `value()`.
-     *
-     * For example suppose you have an API that allows you to build a validator, rather than forcing the user to invoke the `value` method you could add a method called `validator` which makes more syntactic sense.
-     *
-     * ```
-     *
-     * var myValidator = extender.define({
-     *     //chainable validation methods
-     *     //...
-     *     //end chainable validation methods
-     *
-     *     noWrap : {
-     *         validator : function(){
-     *             //return your validator
-     *         }
-     *     }
-     * });
-     *
-     * myValidator().isNotNull().isEmailAddress().validator(); //now you dont need to call .value()
-     *
-     *
-     * ```
-     * **`extender.extend(extendr)`**
-     *
-     * You may also compose extenders through the use of `extender.extend(extender)`, which will return an entirely new extender that is the composition of extenders.
-     *
-     * Suppose you have the following two extenders.
-     *
-     * ```javascript
-     * var myExtender = extender
-     *        .define({
-     *            isFunction: is.function,
-     *            isNumber: is.number,
-     *            isString: is.string,
-     *            isDate: is.date,
-     *            isArray: is.array,
-     *            isBoolean: is.boolean,
-     *            isUndefined: is.undefined,
-     *            isDefined: is.defined,
-     *            isUndefinedOrNull: is.undefinedOrNull,
-     *            isNull: is.null,
-     *            isArguments: is.arguments,
-     *            isInstanceOf: is.instanceOf,
-     *            isRegExp: is.regExp
-     *        });
-     * var myExtender2 = extender.define(is.array, {
-     *     pluck: function (arr, m) {
-     *         var ret = [];
-     *         for (var i = 0, l = arr.length; i < l; i++) {
-     *             ret.push(arr[i][m]);
-     *         }
-     *         return ret;
-     *     },
-     *
-     *     noWrap: {
-     *         pluckPlain: function (arr, m) {
-     *             var ret = [];
-     *             for (var i = 0, l = arr.length; i < l; i++) {
-     *                 ret.push(arr[i][m]);
-     *             }
-     *             return ret;
-     *         }
-     *     }
-     * });
-     *
-     *
-     * ```
-     *
-     * And you do not want to alter either of them but instead what to create a third that is the union of the two.
-     *
-     *
-     * ```javascript
-     * var composed = extender.extend(myExtender).extend(myExtender2);
-     * ```
-     * So now you can use the new extender with the joined functionality if `myExtender` and `myExtender2`.
-     *
-     * ```javascript
-     * var extended = composed([
-     *      {a: "a"},
-     *      {a: "b"},
-     *      {a: "c"}
-     * ]);
-     * extended.isArray().value(); //true
-     * extended.pluck("a").value(); // ["a", "b", "c"]);
-     *
-     * ```
-     *
-     * **Note** `myExtender` and `myExtender2` will **NOT** be altered.
-     *
-     * **`extender.expose(methods)`**
-     *
-     * The `expose` method allows you to add methods to your extender that are not wrapped or automatically chained by exposing them on the extender directly.
-     *
-     * ```
-     * var isMethods = {
-     *      isFunction: is.function,
-     *      isNumber: is.number,
-     *      isString: is.string,
-     *      isDate: is.date,
-     *      isArray: is.array,
-     *      isBoolean: is.boolean,
-     *      isUndefined: is.undefined,
-     *      isDefined: is.defined,
-     *      isUndefinedOrNull: is.undefinedOrNull,
-     *      isNull: is.null,
-     *      isArguments: is.arguments,
-     *      isInstanceOf: is.instanceOf,
-     *      isRegExp: is.regExp
-     * };
-     *
-     * var myExtender = extender.define(isMethods).expose(isMethods);
-     *
-     * myExtender.isArray([]); //true
-     * myExtender([]).isArray([]).value(); //true
-     *
-     * ```
-     *
-     *
-     * **Using `instanceof`**
-     *
-     * When using extenders you can test if a value is an `instanceof` of an extender by using the instanceof operator.
-     *
-     * ```javascript
-     * var str = myExtender("hello");
-     *
-     * str instanceof myExtender; //true
-     * ```
-     *
-     * ## Examples
-     *
-     * To see more examples click [here](https://github.com/doug-martin/extender/tree/master/examples)
-     */
-    function defineExtender(declare) {
-
-
-        var slice = Array.prototype.slice, undef;
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        var merge = (function merger() {
-            function _merge(target, source, exclude) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
-            }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                var l = arguments.length;
-                var exclude = arguments[arguments.length - 1];
-                if (isArray(exclude)) {
-                    l--;
-                } else {
-                    exclude = [];
-                }
-                for (var i = 1; i < l; i++) {
-                    _merge(obj, arguments[i], exclude);
-                }
-                return obj; // Object
-            };
-        }());
-
-
-        function extender(supers) {
-            supers = supers || [];
-            var Base = declare({
-                instance: {
-                    constructor: function (value) {
-                        this._value = value;
-                    },
-
-                    value: function () {
-                        return this._value;
-                    },
-
-                    eq: function eq(val) {
-                        return this["__extender__"](this._value === val);
-                    },
-
-                    neq: function neq(other) {
-                        return this["__extender__"](this._value !== other);
-                    },
-                    print: function () {
-                        console.log(this._value);
-                        return this;
-                    }
-                }
-            }), defined = [];
-
-            function addMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        var ret = func.apply(this, args);
-                        return ret !== undef ? this["__extender__"](ret) : this;
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function addNoWrapMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        return func.apply(this, args);
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function decorateProto(proto, decoration, nowrap) {
-                for (var i in decoration) {
-                    if (decoration.hasOwnProperty(i)) {
-                        if (i !== "getters" && i !== "setters") {
-                            if (i === "noWrap") {
-                                decorateProto(proto, decoration[i], true);
-                            } else if (nowrap) {
-                                addNoWrapMethod(proto, i, decoration[i]);
-                            } else {
-                                addMethod(proto, i, decoration[i]);
-                            }
-                        } else {
-                            proto[i] = decoration[i];
-                        }
-                    }
-                }
-            }
-
-            function _extender(obj) {
-                var ret = obj, i, l;
-                if (!(obj instanceof Base)) {
-                    var OurBase = Base;
-                    for (i = 0, l = defined.length; i < l; i++) {
-                        var definer = defined[i];
-                        if (definer[0](obj)) {
-                            OurBase = OurBase.extend({instance: definer[1]});
-                        }
-                    }
-                    ret = new OurBase(obj);
-                    ret["__extender__"] = _extender;
-                }
-                return ret;
-            }
-
-            function always() {
-                return true;
-            }
-
-            function define(tester, decorate) {
-                if (arguments.length) {
-                    if (typeof tester === "object") {
-                        decorate = tester;
-                        tester = always;
-                    }
-                    decorate = decorate || {};
-                    var proto = {};
-                    decorateProto(proto, decorate);
-                    //handle browsers like which skip over the constructor while looping
-                    if (!proto.hasOwnProperty("constructor")) {
-                        if (decorate.hasOwnProperty("constructor")) {
-                            addMethod(proto, "constructor", decorate.constructor);
-                        } else {
-                            proto.constructor = function () {
-                                this._super(arguments);
-                            };
-                        }
-                    }
-                    defined.push([tester, proto]);
-                }
-                return _extender;
-            }
-
-            function extend(supr) {
-                if (supr && supr.hasOwnProperty("__defined__")) {
-                    _extender["__defined__"] = defined = defined.concat(supr["__defined__"]);
-                }
-                merge(_extender, supr, ["define", "extend", "expose", "__defined__"]);
-                return _extender;
-            }
-
-            _extender.define = define;
-            _extender.extend = extend;
-            _extender.expose = function expose() {
-                var methods;
-                for (var i = 0, l = arguments.length; i < l; i++) {
-                    methods = arguments[i];
-                    if (typeof methods === "object") {
-                        merge(_extender, methods, ["define", "extend", "expose", "__defined__"]);
-                    }
-                }
-                return _extender;
-            };
-            _extender["__defined__"] = defined;
-
-
-            return _extender;
-        }
-
-        return {
-            define: function () {
-                return extender().define.apply(extender, arguments);
-            },
-
-            extend: function (supr) {
-                return extender().define().extend(supr);
-            }
-        };
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtender(require("declare.js"));
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineExtender((require("declare.js")));
-        });
-    } else {
-        this.extender = defineExtender(this.declare);
-    }
-
-}).call(this);
-});
-
-require.define("/node_modules/ht/node_modules/declare.js/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/ht/node_modules/declare.js/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = require("./declare.js");
-});
-
-require.define("/node_modules/ht/node_modules/declare.js/declare.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-
-    /**
-     * @projectName declare
-     * @github http://github.com/doug-martin/declare.js
-     * @header
-     *
-     * Declare is a library designed to allow writing object oriented code the same way in both the browser and node.js.
-     *
-     * ##Installation
-     *
-     * `npm install declare.js`
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/declare.js/master/declare.js) ([minified](https://raw.github.com/doug-martin/declare.js/master/declare-min.js))
-     *
-     * ###Requirejs
-     *
-     * To use with requirejs place the `declare` source in the root scripts directory
-     *
-     * ```
-     *
-     * define(["declare"], function(declare){
-     *      return declare({
-     *          instance : {
-     *              hello : function(){
-     *                  return "world";
-     *              }
-     *          }
-     *      });
-     * });
-     *
-     * ```
-     *
-     *
-     * ##Usage
-     *
-     * declare.js provides
-     *
-     * Class methods
-     *
-     * * `as(module | object, name)` : exports the object to module or the object with the name
-     * * `mixin(mixin)` : mixes in an object but does not inherit directly from the object. **Note** this does not return a new class but changes the original class.
-     * * `extend(proto)` : extend a class with the given properties. A shortcut to `declare(Super, {})`;
-     *
-     * Instance methods
-     *
-     * * `_super(arguments)`: calls the super of the current method, you can pass in either the argments object or an array with arguments you want passed to super
-     * * `_getSuper()`: returns a this methods direct super.
-     * * `_static` : use to reference class properties and methods.
-     * * `get(prop)` : gets a property invoking the getter if it exists otherwise it just returns the named property on the object.
-     * * `set(prop, val)` : sets a property invoking the setter if it exists otherwise it just sets the named property on the object.
-     *
-     *
-     * ###Declaring a new Class
-     *
-     * Creating a new class with declare is easy!
-     *
-     * ```
-     *
-     * var Mammal = declare({
-     *      //define your instance methods and properties
-     *      instance : {
-     *
-     *          //will be called whenever a new instance is created
-     *          constructor: function(options) {
-     *              options = options || {};
-     *              this._super(arguments);
-     *              this._type = options.type || "mammal";
-     *          },
-     *
-     *          speak : function() {
-     *              return  "A mammal of type " + this._type + " sounds like";
-     *          },
-     *
-     *          //Define your getters
-     *          getters : {
-     *
-     *              //can be accessed by using the get method. (mammal.get("type"))
-     *              type : function() {
-     *                  return this._type;
-     *              }
-     *          },
-     *
-     *           //Define your setters
-     *          setters : {
-     *
-     *                //can be accessed by using the set method. (mammal.set("type", "mammalType"))
-     *              type : function(t) {
-     *                  this._type = t;
-     *              }
-     *          }
-     *      },
-     *
-     *      //Define your static methods
-     *      static : {
-     *
-     *          //Mammal.soundOff(); //"Im a mammal!!"
-     *          soundOff : function() {
-     *              return "Im a mammal!!";
-     *          }
-     *      }
-     * });
-     *
-     *
-     * ```
-     *
-     * You can use Mammal just like you would any other class.
-     *
-     * ```
-     * Mammal.soundOff("Im a mammal!!");
-     *
-     * var myMammal = new Mammal({type : "mymammal"});
-     * myMammal.speak(); // "A mammal of type mymammal sounds like"
-     * myMammal.get("type"); //"mymammal"
-     * myMammal.set("type", "mammal");
-     * myMammal.get("type"); //"mammal"
-     *
-     *
-     * ```
-     *
-     * ###Extending a class
-     *
-     * If you want to just extend a single class use the .extend method.
-     *
-     * ```
-     *
-     * var Wolf = Mammal.extend({
-     *
-     *   //define your instance method
-     *   instance: {
-     *
-     *        //You can override super constructors just be sure to call `_super`
-     *       constructor: function(options) {
-     *          options = options || {};
-     *          this._super(arguments); //call our super constructor.
-     *          this._sound = "growl";
-     *          this._color = options.color || "grey";
-     *      },
-     *
-     *      //override Mammals `speak` method by appending our own data to it.
-     *      speak : function() {
-     *          return this._super(arguments) + " a " + this._sound;
-     *      },
-     *
-     *      //add new getters for sound and color
-     *      getters : {
-     *
-     *           //new Wolf().get("type")
-     *           //notice color is read only as we did not define a setter
-     *          color : function() {
-     *              return this._color;
-     *          },
-     *
-     *          //new Wolf().get("sound")
-     *          sound : function() {
-     *              return this._sound;
-     *          }
-     *      },
-     *
-     *      setters : {
-     *
-     *          //new Wolf().set("sound", "howl")
-     *          sound : function(s) {
-     *              this._sound = s;
-     *          }
-     *      }
-     *
-     *  },
-     *
-     *  static : {
-     *
-     *      //You can override super static methods also! And you can still use _super
-     *      soundOff : function() {
-     *          //You can even call super in your statics!!!
-     *          //should return "I'm a mammal!! that growls"
-     *          return this._super(arguments) + " that growls";
-     *      }
-     *  }
-     * });
-     *
-     * Wolf.soundOff(); //Im a mammal!! that growls
-     *
-     * var myWolf = new Wolf();
-     * myWolf instanceof Mammal //true
-     * myWolf instanceof Wolf //true
-     *
-     * ```
-     *
-     * You can also extend a class by using the declare method and just pass in the super class.
-     *
-     * ```
-     * //Typical hierarchical inheritance
-     * // Mammal->Wolf->Dog
-     * var Dog = declare(Wolf, {
-     *    instance: {
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            //override Wolfs initialization of sound to woof.
-     *            this._sound = "woof";
-     *
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a growl thats domesticated"
-     *            return this._super(arguments) + " thats domesticated";
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'm a mammal!! that growls but now barks"
-     *            return this._super(arguments) + " but now barks";
-     *        }
-     *    }
-     * });
-     *
-     * Dog.soundOff(); //Im a mammal!! that growls but now barks
-     *
-     * var myDog = new Dog();
-     * myDog instanceof Mammal //true
-     * myDog instanceof Wolf //true
-     * myDog instanceof Dog //true
-     *
-     *
-     * //Notice you still get the extend method.
-     *
-     * // Mammal->Wolf->Dog->Breed
-     * var Breed = Dog.extend({
-     *    instance: {
-     *
-     *        //initialize outside of constructor
-     *        _pitch : "high",
-     *
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            this.breed = options.breed || "lab";
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a
-     *            //growl thats domesticated with a high pitch!"
-     *            return this._super(arguments) + " with a " + this._pitch + " pitch!";
-     *        },
-     *
-     *        getters : {
-     *            pitch : function() {
-     *                return this._pitch;
-     *            }
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'M A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *            return this._super(arguments).toUpperCase() + "!";
-     *        }
-     *    }
-     * });
-     *
-     *
-     * Breed.soundOff()//"IM A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *
-     * var myBreed = new Breed({color : "gold", type : "lab"}),
-     * myBreed instanceof Dog //true
-     * myBreed instanceof Wolf //true
-     * myBreed instanceof Mammal //true
-     * myBreed.speak() //"A mammal of type lab sounds like a woof thats domesticated with a high pitch!"
-     * myBreed.get("type") //"lab"
-     * myBreed.get("color") //"gold"
-     * myBreed.get("sound")" //"woof"
-     * ```
-     *
-     * ###Multiple Inheritance / Mixins
-     *
-     * declare also allows the use of multiple super classes.
-     * This is useful if you have generic classes that provide functionality but shouldnt be used on their own.
-     *
-     * Lets declare a mixin that allows us to watch for property changes.
-     *
-     * ```
-     * //Notice that we set up the functions outside of declare because we can reuse them
-     *
-     * function _set(prop, val) {
-     *     //get the old value
-     *     var oldVal = this.get(prop);
-     *     //call super to actually set the property
-     *     var ret = this._super(arguments);
-     *     //call our handlers
-     *     this.__callHandlers(prop, oldVal, val);
-     *     return ret;
-     * }
-     *
-     * function _callHandlers(prop, oldVal, newVal) {
-     *    //get our handlers for the property
-     *     var handlers = this.__watchers[prop], l;
-     *     //if the handlers exist and their length does not equal 0 then we call loop through them
-     *     if (handlers && (l = handlers.length) !== 0) {
-     *         for (var i = 0; i < l; i++) {
-     *             //call the handler
-     *             handlers[i].call(null, prop, oldVal, newVal);
-     *         }
-     *     }
-     * }
-     *
-     *
-     * //the watch function
-     * function _watch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         //if its not a function then its an invalid handler
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     if (!this.__watchers[prop]) {
-     *         //create the watchers if it doesnt exist
-     *         this.__watchers[prop] = [handler];
-     *     } else {
-     *         //otherwise just add it to the handlers array
-     *         this.__watchers[prop].push(handler);
-     *     }
-     * }
-     *
-     * function _unwatch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     var handlers = this.__watchers[prop], index;
-     *     if (handlers && (index = handlers.indexOf(handler)) !== -1) {
-     *        //remove the handler if it is found
-     *         handlers.splice(index, 1);
-     *     }
-     * }
-     *
-     * declare({
-     *     instance:{
-     *         constructor:function () {
-     *             this._super(arguments);
-     *             //set up our watchers
-     *             this.__watchers = {};
-     *         },
-     *
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set up our callhandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch function
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     },
-     *
-     *     "static":{
-     *
-     *         init:function () {
-     *             this._super(arguments);
-     *             this.__watchers = {};
-     *         },
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set our callHandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     }
-     * })
-     *
-     * ```
-     *
-     * Now lets use the mixin
-     *
-     * ```
-     * var WatchDog = declare([Dog, WatchMixin]);
-     *
-     * var watchDog = new WatchDog();
-     * //create our handler
-     * function watch(id, oldVal, newVal) {
-     *     console.log("watchdog's %s was %s, now %s", id, oldVal, newVal);
-     * }
-     *
-     * //watch for property changes
-     * watchDog.watch("type", watch);
-     * watchDog.watch("color", watch);
-     * watchDog.watch("sound", watch);
-     *
-     * //now set the properties each handler will be called
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * //unwatch the property changes
-     * watchDog.unwatch("type", watch);
-     * watchDog.unwatch("color", watch);
-     * watchDog.unwatch("sound", watch);
-     *
-     * //no handlers will be called this time
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * ```
-     *
-     * ###Accessing static methods and properties witin an instance.
-     *
-     * To access static properties on an instance use the `_static` property which is a reference to your constructor.
-     *
-     * For example if your in your constructor and you want to have configurable default values.
-     *
-     * ```
-     * consturctor : function constructor(opts){
-     *     this.opts = opts || {};
-     *     this._type = opts.type || this._static.DEFAULT_TYPE;
-     * }
-     * ```
-     *
-     *
-     *
-     * ###Creating a new instance of within an instance.
-     *
-     * Often times you want to create a new instance of an object within an instance. If your subclassed however you cannot return a new instance of the parent class as it will not be the right sub class. `declare` provides a way around this by setting the `_static` property on each isntance of the class.
-     *
-     * Lets add a reproduce method `Mammal`
-     *
-     * ```
-     * reproduce : function(options){
-     *     return new this._static(options);
-     * }
-     * ```
-     *
-     * Now in each subclass you can call reproduce and get the proper type.
-     *
-     * ```
-     * var myDog = new Dog();
-     * var myDogsChild = myDog.reproduce();
-     *
-     * myDogsChild instanceof Dog; //true
-     * ```
-     *
-     * ###Using the `as`
-     *
-     * `declare` also provides an `as` method which allows you to add your class to an object or if your using node.js you can pass in `module` and the class will be exported as the module.
-     *
-     * ```
-     * var animals = {};
-     *
-     * Mammal.as(animals, "Dog");
-     * Wolf.as(animals, "Wolf");
-     * Dog.as(animals, "Dog");
-     * Breed.as(animals, "Breed");
-     *
-     * var myDog = new animals.Dog();
-     *
-     * ```
-     *
-     * Or in node
-     *
-     * ```
-     * Mammal.as(exports, "Dog");
-     * Wolf.as(exports, "Wolf");
-     * Dog.as(exports, "Dog");
-     * Breed.as(exports, "Breed");
-     *
-     * ```
-     *
-     * To export a class as the `module` in node
-     *
-     * ```
-     * Mammal.as(module);
-     * ```
-     *
-     *
-     */
-    function createDeclared() {
-        var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function merge(target, source, exclude) {
-            var name, s;
-            for (name in source) {
-                if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function callSuper(args, a) {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                a && (args = a);
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, args);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getSuper() {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.bind(this);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getter(name) {
-            var getters = this.__getters__;
-            if (getters.hasOwnProperty(name)) {
-                return getters[name].apply(this);
-            } else {
-                return this[name];
-            }
-        }
-
-        function setter(name, val) {
-            var setters = this.__setters__;
-            if (isHash(name)) {
-                for (var i in name) {
-                    var prop = name[i];
-                    if (setters.hasOwnProperty(i)) {
-                        setters[name].call(this, prop);
-                    } else {
-                        this[i] = prop;
-                    }
-                }
-            } else {
-                if (setters.hasOwnProperty(name)) {
-                    return setters[name].apply(this, argsToArray(arguments, 1));
-                } else {
-                    return this[name] = val;
-                }
-            }
-        }
-
-
-        function defaultFunction() {
-            var meta = this.__meta || {},
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, arguments);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-
-        function functionWrapper(f, name) {
-            var wrapper = function wrapper() {
-                var ret, meta = this.__meta || {};
-                var orig = meta.superMeta;
-                meta.superMeta = {f: f, pos: 0, name: name};
-                ret = f.apply(this, arguments);
-                meta.superMeta = orig;
-                return ret;
-            };
-            wrapper._f = f;
-            return wrapper;
-        }
-
-        function defineMixinProps(child, proto) {
-
-            var operations = proto.setters || {}, __setters = child.__setters__, __getters = child.__getters__;
-            for (var i in operations) {
-                if (!__setters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            for (i in operations) {
-                if (!__getters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __getters[i] = operations[i];
-                }
-            }
-            for (var j in proto) {
-                if (j != "getters" && j != "setters") {
-                    var p = proto[j];
-                    if ("function" === typeof p) {
-                        if (!child.hasOwnProperty(j)) {
-                            child[j] = functionWrapper(defaultFunction, j);
-                        }
-                    } else {
-                        child[j] = p;
-                    }
-                }
-            }
-        }
-
-        function mixin() {
-            var args = argsToArray(arguments), l = args.length;
-            var child = this.prototype;
-            var childMeta = child.__meta, thisMeta = this.__meta, bases = child.__meta.bases, staticBases = bases.slice(),
-                staticSupers = thisMeta.supers || [], supers = childMeta.supers || [];
-            for (var i = 0; i < l; i++) {
-                var m = args[i], mProto = m.prototype;
-                var protoMeta = mProto.__meta, meta = m.__meta;
-                !protoMeta && (protoMeta = (mProto.__meta = {proto: mProto || {}}));
-                !meta && (meta = (m.__meta = {proto: m.__proto__ || {}}));
-                defineMixinProps(child, protoMeta.proto || {});
-                defineMixinProps(this, meta.proto || {});
-                //copy the bases for static,
-
-                mixinSupers(m.prototype, supers, bases);
-                mixinSupers(m, staticSupers, staticBases);
-            }
-            return this;
-        }
-
-        function mixinSupers(sup, arr, bases) {
-            var meta = sup.__meta;
-            !meta && (meta = (sup.__meta = {}));
-            var unique = sup.__meta.unique;
-            !unique && (meta.unique = "declare" + ++classCounter);
-            //check it we already have this super mixed into our prototype chain
-            //if true then we have already looped their supers!
-            if (indexOf(bases, unique) === -1) {
-                //add their id to our bases
-                bases.push(unique);
-                var supers = sup.__meta.supers || [], i = supers.length - 1 || 0;
-                while (i >= 0) {
-                    mixinSupers(supers[i--], arr, bases);
-                }
-                arr.unshift(sup);
-            }
-        }
-
-        function defineProps(child, proto) {
-            var operations = proto.setters,
-                __setters = child.__setters__,
-                __getters = child.__getters__;
-            if (operations) {
-                for (var i in operations) {
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            if (operations) {
-                for (i in operations) {
-                    __getters[i] = operations[i];
-                }
-            }
-            for (i in proto) {
-                if (i != "getters" && i != "setters") {
-                    var f = proto[i];
-                    if ("function" === typeof f) {
-                        var meta = f.__meta || {};
-                        if (!meta.isConstructor) {
-                            child[i] = functionWrapper(f, i);
-                        } else {
-                            child[i] = f;
-                        }
-                    } else {
-                        child[i] = f;
-                    }
-                }
-            }
-
-        }
-
-        function _export(obj, name) {
-            if (obj && name) {
-                obj[name] = this;
-            } else {
-                obj.exports = obj = this;
-            }
-            return this;
-        }
-
-        function extend(proto) {
-            return declare(this, proto);
-        }
-
-        function getNew(ctor) {
-            // create object with correct prototype using a do-nothing
-            // constructor
-            forceNew.prototype = ctor.prototype;
-            var t = new forceNew();
-            forceNew.prototype = null;	// clean up
-            return t;
-        }
-
-
-        function __declare(child, sup, proto) {
-            var childProto = {}, supers = [];
-            var unique = "declare" + ++classCounter, bases = [], staticBases = [];
-            var instanceSupers = [], staticSupers = [];
-            var meta = {
-                supers: instanceSupers,
-                unique: unique,
-                bases: bases,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-            var childMeta = {
-                supers: staticSupers,
-                unique: unique,
-                bases: staticBases,
-                isConstructor: true,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-
-            if (isHash(sup) && !proto) {
-                proto = sup;
-                sup = Base;
-            }
-
-            if ("function" === typeof sup || isArray(sup)) {
-                supers = isArray(sup) ? sup : [sup];
-                sup = supers.shift();
-                child.__meta = childMeta;
-                childProto = getNew(sup);
-                childProto.__meta = meta;
-                childProto.__getters__ = merge({}, childProto.__getters__ || {});
-                childProto.__setters__ = merge({}, childProto.__setters__ || {});
-                child.__getters__ = merge({}, child.__getters__ || {});
-                child.__setters__ = merge({}, child.__setters__ || {});
-                mixinSupers(sup.prototype, instanceSupers, bases);
-                mixinSupers(sup, staticSupers, staticBases);
-            } else {
-                child.__meta = childMeta;
-                childProto.__meta = meta;
-                childProto.__getters__ = childProto.__getters__ || {};
-                childProto.__setters__ = childProto.__setters__ || {};
-                child.__getters__ = child.__getters__ || {};
-                child.__setters__ = child.__setters__ || {};
-            }
-            child.prototype = childProto;
-            if (proto) {
-                var instance = meta.proto = proto.instance || {};
-                var stat = childMeta.proto = proto.static || {};
-                stat.init = stat.init || defaultFunction;
-                defineProps(childProto, instance);
-                defineProps(child, stat);
-                if (!instance.hasOwnProperty("constructor")) {
-                    childProto.constructor = instance.constructor = functionWrapper(defaultFunction, "constructor");
-                } else {
-                    childProto.constructor = functionWrapper(instance.constructor, "constructor");
-                }
-            } else {
-                meta.proto = {};
-                childMeta.proto = {};
-                child.init = functionWrapper(defaultFunction, "init");
-                childProto.constructor = functionWrapper(defaultFunction, "constructor");
-            }
-            if (supers.length) {
-                mixin.apply(child, supers);
-            }
-            if (sup) {
-                //do this so we mixin our super methods directly but do not ov
-                merge(child, merge(merge({}, sup), child));
-            }
-            childProto._super = child._super = callSuper;
-            childProto._getSuper = child._getSuper = getSuper;
-            childProto._static = child;
-        }
-
-        function declare(sup, proto) {
-            function declared() {
-                this.constructor.apply(this, arguments);
-            }
-
-            __declare(declared, sup, proto);
-            return declared.init() || declared;
-        }
-
-        function singleton(sup, proto) {
-            var retInstance;
-
-            function declaredSingleton() {
-                if (!retInstance) {
-                    this.constructor.apply(this, arguments);
-                    retInstance = this;
-                }
-                return retInstance;
-            }
-
-            __declare(declaredSingleton, sup, proto);
-            return  declaredSingleton.init() || declaredSingleton;
-        }
-
-        Base = declare({
-            instance: {
-                "get": getter,
-                "set": setter
-            },
-
-            "static": {
-                "get": getter,
-                "set": setter,
-                mixin: mixin,
-                extend: extend,
-                as: _export
-            }
-        });
-
-        declare.singleton = singleton;
-        return declare;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = createDeclared();
-        }
-    } else if ("function" === typeof define) {
-        define(createDeclared);
-    } else {
-        this.declare = createDeclared();
-    }
-}());
-
-
-
-
-});
-
-require.define("/node_modules/ht/node_modules/is-extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/ht/node_modules/is-extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    "use strict";
-
-    function defineIsa(extended) {
-
-        var undef, pSlice = Array.prototype.slice;
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return pSlice.call(args, slice);
-        }
-
-        function keys(obj) {
-            var ret = [];
-            for (var i in obj) {
-                if (obj.hasOwnProperty(i)) {
-                    ret.push(i);
-                }
-            }
-            return ret;
-        }
-
-        //taken from node js assert.js
-        //https://github.com/joyent/node/blob/master/lib/assert.js
-        function deepEqual(actual, expected) {
-            // 7.1. All identical values are equivalent, as determined by ===.
-            if (actual === expected) {
-                return true;
-
-            } else if (typeof Buffer !== "undefined" && Buffer.isBuffer(actual) && Buffer.isBuffer(expected)) {
-                if (actual.length !== expected.length) {
-                    return false;
-                }
-
-                for (var i = 0; i < actual.length; i++) {
-                    if (actual[i] !== expected[i]) {
-                        return false;
-                    }
-                }
-
-                return true;
-
-                // 7.2. If the expected value is a Date object, the actual value is
-                // equivalent if it is also a Date object that refers to the same time.
-            } else if (actual instanceof Date && expected instanceof Date) {
-                return actual.getTime() === expected.getTime();
-
-                // 7.3 If the expected value is a RegExp object, the actual value is
-                // equivalent if it is also a RegExp object with the same source and
-                // properties (`global`, `multiline`, `lastIndex`, `ignoreCase`).
-            } else if (actual instanceof RegExp && expected instanceof RegExp) {
-                return actual.source === expected.source &&
-                    actual.global === expected.global &&
-                    actual.multiline === expected.multiline &&
-                    actual.lastIndex === expected.lastIndex &&
-                    actual.ignoreCase === expected.ignoreCase;
-
-                // 7.4. Other pairs that do not both pass typeof value == 'object',
-                // equivalence is determined by ==.
-            } else if (isString(actual) && isString(expected) && actual !== expected) {
-                return false;
-            } else if (typeof actual !== 'object' && typeof expected !== 'object') {
-                return actual === expected;
-
-                // 7.5 For all other Object pairs, including Array objects, equivalence is
-                // determined by having the same number of owned properties (as verified
-                // with Object.prototype.hasOwnProperty.call), the same set of keys
-                // (although not necessarily the same order), equivalent values for every
-                // corresponding key, and an identical 'prototype' property. Note: this
-                // accounts for both named and indexed properties on Arrays.
-            } else {
-                return objEquiv(actual, expected);
-            }
-        }
-
-
-        function objEquiv(a, b) {
-            var key;
-            if (isUndefinedOrNull(a) || isUndefinedOrNull(b)) {
-                return false;
-            }
-            // an identical 'prototype' property.
-            if (a.prototype !== b.prototype) {
-                return false;
-            }
-            //~~~I've managed to break Object.keys through screwy arguments passing.
-            //   Converting to array solves the problem.
-            if (isArguments(a)) {
-                if (!isArguments(b)) {
-                    return false;
-                }
-                a = pSlice.call(a);
-                b = pSlice.call(b);
-                return deepEqual(a, b);
-            }
-            try {
-                var ka = keys(a),
-                    kb = keys(b),
-                    i;
-                // having the same number of owned properties (keys incorporates
-                // hasOwnProperty)
-                if (ka.length !== kb.length) {
-                    return false;
-                }
-                //the same set of keys (although not necessarily the same order),
-                ka.sort();
-                kb.sort();
-                //~~~cheap key test
-                for (i = ka.length - 1; i >= 0; i--) {
-                    if (ka[i] !== kb[i]) {
-                        return false;
-                    }
-                }
-                //equivalent values for every corresponding key, and
-                //~~~possibly expensive deep test
-                for (i = ka.length - 1; i >= 0; i--) {
-                    key = ka[i];
-                    if (!deepEqual(a[key], b[key])) {
-                        return false;
-                    }
-                }
-            } catch (e) {//happens when one is a string literal and the other isn't
-                return false;
-            }
-            return true;
-        }
-
-        function isFunction(obj) {
-            return typeof obj === "function";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        function isEmpty(object) {
-            if (isObject(object)) {
-                for (var i in object) {
-                    if (object.hasOwnProperty(i)) {
-                        return false;
-                    }
-                }
-            } else if (isString(object) && object === "") {
-                return true;
-            }
-            return true;
-        }
-
-        function isBoolean(obj) {
-            return Object.prototype.toString.call(obj) === "[object Boolean]";
-        }
-
-        function isUndefined(obj) {
-            return obj !== null && obj === undef;
-        }
-
-        function isDefined(obj) {
-            return !isUndefined(obj);
-        }
-
-        function isUndefinedOrNull(obj) {
-            return isUndefined(obj) || isNull(obj);
-        }
-
-        function isNull(obj) {
-            return obj !== undef && obj === null;
-        }
-
-
-        var isArguments = function _isArguments(object) {
-            return !isUndefinedOrNull(object) && Object.prototype.toString.call(object) === '[object Arguments]';
-        };
-
-        if (!isArguments(arguments)) {
-            isArguments = function _isArguments(obj) {
-                return !!(obj && obj.hasOwnProperty("callee"));
-            };
-        }
-
-
-        function isInstanceOf(obj, clazz) {
-            if (isFunction(clazz)) {
-                return obj instanceof clazz;
-            } else {
-                return false;
-            }
-        }
-
-        function isRegExp(obj) {
-            return !isUndefinedOrNull(obj) && (obj instanceof RegExp);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isDate(obj) {
-            return (!isUndefinedOrNull(obj) && typeof obj === "object" && obj instanceof Date);
-        }
-
-        function isString(obj) {
-            return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-        }
-
-        function isNumber(obj) {
-            return !isUndefinedOrNull(obj) && (typeof obj === "number" || obj instanceof Number);
-        }
-
-        function isTrue(obj) {
-            return obj === true;
-        }
-
-        function isFalse(obj) {
-            return obj === false;
-        }
-
-        function isNotNull(obj) {
-            return !isNull(obj);
-        }
-
-        function isEq(obj, obj2) {
-            return obj == obj2;
-        }
-
-        function isNeq(obj, obj2) {
-            /*jshint eqeqeq:false*/
-            return obj != obj2;
-        }
-
-        function isSeq(obj, obj2) {
-            return obj === obj2;
-        }
-
-        function isSneq(obj, obj2) {
-            return obj !== obj2;
-        }
-
-        function isIn(obj, arr) {
-            if (isArray(arr)) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (isEq(obj, arr[i])) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        function isNotIn(obj, arr) {
-            return !isIn(obj, arr);
-        }
-
-        function isLt(obj, obj2) {
-            return obj < obj2;
-        }
-
-        function isLte(obj, obj2) {
-            return obj <= obj2;
-        }
-
-        function isGt(obj, obj2) {
-            return obj > obj2;
-        }
-
-        function isGte(obj, obj2) {
-            return obj >= obj2;
-        }
-
-        function isLike(obj, reg) {
-            if (isString(reg)) {
-                reg = new RegExp(reg);
-            }
-            if (isRegExp(reg)) {
-                return reg.test("" + obj);
-            }
-            return false;
-        }
-
-        function isNotLike(obj, reg) {
-            return !isLike(obj, reg);
-        }
-
-        function contains(arr, obj) {
-            return isIn(obj, arr);
-        }
-
-        function notContains(arr, obj) {
-            return !isIn(obj, arr);
-        }
-
-        var isa = {
-            isFunction: isFunction,
-            isObject: isObject,
-            isEmpty: isEmpty,
-            isHash: isHash,
-            isNumber: isNumber,
-            isString: isString,
-            isDate: isDate,
-            isArray: isArray,
-            isBoolean: isBoolean,
-            isUndefined: isUndefined,
-            isDefined: isDefined,
-            isUndefinedOrNull: isUndefinedOrNull,
-            isNull: isNull,
-            isArguments: isArguments,
-            instanceOf: isInstanceOf,
-            isRegExp: isRegExp,
-            deepEqual: deepEqual,
-            isTrue: isTrue,
-            isFalse: isFalse,
-            isNotNull: isNotNull,
-            isEq: isEq,
-            isNeq: isNeq,
-            isSeq: isSeq,
-            isSneq: isSneq,
-            isIn: isIn,
-            isNotIn: isNotIn,
-            isLt: isLt,
-            isLte: isLte,
-            isGt: isGt,
-            isGte: isGte,
-            isLike: isLike,
-            isNotLike: isNotLike,
-            contains: contains,
-            notContains: notContains
-        };
-
-        var tester = {
-            constructor: function () {
-                this._testers = [];
-            },
-
-            noWrap: {
-                tester: function () {
-                    var testers = this._testers;
-                    return function tester(value) {
-                        var isa = false;
-                        for (var i = 0, l = testers.length; i < l && !isa; i++) {
-                            isa = testers[i](value);
-                        }
-                        return isa;
-                    };
-                }
-            }
-        };
-
-        var switcher = {
-            constructor: function () {
-                this._cases = [];
-                this.__default = null;
-            },
-
-            def: function (val, fn) {
-                this.__default = fn;
-            },
-
-            noWrap: {
-                switcher: function () {
-                    var testers = this._cases, __default = this.__default;
-                    return function tester() {
-                        var handled = false, args = argsToArray(arguments), caseRet;
-                        for (var i = 0, l = testers.length; i < l && !handled; i++) {
-                            caseRet = testers[i](args);
-                            if (caseRet.length > 1) {
-                                if (caseRet[1] || caseRet[0]) {
-                                    return caseRet[1];
-                                }
-                            }
-                        }
-                        if (!handled && __default) {
-                            return  __default.apply(this, args);
-                        }
-                    };
-                }
-            }
-        };
-
-        function addToTester(func) {
-            tester[func] = function isaTester() {
-                this._testers.push(isa[func]);
-            };
-        }
-
-        function addToSwitcher(func) {
-            switcher[func] = function isaTester() {
-                var args = argsToArray(arguments, 1), isFunc = isa[func], handler, doBreak = true;
-                if (args.length <= isFunc.length - 1) {
-                    throw new TypeError("A handler must be defined when calling using switch");
-                } else {
-                    handler = args.pop();
-                    if (isBoolean(handler)) {
-                        doBreak = handler;
-                        handler = args.pop();
-                    }
-                }
-                if (!isFunction(handler)) {
-                    throw new TypeError("handler must be defined");
-                }
-                this._cases.push(function (testArgs) {
-                    if (isFunc.apply(isa, testArgs.concat(args))) {
-                        return [doBreak, handler.apply(this, testArgs)];
-                    }
-                    return [false];
-                });
-            };
-        }
-
-        for (var i in isa) {
-            if (isa.hasOwnProperty(i)) {
-                addToSwitcher(i);
-                addToTester(i);
-            }
-        }
-
-        var is = extended.define(isa).expose(isa);
-        is.tester = extended.define(tester);
-        is.switcher = extended.define(switcher);
-        return is;
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineIsa(require("extended"));
-
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineIsa((require("extended")));
-        });
-    } else {
-        this.is = defineIsa(this.extended);
-    }
-
-}).call(this);
-});
-
-require.define("/node_modules/ht/node_modules/array-extended/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
-});
-
-require.define("/node_modules/ht/node_modules/array-extended/index.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    "use strict";
-
-    var arraySlice = Array.prototype.slice;
-
-    function argsToArray(args, slice) {
-        slice = slice || 0;
-        return arraySlice.call(args, slice);
-    }
-
-    function defineArray(extended, is) {
-
-        var isString = is.isString,
-            isArray = is.isArray,
-            isDate = is.isDate,
-            floor = Math.floor,
-            abs = Math.abs,
-            mathMax = Math.max,
-            mathMin = Math.min;
-
-
-        function cross(num, cros) {
-            return reduceRight(cros, function (a, b) {
-                if (!isArray(b)) {
-                    b = [b];
-                }
-                b.unshift(num);
-                a.unshift(b);
-                return a;
-            }, []);
-        }
-
-        function permute(num, cross, length) {
-            var ret = [];
-            for (var i = 0; i < cross.length; i++) {
-                ret.push([num].concat(rotate(cross, i)).slice(0, length));
-            }
-            return ret;
-        }
-
-
-        function intersection(a, b) {
-            var ret = [], aOne;
-            if (isArray(a) && isArray(b) && a.length && b.length) {
-                for (var i = 0, l = a.length; i < l; i++) {
-                    aOne = a[i];
-                    if (indexOf(b, aOne) !== -1) {
-                        ret.push(aOne);
-                    }
-                }
-            }
-            return ret;
-        }
-
-
-        var _sort = (function () {
-
-            var isAll = function (arr, test) {
-                return every(arr, test);
-            };
-
-            var defaultCmp = function (a, b) {
-                return a - b;
-            };
-
-            var dateSort = function (a, b) {
-                return a.getTime() - b.getTime();
-            };
-
-            return function _sort(arr, property) {
-                var ret = [];
-                if (isArray(arr)) {
-                    ret = arr.slice();
-                    if (property) {
-                        if (typeof property === "function") {
-                            ret.sort(property);
-                        } else {
-                            ret.sort(function (a, b) {
-                                var aProp = a[property], bProp = b[property];
-                                if (isString(aProp) && isString(bProp)) {
-                                    return aProp > bProp ? 1 : aProp < bProp ? -1 : 0;
-                                } else if (isDate(aProp) && isDate(bProp)) {
-                                    return aProp.getTime() - bProp.getTime();
-                                } else {
-                                    return aProp - bProp;
-                                }
-                            });
-                        }
-                    } else {
-                        if (isAll(ret, isString)) {
-                            ret.sort();
-                        } else if (isAll(ret, isDate)) {
-                            ret.sort(dateSort);
-                        } else {
-                            ret.sort(defaultCmp);
-                        }
-                    }
-                }
-                return ret;
-            };
-
-        })();
-
-        function indexOf(arr, searchElement) {
-            if (!isArray(arr)) {
-                throw new TypeError();
-            }
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            if (len === 0) {
-                return -1;
-            }
-            var n = 0;
-            if (arguments.length > 2) {
-                n = Number(arguments[2]);
-                if (n !== n) { // shortcut for verifying if it's NaN
-                    n = 0;
-                } else if (n !== 0 && n !== Infinity && n !== -Infinity) {
-                    n = (n > 0 || -1) * floor(abs(n));
-                }
-            }
-            if (n >= len) {
-                return -1;
-            }
-            var k = n >= 0 ? n : mathMax(len - abs(n), 0);
-            for (; k < len; k++) {
-                if (k in t && t[k] === searchElement) {
-                    return k;
-                }
-            }
-            return -1;
-        }
-
-        function lastIndexOf(arr, searchElement) {
-            if (!isArray(arr)) {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            if (len === 0) {
-                return -1;
-            }
-
-            var n = len;
-            if (arguments.length > 2) {
-                n = Number(arguments[2]);
-                if (n !== n) {
-                    n = 0;
-                } else if (n !== 0 && n !== (1 / 0) && n !== -(1 / 0)) {
-                    n = (n > 0 || -1) * floor(abs(n));
-                }
-            }
-
-            var k = n >= 0 ? mathMin(n, len - 1) : len - abs(n);
-
-            for (; k >= 0; k--) {
-                if (k in t && t[k] === searchElement) {
-                    return k;
-                }
-            }
-            return -1;
-        }
-
-        function filter(arr, iterator, scope) {
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            var res = [];
-            for (var i = 0; i < len; i++) {
-                if (i in t) {
-                    var val = t[i]; // in case fun mutates this
-                    if (iterator.call(scope, val, i, t)) {
-                        res.push(val);
-                    }
-                }
-            }
-            return res;
-        }
-
-        function forEach(arr, iterator, scope) {
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-            for (var i = 0, len = arr.length; i < len; ++i) {
-                iterator.call(scope || arr, arr[i], i, arr);
-            }
-            return arr;
-        }
-
-        function every(arr, iterator, scope) {
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            for (var i = 0; i < len; i++) {
-                if (i in t && !iterator.call(scope, t[i], i, t)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        function some(arr, iterator, scope) {
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            for (var i = 0; i < len; i++) {
-                if (i in t && iterator.call(scope, t[i], i, t)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        function map(arr, iterator, scope) {
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            var res = [];
-            for (var i = 0; i < len; i++) {
-                if (i in t) {
-                    res.push(iterator.call(scope, t[i], i, t));
-                }
-            }
-            return res;
-        }
-
-        function reduce(arr, accumulator, curr) {
-            if (!isArray(arr) || typeof accumulator !== "function") {
-                throw new TypeError();
-            }
-            var i = 0, l = arr.length >> 0;
-            if (arguments.length < 3) {
-                if (l === 0) {
-                    throw new TypeError("Array length is 0 and no second argument");
-                }
-                curr = arr[0];
-                i = 1; // start accumulating at the second element
-            } else {
-                curr = arguments[2];
-            }
-            while (i < l) {
-                if (i in arr) {
-                    curr = accumulator.call(undefined, curr, arr[i], i, arr);
-                }
-                ++i;
-            }
-            return curr;
-        }
-
-        function reduceRight(arr, accumulator, curr) {
-            if (!isArray(arr) || typeof accumulator !== "function") {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-
-            // no value to return if no initial value, empty array
-            if (len === 0 && arguments.length === 2) {
-                throw new TypeError();
-            }
-
-            var k = len - 1;
-            if (arguments.length >= 3) {
-                curr = arguments[2];
-            } else {
-                do {
-                    if (k in arr) {
-                        curr = arr[k--];
-                        break;
-                    }
-                }
-                while (true);
-            }
-            while (k >= 0) {
-                if (k in t) {
-                    curr = accumulator.call(undefined, curr, t[k], k, t);
-                }
-                k--;
-            }
-            return curr;
-        }
-
-
-        function toArray(o) {
-            var ret = [];
-            if (o !== null) {
-                var args = argsToArray(arguments);
-                if (args.length === 1) {
-                    if (isArray(o)) {
-                        ret = o;
-                    } else if (is.isHash(o)) {
-                        for (var i in o) {
-                            if (o.hasOwnProperty(i)) {
-                                ret.push([i, o[i]]);
-                            }
-                        }
-                    } else {
-                        ret.push(o);
-                    }
-                } else {
-                    forEach(args, function (a) {
-                        ret = ret.concat(toArray(a));
-                    });
-                }
-            }
-            return ret;
-        }
-
-        function sum(array) {
-            array = array || [];
-            if (array.length) {
-                return reduce(array, function (a, b) {
-                    return a + b;
-                });
-            } else {
-                return 0;
-            }
-        }
-
-        function avg(arr) {
-            arr = arr || [];
-            if (arr.length) {
-                var total = sum(arr);
-                if (is.isNumber(total)) {
-                    return  total / arr.length;
-                } else {
-                    throw new Error("Cannot average an array of non numbers.");
-                }
-            } else {
-                return 0;
-            }
-        }
-
-        function sort(arr, cmp) {
-            return _sort(arr, cmp);
-        }
-
-        function min(arr, cmp) {
-            return _sort(arr, cmp)[0];
-        }
-
-        function max(arr, cmp) {
-            return _sort(arr, cmp)[arr.length - 1];
-        }
-
-        function difference(arr1) {
-            var ret = arr1, args = flatten(argsToArray(arguments, 1));
-            if (isArray(arr1)) {
-                ret = filter(arr1, function (a) {
-                    return indexOf(args, a) === -1;
-                });
-            }
-            return ret;
-        }
-
-        function removeDuplicates(arr) {
-            var ret = arr;
-            if (isArray(arr)) {
-                ret = reduce(arr, function (a, b) {
-                    if (indexOf(a, b) === -1) {
-                        return a.concat(b);
-                    } else {
-                        return a;
-                    }
-                }, []);
-            }
-            return ret;
-        }
-
-
-        function unique(arr) {
-            return removeDuplicates(arr);
-        }
-
-
-        function rotate(arr, numberOfTimes) {
-            var ret = arr.slice();
-            if (typeof numberOfTimes !== "number") {
-                numberOfTimes = 1;
-            }
-            if (numberOfTimes && isArray(arr)) {
-                if (numberOfTimes > 0) {
-                    ret.push(ret.shift());
-                    numberOfTimes--;
-                } else {
-                    ret.unshift(ret.pop());
-                    numberOfTimes++;
-                }
-                return rotate(ret, numberOfTimes);
-            } else {
-                return ret;
-            }
-        }
-
-        function permutations(arr, length) {
-            var ret = [];
-            if (isArray(arr)) {
-                var copy = arr.slice(0);
-                if (typeof length !== "number") {
-                    length = arr.length;
-                }
-                if (!length) {
-                    ret = [
-                        []
-                    ];
-                } else if (length <= arr.length) {
-                    ret = reduce(arr, function (a, b, i) {
-                        var ret;
-                        if (length > 1) {
-                            ret = permute(b, rotate(copy, i).slice(1), length);
-                        } else {
-                            ret = [
-                                [b]
-                            ];
-                        }
-                        return a.concat(ret);
-                    }, []);
-                }
-            }
-            return ret;
-        }
-
-        function zip() {
-            var ret = [];
-            var arrs = argsToArray(arguments);
-            if (arrs.length > 1) {
-                var arr1 = arrs.shift();
-                if (isArray(arr1)) {
-                    ret = reduce(arr1, function (a, b, i) {
-                        var curr = [b];
-                        for (var j = 0; j < arrs.length; j++) {
-                            var currArr = arrs[j];
-                            if (isArray(currArr) && !is.isUndefined(currArr[i])) {
-                                curr.push(currArr[i]);
-                            } else {
-                                curr.push(null);
-                            }
-                        }
-                        a.push(curr);
-                        return a;
-                    }, []);
-                }
-            }
-            return ret;
-        }
-
-        function transpose(arr) {
-            var ret = [];
-            if (isArray(arr) && arr.length) {
-                var last;
-                forEach(arr, function (a) {
-                    if (isArray(a) && (!last || a.length === last.length)) {
-                        forEach(a, function (b, i) {
-                            if (!ret[i]) {
-                                ret[i] = [];
-                            }
-                            ret[i].push(b);
-                        });
-                        last = a;
-                    }
-                });
-            }
-            return ret;
-        }
-
-        function valuesAt(arr, indexes) {
-            var ret = [];
-            indexes = argsToArray(arguments);
-            arr = indexes.shift();
-            if (isArray(arr) && indexes.length) {
-                for (var i = 0, l = indexes.length; i < l; i++) {
-                    ret.push(arr[indexes[i]] || null);
-                }
-            }
-            return ret;
-        }
-
-        function union() {
-            var ret = [];
-            var arrs = argsToArray(arguments);
-            if (arrs.length > 1) {
-                ret = removeDuplicates(reduce(arrs, function (a, b) {
-                    return a.concat(b);
-                }, []));
-            }
-            return ret;
-        }
-
-        function intersect() {
-            var collect = [], set;
-            var args = argsToArray(arguments);
-            if (args.length > 1) {
-                //assume we are intersections all the lists in the array
-                set = args;
-            } else {
-                set = args[0];
-            }
-            if (isArray(set)) {
-                var x = set.shift();
-                collect = reduce(set, function (a, b) {
-                    return intersection(a, b);
-                }, x);
-            }
-            return removeDuplicates(collect);
-        }
-
-        function powerSet(arr) {
-            var ret = [];
-            if (isArray(arr) && arr.length) {
-                ret = reduce(arr, function (a, b) {
-                    var ret = map(a, function (c) {
-                        return c.concat(b);
-                    });
-                    return a.concat(ret);
-                }, [
-                    []
-                ]);
-            }
-            return ret;
-        }
-
-        function cartesian(a, b) {
-            var ret = [];
-            if (isArray(a) && isArray(b) && a.length && b.length) {
-                ret = cross(a[0], b).concat(cartesian(a.slice(1), b));
-            }
-            return ret;
-        }
-
-        function compact(arr) {
-            var ret = [];
-            if (isArray(arr) && arr.length) {
-                ret = filter(arr, function (item) {
-                    return !is.isUndefinedOrNull(item);
-                });
-            }
-            return ret;
-        }
-
-        function multiply(arr, times) {
-            times = is.isNumber(times) ? times : 1;
-            if (!times) {
-                //make sure times is greater than zero if it is zero then dont multiply it
-                times = 1;
-            }
-            arr = toArray(arr || []);
-            var ret = [], i = 0;
-            while (++i <= times) {
-                ret = ret.concat(arr);
-            }
-            return ret;
-        }
-
-        function flatten(arr) {
-            var set;
-            var args = argsToArray(arguments);
-            if (args.length > 1) {
-                //assume we are intersections all the lists in the array
-                set = args;
-            } else {
-                set = toArray(arr);
-            }
-            return reduce(set, function (a, b) {
-                return a.concat(b);
-            }, []);
-        }
-
-        function pluck(arr, prop) {
-            prop = prop.split(".");
-            var result = arr.slice(0);
-            forEach(prop, function (prop) {
-                var exec = prop.match(/(\w+)\(\)$/);
-                result = map(result, function (item) {
-                    return exec ? item[exec[1]]() : item[prop];
-                });
-            });
-            return result;
-        }
-
-        function invoke(arr, func, args) {
-            args = argsToArray(arguments, 2);
-            return map(arr, function (item) {
-                var exec = isString(func) ? item[func] : func;
-                return exec.apply(item, args);
-            });
-        }
-
-
-        var array = {
-            toArray: toArray,
-            sum: sum,
-            avg: avg,
-            sort: sort,
-            min: min,
-            max: max,
-            difference: difference,
-            removeDuplicates: removeDuplicates,
-            unique: unique,
-            rotate: rotate,
-            permutations: permutations,
-            zip: zip,
-            transpose: transpose,
-            valuesAt: valuesAt,
-            union: union,
-            intersect: intersect,
-            powerSet: powerSet,
-            cartesian: cartesian,
-            compact: compact,
-            multiply: multiply,
-            flatten: flatten,
-            pluck: pluck,
-            invoke: invoke,
-            forEach: forEach,
-            map: map,
-            filter: filter,
-            reduce: reduce,
-            reduceRight: reduceRight,
-            some: some,
-            every: every,
-            indexOf: indexOf,
-            lastIndexOf: lastIndexOf
-        };
-
-        return extended.define(isArray, array).expose(array);
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineArray(require("extended"), require("is-extended"));
-        }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineArray(require("extended"), require("is-extended"));
-        });
-    } else {
-        this.arrayExtended = defineArray(this.extended, this.isExtended);
     }
 
 }).call(this);
@@ -10436,7 +7814,7 @@ var extd = require("./extended"),
     removeDuplicates = extd.removeDuplicates,
     forEach = extd.forEach,
     some = extd.some,
-    indexOf = extd.indexOf,
+    flatten = extd.flatten,
     intersect = extd.intersect,
     declare = extd.declare,
     object = extd.hash,
@@ -10504,13 +7882,12 @@ var Node = declare({
 
         __propagate: function (method, assertable, outNodes) {
             outNodes = outNodes || this.nodes;
-            var entrySet = outNodes.entrySet(), i = entrySet.length - 1, entry, outNode, paths, continuingPaths;
+            var entrySet = outNodes.entrySet(), i = entrySet.length - 1;
             for (; i >= 0; i--) {
-                entry = entrySet[i];
-                outNode = entry.key;
-                paths = entry.value;
+                var entry = entrySet[i], outNode = entry.key, paths = entry.value;
                 if (assertable.paths) {
-                    if ((continuingPaths = intersect(paths, assertable.paths)).length) {
+                    var continuingPaths = intersect(paths, assertable.paths);
+                    if (continuingPaths.length) {
                         outNode[method]({fact: assertable.fact, factHash: {}, paths: continuingPaths});
                     }
                 } else {
@@ -10645,33 +8022,33 @@ var ReferenceNode = AlphaNode.extend({
 
         //used by NotNode to avoid creating match Result for efficiency
         isMatch: function (leftContext, rightContext) {
-            var leftMatch = leftContext.match,
-                fh = leftMatch.factHash,
-                alias = this.__alias,
+            var match = leftContext.match.factHash,
                 rightFact = rightContext.fact;
-            fh[alias] = rightFact.object;
-            var ret = this.constraint.assert(fh);
-            fh[alias] = null;
-            return ret;
-
+            var fh = {};
+            fh[this.__alias] = rightFact.object;
+            var vars = this.__variables, i = vars.length - 1;
+            for (; i >= 0; i--) {
+                var v = vars[i];
+                fh[v] = match[v];
+            }
+            return this.constraint.assert(fh);
         },
 
 
         match: function (leftContext, rightContext) {
-            var leftMatch = leftContext.match,
-                fh = leftMatch.factHash,
-                alias = this.__alias,
-                rightFact = rightContext.fact,
+            var leftMatch = leftContext.match, match = leftMatch.factHash, constraint = this.constraint, alias = this.__alias, rightFact = rightContext.fact;
+            var fh = match,
                 ro = fh[alias] = rightFact.object;
-            if (this.constraint.assert(fh)) {
+            if (constraint.assert(fh)) {
                 var mr = new MatchResult().merge(leftMatch);
                 mr.isMatch = true;
                 mr.factHash[alias] = ro;
                 mr.recency.push(rightFact.recency);
                 return mr;
+            } else {
+                fh[alias] = null;
+                return new MatchResult();
             }
-            fh[alias] = null;
-            return new MatchResult();
         },
         toString: function () {
             return "Reference Node" + this._super(arguments);
@@ -10679,57 +8056,6 @@ var ReferenceNode = AlphaNode.extend({
     }
 });
 
-
-var JoinReferenceNode = Node.extend({
-
-    instance: {
-
-        addConstraint: function (constraint) {
-            if (!this.constraint) {
-                this.constraint = constraint;
-            } else {
-                this.constraint = this.constraint.merge(constraint);
-            }
-            this.__alias = this.constraint.get("alias");
-            this.__variables = this.constraint.get("variables");
-        },
-
-        isMatch: function (leftContext, rightContext) {
-            if (!this.constraint) {
-                return true;
-            }
-            var fh = leftContext.match.factHash,
-                alias = this.__alias,
-                ret;
-            fh[alias] = rightContext.fact.object;
-            ret = this.constraint.assert(fh);
-            fh[alias] = null;
-            return ret;
-        },
-
-        match: function (leftContext, rightContext) {
-            if (!this.constraint) {
-                return leftContext.match.merge(rightContext.match);
-            }
-            var leftMatch = leftContext.match,
-                fh = leftMatch.factHash,
-                alias = this.__alias,
-                rightFact = rightContext.fact,
-                ro = fh[alias] = rightFact.object;
-            if (this.constraint.assert(fh)) {
-                var mr = rightContext.match.merge(leftMatch);
-                mr.isMatch = true;
-                mr.factHash[alias] = ro;
-                mr.recency.push(rightFact.recency);
-                return mr;
-            }
-            fh[alias] = null;
-            return new MatchResult();
-        }
-
-    }
-
-});
 
 var EqualityNode = AlphaNode.extend({
     instance: {
@@ -10859,11 +8185,9 @@ var JoinNode = Node.extend({
     instance: {
         constructor: function () {
             this._super([]);
-            this.constraint = new JoinReferenceNode();
             this.leftMemory = new HashTable();
             this.rightMemory = new HashTable();
-            this.leftTuples = [];
-            this.rightTuples = [];
+            this.refNodes = [];
             this.__count = count++;
         },
 
@@ -10891,13 +8215,11 @@ var JoinNode = Node.extend({
         },
 
         retractResolve: function (match) {
-            var es = this.leftMemory.values(), j = es.length - 1, leftTuples = this.leftTuples;
+            var es = this.leftMemory.values(), j = es.length - 1;
             for (; j >= 0; j--) {
-                var contexts = es[j], i = contexts.length - 1, context;
+                var contexts = es[j], i = contexts.length - 1;
                 for (; i >= 0; i--) {
-                    context = contexts[i];
-                    if (this.resolve(context.match, match)) {
-                        leftTuples.splice(indexOf(leftTuples, context), 1);
+                    if (this.resolve(contexts[i].match, match)) {
                         contexts.splice(i, 1);
                     }
                 }
@@ -10906,39 +8228,34 @@ var JoinNode = Node.extend({
         },
 
         retractLeft: function (fact) {
-            var contexts = this.leftMemory.remove(fact), tuples = this.leftTuples;
-            if (contexts) {
-                for (var i = 0, l = contexts.length; i < l; i++) {
-                    tuples.splice(indexOf(tuples, contexts[i]), 1);
-                }
-            }
+            this.leftMemory.remove(fact.object);
             this.propagateRetract(fact);
         },
 
         retractRight: function (fact) {
-            var context = this.rightMemory.remove(fact), tuples = this.rightTuples;
-            if (context) {
-                tuples.splice(indexOf(tuples, context), 1);
-            }
+            this.rightMemory.remove(fact.object);
             this.propagateRetract(fact);
         },
 
         assertLeft: function (context) {
             this.__addToLeftMemory(context);
-            var rm = this.rightTuples, i = rm.length - 1, thisConstraint = this.constraint, mr;
+            var rm = this.rightMemory.values(), i = rm.length - 1;
             for (; i >= 0; i--) {
-                if ((mr = thisConstraint.match(context, rm[i])).isMatch) {
+                var rightContext = rm[i];
+                var mr = this.__matchRefNodes(context, rightContext);
+                if (mr.isMatch) {
                     this.propagateAssert({fact: context.fact, match: mr});
                 }
             }
         },
 
         assertRight: function (context) {
-            this.rightMemory.put(context.fact, context);
-            this.rightTuples.push(context);
-            var fl = this.leftTuples, i = fl.length - 1, thisConstraint = this.constraint, mr;
+            this.rightMemory.put(context.fact.object, context);
+            var fl = flatten(this.leftMemory.values()), i = fl.length - 1;
             for (; i >= 0; i--) {
-                if ((mr = thisConstraint.match(fl[i], context)).isMatch) {
+                var leftContext = fl[i];
+                var mr = this.__matchRefNodes(leftContext, context);
+                if (mr.isMatch) {
                     this.propagateAssert({fact: context.fact, match: mr});
                 }
             }
@@ -10948,14 +8265,31 @@ var JoinNode = Node.extend({
             this.__propagate("retractResolve", context);
         },
 
+        __matchRefNodes: function (leftContext, rightContext) {
+            var mr = rightContext.match, refNodes = this.refNodes;
+            if (!refNodes.length) {
+                return leftContext.match.merge(mr);
+            } else {
+                var i = refNodes.length - 1;
+                for (; i >= 0; i--) {
+                    var refMr = refNodes[i].match(leftContext, rightContext);
+                    if (refMr.isMatch) {
+                        mr = mr.merge(refMr);
+                    } else {
+                        return refMr;
+                    }
+                }
+            }
+            return mr;
+        },
+
         __addToLeftMemory: function (context) {
-            var o = context.fact;
+            var o = context.fact.object;
             var lm = this.leftMemory.get(o);
             if (!lm) {
                 lm = [];
                 this.leftMemory.put(o, lm);
             }
-            this.leftTuples.push(context);
             lm.push(context);
             return this;
         }
@@ -10980,9 +8314,8 @@ var NotNode = JoinNode.extend({
 
         retractRight: function (fact) {
             var rightMemory = this.rightMemory;
-            var rightContext = rightMemory.remove(fact);
+            var rightContext = rightMemory.remove(fact.object);
             if (rightContext) {
-                this.rightTuples.splice(indexOf(this.rightTuples, rightContext), 1);
                 var fl = rightContext.blocking, leftContext;
                 var rValues = rightMemory.values(), k = rValues.length, j, rc;
                 while ((leftContext = fl.pop())) {
@@ -11003,11 +8336,11 @@ var NotNode = JoinNode.extend({
 
 
         retractLeft: function (fact) {
-            var contexts = this.leftMemory.remove(fact), i, l;
-            if (!contexts) {
-                var leftContexts = this.leftTupleMemory.remove(fact), leftContext;
+            var o = fact.object, context = this.leftMemory.remove(o);
+            if (!context) {
+                var leftContexts = this.leftTupleMemory.remove(o), leftContext;
                 if (leftContexts) {
-                    for (i = 0, l = leftContexts.length; i < l; i++) {
+                    for (var i = 0, l = leftContexts.length; i < l; i++) {
                         leftContext = leftContexts[i];
                         var blocking = leftContext.blocker.blocking;
                         for (var j = 0, k = blocking.length; j < k; j++) {
@@ -11018,17 +8351,13 @@ var NotNode = JoinNode.extend({
                         }
                     }
                 }
-            } else {
-                var tuples = this.leftTuples;
-                for (i = 0, l = contexts.length; i < l; i++) {
-                    tuples.splice(indexOf(tuples, contexts[i]), 1);
-                }
             }
             this.propagateRetract(fact);
         },
 
         assertLeft: function (context) {
-            var values = this.rightTuples;
+            var rm = this.rightMemory;
+            var values = rm.values();
             for (var i = 0, l = values.length; i < l; i++) {
                 if (this.__matchRefNodes(context, values[i])) {
                     //blocked so return
@@ -11040,9 +8369,9 @@ var NotNode = JoinNode.extend({
 
         assertRight: function (context) {
             context.blocking = [];
-            this.rightTuples.push(context);
-            this.rightMemory.put(context.fact, context);
-            var fl = this.leftTuples, i = fl.length - 1, leftContext;
+            var leftMemory = this.leftMemory;
+            this.rightMemory.put(context.fact.object, context);
+            var fl = flatten(leftMemory.values()), i = fl.length - 1, leftContext;
             for (; i >= 0; i--) {
                 leftContext = fl[i];
                 if (this.__matchRefNodes(leftContext, context)) {
@@ -11056,12 +8385,11 @@ var NotNode = JoinNode.extend({
         },
 
         __removeFromLeftMemory: function (context) {
-            var leftMemories = this.leftMemory.get(context.fact), lc, tuples = this.leftTuples;
+            var leftMemories = this.leftMemory.get(context.fact.object), lc;
             for (var i = 0, l = leftMemories.length; i < l; i++) {
                 lc = leftMemories[i];
                 if (lc === context) {
                     leftMemories.splice(i, 1);
-                    tuples.splice(indexOf(tuples, lc), 1);
                     break;
                 }
             }
@@ -11069,7 +8397,7 @@ var NotNode = JoinNode.extend({
         },
 
         __removeFromLeftTupleMemory: function (context) {
-            var leftMemories = this.leftTupleMemory.get(context.fact), lc;
+            var leftMemories = this.leftTupleMemory.get(context.fact.object), lc;
             for (var i = 0, l = leftMemories.length; i < l; i++) {
                 lc = leftMemories[i];
                 if (lc === context) {
@@ -11081,19 +8409,24 @@ var NotNode = JoinNode.extend({
         },
 
         __addToLeftTupleMemory: function (context) {
-            var o = context.fact;
+            var o = context.fact.object;
             var lm = this.leftTupleMemory.get(o);
             if (!lm) {
                 lm = [];
                 this.leftTupleMemory.put(o, lm);
+            } else if (lm.indexOf(context) !== -1) {
+                return this;
             }
             lm.push(context);
             return this;
         },
 
         __matchRefNodes: function (leftContext, rightContext) {
-            if (!this.constraint.isMatch(leftContext, rightContext)) {
-                return false;
+            var refNodes = this.refNodes, i = refNodes.length - 1;
+            for (; i >= 0; i--) {
+                if (!refNodes[i].isMatch(leftContext, rightContext)) {
+                    return false;
+                }
             }
             leftContext.blocker = rightContext;
             rightContext.blocking.push(leftContext);
@@ -11323,7 +8656,9 @@ declare({
                     node = this.__createPropertyNode(constraint);
                 } else if (constraint instanceof ReferenceConstraint) {
                     node = this.__createReferenceNode(constraint);
-                    outNode.constraint.addConstraint(constraint);
+                    if (outNode.refNodes) {
+                        outNode.refNodes.push(node);
+                    }
                 } else {
                     node = this.__createEqualityNode(constraint);
                 }
@@ -11853,7 +9188,6 @@ require.define("/lib/constraint.js",function(require,module,exports,__dirname,__
 
 var extd = require("./extended"),
     object = extd.hash,
-    merge = extd.merge,
     keys = object.keys,
     forEach = extd.forEach,
     filter = extd.filter,
@@ -11943,24 +9277,12 @@ Constraint.extend({
         constructor: function (constraint, options) {
             this._super(["reference", constraint]);
             options = options || {};
-            this._options = options;
             this._matcher = constraintMatcher.getMatcher(constraint, options.scope || {});
         },
 
         "assert": function (values) {
             return this._matcher(values);
         },
-
-        merge: function (that) {
-            var ret = this;
-            if (that instanceof this._static) {
-                ret = new this._static([this.constraint, that.constraint, "and"], merge({}, this._options, this._options));
-                ret._alias = this._alias || that._alias;
-                ret.vars = this.vars.concat(that.vars);
-            }
-            return ret;
-        },
-
 
         getters: {
             variables: function () {
@@ -13414,19 +10736,6 @@ declare({
             fact.recency = this.recency++;
             this.facts.push(fact);
             return fact;
-        },
-
-        modifyFact: function (fact) {
-            var facts = this.facts, l = facts.length;
-            for (var i = 0; i < l; i++) {
-                var existingFact = facts[i];
-                if (existingFact.equals(fact)) {
-                    fact.recency = this.recency++;
-                    return existingFact;
-                }
-            }
-            //if we made it here we did not find the fact
-            throw new Error("the fact to modify does not exist");
         },
 
         retractFact: function (fact) {

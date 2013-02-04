@@ -88,30 +88,37 @@ it.describe("Flow",function (it) {
 
     it.describe("not rule", function (it) {
 
-        var called = 0;
+        it.describe("with a single fact", function (it) {
+            var called = 0;
 
-        var flow = nools.flow("hello world flow 2", function (flow) {
-            flow.rule("hello rule", ["not", String, "s", "s == 'hello'"], function () {
-                called++;
+            var flow = nools.flow("notRuleSingleFact", function (flow) {
+                flow.rule("hello rule", ["not", String, "s", "s == 'hello'"], function () {
+                    called++;
+                });
             });
-        });
 
-        it.should("call when a string that does not equal 'hello'", function () {
-            flow.getSession("world").match();
-            assert.equal(called, 1);
-        });
+            it.should("call when a string that does not equal 'hello'", function () {
+                flow.getSession("world").match();
+                assert.equal(called, 1);
+            });
 
-        it.should(" not call when a string that does equal 'hello'", function () {
-            called = 0;
-            flow.getSession("hello").match();
-            assert.equal(called, 0);
-        });
-
-        it.should(" not call when a string that does equal 'hello' and one that does not", function () {
-            called = 0;
-            return flow.getSession("hello", "world").match().then(function () {
+            it.should(" not call when a string that does equal 'hello'", function () {
+                called = 0;
+                flow.getSession("hello").match();
                 assert.equal(called, 0);
             });
+
+            it.should(" not call when a string that does equal 'hello' and one that does not", function () {
+                called = 0;
+                return flow.getSession("hello", "world").match().then(function () {
+                    assert.equal(called, 0);
+                });
+            });
+
+        });
+
+        it.describe("with multiple facts", function (it) {
+
         });
 
     });

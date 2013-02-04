@@ -1,0 +1,27 @@
+
+rule Credit {
+    when {
+        cashflow : Cashflow cashflow.get('type') == 'credit' {account: account};
+        not(c: Cashflow  c.account == account && c.get('date') < cashflow.get('date'));
+    }
+    then {
+        console.log('Credit: ' + cashflow.get('date') + '::' + cashflow.get('amount'));
+        account.set("balance", account.get("balance") + cashflow.get("amount"));
+        console.log("Account: " + account.get("accountNo") + " - new balance: " + account.get("balance"));
+        retract(cashflow);
+    }
+}
+
+rule Debit {
+    when {
+        cashflow : Cashflow cashflow.get('type') == 'debit' {account: account};
+        not(c: Cashflow  c.account == account && c.get('date') < cashflow.get('date'));
+    }
+    then {
+        console.log('Debit: ' + cashflow.get('date') + '::' + cashflow.get('amount'));
+        account.set("balance", account.get("balance") - cashflow.get("amount"));
+        console.log("Account: " + account.get("accountNo") + " - new balance: " + account.get("balance"));
+        retract(cashflow);
+    }
+}
+
