@@ -1008,7 +1008,6 @@ var extd = require("./extended"),
     declare = extd.declare,
     Promise = extd.Promise,
     when = extd.when,
-    bind = extd.bind,
     AVLTree = extd.AVLTree,
     nodes = require("./nodes"),
     EventEmitter = require("events").EventEmitter,
@@ -1063,7 +1062,7 @@ var FactHash = declare({
         remove: function (v) {
             var facts = v.match.facts, j = facts.length - 1, mv = this.memoryValues, m = this.memory;
             for (; j >= 0; j--) {
-                var i = indexOf(m, facts[j].object);
+                var i = indexOf(m, facts[j]);
                 var arr = mv[i], index = indexOf(arr, v);
                 arr.splice(index, 1);
             }
@@ -1073,7 +1072,7 @@ var FactHash = declare({
             var facts = insert.match.facts, mv = this.memoryValues, m = this.memory;
             var k = facts.length - 1;
             for (; k >= 0; k--) {
-                var o = facts[k].object, i = indexOf(m, o), arr = mv[i];
+                var o = facts[k], i = indexOf(m, o), arr = mv[i];
                 if (!arr) {
                     arr = mv[m.push(o) - 1] = [];
                 }
@@ -1117,9 +1116,9 @@ var AgendaTree = declare({
         },
 
         removeByFact: function (node, fact) {
-            var rule = this.rules[node.name], tree = rule.tree, factTable = rule.factTable, obj = fact.object;
+            var rule = this.rules[node.name], tree = rule.tree, factTable = rule.factTable;
             var ma = this.masterAgenda;
-            var remove = factTable.get(obj) || [];
+            var remove = factTable.get(fact) || [];
             var i = remove.length - 1;
             for (; i >= 0; i--) {
                 var r = remove[i];
@@ -14883,59 +14882,49 @@ var PropertyNode = AlphaNode.extend({
     }
 });
 
-var ReferenceNode = AlphaNode.extend({
-    instance: {
-
-        constructor: function () {
-            this._super(arguments);
-            this.__alias = this.constraint.get("alias");
-            this.__variables = this.constraint.get("variables");
-        },
-
-        //used by NotNode to avoid creating match Result for efficiency
-        isMatch: function (leftContext, rightContext) {
-            var leftMatch = leftContext.match,
-                fh = leftMatch.factHash,
-                alias = this.__alias,
-                rightFact = rightContext.fact;
-            fh[alias] = rightFact.object;
-            var ret = this.constraint.assert(fh);
-            fh[alias] = null;
-            return ret;
-
-        },
-
-
-        match: function (leftContext, rightContext) {
-            var leftMatch = leftContext.match,
-                fh = leftMatch.factHash,
-                alias = this.__alias,
-                rightFact = rightContext.fact,
-                ro = fh[alias] = rightFact.object;
-            if (this.constraint.assert(fh)) {
-                var mr = new MatchResult().merge(leftMatch);
-                mr.isMatch = true;
-                mr.factHash[alias] = ro;
-                mr.recency.push(rightFact.recency);
-                return mr;
-            }
-            fh[alias] = null;
-            return new MatchResult();
-        },
-        toString: function () {
-            return "Reference Node" + this._super(arguments);
-        }
-    }
-});
-
-var called = 0
+var called = 0;
 var JoinReferenceNode = Node.extend({
 
     instance: {
 
         constructor: function () {
             this._super(arguments);
-            this._cache = {};
+            this.__fh = {};
+            this.__lc = this.__rc = null;
+        },
+
+        setLeftContext: function (lc) {
+            this.__lc = lc;
+            var newFh = lc.match.factHash, fh = this.__fh;
+            for (var i in newFh) {
+                fh[i] = newFh[i];
+            }
+            return this;
+        },
+
+        setRightContext: function (rc) {
+            this.__fh[this.__alias] = (this.__rc = rc).fact.object;
+            return this;
+        },
+
+        clearContexts: function () {
+            this.__fh = {};
+            this.__lc = null;
+            this.__rc = null;
+            return this;
+        },
+
+        clearRightContext: function () {
+            this.__rc = null;
+            this.__fh[this.__alias] = null;
+            return this;
+        },
+
+        clearLeftContext: function () {
+            this.__lc = null;
+            var fh = this.__fh = {}, rc = this.__rc;
+            fh[this.__alias] = rc ? rc.fact.object : null;
+            return this;
         },
 
         addConstraint: function (constraint) {
@@ -14954,38 +14943,28 @@ var JoinReferenceNode = Node.extend({
             }
         },
 
-        isMatch: function (leftContext, rightContext) {
-            if (!this.constraint) {
-                return false;
+        isMatch: function () {
+            if (this.constraint) {
+                return this.constraint.assert(this.__fh);
             }
-            var fh = leftContext.match.factHash,
-                alias = this.__alias,
-                ret;
-            fh[alias] = rightContext.fact.object;
-            ret = !this.constraint.assert(fh);
-            fh[alias] = null;
-            return ret;
+            return true;
+
 
         },
 
-        match: function (leftContext, rightContext) {
+        match: function () {
             if (!this.constraint) {
-                return leftContext.match.merge(rightContext.match);
+                return this.__lc.match.merge(this.__rc.match);
             }
-            var leftMatch = leftContext.match,
-                fh = leftMatch.factHash,
-                alias = this.__alias,
-                rightFact = rightContext.fact,
-                ro = fh[alias] = rightFact.object;
-            if (this.constraint.assert(fh)) {
-                var mr = rightContext.match.merge(leftMatch);
+            var rightContext = this.__rc;
+            if (this.constraint.assert(this.__fh)) {
+                var mr = rightContext.match.merge(this.__lc.match);
+                mr.factHash[this.__alias] = rightContext.fact.object;
                 mr.isMatch = true;
-                mr.factHash[alias] = ro;
-                mr.recency.push(rightFact.recency);
+                mr.recency.push(rightContext.fact.recency);
                 return mr;
             }
-            fh[alias] = null;
-            return new MatchResult();
+            return {isMatch: false};
         }
 
     }
@@ -15037,7 +15016,7 @@ var BridgeNode = Node.extend({
         },
 
         assert: function (assertable) {
-            var mr = new MatchResult(assertable), constraints = this.constraints;
+            var mr = new MatchResult(assertable);
             mr.isMatch = true;
             var fact = assertable.fact, o = fact.object, fh = mr.factHash, variables = this.variables;
             fh[this.alias] = o;
@@ -15190,11 +15169,13 @@ var JoinNode = Node.extend({
             var fact = context.fact;
             this.__addToLeftMemory(context);
             var rm = this.rightTuples, i = rm.length - 1, thisConstraint = this.constraint, mr;
+            thisConstraint.setLeftContext(context);
             for (; i >= 0; i--) {
-                if ((mr = thisConstraint.match(context, rm[i])).isMatch) {
+                if ((mr = thisConstraint.setRightContext(rm[i]).match()).isMatch) {
                     this.propagateAssert({fact: fact, match: mr});
                 }
             }
+            thisConstraint.clearContexts();
         },
 
         assertRight: function (context) {
@@ -15202,11 +15183,13 @@ var JoinNode = Node.extend({
             this.rightMemory[fact.id] = context;
             this.rightTuples.push(context);
             var fl = this.leftTuples, i = fl.length - 1, thisConstraint = this.constraint, mr;
+            thisConstraint.setRightContext(context);
             for (; i >= 0; i--) {
-                if ((mr = thisConstraint.match(fl[i], context)).isMatch) {
+                if ((mr = thisConstraint.setLeftContext(fl[i]).match()).isMatch) {
                     this.propagateAssert({fact: fact, match: mr});
                 }
             }
+            thisConstraint.clearContexts();
         },
 
         _propagateRetractResolve: function (context) {
@@ -15245,7 +15228,7 @@ var NotNode = JoinNode.extend({
 
         retractRight: function (fact) {
             var rightMemory = this.rightMemory;
-            var rightContext = rightMemory[fact.id];
+            var rightContext = rightMemory[fact.id], thisConstraint = this.constraint;
             delete rightMemory[fact.id];
             if (rightContext) {
                 var index = indexOf(this.rightTuples, rightContext);
@@ -15254,9 +15237,13 @@ var NotNode = JoinNode.extend({
                 var rValues = this.rightTuples, k = rValues.length, rc, j;
                 while ((leftContext = fl.pop())) {
                     leftContext.blocker = null;
+                    thisConstraint.setLeftContext(leftContext);
                     for (j = index; j < k; j++) {
                         rc = rValues[j];
-                        if (this.__matchRefNodes(leftContext, rc)) {
+                        if (thisConstraint.setRightContext(rc).isMatch()) {
+                            leftContext.blocker = rc;
+                            rc.blocking.push(leftContext);
+                            this.__addToLeftTupleMemory(leftContext);
                             break;
                         }
                     }
@@ -15265,6 +15252,7 @@ var NotNode = JoinNode.extend({
                         this.__addToLeftMemory(leftContext).propagateAssert({match: leftContext.match, fact: leftContext.fact});
                     }
                 }
+                thisConstraint.clearContexts();
             }
         },
 
@@ -15292,13 +15280,18 @@ var NotNode = JoinNode.extend({
         },
 
         assertLeft: function (context) {
-            var values = this.rightTuples;
+            var values = this.rightTuples, thisConstraint = this.constraint;
+            thisConstraint.setLeftContext(context);
             for (var i = 0, l = values.length; i < l; i++) {
-                if (this.__matchRefNodes(context, values[i])) {
-                    //blocked so return
+                var rc = values[i];
+                if (thisConstraint.setRightContext(rc).isMatch()) {
+                    context.blocker = rc;
+                    rc.blocking.push(context);
+                    this.__addToLeftTupleMemory(context);
                     return;
                 }
             }
+            thisConstraint.clearContexts();
             this.__addToLeftMemory(context).propagateAssert({match: context.match, fact: context.fact});
         },
 
@@ -15306,17 +15299,20 @@ var NotNode = JoinNode.extend({
             context.blocking = [];
             this.rightTuples.push(context);
             this.rightMemory[context.fact.id] = context;
-            var fl = this.leftTuples, i = fl.length - 1, leftContext;
+            var fl = this.leftTuples, i = fl.length - 1, leftContext, thisConstraint = this.constraint;
+            thisConstraint.setRightContext(context);
             for (; i >= 0; i--) {
                 leftContext = fl[i];
-                if (this.__matchRefNodes(leftContext, context)) {
+                if (thisConstraint.setLeftContext(leftContext).isMatch()) {
                     this._propagateRetractResolve(leftContext.match);
                     //blocked so remove from memory
                     this.__removeFromLeftMemory(leftContext);
-
-
+                    leftContext.blocker = context;
+                    context.blocking.push(leftContext);
+                    this.__addToLeftTupleMemory(leftContext);
                 }
             }
+            thisConstraint.clearContexts();
         },
 
         __removeFromLeftMemory: function (context) {
@@ -15353,19 +15349,6 @@ var NotNode = JoinNode.extend({
             }
             lm.push(context);
             return this;
-        },
-
-        __matchRefNodes: function (leftContext, rightContext) {
-            var ret;
-            if (this.constraint.isMatch(leftContext, rightContext)) {
-                ret = false;
-            } else {
-                leftContext.blocker = rightContext;
-                rightContext.blocking.push(leftContext);
-                this.__addToLeftTupleMemory(leftContext);
-                ret = true;
-            }
-            return ret;
         }
     }
 });
@@ -15542,10 +15525,6 @@ declare({
             return this.__checkEqual(new EqualityNode(constraint));
         },
 
-        __createReferenceNode: function (constraint) {
-            return this.__checkEqual(new ReferenceNode(constraint));
-        },
-
         __createPropertyNode: function (constraint) {
             return this.__checkEqual(new PropertyNode(constraint));
         },
@@ -15603,8 +15582,8 @@ declare({
                 if (constraint instanceof HashConstraint) {
                     node = this.__createPropertyNode(constraint);
                 } else if (constraint instanceof ReferenceConstraint) {
-                    node = this.__createReferenceNode(constraint);
                     outNode.constraint.addConstraint(constraint);
+                    continue;
                 } else {
                     node = this.__createEqualityNode(constraint);
                 }
