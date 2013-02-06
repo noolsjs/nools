@@ -4,11 +4,13 @@
         nools = require("../../index");
 
     var flow = nools.compile(__dirname + "/manners.nools");
-    var guests = data.load(flow).manners32;
+    var guests = data.load(flow).manners16;
     var session = flow.getSession.apply(flow, guests);
-    session.assert(new (flow.getDefined("count"))({value:1}));
+    session.assert(new (flow.getDefined("count"))({value: 1}));
     var start = new Date();
-    session.match().both(function () {
+    session.match().then(function () {
         console.log("Duration %dms", new Date() - start);
+    }, function (err) {
+        console.log(err.stack);
     });
 })();

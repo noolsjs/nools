@@ -118,7 +118,41 @@ it.describe("Flow",function (it) {
         });
 
         it.describe("with multiple facts", function (it) {
+            var called = 0, arr = [];
+            var flow1 = nools.flow("notRuleMultiFact", function (flow) {
+                flow.rule("order rule", [
+                    [Number, "n1"],
+                    ["not", Number, "n2", "n1 > n2"]
+                ], function (facts, flow) {
+                    arr.push(facts.n1);
+                    flow.retract(facts.n1);
+                    called++;
+                });
+            });
 
+            var flow2 = nools.flow("notRuleMultiFact2", function (flow) {
+                flow.rule("order rule reverse", [
+                    [Number, "n1"],
+                    ["not", Number, "n2", "n1 < n2"]
+                ], function (facts, flow) {
+                    arr.push(facts.n1);
+                    flow.retract(facts.n1);
+                    called++;
+                });
+            });
+
+            it.should("fire rules in order", function () {
+                return flow1.getSession(3, 1, 5, 2, 4).match().then(function () {
+                    assert.deepEqual(arr, [1, 2, 3, 4, 5]);
+                    assert.equal(called, 5);
+                }).then(function () {
+                        arr = [], called = 0;
+                        return flow2.getSession(4, 2, 5, 1, 3).match().then(function () {
+                            assert.deepEqual(arr, [5, 4, 3, 2, 1]);
+                            assert.equal(called, 5);
+                        });
+                    });
+            });
         });
 
     });
@@ -263,8 +297,10 @@ it.describe("Flow",function (it) {
         });
 
         it.should("emit when rules are fired", function (next) {
-            var m = new Message("hello");
+            var m = new Message("hello"), m2 = new Message("hello");
             var fire = [
+                ["Hello", "hello"],
+                ["Goodbye", "hello goodbye"],
                 ["Hello", "hello"],
                 ["Goodbye", "hello goodbye"]
             ], i = 0;
@@ -273,8 +309,9 @@ it.describe("Flow",function (it) {
                 assert.equal(facts.m.message, fire[i++][1]);
             });
             session.assert(m);
+            session.assert(m2);
             session.match(function () {
-                assert.equal(i, 2);
+                assert.equal(i, fire.length);
                 next();
             });
 
@@ -468,6 +505,7 @@ it.describe("Flow",function (it) {
     });
 
 }).as(module);
+
 
 
 
