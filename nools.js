@@ -14673,7 +14673,7 @@ var extd = require("./extended"),
     values = object.values,
     keys = object.keys,
     HashTable = extd.HashTable,
-    MatchResult = require("./matchResult"),
+    Context = require("./context"),
     pattern = require("./pattern.js"),
     ObjectPattern = pattern.ObjectPattern,
     NotPattern = pattern.NotPattern,
@@ -14717,7 +14717,7 @@ var Node = declare({
         print: function (tab) {
             console.log(tab + this.toString());
             forEach(this.parentNodes, function (n) {
-                n.print("  " + tab);
+                n.print("    " + tab);
             });
         },
 
@@ -14738,19 +14738,19 @@ var Node = declare({
             return false;
         },
 
-        __propagate: function (method, assertable, outNodes) {
+        __propagate: function (method, context, outNodes) {
             outNodes = outNodes || this.nodes;
             var entrySet = outNodes.entrySet(), i = entrySet.length - 1, entry, outNode, paths, continuingPaths;
             for (; i >= 0; i--) {
                 entry = entrySet[i];
                 outNode = entry.key;
                 paths = entry.value;
-                if (assertable.paths) {
-                    if ((continuingPaths = intersect(paths, assertable.paths)).length) {
-                        outNode[method]({fact: assertable.fact, factHash: {}, paths: continuingPaths});
+                if (context.paths) {
+                    if ((continuingPaths = intersect(paths, context.paths)).length) {
+                        outNode[method](new Context(context.fact, continuingPaths, context.match));
                     }
                 } else {
-                    outNode[method](assertable);
+                    outNode[method](context);
                 }
             }
         },
@@ -14813,13 +14813,13 @@ var TypeNode = AlphaNode.extend({
 
         assert: function (fact) {
             if (this.constraint.assert(fact.object)) {
-                this.propagateAssert({fact: fact});
+                this.propagateAssert(fact);
             }
         },
 
         retract: function (fact) {
             if (this.constraint.assert(fact.object)) {
-                this.propagateRetract({fact: fact});
+                this.propagateRetract(fact);
             }
         },
 
@@ -14835,13 +14835,58 @@ var TypeNode = AlphaNode.extend({
             }
         },
 
-        __propagate: function (method, assertion, outNodes) {
+        __propagate: function (method, fact, outNodes) {
             var es = (outNodes || this.nodes).entrySet(), i = es.length - 1;
             for (; i >= 0; i--) {
                 var e = es[i], outNode = e.key, paths = e.value;
-                assertion.paths = paths;
-                outNode[method](assertion);
+                outNode[method](new Context(fact, paths));
             }
+        }
+    }
+});
+
+var AliasNode = AlphaNode.extend({
+    instance: {
+
+        constructor: function () {
+            this._super(arguments);
+            this.alias = this.constraint.get("alias");
+        },
+
+        toString: function () {
+            return "AliasNode" + this.__count;
+        },
+
+        assert: function (context) {
+            return this.propagateAssert(context.set(this.alias, context.fact.object));
+        },
+
+        retract: function (assertable) {
+            this.propagateRetract(assertable.fact);
+        },
+
+        equal: function (other) {
+            return other instanceof this._static && this.alias === other.alias;
+        }
+    }
+});
+
+var EqualityNode = AlphaNode.extend({
+    instance: {
+
+        constructor: function () {
+            this._super(arguments);
+            this.alias = this.constraint.get("alias");
+        },
+
+        assert: function (context) {
+            if (this.constraint.assert(context.factHash)) {
+                this._super([context]);
+            }
+        },
+
+        toString: function () {
+            return "EqualityNode" + this.__count;
         }
     }
 });
@@ -14851,16 +14896,20 @@ var PropertyNode = AlphaNode.extend({
 
         constructor: function () {
             this._super(arguments);
-            this._cache = {};
             this.alias = this.constraint.get("alias");
+            this.variables = this.constraint.get("variables");
         },
 
-        assert: function (assertable) {
-            var fh = {}, constraint = this.constraint, o = assertable.fact.object, alias = this.alias;
-            fh[alias] = o;
-            if (constraint.assert(fh)) {
-                this._super([assertable]);
+        assert: function (context) {
+            var c = new Context(context.fact, context.paths);
+            var variables = this.variables, o = context.fact.object;
+            c.set(this.alias, o);
+            for (var i in variables) {
+                c.set(variables[i], o[i]);
             }
+
+            this.propagateAssert(c);
+
         },
 
         toString: function () {
@@ -14869,7 +14918,6 @@ var PropertyNode = AlphaNode.extend({
     }
 });
 
-var called = 0;
 var JoinReferenceNode = Node.extend({
 
     instance: {
@@ -14957,67 +15005,6 @@ var JoinReferenceNode = Node.extend({
 
 });
 
-var EqualityNode = AlphaNode.extend({
-    instance: {
-
-        constructor: function () {
-            this._super(arguments);
-            this.alias = this.constraint.get("alias");
-        },
-
-        assert: function (assertable) {
-            var fh = {};
-            fh[this.alias] = assertable.fact.object;
-            if (this.constraint.assert(fh)) {
-                this._super([assertable]);
-            }
-        },
-
-        toString: function () {
-            return "EqualityNode" + this.__count;
-        }
-    }
-});
-
-
-var BridgeNode = Node.extend({
-
-    instance: {
-
-        constructor: function (pattern) {
-            this._super([]);
-            this.pattern = pattern;
-            var variables = this.variables = {};
-            //this.constraints = pattern.get("constraints");
-            extd(pattern.get("constraints")).filter(function (c) {
-                return c instanceof HashConstraint;
-            }).forEach(function (c) {
-                    merge(variables, extd.hash.invert(c.get("variables")));
-                });
-            this.alias = pattern.alias;
-        },
-
-        toString: function () {
-            return "BaseBridgeNode " + this.__count;
-        },
-
-        assert: function (assertable) {
-            var mr = new MatchResult(assertable);
-            mr.isMatch = true;
-            var fact = assertable.fact, o = fact.object, fh = mr.factHash, variables = this.variables;
-            fh[this.alias] = o;
-            for (var i in variables) {
-                fh[i] = o[variables[i]];
-            }
-            this.propagateAssert({match: mr, fact: fact});
-        },
-
-        retract: function (assertable) {
-            this.propagateRetract(assertable.fact);
-        }
-    }
-
-});
 
 var LeftAdapterNode = Node.extend({
     instance: {
@@ -15164,7 +15151,7 @@ var JoinNode = Node.extend({
             thisConstraint.setLeftContext(context);
             for (; i >= 0; i--) {
                 if ((mr = thisConstraint.setRightContext(rm[i]).match()).isMatch) {
-                    this.propagateAssert({fact: fact, match: mr});
+                    this.propagateAssert(new Context(fact, null, mr));
                 }
             }
             thisConstraint.clearContexts();
@@ -15178,7 +15165,7 @@ var JoinNode = Node.extend({
             thisConstraint.setRightContext(context);
             for (; i >= 0; i--) {
                 if ((mr = thisConstraint.setLeftContext(fl[i]).match()).isMatch) {
-                    this.propagateAssert({fact: fact, match: mr});
+                    this.propagateAssert(new Context(fact, null, mr));
                 }
             }
             thisConstraint.clearContexts();
@@ -15241,7 +15228,7 @@ var NotNode = JoinNode.extend({
                     }
                     if (!leftContext.blocker) {
                         this.__removeFromLeftTupleMemory(leftContext);
-                        this.__addToLeftMemory(leftContext).propagateAssert({match: leftContext.match, fact: leftContext.fact});
+                        this.__addToLeftMemory(leftContext).propagateAssert(new Context(leftContext.fact, null, leftContext.match));
                     }
                 }
                 thisConstraint.clearContexts();
@@ -15284,7 +15271,7 @@ var NotNode = JoinNode.extend({
                 }
             }
             thisConstraint.clearContexts();
-            this.__addToLeftMemory(context).propagateAssert({match: context.match, fact: context.fact});
+            this.__addToLeftMemory(context).propagateAssert(new Context(context.fact, null, context.match));
         },
 
         assertRight: function (context) {
@@ -15406,7 +15393,7 @@ var TerminalNode = Node.extend({
         },
 
         retractResolve: function (match) {
-            var resolve = extd.bind(this, this.resolve);
+            var resolve = bind(this, this.resolve);
             this.agenda.retract(this, function (v) {
                 return resolve(v.match, match);
             });
@@ -15521,8 +15508,8 @@ declare({
             return this.__checkEqual(new PropertyNode(constraint));
         },
 
-        __createBridgeNode: function (pattern) {
-            return new BridgeNode(pattern);
+        __createAliasNode: function (pattern) {
+            return this.__checkEqual(new AliasNode(pattern));
         },
 
         __createAdapterNode: function (side) {
@@ -15550,24 +15537,30 @@ declare({
         __addToNetwork: function (pattern, outNode, side) {
             if (pattern instanceof ObjectPattern) {
                 if (pattern instanceof NotPattern && (!side || side === "left")) {
-                    return this.__addToNetwork(new CompositePattern(new InitialFactPattern(), pattern), outNode, side);
+                    return this.__addToBetaNetwork(new CompositePattern(new InitialFactPattern(), pattern), outNode, side);
                 }
                 return this.__createAlphaNode(pattern, outNode, side);
             } else if (pattern instanceof CompositePattern) {
-                var joinNode = this.__createJoinNode(pattern, outNode, side);
-                this.__addToNetwork(pattern.rightPattern, joinNode, "right");
-                this.__addToNetwork(pattern.leftPattern, joinNode, "left");
-                outNode.addParentNode(joinNode);
-                return joinNode;
+                this.__addToBetaNetwork(pattern, outNode, side);
             }
+        },
+
+        __addToBetaNetwork: function (pattern, outNode, side) {
+            var joinNode = this.__createJoinNode(pattern, outNode, side);
+            this.__addToNetwork(pattern.rightPattern, joinNode, "right");
+            this.__addToNetwork(pattern.leftPattern, joinNode, "left");
+            outNode.addParentNode(joinNode);
+            return joinNode;
         },
 
 
         __createAlphaNode: function (pattern, outNode, side) {
             var constraints = pattern.get("constraints");
             var typeNode = this.__createTypeNode(pattern);
-            var parentAtom = constraints[0];
-            var parentNode = typeNode;
+            var aliasNode = this.__createAliasNode(pattern);
+            typeNode.addOutNode(aliasNode, pattern);
+            aliasNode.addParentNode(typeNode);
+            var parentNode = aliasNode;
             var i = constraints.length - 1;
             for (; i > 0; i--) {
                 var constraint = constraints[i], node;
@@ -15579,28 +15572,24 @@ declare({
                 } else {
                     node = this.__createEqualityNode(constraint);
                 }
-                parentNode.addOutNode(node, pattern, parentAtom);
-                node.parentNodes.push(parentNode);
+                parentNode.addOutNode(node, pattern);
+                node.addParentNode(parentNode);
                 parentNode = node;
-                parentAtom = constraint;
             }
-            var bridgeNode = this.__createBridgeNode(pattern);
-            parentNode.addOutNode(bridgeNode, pattern, parentAtom);
-            bridgeNode.addParentNode(parentNode);
-            parentNode = bridgeNode;
-            outNode.addParentNode(parentNode);
             if (outNode instanceof JoinNode) {
                 var adapterNode = this.__createAdapterNode(side);
+                adapterNode.addParentNode(parentNode);
                 parentNode.addOutNode(adapterNode, pattern);
                 parentNode = adapterNode;
             }
+            outNode.addParentNode(parentNode);
             parentNode.addOutNode(outNode, pattern);
             return typeNode;
         },
 
         print: function () {
             forEach(this.terminalNodes, function (t) {
-                t.print("  ");
+                t.print("    ");
             });
         }
     }
@@ -15613,14 +15602,14 @@ declare({
 
 });
 
-require.define("/lib/matchResult.js",function(require,module,exports,__dirname,__filename,process,global){"use strict";
+require.define("/lib/context.js",function(require,module,exports,__dirname,__filename,process,global){"use strict";
 var extd = require("./extended"),
     declare = extd.declare,
     merge = extd.merge,
     union = extd.union,
     map = extd.map;
 
-declare({
+var Match = declare({
     instance: {
         constructor: function (assertable) {
             assertable = assertable || {};
@@ -15638,7 +15627,7 @@ declare({
                 this.factHash = merge(this.factHash, assertable.factHash);
                 this.recency = union(this.recency, assertable.recency);
             } else {
-                var fact = assertable.fact;
+                var fact = assertable;
                 if (fact) {
                     this.facts.push(fact);
                     this.recency.push(fact.recency);
@@ -15666,6 +15655,34 @@ declare({
             }
         }
 
+    }
+});
+
+declare({
+    instance: {
+        match: null,
+        factHash: null,
+        fact: null,
+        hashCode: null,
+        paths: null,
+
+        constructor: function (fact, paths, mr) {
+            this.fact = fact;
+            this.paths = paths || null;
+            var match = this.match = mr || new Match(fact);
+            this.factHash = match.factHash;
+            this.hashCode = match.hashCode;
+        },
+
+        "set": function (key, value) {
+            this.factHash[key] = value;
+            return this;
+        },
+
+        isMatch: function (isMatch) {
+            this.match.isMatch = isMatch;
+            return this;
+        }
     }
 }).as(module);
 
@@ -16081,14 +16098,14 @@ var toJs = exports.toJs = function (rule, scope) {
     var js = lang.parse(rule);
     scope = scope || {};
     var vars = lang.getIdentifiers(rule);
-    return ["(function(){ return function jsMatcher(hash){", map(vars,function (v) {
+    return ["(function(){ return function jsMatcher(fact, hash){", map(vars,function (v) {
         var ret = ["var ", v, " = "];
         if (definedFuncs.hasOwnProperty(v)) {
             ret.push("definedFuncs['", v, "']");
         } else if (scope.hasOwnProperty(v)) {
             ret.push("scope['", v, "']");
         } else {
-            ret.push("hash['", v, "']");
+            ret.push("'", v , "' in fact ? fact['", v, "'] : hash['", v, "']");
         }
         ret.push(";");
         return ret.join("");
@@ -17928,7 +17945,7 @@ require.define("/lib/compile.js",function(require,module,exports,__dirname,__fil
             throw new Error("Name must be present in JSON or options");
         }
         var flow = new Container(name);
-        var defined = merge({Array: Array, String: String, Number: Number, Boolean: Boolean, RegExp: RegExp}, options.define || {});
+        var defined = merge({Array: Array, String: String, Number: Number, Boolean: Boolean, RegExp: RegExp, Object: Object}, options.define || {});
         if (typeof Buffer !== "undefined") {
             defined.Buffer = Buffer;
         }

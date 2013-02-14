@@ -341,27 +341,34 @@ it.describe("constraint matcher",function (it) {
 
         it.should("create js equvalent expression", function () {
             assert.equal(constraintMatcher.toJs(parser.parseConstraint("isFalse(a)")),
-                "(function(){ return function jsMatcher(hash){var isFalse = definedFuncs['isFalse'];var a = hash['a']; return !!(isFalse(a));};})()");
+                "(function(){ return function jsMatcher(fact, hash){var isFalse = definedFuncs['isFalse'];var a = 'a' in fact ? fact['a'] : hash['a']; return !!(isFalse(a));};})()");
             assert.equal(constraintMatcher.toJs(parser.parseConstraint("isTrue(b)")),
-                "(function(){ return function jsMatcher(hash){var isTrue = definedFuncs['isTrue'];var b = hash['b']; return !!(isTrue(b));};})()");
+                "(function(){ return function jsMatcher(fact, hash){var isTrue = definedFuncs['isTrue'];var b = 'b' in fact ? fact['b'] : hash['b']; return !!(isTrue(b));};})()");
             assert.equal(constraintMatcher.toJs(parser.parseConstraint("isFalse(a) && isTrue(b)")),
-                "(function(){ return function jsMatcher(hash){var isFalse = definedFuncs['isFalse'];var a = hash['a'];var isTrue = definedFuncs['isTrue'];var b = hash['b']; return !!(isFalse(a) && isTrue(b));};})()");
+                "(function(){ return function jsMatcher(fact, hash){var isFalse = definedFuncs['isFalse'];var a = 'a' in fact ? fact['a'] : hash['a'];var isTrue = definedFuncs['isTrue'];var b = 'b' in fact ? fact['b'] : hash['b']; return !!(isFalse(a) && isTrue(b));};})()");
             assert.equal(constraintMatcher.toJs(parser.parseConstraint("isFalse(a) || isTrue(b)")),
-                "(function(){ return function jsMatcher(hash){var isFalse = definedFuncs['isFalse'];var a = hash['a'];var isTrue = definedFuncs['isTrue'];var b = hash['b']; return !!(isFalse(a) || isTrue(b));};})()");
+                "(function(){ return function jsMatcher(fact, hash){var isFalse = definedFuncs['isFalse'];var a = 'a' in fact ? fact['a'] : hash['a'];var isTrue = definedFuncs['isTrue'];var b = 'b' in fact ? fact['b'] : hash['b']; return !!(isFalse(a) || isTrue(b));};})()");
+
             assert.equal(constraintMatcher.toJs(parser.parseConstraint("isNumber(b) || isFalse(a) && b == 1")),
-                "(function(){ return function jsMatcher(hash){var isNumber = definedFuncs['isNumber'];var b = hash['b'];var isFalse = definedFuncs['isFalse'];var a = hash['a']; return !!(isNumber(b) || isFalse(a) && b === 1);};})()");
+                "(function(){ return function jsMatcher(fact, hash){var isNumber = definedFuncs['isNumber'];var b = 'b' in fact ? fact['b'] : hash['b'];var isFalse = definedFuncs['isFalse'];var a = 'a' in fact ? fact['a'] : hash['a']; return !!(isNumber(b) || isFalse(a) && b === 1);};})()");
+
             assert.equal(constraintMatcher.toJs(parser.parseConstraint("(isNumber(b) || isFalse(a)) && b == 1")),
-                "(function(){ return function jsMatcher(hash){var isNumber = definedFuncs['isNumber'];var b = hash['b'];var isFalse = definedFuncs['isFalse'];var a = hash['a']; return !!(isNumber(b) || isFalse(a) && b === 1);};})()");
+                "(function(){ return function jsMatcher(fact, hash){var isNumber = definedFuncs['isNumber'];var b = 'b' in fact ? fact['b'] : hash['b'];var isFalse = definedFuncs['isFalse'];var a = 'a' in fact ? fact['a'] : hash['a']; return !!(isNumber(b) || isFalse(a) && b === 1);};})()");
+
             assert.equal(constraintMatcher.toJs(parser.parseConstraint("(isNumber(b) || isFalse(a)) || b == 1")),
-                "(function(){ return function jsMatcher(hash){var isNumber = definedFuncs['isNumber'];var b = hash['b'];var isFalse = definedFuncs['isFalse'];var a = hash['a']; return !!(isNumber(b) || isFalse(a) || b === 1);};})()");
+                "(function(){ return function jsMatcher(fact, hash){var isNumber = definedFuncs['isNumber'];var b = 'b' in fact ? fact['b'] : hash['b'];var isFalse = definedFuncs['isFalse'];var a = 'a' in fact ? fact['a'] : hash['a']; return !!(isNumber(b) || isFalse(a) || b === 1);};})()");
+
             assert.equal(constraintMatcher.toJs(parser.parseConstraint("a.name == 'bob' && isFalse(a.flag) && b == 1")),
-                "(function(){ return function jsMatcher(hash){var a = hash['a'];var isFalse = definedFuncs['isFalse'];var b = hash['b']; return !!(a['name'] === 'bob' && isFalse(a['flag']) && b === 1);};})()");
+                "(function(){ return function jsMatcher(fact, hash){var a = 'a' in fact ? fact['a'] : hash['a'];var isFalse = definedFuncs['isFalse'];var b = 'b' in fact ? fact['b'] : hash['b']; return !!(a['name'] === 'bob' && isFalse(a['flag']) && b === 1);};})()");
+
             assert.equal(constraintMatcher.toJs(parser.parseConstraint("a.name.isSomething() && isFalse(a.flag) && b == 1")),
-                "(function(){ return function jsMatcher(hash){var a = hash['a'];var isFalse = definedFuncs['isFalse'];var b = hash['b']; return !!(a['name'].isSomething() && isFalse(a['flag']) && b === 1);};})()");
+                "(function(){ return function jsMatcher(fact, hash){var a = 'a' in fact ? fact['a'] : hash['a'];var isFalse = definedFuncs['isFalse'];var b = 'b' in fact ? fact['b'] : hash['b']; return !!(a['name'].isSomething() && isFalse(a['flag']) && b === 1);};})()");
+
             assert.equal(constraintMatcher.toJs(parser.parseConstraint("a.name like /hello$/")),
-                "(function(){ return function jsMatcher(hash){var a = hash['a']; return !!(/hello$/.test(a['name']));};})()");
+                "(function(){ return function jsMatcher(fact, hash){var a = 'a' in fact ? fact['a'] : hash['a']; return !!(/hello$/.test(a['name']));};})()");
+
             assert.equal(constraintMatcher.toJs(parser.parseConstraint("a.name in [a, b, c, 'BOB']")),
-                "(function(){ return function jsMatcher(hash){var a = hash['a'];var b = hash['b'];var c = hash['c']; return !!((function indexOf(arr, searchElement) { if (!isArray(arr)) { throw new TypeError(); } var t = Object(arr); var len = t.length >>> 0; if (len === 0) { return -1; } var n = 0; if (arguments.length > 2) { n = Number(arguments[2]); if (n !== n) { n = 0; } else if (n !== 0 && n !== Infinity && n !== -Infinity) { n = (n > 0 || -1) * floor(abs(n)); } } if (n >= len) { return -1; } var k = n >= 0 ? n : mathMax(len - abs(n), 0); for (; k < len; k++) { if (k in t && t[k] === searchElement) { return k; } } return -1; }([a,b,c,'BOB'],a['name'])) != -1);};})()");
+                "(function(){ return function jsMatcher(fact, hash){var a = 'a' in fact ? fact['a'] : hash['a'];var b = 'b' in fact ? fact['b'] : hash['b'];var c = 'c' in fact ? fact['c'] : hash['c']; return !!((function indexOf(arr, searchElement) { if (!isArray(arr)) { throw new TypeError(); } var t = Object(arr); var len = t.length >>> 0; if (len === 0) { return -1; } var n = 0; if (arguments.length > 2) { n = Number(arguments[2]); if (n !== n) { n = 0; } else if (n !== 0 && n !== Infinity && n !== -Infinity) { n = (n > 0 || -1) * floor(abs(n)); } } if (n >= len) { return -1; } var k = n >= 0 ? n : mathMax(len - abs(n), 0); for (; k < len; k++) { if (k in t && t[k] === searchElement) { return k; } } return -1; }([a,b,c,'BOB'],a['name'])) != -1);};})()");
         });
 
     });
