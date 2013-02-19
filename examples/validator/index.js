@@ -2,7 +2,7 @@
 
 var nools = require("../..");
 
-var flow = nools.compile("./rules/validator.nools"),
+var flow = nools.compile(__dirname + "/rules/validator.nools"),
     Model = flow.getDefined("model");
 
 var models = [
