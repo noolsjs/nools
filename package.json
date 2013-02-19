@@ -23,7 +23,7 @@
         "extended": "~0.0.3",
         "is-extended": "~0.0.3",
         "string-extended": "~0.0.3",
-        "array-extended": "~0.0.3",
+        "array-extended": "~0.0.4",
         "date-extended": "~0.0.3",
         "function-extended": "~0.0.3",
         "object-extended": "~0.0.3",

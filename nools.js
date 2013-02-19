@@ -3414,12 +3414,21 @@ require.define("/node_modules/array-extended/index.js",function(require,module,e
     function defineArray(extended, is) {
 
         var isString = is.isString,
-            isArray = is.isArray,
+            isArray = Array.isArray || is.isArray,
             isDate = is.isDate,
             floor = Math.floor,
             abs = Math.abs,
             mathMax = Math.max,
-            mathMin = Math.min;
+            mathMin = Math.min,
+            arrayProto = Array.prototype,
+            arrayIndexOf = arrayProto.indexOf,
+            arrayForEach = arrayProto.forEach,
+            arrayMap = arrayProto.map,
+            arrayReduce = arrayProto.reduce,
+            arrayReduceRight = arrayProto.reduceRight,
+            arrayFilter = arrayProto.filter,
+            arrayEvery = arrayProto.every,
+            arraySome = arrayProto.some;
 
 
         function cross(num, cros) {
@@ -3444,7 +3453,7 @@ require.define("/node_modules/array-extended/index.js",function(require,module,e
 
         function intersection(a, b) {
             var ret = [], aOne;
-            if (isArray(a) && isArray(b) && a.length && b.length) {
+            if (a && b && a.length && b.length) {
                 for (var i = 0, l = a.length; i < l; i++) {
                     aOne = a[i];
                     if (indexOf(b, aOne) !== -1) {
@@ -3504,7 +3513,10 @@ require.define("/node_modules/array-extended/index.js",function(require,module,e
 
         })();
 
-        function indexOf(arr, searchElement) {
+        function indexOf(arr, searchElement, from) {
+            if (arr && arrayIndexOf && arrayIndexOf === arr.indexOf) {
+                return arr.indexOf(searchElement, from);
+            }
             if (!isArray(arr)) {
                 throw new TypeError();
             }
@@ -3534,7 +3546,7 @@ require.define("/node_modules/array-extended/index.js",function(require,module,e
             return -1;
         }
 
-        function lastIndexOf(arr, searchElement) {
+        function lastIndexOf(arr, searchElement, from) {
             if (!isArray(arr)) {
                 throw new TypeError();
             }
@@ -3566,6 +3578,9 @@ require.define("/node_modules/array-extended/index.js",function(require,module,e
         }
 
         function filter(arr, iterator, scope) {
+            if (arr && arrayFilter && arrayFilter === arr.filter) {
+                return arr.filter(iterator, scope);
+            }
             if (!isArray(arr) || typeof iterator !== "function") {
                 throw new TypeError();
             }
@@ -3588,13 +3603,21 @@ require.define("/node_modules/array-extended/index.js",function(require,module,e
             if (!isArray(arr) || typeof iterator !== "function") {
                 throw new TypeError();
             }
+            if (arr && arrayForEach && arrayForEach === arr.forEach) {
+                arr.forEach(iterator, scope);
+                return arr;
+            }
             for (var i = 0, len = arr.length; i < len; ++i) {
                 iterator.call(scope || arr, arr[i], i, arr);
             }
+
             return arr;
         }
 
         function every(arr, iterator, scope) {
+            if (arr && arrayEvery && arrayEvery === arr.every) {
+                return arr.every(iterator, scope);
+            }
             if (!isArray(arr) || typeof iterator !== "function") {
                 throw new TypeError();
             }
@@ -3609,6 +3632,9 @@ require.define("/node_modules/array-extended/index.js",function(require,module,e
         }
 
         function some(arr, iterator, scope) {
+            if (arr && arraySome && arraySome === arr.some) {
+                return arr.some(iterator, scope);
+            }
             if (!isArray(arr) || typeof iterator !== "function") {
                 throw new TypeError();
             }
@@ -3623,6 +3649,9 @@ require.define("/node_modules/array-extended/index.js",function(require,module,e
         }
 
         function map(arr, iterator, scope) {
+            if (arr && arrayMap && arrayMap === arr.map) {
+                return arr.map(iterator, scope);
+            }
             if (!isArray(arr) || typeof iterator !== "function") {
                 throw new TypeError();
             }
@@ -3639,6 +3668,10 @@ require.define("/node_modules/array-extended/index.js",function(require,module,e
         }
 
         function reduce(arr, accumulator, curr) {
+            var initial = arguments.length > 2;
+            if (arr && arrayReduce && arrayReduce === arr.reduce) {
+                return initial ? arr.reduce(accumulator, curr) : arr.reduce(accumulator);
+            }
             if (!isArray(arr) || typeof accumulator !== "function") {
                 throw new TypeError();
             }
@@ -3662,6 +3695,10 @@ require.define("/node_modules/array-extended/index.js",function(require,module,e
         }
 
         function reduceRight(arr, accumulator, curr) {
+            var initial = arguments.length > 2;
+            if (arr && arrayReduceRight && arrayReduceRight === arr.reduceRight) {
+                return initial ? arr.reduceRight(accumulator, curr) : arr.reduceRight(accumulator);
+            }
             if (!isArray(arr) || typeof accumulator !== "function") {
                 throw new TypeError();
             }
@@ -3769,15 +3806,14 @@ require.define("/node_modules/array-extended/index.js",function(require,module,e
         }
 
         function removeDuplicates(arr) {
-            var ret = arr;
+            var ret = [];
             if (isArray(arr)) {
-                ret = reduce(arr, function (a, b) {
-                    if (indexOf(a, b) === -1) {
-                        return a.concat(b);
-                    } else {
-                        return a;
+                for (var i = 0, l = arr.length; i < l; i++) {
+                    var item = arr[i];
+                    if (indexOf(ret, item) === -1) {
+                        ret.push(item);
                     }
-                }, []);
+                }
             }
             return ret;
         }
@@ -3894,27 +3930,28 @@ require.define("/node_modules/array-extended/index.js",function(require,module,e
             var ret = [];
             var arrs = argsToArray(arguments);
             if (arrs.length > 1) {
-                ret = removeDuplicates(reduce(arrs, function (a, b) {
-                    return a.concat(b);
-                }, []));
+                for (var i = 0, l = arrs.length; i < l; i++) {
+                    ret = ret.concat(arrs[i]);
+                }
+                ret = removeDuplicates(ret);
             }
             return ret;
         }
 
         function intersect() {
-            var collect = [], set;
+            var collect = [], sets;
             var args = argsToArray(arguments);
             if (args.length > 1) {
                 //assume we are intersections all the lists in the array
-                set = args;
+                sets = args;
             } else {
-                set = args[0];
+                sets = args[0];
             }
-            if (isArray(set)) {
-                var x = set.shift();
-                collect = reduce(set, function (a, b) {
-                    return intersection(a, b);
-                }, x);
+            if (isArray(sets)) {
+                var collect = sets.shift();
+                for (var i = 0, l = sets.length; i < l; i++) {
+                    collect = intersection(collect, sets[i]);
+                }
             }
             return removeDuplicates(collect);
         }
@@ -7941,15 +7978,15 @@ declare({
         __addToNetwork: function (pattern, outNode, side) {
             if (pattern instanceof ObjectPattern) {
                 if (pattern instanceof NotPattern && (!side || side === "left")) {
-                    return this.__addToBetaNetwork(new CompositePattern(new InitialFactPattern(), pattern), outNode, side);
+                    return this.__createBetaNode(new CompositePattern(new InitialFactPattern(), pattern), outNode, side);
                 }
                 this.__createAlphaNode(pattern, outNode, side);
             } else if (pattern instanceof CompositePattern) {
-                this.__addToBetaNetwork(pattern, outNode, side);
+                this.__createBetaNode(pattern, outNode, side);
             }
         },
 
-        __addToBetaNetwork: function (pattern, outNode, side) {
+        __createBetaNode: function (pattern, outNode, side) {
             var joinNode = this.__createJoinNode(pattern, outNode, side);
             this.__addToNetwork(pattern.rightPattern, joinNode, "right");
             this.__addToNetwork(pattern.leftPattern, joinNode, "left");
@@ -8349,11 +8386,11 @@ var lang = {
     },
 
     "in": function (lhs, rhs) {
-        return ["(", indexOf.toString().replace(/\/\/(.*)/ig, "").replace(/\s+/ig, " "), "(", "[", this.parse(rhs), "],", this.parse(lhs), ")) != -1"].join("");
+        return ["(indexOf(", "[", this.parse(rhs), "],", this.parse(lhs), ")) != -1"].join("");
     },
 
     "notIn": function (lhs, rhs) {
-        return ["(", indexOf.toString().replace(/\/\/(.*)/ig, "").replace(/\s+/ig, " "), "(", "[", this.parse(rhs), "],", this.parse(lhs), ")) == -1"].join("");
+        return ["(indexOf(", "[", this.parse(rhs), "],", this.parse(lhs), ")) == -1"].join("");
     },
 
     "arguments": function (lhs, rhs) {
@@ -8637,7 +8674,7 @@ AlphaNode.extend({
         },
 
         assert: function (context) {
-            return this.propagateAssert(context.set(this.alias, context.fact.object));
+            return this.__propagate("assert", context.set(this.alias, context.fact.object));
         },
 
         retract: function (assertable) {
@@ -8687,7 +8724,7 @@ declare({
             this.nodes = new HashTable();
             this.parentNodes = [];
             this.__count = count++;
-
+            this.__entrySet = [];
         },
 
         merge: function (that) {
@@ -8723,6 +8760,7 @@ declare({
                 this.nodes.put(outNode, []);
             }
             this.nodes.get(outNode).push(pattern);
+            this.__entrySet = this.nodes.entrySet();
         },
 
         addParentNode: function (n) {
@@ -8737,7 +8775,7 @@ declare({
 
         __propagate: function (method, context, outNodes) {
             outNodes = outNodes || this.nodes;
-            var entrySet = outNodes.entrySet(), i = entrySet.length - 1, entry, outNode, paths, continuingPaths;
+            var entrySet = this.__entrySet, i = entrySet.length - 1, entry, outNode, paths, continuingPaths;
             for (; i >= 0; i--) {
                 entry = entrySet[i];
                 outNode = entry.key;
@@ -8762,7 +8800,7 @@ declare({
 
         propagateDispose: function (assertable, outNodes) {
             outNodes = outNodes || this.nodes;
-            var entrySet = outNodes.entrySet(), i = entrySet.length - 1;
+            var entrySet = this.__entrySet, i = entrySet.length - 1;
             for (; i >= 0; i--) {
                 var entry = entrySet[i], outNode = entry.key;
                 outNode.dispose(assertable);
@@ -8889,12 +8927,11 @@ AlphaNode.extend({
 
         constructor: function () {
             this._super(arguments);
-            this.alias = this.constraint.get("alias");
         },
 
         assert: function (context) {
             if (this.constraint.assert(context.factHash)) {
-                this._super([context]);
+                this.__propagate("assert", context);
             }
         },
 
@@ -8984,13 +9021,12 @@ Node.extend({
         },
 
         assertLeft: function (context) {
-            var fact = context.fact;
             this.__addToLeftMemory(context);
             var rm = this.rightTuples, i = rm.length - 1, thisConstraint = this.constraint, mr;
             thisConstraint.setLeftContext(context);
             for (; i >= 0; i--) {
                 if ((mr = thisConstraint.setRightContext(rm[i]).match()).isMatch) {
-                    this.propagateAssert(context.clone(null, null, mr));
+                    this.__propagate("assert", context.clone(null, null, mr));
                 }
             }
             thisConstraint.clearContexts();
@@ -9004,7 +9040,7 @@ Node.extend({
             thisConstraint.setRightContext(context);
             for (; i >= 0; i--) {
                 if ((mr = thisConstraint.setLeftContext(fl[i]).match()).isMatch) {
-                    this.propagateAssert(context.clone(null, null, mr));
+                    this.__propagate("assert", context.clone(null, null, mr));
                 }
             }
             thisConstraint.clearContexts();
@@ -9031,7 +9067,6 @@ Node.extend({
 });
 
 require.define("/lib/nodes/joinReferenceNode.js",function(require,module,exports,__dirname,__filename,process,global){var Node = require("./node");
-
 Node.extend({
 
     instance: {
@@ -9039,15 +9074,18 @@ Node.extend({
         constructor: function () {
             this._super(arguments);
             this.__fh = {};
-            this.__lc = this.__rc = this.__hc = null;
+            this.__lc = this.__rc = null;
+            this.__variables = [];
+            this.__varLength = 0;
         },
 
         setLeftContext: function (lc) {
             this.__lc = lc;
             var match = lc.match;
-            var newFh = match.factHash, fh = this.__fh;
-            for (var i in newFh) {
-                fh[i] = newFh[i];
+            var newFh = match.factHash, fh = this.__fh, prop, vars = this.__variables;
+            for (var i = 0, l = this.__varLength; i < l; i++) {
+                prop = vars[i];
+                fh[prop] = newFh[prop];
             }
             return this;
         },
@@ -9061,7 +9099,6 @@ Node.extend({
             this.__fh = {};
             this.__lc = null;
             this.__rc = null;
-            this.__hc = "";
             return this;
         },
 
@@ -9085,7 +9122,7 @@ Node.extend({
                 this.constraint = this.constraint.merge(constraint);
             }
             this.__alias = this.constraint.get("alias");
-            this.__variables = this.constraint.get("variables");
+            this.__varLength = (this.__variables = this.__variables.concat(this.constraint.get("variables"))).length;
         },
 
         equal: function (constraint) {
@@ -9347,7 +9384,7 @@ AlphaNode.extend({
 
         assert: function (fact) {
             if (this.constraint.assert(fact.object)) {
-                this.propagateAssert(fact);
+                this.__propagate("assert", fact);
             }
         },
 
@@ -9362,7 +9399,7 @@ AlphaNode.extend({
         },
 
         dispose: function () {
-            var es = this.nodes.entrySet(), i = es.length - 1;
+            var es = this.__entrySet, i = es.length - 1;
             for (; i >= 0; i--) {
                 var e = es[i], outNode = e.key, paths = e.value;
                 outNode.dispose({paths: paths});
@@ -9370,7 +9407,7 @@ AlphaNode.extend({
         },
 
         __propagate: function (method, fact, outNodes) {
-            var es = (outNodes || this.nodes).entrySet(), i = es.length - 1;
+            var es = this.__entrySet, i = es.length - 1;
             for (; i >= 0; i--) {
                 var e = es[i], outNode = e.key, paths = e.value;
                 outNode[method](new Context(fact, paths));
@@ -9482,7 +9519,7 @@ AlphaNode.extend({
                 c.set(item[1], o[item[0]]);
             }
 
-            this.propagateAssert(c);
+            this.__propagate("assert", c);
 
         },
 

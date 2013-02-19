@@ -368,7 +368,10 @@ it.describe("constraint matcher",function (it) {
                 "(function(){ return function jsMatcher(fact, hash){var a = 'a' in fact ? fact['a'] : hash['a']; return !!(/hello$/.test(a['name']));};})()");
 
             assert.equal(constraintMatcher.toJs(parser.parseConstraint("a.name in [a, b, c, 'BOB']")),
-                "(function(){ return function jsMatcher(fact, hash){var a = 'a' in fact ? fact['a'] : hash['a'];var b = 'b' in fact ? fact['b'] : hash['b'];var c = 'c' in fact ? fact['c'] : hash['c']; return !!((function indexOf(arr, searchElement) { if (!isArray(arr)) { throw new TypeError(); } var t = Object(arr); var len = t.length >>> 0; if (len === 0) { return -1; } var n = 0; if (arguments.length > 2) { n = Number(arguments[2]); if (n !== n) { n = 0; } else if (n !== 0 && n !== Infinity && n !== -Infinity) { n = (n > 0 || -1) * floor(abs(n)); } } if (n >= len) { return -1; } var k = n >= 0 ? n : mathMax(len - abs(n), 0); for (; k < len; k++) { if (k in t && t[k] === searchElement) { return k; } } return -1; }([a,b,c,'BOB'],a['name'])) != -1);};})()");
+                "(function(){ return function jsMatcher(fact, hash){var a = 'a' in fact ? fact['a'] : hash['a'];var b = 'b' in fact ? fact['b'] : hash['b'];var c = 'c' in fact ? fact['c'] : hash['c']; return !!((indexOf([a,b,c,'BOB'],a['name'])) != -1);};})()");
+
+            assert.equal(constraintMatcher.toJs(parser.parseConstraint("a.name notIn [a, b, c, 'BOB']")),
+                "(function(){ return function jsMatcher(fact, hash){var a = 'a' in fact ? fact['a'] : hash['a'];var b = 'b' in fact ? fact['b'] : hash['b'];var c = 'c' in fact ? fact['c'] : hash['c']; return !!((indexOf([a,b,c,'BOB'],a['name'])) == -1);};})()");
         });
 
     });
