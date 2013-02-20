@@ -1003,6 +1003,7 @@ require.define("/lib/index.js",function(require,module,exports,__dirname,__filen
 var extd = require("./extended"),
     fs = require("fs"),
     path = require("path"),
+    bind = extd.bind,
     indexOf = extd.indexOf,
     forEach = extd.forEach,
     declare = extd.declare,
@@ -1179,6 +1180,11 @@ var Flow = declare(EventEmitter, {
             this.rootNode = new nodes.RootNode(this.workingMemory, this.agenda);
         },
 
+        halt: function () {
+            this.__halted = true;
+            return this;
+        },
+
         dispose: function () {
             this.workingMemory.dispose();
             this.agenda.dispose();
@@ -1225,32 +1231,53 @@ var Flow = declare(EventEmitter, {
             this.rootNode.assertRule(rule);
         },
 
-        match: function (cb) {
+        __loop: function (looper, cb) {
             var ret = new Promise(), flow = this, rootNode = this.rootNode;
             if (rootNode) {
                 rootNode.resetCounter();
-                var agenda = this.agenda;
                 (function fire() {
-                    if (!agenda.isEmpty()) {
-                        var activation = agenda.pop();
-                        activation.used = true;
-                        flow.emit("fire", activation.rule.name, activation.match.factHash);
-                        when(activation.rule.fire(flow, activation.match)).then(function () {
-                            if (flow.__wmAltered) {
-                                rootNode.incrementCounter();
-                                flow.__wmAltered = false;
-                            }
-                            fire();
-                        }, ret.errback);
-                    } else {
-                        ret.callback();
-                    }
+                    looper(ret, fire);
                 })();
             } else {
                 ret.callback();
             }
             ret.classic(cb);
             return ret;
+        },
+
+        __callNext: function (cb) {
+            var activation = this.agenda.pop(), rootNode = this.rootNode;
+            activation.used = true;
+            this.emit("fire", activation.rule.name, activation.match.factHash);
+            return when(activation.rule.fire(this, activation.match)).then(bind(this, function () {
+                if (this.__wmAltered) {
+                    rootNode.incrementCounter();
+                    this.__wmAltered = false;
+                }
+            }));
+        },
+
+
+        matchUntilHalt: function (cb) {
+            return this.__loop(bind(this, function (ret, fire) {
+                if (!this.agenda.isEmpty() && !this.__halted) {
+                    this.__callNext(fire).then(fire, ret.errback);
+                } else if (!this.__halted) {
+                    process.nextTick(fire);
+                } else {
+                    ret.callback();
+                }
+            }), cb);
+        },
+
+        match: function (cb) {
+            return this.__loop(bind(this, function (ret, fire) {
+                if (!this.agenda.isEmpty()) {
+                    this.__callNext(fire).then(fire, ret.errback);
+                } else {
+                    ret.callback();
+                }
+            }), cb);
         },
 
         __factHelper: function (object, assert) {

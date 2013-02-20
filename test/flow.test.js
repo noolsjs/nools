@@ -319,6 +319,48 @@ it.describe("Flow",function (it) {
 
     });
 
+    it.describe("#matchUntilHalt", function (it) {
+        function Message(m) {
+            this.message = m;
+        }
+
+        var session, flow = nools.flow("Halt Flow", function (flow) {
+            flow.rule("Hello", [Message, "m", "m.message =~ /^hello(\\s*world)?$/"], function (facts) {
+                this.modify(facts.m, function () {
+                    this.message += " goodbye";
+                });
+            });
+
+            flow.rule("Goodbye", [Message, "m", "m.message =~ /.*goodbye$/"], function () {
+            });
+
+        });
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("match until halt is called", function () {
+            var count = 0, called = 0;
+            session.on("fire", function () {
+                called++;
+            });
+            var interval = setInterval(function () {
+                if (count++ >= 5) {
+                    clearInterval(interval);
+                    session.halt();
+                } else {
+                    session.assert(new Message("hello"));
+                }
+            }, 100);
+            return session.matchUntilHalt(function (err) {
+                assert.isNull(err);
+                assert.equal(called, 10);
+            });
+
+        });
+    });
+
     it.describe("fibonacci", function (it) {
 
         var Fibonacci = declare({
@@ -505,6 +547,7 @@ it.describe("Flow",function (it) {
     });
 
 }).as(module);
+
 
 
 
