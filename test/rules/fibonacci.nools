@@ -18,8 +18,8 @@ define Result {
 }
 
 rule Recurse {
-    salience : 1
     when {
+        not(nf: Fibonacci nf.sequence == 1);
         f : Fibonacci f.value == -1 && f.sequence != 1
     }
     then {
@@ -50,6 +50,5 @@ rule Calculate {
         modify(f3, function(){
              this.value = r.value =  v;
         });
-        retract(f1);
     }
 }

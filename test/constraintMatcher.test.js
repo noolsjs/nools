@@ -306,15 +306,15 @@ it.describe("constraint matcher",function (it) {
 
             atoms = constraintMatcher.toConstraints(parser.parseConstraint("isTrue(b) || isFalse(a)"), {alias: "a"});
             assert.lengthOf(atoms, 1);
-            assert.equal(atoms[0].type, "equality");
+            assert.equal(atoms[0].type, "reference");
 
             atoms = constraintMatcher.toConstraints(parser.parseConstraint("isNumber(b) || isFalse(a) && b == 1"), {alias: "a"});
             assert.lengthOf(atoms, 1);
-            assert.equal(atoms[0].type, "equality");
+            assert.equal(atoms[0].type, "reference");
 
             atoms = constraintMatcher.toConstraints(parser.parseConstraint("(isNumber(b) || isFalse(a)) && b == 1"), {alias: "a"});
             assert.lengthOf(atoms, 2);
-            assert.equal(atoms[0].type, "equality");
+            assert.equal(atoms[0].type, "reference");
             assert.equal(atoms[1].type, "reference");
 
             atoms = constraintMatcher.toConstraints(parser.parseConstraint("a.name == 'bob' && isFalse(a.flag) && b == 1"), {alias: "a"});

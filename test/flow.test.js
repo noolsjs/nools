@@ -374,16 +374,18 @@ it.describe("Flow",function (it) {
         var result = null;
         var flow = nools.flow("Fibonacci Flow", function (flow) {
 
-            flow.rule("Recurse", {priority: 1}, [
-                [Fibonacci, "f", "f.value == -1 && f.sequence != 1"]
+            flow.rule("Recurse", [
+                ["not", Fibonacci, "nf", "nf.sequence == 1"],
+                [Fibonacci, "f", "f.value == -1"]
             ], function (facts) {
                 var f2 = new Fibonacci(facts.f.sequence - 1);
                 this.assert(f2);
             });
 
             flow.rule("Bootstrap", [Fibonacci, "f", "f.value == -1 && (f.sequence == 1 || f.sequence == 2)"], function (facts, flow) {
-                facts.f.value = 1;
-                this.modify(facts.f);
+                this.modify(facts.f, function () {
+                    this.value = 1;
+                });
             });
 
             flow.rule("Calculate", [
@@ -394,7 +396,6 @@ it.describe("Flow",function (it) {
                 facts.f3.value = facts.f1.value + facts.f2.value;
                 result = facts.f3.value;
                 this.modify(facts.f3);
-                this.retract(facts.f1);
             });
         });
 
@@ -547,6 +548,7 @@ it.describe("Flow",function (it) {
     });
 
 }).as(module);
+
 
 
 
