@@ -1015,10 +1015,21 @@ var extd = require("./extended"),
     rule = require("./rule"),
     wm = require("./workingMemory"),
     WorkingMemory = wm.WorkingMemory,
-    InitialFact = require("./pattern").InitialFact,
+    pattern = require("./pattern"),
+    CompositePattern = pattern.CompositePattern,
+    InitialFact = pattern.InitialFact,
     Fact = wm.Fact,
     compile = require("./compile");
 
+function getSpecificity(pattern){
+    var specificity = 0;
+    if(pattern instanceof CompositePattern){
+        specificity += getSpecificity(pattern.leftPattern) + getSpecificity(pattern.rightPattern);
+    }else{
+        specificity += pattern.getSpecificity();
+    }
+    return specificity;
+}
 
 var sortAgenda = function (a, b) {
     if (a === b) {
@@ -1028,8 +1039,12 @@ var sortAgenda = function (a, b) {
     var p1 = a.rule.priority, p2 = b.rule.priority;
     if (p1 !== p2) {
         ret = p1 - p2;
-    } else if (a.counter !== b.counter) {
+    }
+    if (a.counter !== b.counter) {
         ret = a.counter - b.counter;
+    }
+    if(!ret){
+        ret = a.recency - b.recency;
     }
     if (!ret) {
 
@@ -1044,8 +1059,11 @@ var sortAgenda = function (a, b) {
         }
         //   }
     }
-    if (!ret) {
+    if(!ret){
         ret = a.recency - b.recency;
+    }
+    if(!ret){
+        ret = getSpecificity(a.rule.pattern) - getSpecificity(b.rule.pattern);
     }
     return ret > 0 ? 1 : -1;
 };
@@ -2999,6 +3017,8 @@ require.define("/node_modules/is-extended/index.js",function(require,module,expo
 
         var undef, pSlice = Array.prototype.slice;
 
+        var hasOwnProperty = Object.prototype.hasOwnProperty;
+
         function argsToArray(args, slice) {
             slice = slice || 0;
             return pSlice.call(args, slice);
@@ -3288,6 +3308,42 @@ require.define("/node_modules/is-extended/index.js",function(require,module,expo
             return !isIn(obj, arr);
         }
 
+        function containsAt(arr, obj, index) {
+            if (isArray(arr) && arr.length > index) {
+                return isEq(arr[index], obj);
+            }
+            return false;
+        }
+
+        function notContainsAt(arr, obj, index) {
+            if (isArray(arr)) {
+                return !isEq(arr[index], obj);
+            }
+            return false;
+        }
+
+        function has(obj, prop) {
+            return hasOwnProperty.call(obj, prop);
+        }
+
+        function notHas(obj, prop) {
+            return !has(obj, prop);
+        }
+
+        function length(obj, l) {
+            if (has(obj, "length")) {
+                return obj.length === l;
+            }
+            return false;
+        }
+
+        function notLength(obj, l) {
+            if (has(obj, "length")) {
+                return obj.length !== l;
+            }
+            return false;
+        }
+
         var isa = {
             isFunction: isFunction,
             isObject: isObject,
@@ -3322,7 +3378,13 @@ require.define("/node_modules/is-extended/index.js",function(require,module,expo
             isLike: isLike,
             isNotLike: isNotLike,
             contains: contains,
-            notContains: notContains
+            notContains: notContains,
+            has: has,
+            notHas: notHas,
+            isLength: length,
+            isNotLength: notLength,
+            containsAt: containsAt,
+            notContainsAt: notContainsAt
         };
 
         var tester = {
@@ -3429,7 +3491,7 @@ require.define("/node_modules/is-extended/index.js",function(require,module,expo
             return defineIsa((require("extended")));
         });
     } else {
-        this.is = defineIsa(this.extended);
+        this.isExtended = defineIsa(this.extended);
     }
 
 }).call(this);
@@ -7867,6 +7929,8 @@ var extd = require("../extended"),
     declare = extd.declare,
     pattern = require("../pattern.js"),
     ObjectPattern = pattern.ObjectPattern,
+    FromPattern = pattern.FromPattern,
+    FromNotPattern = pattern.FromNotPattern,
     NotPattern = pattern.NotPattern,
     CompositePattern = pattern.CompositePattern,
     InitialFactPattern = pattern.InitialFactPattern,
@@ -7877,6 +7941,8 @@ var extd = require("../extended"),
     EqualityNode = require("./equalityNode"),
     JoinNode = require("./joinNode"),
     NotNode = require("./notNode"),
+    FromNode = require("./fromNode"),
+    FromNotNode = require("./fromNotNode"),
     LeftAdapterNode = require("./leftAdapterNode"),
     RightAdapterNode = require("./rightAdapterNode"),
     TypeNode = require("./typeNode"),
@@ -7897,6 +7963,7 @@ declare({
                 recency: 0
             };
             this.agendaTree = agendaTree;
+            this.workingMemory = wm;
         },
 
         assertRule: function (rule) {
@@ -7998,6 +8065,10 @@ declare({
             var joinNode;
             if (pattern.rightPattern instanceof NotPattern) {
                 joinNode = new NotNode();
+            } else if (pattern.rightPattern instanceof FromNotPattern) {
+                joinNode = new FromNotNode(pattern.rightPattern, this.workingMemory);
+            } else if (pattern.rightPattern instanceof FromPattern) {
+                joinNode = new FromNode(pattern.rightPattern, this.workingMemory);
             } else {
                 joinNode = new JoinNode();
                 this.joinNodes.push(joinNode);
@@ -8014,7 +8085,7 @@ declare({
 
         __addToNetwork: function (rule, pattern, outNode, side) {
             if (pattern instanceof ObjectPattern) {
-                if (pattern instanceof NotPattern && (!side || side === "left")) {
+                if ((pattern instanceof NotPattern || pattern instanceof FromPattern || pattern instanceof FromNotPattern) && (!side || side === "left")) {
                     return this.__createBetaNode(rule, new CompositePattern(new InitialFactPattern(), pattern), outNode, side);
                 }
                 this.__createAlphaNode(rule, pattern, outNode, side);
@@ -8033,36 +8104,41 @@ declare({
 
 
         __createAlphaNode: function (rule, pattern, outNode, side) {
-            var constraints = pattern.get("constraints");
-            var typeNode = this.__createTypeNode(rule, pattern);
-            var aliasNode = this.__createAliasNode(rule, pattern);
-            typeNode.addOutNode(aliasNode, pattern);
-            aliasNode.addParentNode(typeNode);
-            var parentNode = aliasNode;
-            var i = constraints.length - 1;
-            for (; i > 0; i--) {
-                var constraint = constraints[i], node;
-                if (constraint instanceof HashConstraint) {
-                    node = this.__createPropertyNode(rule, constraint);
-                } else if (constraint instanceof ReferenceConstraint) {
-                    outNode.constraint.addConstraint(constraint);
-                    continue;
-                } else {
-                    node = this.__createEqualityNode(rule, constraint);
+            var typeNode, parentNode;
+            if (!(pattern instanceof FromPattern)) {
+
+                var constraints = pattern.get("constraints");
+                typeNode = this.__createTypeNode(rule, pattern);
+                var aliasNode = this.__createAliasNode(rule, pattern);
+                typeNode.addOutNode(aliasNode, pattern);
+                aliasNode.addParentNode(typeNode);
+                parentNode = aliasNode;
+                var i = constraints.length - 1;
+                for (; i > 0; i--) {
+                    var constraint = constraints[i], node;
+                    if (constraint instanceof HashConstraint) {
+                        node = this.__createPropertyNode(rule, constraint);
+                    } else if (constraint instanceof ReferenceConstraint) {
+                        outNode.constraint.addConstraint(constraint);
+                        continue;
+                    } else {
+                        node = this.__createEqualityNode(rule, constraint);
+                    }
+                    parentNode.addOutNode(node, pattern);
+                    node.addParentNode(parentNode);
+                    parentNode = node;
                 }
-                parentNode.addOutNode(node, pattern);
-                node.addParentNode(parentNode);
-                parentNode = node;
+
+                if (outNode instanceof JoinNode) {
+                    var adapterNode = this.__createAdapterNode(rule, side);
+                    adapterNode.addParentNode(parentNode);
+                    parentNode.addOutNode(adapterNode, pattern);
+                    parentNode = adapterNode;
+                }
+                outNode.addParentNode(parentNode);
+                parentNode.addOutNode(outNode, pattern);
+                return typeNode;
             }
-            if (outNode instanceof JoinNode) {
-                var adapterNode = this.__createAdapterNode(rule, side);
-                adapterNode.addParentNode(parentNode);
-                parentNode.addOutNode(adapterNode, pattern);
-                parentNode = adapterNode;
-            }
-            outNode.addParentNode(parentNode);
-            parentNode.addOutNode(outNode, pattern);
-            return typeNode;
         },
 
         print: function () {
@@ -8080,98 +8156,137 @@ declare({
 
 });
 
-require.define("/lib/pattern.js",function(require,module,exports,__dirname,__filename,process,global){(function () {
-    "use strict";
-    var extd = require("./extended"),
-        merge = extd.merge,
-        forEach = extd.forEach,
-        declare = extd.declare,
-        constraintMatcher = require("./constraintMatcher"),
-        constraint = require("./constraint");
+require.define("/lib/pattern.js",function(require,module,exports,__dirname,__filename,process,global){"use strict";
+var extd = require("./extended"),
+    has = extd.has,
+    isEmpty = extd.isEmpty,
+    merge = extd.merge,
+    forEach = extd.forEach,
+    declare = extd.declare,
+    constraintMatcher = require("./constraintMatcher"),
+    constraint = require("./constraint"),
+    EqualityConstraint = constraint.EqualityConstraint;
 
 
-    var Pattern = declare({});
+var Pattern = declare({});
 
-    var ObjectPattern = Pattern.extend({
-        instance: {
-            constructor: function (type, alias, conditions, store, options) {
-                options = options || {};
-                this.type = type;
-                this.alias = alias;
-                this.conditions = conditions;
-                this.pattern = options.pattern;
-                this.constraints = [new constraint.ObjectConstraint(type)];
-                var constrnts = constraintMatcher.toConstraints(conditions, merge({alias: alias}, options));
-                if (constrnts.length) {
-                    this.constraints = this.constraints.concat(constrnts);
-                } else {
-                    var cnstrnt = new constraint.TrueConstraint();
-                    this.constraints.push(cnstrnt);
-                }
-                if (store && !extd.isEmpty(store)) {
-                    var atm = new constraint.HashConstraint(store);
-                    this.constraints.push(atm);
-                }
-                forEach(this.constraints, function (constraint) {
-                    constraint.set("alias", alias);
-                });
-            },
-
-            hasConstraint: function (type) {
-                return extd.some(this.constraints, function (c) {
-                    return c instanceof type;
-                });
-            },
-
-            hashCode: function () {
-                return [this.type, this.alias, extd.format("%j", this.conditions)].join(":");
-            },
-
-            toString: function () {
-                return extd.format("%j", this.constraints);
+var ObjectPattern = Pattern.extend({
+    instance: {
+        constructor: function (type, alias, conditions, store, options) {
+            options = options || {};
+            this.type = type;
+            this.alias = alias;
+            this.conditions = conditions;
+            this.pattern = options.pattern;
+            var constraints = [new constraint.ObjectConstraint(type)];
+            var constrnts = constraintMatcher.toConstraints(conditions, merge({alias: alias}, options));
+            if (constrnts.length) {
+                constraints = constraints.concat(constrnts);
+            } else {
+                var cnstrnt = new constraint.TrueConstraint();
+                constraints.push(cnstrnt);
             }
-        }
-    }).as(exports, "ObjectPattern");
+            if (store && !isEmpty(store)) {
+                var atm = new constraint.HashConstraint(store);
+                constraints.push(atm);
+            }
 
-    ObjectPattern.extend().as(exports, "NotPattern");
+            forEach(constraints, function (constraint) {
+                constraint.set("alias", alias);
+            });
+            this.constraints = constraints;
+        },
 
-    Pattern.extend({
-
-        instance: {
-            constructor: function (left, right) {
-                this.leftPattern = left;
-                this.rightPattern = right;
-            },
-
-            hashCode: function () {
-                return [this.leftPattern.hashCode(), this.rightPattern.hashCode()].join(":");
-            },
-
-            getters: {
-                constraints: function () {
-                    return this.leftPattern.constraints.concat(this.rightPattern.constraints);
+        getSpecificity: function () {
+            var constraints = this.constraints, specificity = 0;
+            for (var i = 0, l = constraints.length; i < l; i++) {
+                if (constraints[i] instanceof EqualityConstraint) {
+                    specificity++;
                 }
             }
+            return specificity;
+        },
+
+        hasConstraint: function (type) {
+            return extd.some(this.constraints, function (c) {
+                return c instanceof type;
+            });
+        },
+
+        hashCode: function () {
+            return [this.type, this.alias, extd.format("%j", this.conditions)].join(":");
+        },
+
+        toString: function () {
+            return extd.format("%j", this.constraints);
         }
+    }
+}).as(exports, "ObjectPattern");
 
-    }).as(exports, "CompositePattern");
+var FromPattern = ObjectPattern.extend({
+    instance: {
+        constructor: function (type, alias, conditions, store, from, options) {
+            this._super([type, alias, conditions, store, options]);
+            this.from = from.from;
+        },
+
+        hasConstraint: function (type) {
+            return extd.some(this.constraints, function (c) {
+                return c instanceof type;
+            });
+        },
+
+        hashCode: function () {
+            return [this.type, this.alias, extd.format("%j", this.conditions), this.from.from].join(":");
+        },
+
+        toString: function () {
+            return extd.format("%j from %s", this.constraints, this.from.from);
+        }
+    }
+}).as(exports, "FromPattern");
 
 
-    var InitialFact = declare({}).as(exports, "InitialFact");
+FromPattern.extend().as(exports, "FromNotPattern");
+ObjectPattern.extend().as(exports, "NotPattern");
 
-    ObjectPattern.extend({
-        instance: {
-            constructor: function () {
-                this._super([InitialFact, "i", [], {}]);
-            },
+Pattern.extend({
 
-            assert: function () {
-                return true;
+    instance: {
+        constructor: function (left, right) {
+            this.leftPattern = left;
+            this.rightPattern = right;
+        },
+
+        hashCode: function () {
+            return [this.leftPattern.hashCode(), this.rightPattern.hashCode()].join(":");
+        },
+
+        getters: {
+            constraints: function () {
+                return this.leftPattern.constraints.concat(this.rightPattern.constraints);
             }
         }
-    }).as(exports, "InitialFactPattern");
+    }
 
-})();
+}).as(exports, "CompositePattern");
+
+
+var InitialFact = declare({}).as(exports, "InitialFact");
+
+ObjectPattern.extend({
+    instance: {
+        constructor: function () {
+            this._super([InitialFact, "i", [], {}]);
+        },
+
+        assert: function () {
+            return true;
+        }
+    }
+}).as(exports, "InitialFactPattern");
+
+
 
 
 });
@@ -8189,6 +8304,7 @@ var extd = require("./extended"),
     atoms = require("./constraint");
 
 var definedFuncs = {
+    indexOf: extd.indexOf,
     now: function () {
         return new Date();
     },
@@ -8490,7 +8606,7 @@ var toJs = exports.toJs = function (rule, scope) {
     var js = lang.parse(rule);
     scope = scope || {};
     var vars = lang.getIdentifiers(rule);
-    return ["(function(){ return function jsMatcher(fact, hash){", map(vars,function (v) {
+    var body = "var indexOf = definedFuncs.indexOf;" + map(vars,function (v) {
         var ret = ["var ", v, " = "];
         if (definedFuncs.hasOwnProperty(v)) {
             ret.push("definedFuncs['", v, "']");
@@ -8501,12 +8617,16 @@ var toJs = exports.toJs = function (rule, scope) {
         }
         ret.push(";");
         return ret.join("");
-    }).join(""), " return !!(", js, ");};})()"].join("");
+    }).join("") + " return !!(" + js + ");";
+    var f = new Function("fact, hash, definedFuncs, scope", body);
+
+    return function (fact, hash) {
+        return f(fact, hash, definedFuncs, scope);
+    };
 };
 
 exports.getMatcher = function (rule, scope) {
-    var js = toJs(rule, scope);
-    return eval(js);
+    return toJs(rule, scope);
 };
 
 exports.toConstraints = function (constraint, options) {
@@ -8699,6 +8819,31 @@ Constraint.extend({
     }
 }).as(exports, "HashConstraint");
 
+Constraint.extend({
+    instance: {
+        constructor: function (prop, constraints) {
+            this.type = "from";
+            this.prop = prop;
+            this.constraints = constraints;
+        },
+
+        equal: function (constraint) {
+            return extd.instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias") && extd.deepEqual(this.constraints, constraint.constraints);
+        },
+
+        "assert": function () {
+            return true;
+        },
+
+        getters: {
+            variables: function () {
+                return this.constraint;
+            }
+        }
+
+    }
+}).as(exports, "FromConstraint");
+
 
 
 
@@ -8883,6 +9028,8 @@ declare({
 
 require.define("/lib/context.js",function(require,module,exports,__dirname,__filename,process,global){"use strict";
 var extd = require("./extended"),
+    isBoolean = extd.isBoolean,
+    isDefined = extd.isDefined,
     declare = extd.declare,
     merge = extd.merge,
     union = extd.union,
@@ -8903,7 +9050,7 @@ var Match = declare({
             if (assertable instanceof this._static) {
                 this.isMatch = assertable.isMatch;
                 this.facts = this.facts.concat(assertable.facts);
-                this.factIds = this.factIds.concat(assertable.factIds);
+                this.factIds = this.factIds.concat(assertable.factIds).sort();
                 this.hashCode = this.factIds.join(":");
                 this.factHash = merge(this.factHash, assertable.factHash);
                 this.recency = union(this.recency, assertable.recency);
@@ -8922,7 +9069,7 @@ var Match = declare({
             var ret = new this._static();
             ret.isMatch = mr.isMatch;
             ret.facts = this.facts.concat(mr.facts);
-            ret.factIds = this.factIds.concat(mr.factIds);
+            ret.factIds = this.factIds.concat(mr.factIds).sort();
             ret.hashCode = ret.factIds.join(":");
             ret.factHash = merge({}, this.factHash, mr.factHash);
             ret.recency = union(this.recency, mr.recency);
@@ -8955,12 +9102,24 @@ var Context = declare({
         },
 
         isMatch: function (isMatch) {
-            this.match.isMatch = isMatch;
+            if (isBoolean(isMatch)) {
+                this.match.isMatch = isMatch;
+            } else {
+                return this.match.isMatch;
+            }
+            return this;
+        },
+
+        mergeMatch: function (merge) {
+            var match = this.match = this.match.merge(merge);
+            this.factHash = match.factHash;
+            this.hashCode = match.hashCode;
+            this.factIds = match.factIds;
             return this;
         },
 
         clone: function (fact, paths, match) {
-            return new Context(fact || this.fact, paths || this.path, match || this.match);
+            return new Context(fact || this.fact, null, match || this.match);
         }
     }
 }).as(module);
@@ -9369,6 +9528,202 @@ JoinNode.extend({
 }).as(module);
 });
 
+require.define("/lib/nodes/fromNode.js",function(require,module,exports,__dirname,__filename,process,global){var Node = require("./joinNode"),
+    extd = require("../extended"),
+    constraint = require("../constraint"),
+    EqualityConstraint = constraint.EqualityConstraint,
+    HashConstraint = constraint.HashConstraint,
+    ReferenceConstraint = constraint.ReferenceConstraint,
+    Context = require("../context"),
+    pluck = extd.pluck,
+    forEach = extd.forEach,
+    isArray = extd.isArray,
+    indexOf = extd.indexOf;
+
+var DEFAULT_MATCH = {isMatch: function () {
+    return false;
+}};
+Node.extend({
+    instance: {
+
+        constructor: function (pattern, wm) {
+            this._super(arguments);
+            this.workingMemory = wm;
+            this.__fromMemory = {};
+            this.pattern = pattern;
+            this.type = pattern.get("constraints")[0];
+            this.alias = pattern.get("alias");
+            this.from = pattern.from;
+            var eqConstraints = this.__equalityConstraints = [];
+            var vars = [];
+            forEach(this.constraints = this.pattern.get("constraints").slice(1), function (c) {
+                if (c instanceof EqualityConstraint || c instanceof ReferenceConstraint) {
+                    eqConstraints.push(c);
+                } else if (c instanceof HashConstraint) {
+                    vars = vars.concat(c.get("variables"));
+                }
+            });
+            this.__variables = vars;
+
+        },
+
+        __createMatches: function (context) {
+            var fh = context.factHash, o = pluck([fh], this.from)[0], newContext;
+            if (isArray(o)) {
+                for (var i = 0, l = o.length; i < l; i++) {
+                    if ((newContext = this.__createMatch(context, o[i])).isMatch()) {
+                        this.__propagate("assert", newContext);
+                    }
+                }
+            } else if ((newContext = this.__createMatch(context, o)).isMatch()) {
+                this.__propagate("assert", newContext);
+            }
+        },
+
+        __createMatch: function (lc, o) {
+            if (this.type.assert(o)) {
+                var rc = new Context(this.workingMemory.getFactHandle(o))
+                    .set(this.alias, o);
+                var fh = rc.factHash, lcFh = lc.factHash;
+                for (var key in lcFh) {
+                    fh[key] = lcFh[key];
+                }
+                var eqConstraints = this.__equalityConstraints, vars = this.__variables;
+                for (var i = 0, l = eqConstraints.length; i < l; i++) {
+                    if (!eqConstraints[i].assert(fh)) {
+                        return DEFAULT_MATCH;
+                    }
+                }
+                var prop;
+                for (i = 0, l = vars.length; i < l; i++) {
+                    prop = vars[i];
+                    fh[prop] = o[prop];
+                }
+                return new Context(rc.fact, null, lc.match.merge(rc.match));
+            }
+            return DEFAULT_MATCH;
+        },
+
+        retractLeft: function (fact) {
+            var contexts = this.leftMemory[fact.id], tuples = this.leftTuples, i, l, found = false;
+            if (contexts) {
+                found = true;
+                for (i = 0, l = contexts.length; i < l; i++) {
+                    var index = indexOf(tuples, contexts[i]);
+                    tuples.splice(index, 1);
+                    //this.propagateRetract(tuple.match);
+                }
+                delete this.leftMemory[fact.id];
+            }
+            this.propagateRetract(fact);
+        },
+//
+        retractRight: function (fact) {
+            throw new Error("Shouldnt have gotten here");
+        },
+
+        assertLeft: function (context) {
+//            this.leftTuples.push(context);
+            this.__addToLeftMemory(context);
+            this.__createMatches(context);
+
+        },
+
+        assertRight: function (context) {
+            throw new Error("Shouldnt have gotten here");
+        },
+
+
+        toString: function () {
+            return "FromNode" + this.__count;
+        }
+
+    }
+}).as(module);
+});
+
+require.define("/lib/nodes/fromNotNode.js",function(require,module,exports,__dirname,__filename,process,global){var Node = require("./joinNode"),
+    extd = require("../extended"),
+    constraint = require("../constraint"),
+    EqualityConstraint = constraint.EqualityConstraint,
+    HashConstraint = constraint.HashConstraint,
+    ReferenceConstraint = constraint.ReferenceConstraint,
+    Context = require("../context"),
+    pluck = extd.pluck,
+    forEach = extd.forEach,
+    isArray = extd.isArray;
+
+Node.extend({
+    instance: {
+
+        constructor: function (pattern) {
+            this._super(arguments);
+            this.pattern = pattern;
+            this.type = pattern.get("constraints")[0];
+            this.alias = pattern.get("alias");
+            this.from = pattern.from;
+            var eqConstraints = this.__equalityConstraints = [];
+            var vars = [];
+            forEach(this.constraints = this.pattern.get("constraints").slice(1), function (c) {
+                if (c instanceof EqualityConstraint || c instanceof ReferenceConstraint) {
+                    eqConstraints.push(c);
+                } else if (c instanceof HashConstraint) {
+                    vars = vars.concat(c.get("variables"));
+                }
+            });
+            this.__variables = vars;
+
+        },
+
+        __findMatches: function (context) {
+            var fh = context.factHash, o = pluck([fh], this.from)[0], isMatch = false;
+            if (isArray(o)) {
+                for (var i = 0, l = o.length; i < l; i++) {
+                    if (this.__isMatch(context, o[i])) {
+                        return;
+                    }
+                }
+                this.__propagate("assert", context.clone());
+            } else if (!this.__isMatch(context, o)) {
+                this.__propagate("assert", context);
+            }
+            return isMatch;
+        },
+
+        __isMatch: function (oc, o) {
+            if (this.type.assert(o)) {
+                var ret = new Context(o, null)
+                    .mergeMatch(oc.match)
+                    .set(this.alias, o);
+                var fh = ret.factHash;
+                var eqConstraints = this.__equalityConstraints;
+                for (var i = 0, l = eqConstraints.length; i < l; i++) {
+                    if (eqConstraints[i].assert(fh)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        },
+
+        assertLeft: function (context) {
+            this.__findMatches(context);
+
+        },
+
+        assertRight: function () {
+            throw new Error("Shouldnt have gotten here");
+        },
+
+
+        toString: function () {
+            return "FromNode" + this.__count;
+        }
+
+    }
+}).as(module);
+});
+
 require.define("/lib/nodes/leftAdapterNode.js",function(require,module,exports,__dirname,__filename,process,global){var Node = require("./node");
 
 Node.extend({
@@ -9484,6 +9839,7 @@ AlphaNode.extend({
 
 require.define("/lib/nodes/terminalNode.js",function(require,module,exports,__dirname,__filename,process,global){var Node = require("./node"),
     extd = require("../extended"),
+    sum = extd.sum,
     bind = extd.bind,
     removeDuplicates = extd.removeDuplicates;
 
@@ -9513,7 +9869,7 @@ Node.extend({
                     rule: rule,
                     index: this.index,
                     name: rule.name,
-                    recency: bucket.recency++,
+                    recency: sum(match.recency),
                     match: match,
                     counter: bucket.counter
                 });
@@ -9783,14 +10139,64 @@ require.define("/lib/rule.js",function(require,module,exports,__dirname,__filena
 var extd = require("./extended"),
     isArray = extd.isArray,
     isString = extd.isString,
+    isHash = extd.isHash,
+    format = extd.format,
     Promise = extd.Promise,
     when = extd.when,
     declare = extd.declare,
     parser = require("./parser"),
     pattern = require("./pattern"),
     ObjectPattern = pattern.ObjectPattern,
+    FromPattern = pattern.FromPattern,
     NotPattern = pattern.NotPattern,
+    FromNotPattern = pattern.FromNotPattern,
     CompositePattern = pattern.CompositePattern;
+
+var parseExtra = extd
+    .switcher()
+    .isUndefinedOrNull(function () {
+        return null;
+    })
+    .isLike(/^from +/, function (s) {
+        return {from: s.replace(/^from +/, "").replace(/^\s*|\s*$/g, "")};
+    })
+    .def(function (o) {
+        throw new Error("invalid rule constraint option " + o);
+    })
+    .switcher();
+
+var normailizeConstraint = extd
+    .switcher()
+    .isLength(1, function (c) {
+        throw new Error("invalid rule constraint " + format("%j", [c]));
+    })
+    .isLength(2, function (c) {
+        c.push("true");
+        return c;
+    })
+    //handle case where c[2] is a hash rather than a constraint string
+    .isLength(3, function (c) {
+        if (isHash(c[2])) {
+            c.splice(2, 0, "true")
+        }
+        return c;
+    })
+    //handle case where c[3] is a from clause rather than a hash for references
+    .isLength(4, function (c) {
+        if (isString(c[3])) {
+            c.splice(3, 0, null);
+            c[4] = parseExtra(c[4]);
+        }
+        return c;
+    })
+    .def(function (c) {
+        if (c.length === 5) {
+            c[4] = parseExtra(c[4]);
+        }
+        return c;
+    })
+    .switcher();
+
 
 var getParamTypeSwitch = extd
     .switcher()
@@ -9851,28 +10257,55 @@ var parsePattern = extd
     })
     .contains("not", function (condition) {
         condition.shift();
-        return [
-            new NotPattern(
-                getParamType(condition[0]),
-                condition[1] || "m",
-                parser.parseConstraint(condition[2] || "true"),
-                condition[3] || {},
-                {scope: condition.scope, pattern: condition[2]}
-            )
-        ];
+        condition = normailizeConstraint(condition);
+        if (condition[4] && condition[4].from) {
+            return [
+                new FromNotPattern(
+                    getParamType(condition[0]),
+                    condition[1] || "m",
+                    parser.parseConstraint(condition[2] || "true"),
+                    condition[3] || {},
+                    condition[4],
+                    {scope: condition.scope, pattern: condition[2]}
+                )
+            ];
+        } else {
+            return [
+                new NotPattern(
+                    getParamType(condition[0]),
+                    condition[1] || "m",
+                    parser.parseConstraint(condition[2] || "true"),
+                    condition[3] || {},
+                    {scope: condition.scope, pattern: condition[2]}
+                )
+            ];
+        }
     })
     .def(function (condition) {
-        return [
-            new ObjectPattern(
-                getParamType(condition[0]),
-                condition[1] || "m",
-                parser.parseConstraint(condition[2] || "true"),
-                condition[3] || {},
-                {scope: condition.scope, pattern: condition[2]}
-            )
-        ];
+        condition = normailizeConstraint(condition);
+        if (condition[4] && condition[4].from) {
+            return [
+                new FromPattern(
+                    getParamType(condition[0]),
+                    condition[1] || "m",
+                    parser.parseConstraint(condition[2] || "true"),
+                    condition[3] || {},
+                    condition[4],
+                    {scope: condition.scope, pattern: condition[2]}
+                )
+            ];
+        } else {
+            return [
+                new ObjectPattern(
+                    getParamType(condition[0]),
+                    condition[1] || "m",
+                    parser.parseConstraint(condition[2] || "true"),
+                    condition[3] || {},
+                    {scope: condition.scope, pattern: condition[2]}
+                )
+            ];
+        }
     }).switcher();
-
 
 var Rule = declare({
     instance: {
@@ -9900,7 +10333,7 @@ var Rule = declare({
 });
 
 function createRule(name, options, conditions, cb) {
-    if (extd.isArray(options)) {
+    if (isArray(options)) {
         cb = conditions;
         conditions = options;
     } else {
@@ -10549,6 +10982,7 @@ var ruleTokens = {
         };
         var constraintRegExp = /(\{(?:["']?\$?\w+["']?\s*:\s*["']?\$?\w+["']? *(?:, *["']?\$?\w+["']?\s*:\s*["']?\$?\w+["']?)*)+\})/;
         var predicateExp = /^(\w+) *\((.*)\)$/m;
+        var fromRegExp = /(\bfrom\s+.*)/;
         var parseRules = function (str) {
             var rules = [];
             var ruleLines = str.split(";"), l = ruleLines.length, ruleLine;
@@ -10571,9 +11005,14 @@ var ruleTokens = {
                     if (parts && parts.length) {
                         rule.push(parts[2], parts[1]);
                         var constraints = parts[3].replace(/^\s*|\s*$/g, "");
-                        var hashParts = constraints.match(constraintRegExp);
+                        var hashParts = constraints.match(constraintRegExp), from = null, fromMatch;
                         if (hashParts) {
                             var hash = hashParts[1], constraint = constraints.replace(hash, "");
+                            if (fromRegExp.test(constraint)) {
+                                fromMatch = constraint.match(fromRegExp);
+                                from = fromMatch[0];
+                                constraint = constraint.replace(fromMatch[0], "");
+                            }
                             if (constraint) {
                                 rule.push(constraint.replace(/^\s*|\s*$/g, ""));
                             }
@@ -10581,7 +11020,15 @@ var ruleTokens = {
                                 rule.push(eval("(" + hash.replace(/(\$?\w+)\s*:\s*(\$?\w+)/g, '"$1" : "$2"') + ")"));
                             }
                         } else if (constraints && !isWhiteSpace(constraints)) {
+                            if (fromRegExp.test(constraints)) {
+                                fromMatch = constraints.match(fromRegExp);
+                                from = fromMatch[0];
+                                constraints = constraints.replace(fromMatch[0], "");
+                            }
                             rule.push(constraints);
+                        }
+                        if (from) {
+                            rule.push(from);
                         }
                         rules.push(rule);
                     } else {
@@ -10794,7 +11241,7 @@ var declare = require("declare.js");
 
 var id = 0;
 
-declare({
+var Fact = declare({
 
     instance: {
         constructor: function (obj) {
@@ -10829,6 +11276,20 @@ declare({
 
         dispose: function () {
             this.facts.length = 0;
+        },
+
+        getFactHandle: function (o) {
+            var facts = this.facts, l = facts.length;
+            for (var i = 0; i < l; i++) {
+                var existingFact = facts[i];
+                if (existingFact.equals(o)) {
+                    return existingFact;
+                }
+            }
+            var ret = new Fact(o);
+            ret.recency = this.recency++;
+            facts.push(ret);
+            return ret;
         },
 
         assertFact: function (fact) {
@@ -10927,10 +11388,9 @@ require.define("/lib/compile.js",function(require,module,exports,__dirname,__fil
         if (/next\(.*\)/.test(action)) {
             params.push("next");
         }
-        action = declares.join("") + action;
-        action = ["(function(){ return function _parsedAction(", params.join(","), ")", "{\n\t", action, "\n};}())"].join("");
+        action = "with(this){" + declares.join("") + action + "}";
         try {
-            return eval(action);
+            return bind({defined: defined, scope: scope, bind: bind}, new Function(params.join(","), action));
         } catch (e) {
             throw new Error("Invalid action : " + action + "\n" + e.message);
         }
@@ -11024,9 +11484,8 @@ require.define("/lib/compile.js",function(require,module,exports,__dirname,__fil
                 declares.push("var " + i + "= scope." + i + ";");
             }
         });
-        body = ["((function(){", declares.join(""), "\n\treturn ", body, "\n})())"].join("");
         try {
-            return eval(body);
+            return bind({scope: scope, defined: defined}, new Function("with(this){" + declares.join("") + "\n\treturn " + body + "\n}"));
         } catch (e) {
             throw new Error("Invalid action : " + body + "\n" + e.message);
         }
@@ -11035,7 +11494,7 @@ require.define("/lib/compile.js",function(require,module,exports,__dirname,__fil
     var createDefined = (function () {
 
         var _createDefined = function (options) {
-            options = isString(options) ? eval("(function(){ return " + options + "}())") : options;
+            options = isString(options) ? new Function("return " + options + ";")() : options;
             var ret = options.hasOwnProperty("constructor") && "function" === typeof options.constructor ? options.constructor : function (opts) {
                 opts = opts || {};
                 for (var i in opts) {

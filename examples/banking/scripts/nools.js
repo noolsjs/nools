@@ -14796,7 +14796,7 @@ var Node = declare({
         },
 
         assert: function (assertable) {
-            this.propagateAssert(assertable);
+            this.__propagate("assert", assertable);
         },
 
         propagateModify: function (assertable, outNodes) {
@@ -14828,7 +14828,7 @@ var TypeNode = AlphaNode.extend({
 
         assert: function (fact) {
             if (this.constraint.assert(fact.object)) {
-                this.propagateAssert({fact: fact});
+                this.__propagate("assert", {fact: fact});
             }
         },
 
@@ -15046,7 +15046,7 @@ var BridgeNode = Node.extend({
             for (var i in variables) {
                 fh[i] = o[variables[i]];
             }
-            this.propagateAssert({match: mr, fact: fact});
+            this.__propagate("assert", {match: mr, fact: fact});
         },
 
         retract: function (assertable) {

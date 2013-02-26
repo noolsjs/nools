@@ -312,7 +312,7 @@ function init() {
     ];
 
 
-    var seat = { seat: 16 };
+    var seat = { seat: 64 };
     var start = { state: 'start' };
 
     var flow = nools.getFlow("manners"),
@@ -322,8 +322,8 @@ function init() {
             Count = flow.getDefined("count"),
             session = flow.getSession();
 
-    for (var i = 0, l = guests16.length; i < l; i++) {
-        session.assert(new Guest(guests16[i]));
+    for (var i = 0, l = guests64.length; i < l; i++) {
+        session.assert(new Guest(guests64[i]));
     }
     session.assert(new LastSeat(seat));
     session.assert(new Context(start));

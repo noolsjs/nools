@@ -18,6 +18,8 @@ it.describe("nools", function (it) {
 
 it.describe("Flow",function (it) {
 
+    //it.timeout(1000);
+
     it.describe("#rule", function (it) {
         var called = 0;
         var flow = nools.flow("test flow");
@@ -86,26 +88,258 @@ it.describe("Flow",function (it) {
 
     });
 
+    it.describe("rule with from", function (it) {
+
+        it.describe("with non array properties", function (it) {
+
+            var called = 0;
+            var Address = declare({
+                instance: {
+                    constructor: function (zip) {
+                        this.zipcode = zip;
+                    }
+                }
+            });
+            var Person = declare({
+                instance: {
+                    constructor: function (first, last, address) {
+                        this.firstName = first;
+                        this.lastName = last;
+                        this.address = address;
+                    }
+                }
+            });
+
+            var flow = nools.flow("from flow", function (flow) {
+                flow.rule("from rule 1", [
+                    [Person, "p"],
+                    [Address, "a", "a.zipcode == 88847", "from p.address"],
+                    [String, "first", "first == 'bob'", "from p.firstName"],
+                    [String, "last", "last == 'yukon'", "from p.lastName"]
+                ], function (facts) {
+                    assert.equal(facts.a, facts.p.address);
+                    assert.equal(facts.first, "bob");
+                    assert.equal(facts.last, "yukon");
+                    called++;
+                });
+            });
+
+            it.should("call create the proper match contexts", function () {
+                var session = flow.getSession();
+                session.assert(new Person("bob", "yukon", new Address(88847)));
+                session.assert(new Person("sally", "yukon", new Address(88847)));
+                return session.match().then(function () {
+                    assert.equal(called, 1);
+                });
+            });
+
+            it.should("retract facts properly", function () {
+                var session = flow.getSession();
+                var p = new Person("bob", "yukon", new Address(88847));
+                session.assert(p);
+                assert.equal(session.agenda.peek().name, "from rule 1");
+                session.retract(p);
+                assert.isTrue(session.agenda.isEmpty());
+            });
+        });
+
+        it.describe("with array properties", function (it) {
+
+            var called = 0;
+            var Person = declare({
+                instance: {
+                    constructor: function (first, last, friends) {
+                        this.firstName = first;
+                        this.lastName = last;
+                        this.friends = friends || [];
+                    }
+                }
+            });
+
+            var flow = nools.flow("from flow with arrays", function (flow) {
+                flow.rule("from rule 1", [
+                    [Person, "p"],
+                    [Person, "friend", "friend.firstName != p.firstName", "from p.friends"],
+                    [String, "first", "first =~ /^a/", "from friend.firstName"]
+                ], function (facts) {
+                    assert.isTrue(/^a/.test(facts.first));
+                    called++;
+                });
+
+                flow.rule("from rule 2", [
+                    [Person, "p"],
+                    [Person, "friend", "friend.firstName != p.firstName", "from p.friends"],
+                    [String, "first", "first =~ /^b/", "from friend.firstName"]
+                ], function (facts) {
+                    assert.isTrue(/^b/.test(facts.first));
+                    called++;
+                });
+            });
+
+            it.should("create all cross product matches", function () {
+                var session = flow.getSession();
+                var persons = [
+                    new Person("bob", "yukon"),
+                    new Person("andy", "yukon"),
+                    new Person("andrew", "yukon"),
+                    new Person("billy", "yukon"),
+                    new Person("sally", "yukon")
+                ];
+                //create graph
+                for (var i = 0, l = persons.length; i < l; i++) {
+                    var p = persons[i], f;
+                    for (var j = 0, l2 = persons.length; j < l2; j++) {
+                        f = persons[j];
+                        if (f !== p) {
+                            p.friends.push(f);
+                        }
+                    }
+                    session.assert(p);
+                }
+                return session.match().then(function () {
+                    assert.equal(called, 16);
+                });
+            });
+
+            it.should("retract all cross product matches", function () {
+                var session = flow.getSession();
+                var persons = [
+                    new Person("bob", "yukon"),
+                    new Person("andy", "yukon"),
+                    new Person("andrew", "yukon"),
+                    new Person("billy", "yukon"),
+                    new Person("sally", "yukon")
+                ];
+                //create graph
+                for (var i = 0, l = persons.length; i < l; i++) {
+                    var p = persons[i], f;
+                    for (var j = 0, l2 = persons.length; j < l2; j++) {
+                        f = persons[j];
+                        if (f !== p) {
+                            p.friends.push(f);
+                        }
+                    }
+                    session.assert(p);
+                }
+                assert.equal(session.agenda.masterAgenda.toArray().length, 16);
+                for (i = 0, l = persons.length; i < l; i++) {
+                    session.retract(persons[i]);
+                }
+                assert.equal(session.agenda.masterAgenda.toArray().length, 0);
+            });
+        });
+
+        it.describe("with not node", function (it) {
+
+            var called1 = 0, called2 = 0;
+            var Person = declare({
+                instance: {
+                    constructor: function (first, last, friends) {
+                        this.firstName = first;
+                        this.lastName = last;
+                        this.friends = friends || [];
+                    }
+                }
+            });
+
+            var flow = nools.flow("from flow with from and not", function (flow) {
+                flow.rule("from not rule 1", [
+                    [Person, "p"],
+                    ["not", Person, "friend", "friend.lastName != p.lastName", "from p.friends"]
+                ], function (facts) {
+                    assert.isUndefined(facts.friend);
+                    called1++;
+                });
+
+                flow.rule("from not rule 2", [
+                    [Person, "p"],
+                    ["not", Person, "friend", "friend.lastName == p.lastName", "from p.friends"]
+                ], function (facts) {
+                    assert.isUndefined(facts.friend);
+                    called2++;
+                });
+            });
+
+            it.should("only fullfill if all facts evaluate to false", function () {
+                var session = flow.getSession();
+                var persons = [
+                    new Person("bob", "yukon"),
+                    new Person("andy", "yukon"),
+                    new Person("andrew", "yukon"),
+                    new Person("billy", "yukon"),
+                    new Person("sally", "yukon")
+                ];
+                //create graph
+                for (var i = 0, l = persons.length; i < l; i++) {
+                    var p = persons[i], f;
+                    for (var j = 0, l2 = persons.length; j < l2; j++) {
+                        f = persons[j];
+                        if (f !== p) {
+                            p.friends.push(f);
+                        }
+                    }
+                    session.assert(p);
+                }
+                return session.match().then(function () {
+                    assert.equal(called1, 5);
+                    assert.equal(called2, 0);
+                });
+            });
+
+            it.should("only fullfill if all facts evaluate to false", function () {
+                called1 = 0, called2 = 0;
+                var session = flow.getSession();
+                var persons = [
+                    new Person("bob", "yukon"),
+                    new Person("andy", "yukon"),
+                    new Person("andrew", "yukon"),
+                    new Person("billy", "yukon"),
+                    new Person("sally", "yukon"),
+                    new Person("sally", "yukons")
+                ];
+                //create graph
+                for (var i = 0, l = persons.length; i < l; i++) {
+                    var p = persons[i], f;
+                    for (var j = 0, l2 = persons.length; j < l2; j++) {
+                        f = persons[j];
+                        if (f !== p) {
+                            p.friends.push(f);
+                        }
+                    }
+                    session.assert(p);
+                }
+                return session.match().then(function () {
+                    assert.equal(called1, 0);
+                    assert.equal(called2, 1);
+                });
+            });
+        });
+
+    });
+
     it.describe("not rule", function (it) {
 
         it.describe("with a single fact", function (it) {
             var called = 0;
 
             var flow = nools.flow("notRuleSingleFact", function (flow) {
-                flow.rule("hello rule", ["not", String, "s", "s == 'hello'"], function () {
+                flow.rule("hello rule", ["not", String, "s", "s == 'hello'"], function (facts) {
+                    assert.isUndefined(facts.s);
                     called++;
                 });
             });
 
             it.should("call when a string that does not equal 'hello'", function () {
-                flow.getSession("world").match();
-                assert.equal(called, 1);
+                return flow.getSession("world").match().then(function () {
+                    assert.equal(called, 1);
+                });
             });
 
             it.should(" not call when a string that does equal 'hello'", function () {
                 called = 0;
-                flow.getSession("hello").match();
-                assert.equal(called, 0);
+                return flow.getSession("hello").match().then(function () {
+                    assert.equal(called, 0);
+                });
             });
 
             it.should(" not call when a string that does equal 'hello' and one that does not", function () {
@@ -382,7 +616,7 @@ it.describe("Flow",function (it) {
                 this.assert(f2);
             });
 
-            flow.rule("Bootstrap", [Fibonacci, "f", "f.value == -1 && (f.sequence == 1 || f.sequence == 2)"], function (facts, flow) {
+            flow.rule("Bootstrap", [Fibonacci, "f", "f.value == -1 && (f.sequence == 1 || f.sequence == 2)"], function (facts) {
                 this.modify(facts.f, function () {
                     this.value = 1;
                 });
@@ -548,6 +782,8 @@ it.describe("Flow",function (it) {
     });
 
 }).as(module);
+
+
 
 
 

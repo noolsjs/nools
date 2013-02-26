@@ -21,7 +21,7 @@
     "dependencies": {
         "declare.js": "~0.0.3",
         "extended": "~0.0.3",
-        "is-extended": "~0.0.3",
+        "is-extended": "~0.0.4",
         "string-extended": "~0.0.3",
         "array-extended": "~0.0.4",
         "date-extended": "~0.0.3",
