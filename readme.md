@@ -1,15 +1,19 @@
-[![Build Status](https://secure.travis-ci.org/C2FO/nools.png)](http://travis-ci.org/C2FO/nools)
-#Nools
+[![Build Status](https://travis-ci.org/C2FO/nools.png)](https://travis-ci.org/C2FO/nools)
+[![browser support](http://ci.testling.com/C2FO/nools.png)](http://ci.testling.com/C2FO/nools)
 
-Nools is a rules engine for node based on the [rete](http://en.wikipedia.org/wiki/Rete_algorithm) network.
+# Nools
+
+Nools is a [rete](http://en.wikipedia.org/wiki/Rete_algorithm) based rules engine for written entirely in javascript.
 
 # Installation
 
 ```
 npm install nools
 ```
+Or [download the source](https://raw.github.com/doug-martin/C2FO/master/nools.js) ([minified](https://raw.github.com/doug-martin/C2FO/master/nools.min.js))
 
-#Usage
+
+# Usage
 
    * Flows
     * [Defining A Flow](#flow) 
@@ -21,6 +25,7 @@ npm install nools
       * [Structure](#rule-structure) 
       * [Constraints](#constraints)
       * [Actions](#action)
+   * [Browser Support](#browser-support)
    * [Fibonacci](#fib)
       
    
@@ -29,12 +34,12 @@ To get started with nools the [examples](https://github.com/doug-martin/nools/tr
 great place to get started.
 
 <a name="flow"></a>
-##Defining a flow
+## Defining a flow
 
 When using nools you define a **flow** which acts as a container for rules that can later be used to get
 an **engine session**
 
-###Pragmatically
+### Programmatically
 ```javascript
 var nools = require("nools");
 
@@ -45,13 +50,13 @@ var Message = function (message) {
 var flow = nools.flow("Hello World", function (flow) {
 
     //find any message that start with hello
-    this.rule("Hello", [Message, "m", "m.message =~ /^hello(\\s*world)?$/"], function (facts) {
+    flow.rule("Hello", [Message, "m", "m.message =~ /^hello(\\s*world)?$/"], function (facts) {
         facts.m.message = facts.m.message + " goodbye";
         this.modify(facts.m);
     });
 
     //find all messages then end in goodbye
-    this.rule("Goodbye", [Message, "m", "m.message =~ /.*goodbye$/"], function (facts) {
+    flow.rule("Goodbye", [Message, "m", "m.message =~ /.*goodbye$/"], function (facts) {
         console.log(facts.m.message);
     });
 });
@@ -69,18 +74,21 @@ In the above flow definition 2 rules were defined
     * The messages's message must match the regular expression "/.*goodbye$/"(anything that ends in goodbye)
     * When matched the resulting message is logged.
 
-###Nools DSL
+### DSL
 
-You may also use the `nools` rules language to define your rules
+You may also use the `nools` rules language to define your rules.
+
+The following is the equivalent of the rules defined programmatially above.
 
 ```
 define Message {
     message : '',
     constructor : function(message){
         this.message = message;
-    }    
+    }
 }
 
+//find any message that start with hello
 rule Hello {
     when {
         m : Message m.message =~ /^hello(\\s*world)?$/;
@@ -90,6 +98,7 @@ rule Hello {
     }
 }
 
+//find all messages then end in goodbye
 rule Goodbye {
     when {
         m : Message m.message =~ /.*goodbye$/;
@@ -106,24 +115,113 @@ To use the flow
 var flow = nools.compile(__dirname + "/helloworld.nools"),
     Message = flow.getDefined("message");
 ```
-    
 
+### Flow Events
+
+Each flow can have the following events emitted.
+
+* `assert (fact)` - emitted when facts are asserted
+* `retract (fact)` - emitted when facts are retracted
+* `modify (fact)` - emitted when facts are modified
+* `fire (name, rule)` - emitted when an activation is fired.
+
+```
+session.on("assert", function(fact){
+    //fact was asserted
+});
+
+session.on("retract", function(fact){
+    //fact was retracted
+});
+
+session.on("modify", function(fact){
+    //fact was modifed
+});
+
+session.on("fire", function(name, rule){
+    //a rule was fired.
+});
+```
+
+### `nools.compile`
+
+The compile method accepts the following parameters
+
+* `source|path` - The first argument must either be a path that ends in `.nools` or a string which is the source of the rules that you wish to compile.
+* `options?`
+   * `name` : This is the name of the flow. You can use this name to look up the flow by using `nools.getFlow`.
+   * `define` : A hash of Classes that should be aviable to the rules that you are compiling.
+   * `scope`: A hash of items that should be available to rules as they run. (i.e. a logger)
+* `cb?` - an options function to invoke when compiling is done.
+
+
+**Example**
+
+```
+rule "person name is bob" {
+    when {
+        p : Person p.name == 'bob';
+    }
+    then {
+        logger.info("Found person with name of bob");
+        retract(p);
+    }
+}
+```
+
+In the above rules file we make use of a Person class and a logger. In order for nools to properly reference the Class and logger you must specify them in your options.
+
+```javascript
+var flow = nools.compile("personFlow.nools", {
+    define: {
+        //The person class the flow should use
+        Person: Person
+    },
+    scope: {
+        //the logger you want your flow to use.
+        logger: logger
+    }
+});
+```
+
+You may also compile source directly.
+
+```javascript
+var noolsSource = "rule 'person name is bob' {"
+    + "   when {"
+    + "     p : Person p.name == 'bob';"
+    + "   }"
+    + "   then {"
+    + "       logger.info('Found person with name of bob');"
+    + "       retract(p);"
+    + "   }"
+    + "}";
+
+var flow = nools.compile(noolsSource, {
+    define: {
+        //The person class the flow should use
+        Person: Person
+    },
+    scope: {
+        //the logger you want your flow to use.
+        logger: logger
+    }
+});
+```
 
 <a name="session"></a>
-##Working with a session
+## Working with a session
 
-A session is an instance of the flow that contains a working memory and handles the assertion, modification, and retraction
-of facts from the engine.
+A session is an instance of the flow that contains a working memory and handles the assertion, modification, and retraction of facts from the engine.
 
-To obtain an engine session from the flow invoke the **getSession** method.
+To obtain an engine session from the flow invoke the  `getSession` method.
 
 ```javascript
 var session = flow.getSession();
 ```
 
-
 <a name="facts"></a>
-##Working with facts
+## Working with facts
 
 Facts are items that the rules should try to match.
 
@@ -141,7 +239,6 @@ As a convenience any object passed into **getSession** will also be asserted.
 ```javascript
 flow.getSession(new Message("hello"), new Message("hello world"), new Message("goodbye"));
 ```
-
 
 To retract facts from the session use the **retract** method.
 
@@ -178,7 +275,7 @@ session.modify(m);
 
 
 <a name="firing"></a>
-##Firing the rules
+## Firing the rules
 
 When you get a session from a **flow** no rules will be fired until the **match** method is called.
 
@@ -199,9 +296,8 @@ session.match(function(err){
 })
 ```
 
-The **match** method returns a promise that is invoked once there are no more rules to activate. 
+The **match** method also returns a promise that is resolved once there are no more rules to activate.
 
-Example of the promise api
 ```javascript
 session.match().then(
   function(){
@@ -213,19 +309,105 @@ session.match().then(
   });
 ```
 
-<a name="disposing"></a>
-##Disposing of the session
+## Fire until halt
 
-When working with a lot of facts it is wise to call the **dispose** method which will purge the current session of
-all facts, this will help prevent the process growing a large memory footprint.
+You may also run the engine an a "reactive" mode which will continue to match until `halt` is invoked.
+
+In the following example the rules engine continues to evaluate until the counter reaches `10000`. If you remove the "counted to high" rule then the engine would run indefinitely.
 
 ```javascript
-   session.dispose();
+
+define Counter {
+    count: 0,
+    constructor: function(count){
+        this.count = count;
+    }
+}
+
+//We reached our goal
+rule "I can count!" {
+    when {
+        $ctr: Counter $ctr.count == 10000;
+    }
+    then{
+        console.log("Look ma! I counted to " + $ctr.count);
+        halt();
+    }
+}
+
+//no counter was asserted so create one
+rule "not count" {
+    when {
+        not($ctr: Counter);
+    }
+    then{
+        console.log("Imma gonna count!");
+        assert(new Counter(1));
+    }
+}
+
+//A little status update
+rule "give them an update" {
+    when{
+        $ctr: Counter $ctr.count % 1000 == 0 {count: $count}
+    }
+    then{
+        console.log("Imma countin...");
+        modify($ctr, function(){this.count = $count + 1;});
+    }
+}
+
+//just counting away
+rule count {
+    when{
+        $ctr: Counter {count: $count}
+    }
+    then{
+        modify($ctr, function(){this.count = $count + 1;});
+    }
+}
+
+```
+
+```javascript
+flow.getSession().matchUntilHalt(function(err){
+    if(err){
+        console.log(err.stack);
+        return;
+    }
+    //halt finally invoked
+});
+```
+
+`matchUntilHalt` also returns a promise.
+
+
+```javascript
+flow.getSession().matchUntilHalt()
+    .then(
+        function(){
+            //all done!
+        },
+        function(err){
+            console.log(err.stack);
+        }
+    );
+```
+
+
+
+<a name="disposing"></a>
+## Disposing of the session
+
+When working with a lot of facts it is wise to call the `dispose` method which will purge the current session of
+all facts, this will help prevent the process from growing a large memory footprint.
+
+```javascript
+session.dispose();
 ```
 
 <a name="defining-rule"></a>
-#Defining rules
-
+# Defining rules
 
 <a name="rule structure"></a>
 ## Rule structure
@@ -268,11 +450,12 @@ rule Calculate{
 ```
 
 <a name="constraints"></a>
-###Constraints
-   Constraints define what facts the rule should match. The constraint is a array of either a single constraint (i.e. Bootstrap rule)
-   or an array of constraints(i.e. Calculate).
+### Constraints
 
-Prgamatically
+Constraints define what facts the rule should match. The constraint is a array of either a single constraint (i.e. Bootstrap rule) or an array of constraints(i.e. Calculate).
+
+Programmatically
+
 ```javascript
 [
    //Type     alias  pattern           store sequence to s1
@@ -284,6 +467,7 @@ Prgamatically
 ```
 
 Using nools DSL
+
 ```
 when {
     f1 : Fibonacci f1.value != -1 {sequence:s1};
@@ -306,11 +490,12 @@ when {
       * `&&`, `AND`, `and`
       * `||`, `OR`, `or`
       * `>`, `<`, `>=`, `<=`, `gt`, `lt`, `gte`, `lte`
-      * `==`, `!=`, `=~`, `eq`, `neq`, `like`
-      * `+`, `-`, `*`, `/`
+      * `==`, `!=`, `=~`, `!=~`, `eq`, `neq`, `like`, `notLike`
+      * `+`, `-`, `*`, `/`, `%`
       * `-` (unary minus)
       * `.` (member operator)
       * `in` (check inclusion in an array)
+      * `notIn` (check that something is not in an array)
       * Defined helper functions
         * `now` - the current date
         * `Date(year?, month?, day?, hour?, minute?, second?, ms?)` - creates a new `Date` object
@@ -338,10 +523,11 @@ when {
    4. Reference(optional) - An object where the keys are properties on the current object, and values are aliases to use. The alias may be used in succeeding patterns.
 
 <a name="action"></a>
-###Action
+
+### Action
 
 The action is a function that should be fired when all patterns in the rule match. The action is called in the scope
-of the engine so you can use **this** to **assert**, **modify**, or **retract** facts. An object containing all facts and
+of the engine so you can use `this` to `assert`, `modify`, or `retract` facts. An object containing all facts and
 references created by the alpha nodes is passed in as the first argument to the action.
 
 So calculate's action modifies f3 by adding the value of f1 and f2 together and modifies f3 and retracts f1.
@@ -356,15 +542,15 @@ function (facts) {
     }
 ```
 
-The engine is also passed in as a second argument so alternatively you could do the following.
+The session is also passed in as a second argument so alternatively you could do the following.
 
 ```javascript
-function (facts, engine) {
+function (facts, session) {
         var f3 = facts.f3, f1 = facts.f1, f2 = facts.f2;
         var v = f3.value = f1.value + facts.f2.value;
         facts.r.result = v;
-        engine.modify(f3);
-        engine.retract(f1);
+        session.modify(f3);
+        session.retract(f1);
     }
 ```
 
@@ -399,12 +585,132 @@ then {
 
 For rules defined using the rules language nools will automatically determine what parameters need to be passed in based on what is referenced in the action.
 
+## Emitting custom events.
+
+You may also emit events from your rule actions using the sessions emit function.
+
+```
+then {
+    modify(f3, function(){
+        this.value = f1.value + f2.value;
+    });
+    retract(f1);
+    emit("my custom event");
+}
+```
+
+To listen to the event just use the on method of the session.
+
+```
+var session = flow.getSession();
+
+session.on("my custom event", function(){
+    //custom event called.
+});
+
+```
+
+# Browser Support
+
+<a name="browser-support"></a>
+
+`Nools` can also be used in the browser. The only difference is that you cannot pass a file location to the compile method instead you must provide the source.
+
+Nools is compatible with amd(requirejs) and can also be used in a standard script tag.
+
+### Example 1.
+
+In this example we compile rules definitions inlined in a script tag.
+
+```html
+<script type="text/javascript" src="nools.js"></script>
+<script type="text/nools" id="simple">
+define Message {
+    message : "",
+    constructor : function (message) {
+        this.message = message;
+    }
+}
+
+rule Hello {
+    when {
+        m : Message m.message =~ /^hello(\\s*world)?$/
+    }
+    then {
+        modify(m, function(){
+            this.message += " goodbye";
+        });
+    }
+}
+
+rule Goodbye {
+    when {
+        m : Message m.message =~ /.*goodbye$/
+    }
+    then {
+        document.getElementById("output").innerHTML += m.message + "</br>";
+    }
+}
+</script>
+<script type="text/javascript">
+    function init() {
+       //get the source
+       var source = document.getElementById("simple").innerHTML;
+       //compile the source. The name option is required if compiling directly.
+       var flow = nools.compile(source, {name: "simple"}),
+                Message = flow.getDefined("message"),
+                session = flow.getSession();
+        //assert your different messages
+        session.assert(new Message("goodbye"));
+        session.assert(new Message("hello"));
+        session.assert(new Message("hello world"));
+        session.match();
+    }
+</script>
+```
+
+### Using a compiled dsl.
+
+You may also use the `nools` executable to compile source into a browser friendly format skipping the need for compiling each time.
+
+```
+nools compile ./my/rules.nools > ./compiled.js
+```
+
+To use the flow require the compile version either through a script tag, `amd/requirejs`, or `commonjs` require.
+
+If you import the flow using a script tag you can get a reference to the flow by using `nools.getFlow`.
+
+```
+nools.getFlow("rules");
+```
+
+You may also specify the name of the flow when compiling, it defaults to the name of the nools file less ".nools"
+
+```
+nools compile -n "my rules" ./my/rules.nools
+```
+
+```
+nools.getFlow("my rules");
+```
+
+If you are using requirejs or nools must be required using something other than `require("nools")` then you can specify a location of the nools source.
+
+```
+nools compile -nl "./location/to/nools" ./my/rules.nools
+```
+
+### RequireJS examples
+
+Examples of using nools with require js are located in the [examples directory](./examples).
 
 
-#Examples
+
+# Examples
 
 <a name="fib"></a>
-##Fibonacci
+## Fibonacci
 
 ```javascript
 "use strict";
@@ -423,7 +729,7 @@ var Result = function (result) {
 
 var flow = nools.flow("Fibonacci Flow", function (flow) {
 
-    flow.rule("Recurse", {priority:1}, [
+    flow.rule("Recurse", [
         ["not", Fibonacci, "f", "f.sequence == 1"],
         [Fibonacci, "f1", "f1.sequence != 1"]
     ], function (facts) {
@@ -487,7 +793,7 @@ Output
 4.346655768693743e+208 [3580ms]
 ```
 
-Fiboncci with nools DSL
+### Fibonacci with nools DSL
 
 ```
 //Define our object classes, you can
@@ -502,7 +808,6 @@ define Result {
 }
 
 rule Recurse {
-    priority:1,
     when {
         //you can use not or or methods in here
         not(f : Fibonacci f.sequence == 1);

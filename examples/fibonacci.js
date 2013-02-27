@@ -14,7 +14,7 @@ var Result = function (result) {
 
 var flow = nools.flow("Fibonacci Flow", function (flow) {
 
-    flow.rule("Recurse", {priority: 1}, [
+    flow.rule("Recurse", [
         ["not", Fibonacci, "f", "f.sequence == 1"],
         [Fibonacci, "f1", "f1.sequence != 1"]
     ], function (facts) {

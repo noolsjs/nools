@@ -10,7 +10,6 @@ define Result {
 }
 
 rule Recurse {
-    priority:1,
     when {
         //you can use not or or methods in here
         not(f : Fibonacci f.sequence == 1);
