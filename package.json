@@ -38,6 +38,16 @@
         "grunt-it": "~0.2.1",
         "grunt-browserify": "~0.1.2"
     },
+    "testling": {
+        "files": "test/browserling.js",
+        "browsers": {
+            "ie": [6, 7, 8, 9],
+            "chrome": [4, 23, "canary"],
+            "firefox": [3, 3.5, 3.6, 4, 17, "nightly"],
+            "opera": [10, 10.5, 11, 11.5, 11.6, 12, "next"],
+            "safari": ["5.0.1", 5.1]
+        }
+    },
     "homepage": "http://c2fo.github.com/nools",
     "author": "Doug Martin (http://c2fo.com)",
     "main": "index.js",
