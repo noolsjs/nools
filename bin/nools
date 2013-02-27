@@ -16,13 +16,15 @@ program
 program.command("compile")
     .usage('[options] <file ...>')
     .description("compile nools dsl")
-    .option("-n --name", "name of the flow to compile, defaults to the name of the file less the extension")
+    .option("-n --name [value]", "name of the flow to compile, defaults to the name of the file less the extension")
+    .option("-l --nools_location [value]", "location to look for nools when requiring it")
     .action(function () {
         var files = Array.prototype.slice.call(arguments);
-        files.pop();
+        var program = files.pop();
+        var noolsLocation = program["nools_location"] || "nools";
         files.forEach(function (file) {
             var name = program.name || path.basename(file, path.extname(file));
-            console.log(str.format(template, { source: JSON.stringify(nools.parse(path.resolve(process.cwd(), file))), name: name}).replace(/\s+/g, " "));
+            console.log(str.format(template, { source: JSON.stringify(nools.parse(path.resolve(process.cwd(), file))), name: name, noolsLocation: noolsLocation}).replace(/\s+/g, " "));
         });
     });
 

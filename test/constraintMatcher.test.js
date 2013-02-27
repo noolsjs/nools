@@ -340,38 +340,27 @@ it.describe("constraint matcher",function (it) {
     it.describe("#toJs", function (it) {
 
         it.should("create js equvalent expression", function () {
-            assert.equal(constraintMatcher.toJs(parser.parseConstraint("isFalse(a)")),
-                "(function(){ return function jsMatcher(fact, hash){var isFalse = definedFuncs['isFalse'];var a = 'a' in fact ? fact['a'] : hash['a']; return !!(isFalse(a));};})()");
-            assert.equal(constraintMatcher.toJs(parser.parseConstraint("isTrue(b)")),
-                "(function(){ return function jsMatcher(fact, hash){var isTrue = definedFuncs['isTrue'];var b = 'b' in fact ? fact['b'] : hash['b']; return !!(isTrue(b));};})()");
-            assert.equal(constraintMatcher.toJs(parser.parseConstraint("isFalse(a) && isTrue(b)")),
-                "(function(){ return function jsMatcher(fact, hash){var isFalse = definedFuncs['isFalse'];var a = 'a' in fact ? fact['a'] : hash['a'];var isTrue = definedFuncs['isTrue'];var b = 'b' in fact ? fact['b'] : hash['b']; return !!(isFalse(a) && isTrue(b));};})()");
-            assert.equal(constraintMatcher.toJs(parser.parseConstraint("isFalse(a) || isTrue(b)")),
-                "(function(){ return function jsMatcher(fact, hash){var isFalse = definedFuncs['isFalse'];var a = 'a' in fact ? fact['a'] : hash['a'];var isTrue = definedFuncs['isTrue'];var b = 'b' in fact ? fact['b'] : hash['b']; return !!(isFalse(a) || isTrue(b));};})()");
+            assert.isTrue(constraintMatcher.toJs(parser.parseConstraint("isFalse(a)"))({a: false}));
+            assert.isFalse(constraintMatcher.toJs(parser.parseConstraint("isFalse(a)"))({a: true}));
 
-            assert.equal(constraintMatcher.toJs(parser.parseConstraint("isNumber(b) || isFalse(a) && b == 1")),
-                "(function(){ return function jsMatcher(fact, hash){var isNumber = definedFuncs['isNumber'];var b = 'b' in fact ? fact['b'] : hash['b'];var isFalse = definedFuncs['isFalse'];var a = 'a' in fact ? fact['a'] : hash['a']; return !!(isNumber(b) || isFalse(a) && b === 1);};})()");
+            assert.isTrue(constraintMatcher.toJs(parser.parseConstraint("isTrue(b)"))({b: true}));
+            assert.isFalse(constraintMatcher.toJs(parser.parseConstraint("isTrue(b)"))({b: false}));
 
-            assert.equal(constraintMatcher.toJs(parser.parseConstraint("(isNumber(b) || isFalse(a)) && b == 1")),
-                "(function(){ return function jsMatcher(fact, hash){var isNumber = definedFuncs['isNumber'];var b = 'b' in fact ? fact['b'] : hash['b'];var isFalse = definedFuncs['isFalse'];var a = 'a' in fact ? fact['a'] : hash['a']; return !!(isNumber(b) || isFalse(a) && b === 1);};})()");
+            assert.isTrue(constraintMatcher.toJs(parser.parseConstraint("isFalse(a) && isTrue(b)"))({a: false, b: true}));
+            assert.isFalse(constraintMatcher.toJs(parser.parseConstraint("isFalse(a) && isTrue(b)"))({a: false, b: false}));
 
-            assert.equal(constraintMatcher.toJs(parser.parseConstraint("(isNumber(b) || isFalse(a)) || b == 1")),
-                "(function(){ return function jsMatcher(fact, hash){var isNumber = definedFuncs['isNumber'];var b = 'b' in fact ? fact['b'] : hash['b'];var isFalse = definedFuncs['isFalse'];var a = 'a' in fact ? fact['a'] : hash['a']; return !!(isNumber(b) || isFalse(a) || b === 1);};})()");
+            assert.isTrue(constraintMatcher.toJs(parser.parseConstraint("isFalse(a) || isTrue(b)"))({a: true, b: true}));
+            assert.isFalse(constraintMatcher.toJs(parser.parseConstraint("isFalse(a) || isTrue(b)"))({a: true, b: false}));
 
-            assert.equal(constraintMatcher.toJs(parser.parseConstraint("a.name == 'bob' && isFalse(a.flag) && b == 1")),
-                "(function(){ return function jsMatcher(fact, hash){var a = 'a' in fact ? fact['a'] : hash['a'];var isFalse = definedFuncs['isFalse'];var b = 'b' in fact ? fact['b'] : hash['b']; return !!(a['name'] === 'bob' && isFalse(a['flag']) && b === 1);};})()");
+            assert.isTrue(constraintMatcher.toJs(parser.parseConstraint("isNumber(b) || isFalse(a) && b == 1"))({b: 1, a: false}));
+            assert.isFalse(constraintMatcher.toJs(parser.parseConstraint("isNumber(b) || isFalse(a) && b == 1"))({b: "a", a: true}));
 
-            assert.equal(constraintMatcher.toJs(parser.parseConstraint("a.name.isSomething() && isFalse(a.flag) && b == 1")),
-                "(function(){ return function jsMatcher(fact, hash){var a = 'a' in fact ? fact['a'] : hash['a'];var isFalse = definedFuncs['isFalse'];var b = 'b' in fact ? fact['b'] : hash['b']; return !!(a['name'].isSomething() && isFalse(a['flag']) && b === 1);};})()");
+            assert.isTrue(constraintMatcher.toJs(parser.parseConstraint("(isNumber(b) || isFalse(a)) && b == 1"))({b: 1, a: false}));
+            assert.isTrue(constraintMatcher.toJs(parser.parseConstraint("(isNumber(b) || isFalse(a)) && b == 1"))({b: 1, a: true}));
 
-            assert.equal(constraintMatcher.toJs(parser.parseConstraint("a.name like /hello$/")),
-                "(function(){ return function jsMatcher(fact, hash){var a = 'a' in fact ? fact['a'] : hash['a']; return !!(/hello$/.test(a['name']));};})()");
+            assert.isTrue(constraintMatcher.toJs(parser.parseConstraint("(isNumber(b) || isFalse(a)) || b == 1"))({b: 1, a: true}));
 
-            assert.equal(constraintMatcher.toJs(parser.parseConstraint("a.name in [a, b, c, 'BOB']")),
-                "(function(){ return function jsMatcher(fact, hash){var a = 'a' in fact ? fact['a'] : hash['a'];var b = 'b' in fact ? fact['b'] : hash['b'];var c = 'c' in fact ? fact['c'] : hash['c']; return !!((indexOf([a,b,c,'BOB'],a['name'])) != -1);};})()");
-
-            assert.equal(constraintMatcher.toJs(parser.parseConstraint("a.name notIn [a, b, c, 'BOB']")),
-                "(function(){ return function jsMatcher(fact, hash){var a = 'a' in fact ? fact['a'] : hash['a'];var b = 'b' in fact ? fact['b'] : hash['b'];var c = 'c' in fact ? fact['c'] : hash['c']; return !!((indexOf([a,b,c,'BOB'],a['name'])) == -1);};})()");
+            assert.isTrue(constraintMatcher.toJs(parser.parseConstraint("(isNumber(b) || isFalse(a)) || b == 1"))({b: 2, a: false}));
         });
 
     });
