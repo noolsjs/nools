@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/C2FO/nools.png)](https://travis-ci.org/C2FO/nools)
+
 [![browser support](http://ci.testling.com/C2FO/nools.png)](http://ci.testling.com/C2FO/nools)
 
 # Nools

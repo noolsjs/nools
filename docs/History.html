@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>nools</title>
-    <link rel="stylesheet" href="./assets/css/bootstrap.css">
+    <link rel="stylesheet" href="./assets/css/bootstrap.min.css">
     <link rel="stylesheet" href="./assets/css/prettify.css">
     <style type="text/css">
         
@@ -74,13 +74,18 @@
             z-index: 1000;
         }
 
+        .dropdown-menu{
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
         @media (max-width:979px) {
             .subnav{
                 margin-top: auto;
             }
         }
     </style>
-    <link rel="stylesheet" href="./assets/css/bootstrap-responsive.css">
+    <link rel="stylesheet" href="./assets/css/bootstrap-responsive.min.css">
     <script type="text/javascript">
         var init = (function () {
             "use strict";
@@ -171,6 +176,27 @@
 
 
 
+<h1>0.1.0 / 2013-02-27</h1>
+<ul>
+<li>Browser support!</li>
+<li>Support for compiling nools dsl from string source or path</li>
+<li>New reactive mode when running a flow</li>
+<li>Support for emitting custom events from rule actions</li>
+<li>Can now include <code>$</code> in your constraint variables</li>
+<li>Added support for <code>%</code>, <code>!=~</code>, <code>notIn</code>, and <code>notLike</code> in constraints</li>
+<li>Increased performance<ul>
+<li>Waltdb Bench (Before ~60000ms, Now ~25000ms)</li>
+<li>Manners (Before ~2000ms, Now ~500ms)</li>
+</ul>
+</li>
+<li>Better error reporting if action has reference error</li>
+<li>Better fact retraction in not and join nodes</li>
+<li>You can now use properties from object in <code>in</code> expressions.</li>
+<li>Refactoring of node types into seperate files</li>
+<li>Support for specifying a <code>scope</code> when compiling which can be used to expose methods and objects to be used in constraints and actions.</li>
+<li>More Examples (requirejs, browser, conways game of life)</li>
+<li>More tests and better coverage on or and not nodes.</li>
+</ul>
 <h1>0.0.5 / 2012-09-10</h1>
 <ul>
 <li>Fix for issue <a href="https://github.com/C2FO/nools/issues/13">#13</a> where identifiers were not gathered in property chains that contained functions.</li>
@@ -197,15 +223,7 @@
 
 <hr>
 
-    
-  <h2>License</h2>
-<p>MIT <a href="https://github.com/C2FO/nools/raw/master/LICENSE">https://github.com/C2FO/nools/raw/master/LICENSE</a>
-
-</p>
-<h2>Meta</h2>
-<p>Code: <code>git clone git://github.com/C2FO/nools.git</code></p>
-
-
+Documentation generated using <a href="https://github.com/doug-martin/coddoc">coddoc</a>.
 
 
 </div>
