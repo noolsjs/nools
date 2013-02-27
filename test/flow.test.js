@@ -324,14 +324,36 @@ it.describe("Flow",function (it) {
             this.message = m;
         }
 
+        function Count(c) {
+            this.count = c;
+        }
+
         var session, flow = nools.flow("Halt Flow", function (flow) {
-            flow.rule("Hello", [Message, "m", "m.message =~ /^hello(\\s*world)?$/"], function (facts) {
+
+            flow.rule("Stop", [Count, "c", "c.count == 10"], function () {
+                this.halt();
+            });
+
+            flow.rule("Hello", [
+                [Count, "c"],
+                [Message, "m", "m.message =~ /^hello(\\s*world)?$/"]
+            ], function (facts) {
                 this.modify(facts.m, function () {
                     this.message += " goodbye";
                 });
+                this.modify(facts.c, function () {
+                    this.count++;
+                });
             });
 
-            flow.rule("Goodbye", [Message, "m", "m.message =~ /.*goodbye$/"], function () {
+            flow.rule("Goodbye", [
+                [Count, "c"],
+                [Message, "m", "m.message =~ /.*goodbye$/"]
+            ], function (facts) {
+                this.retract(facts.m);
+                this.modify(facts.c, function () {
+                    this.count++;
+                });
             });
 
         });
@@ -341,21 +363,18 @@ it.describe("Flow",function (it) {
         });
 
         it.should("match until halt is called", function () {
-            var count = 0, called = 0;
-            session.on("fire", function () {
-                called++;
-            });
+            var count = 0, called = new Count(0);
             var interval = setInterval(function () {
                 if (count++ >= 5) {
                     clearInterval(interval);
-                    session.halt();
                 } else {
                     session.assert(new Message("hello"));
                 }
             }, 100);
-            return session.matchUntilHalt(function (err) {
-                assert.isNull(err);
-                assert.equal(called, 10);
+            session.assert(called);
+            return session.matchUntilHalt().then(function (err) {
+                assert.isUndefinedOrNull(err);
+                assert.equal(called.count, 10);
             });
 
         });
