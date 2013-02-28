@@ -40,13 +40,14 @@
     },
     "testling": {
         "files": "test/browserling.js",
-        "browsers": {
-            "ie": [6, 7, 8, 9],
-            "chrome": [4, 23, "canary"],
-            "firefox": [3, 3.5, 3.6, 4, 17, "nightly"],
-            "opera": [10, 10.5, 11, 11.5, 11.6, 12, "next"],
-            "safari": ["5.0.1", 5.1]
-        }
+        "browsers": [
+            "ie/6..latest",
+            "chrome/20..latest",
+            "firefox/10..latest",
+            "safari/latest",
+            "opera/11.0..latest",
+            "iphone/6", "ipad/6"
+        ]
     },
     "homepage": "http://c2fo.github.com/nools",
     "author": "Doug Martin (http://c2fo.com)",
