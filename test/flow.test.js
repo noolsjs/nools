@@ -331,7 +331,7 @@ it.describe("Flow",function (it) {
 
         var session, flow = nools.flow("Halt Flow", function (flow) {
 
-            flow.rule("Stop", [Count, "c", "c.count == 10"], function () {
+            flow.rule("Stop", [Count, "c", "c.count == 6"], function () {
                 this.halt();
             });
 
@@ -366,16 +366,16 @@ it.describe("Flow",function (it) {
         it.should("match until halt is called", function () {
             var count = 0, called = new Count(0);
             var interval = setInterval(function () {
-                if (count++ >= 5) {
+                if (count++ >= 3) {
                     clearInterval(interval);
                 } else {
                     session.assert(new Message("hello"));
                 }
-            }, 100);
+            }, 10);
             session.assert(called);
             return session.matchUntilHalt().then(function (err) {
                 assert.isUndefinedOrNull(err);
-                assert.equal(called.count, 10);
+                assert.equal(called.count, 6);
             });
 
         });
