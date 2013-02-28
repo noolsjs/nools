@@ -41,15 +41,14 @@
     "testling": {
         "files": "test/browserling.js",
         "browsers": [
-            "ie/6..latest",
+            "ie/8..latest",
             "chrome/20..latest",
-            "firefox/10..latest",
+            "firefox/14..latest",
             "safari/latest",
-            "opera/11.0..latest",
             "iphone/6", "ipad/6"
         ]
     },
-    "browserify" : "browser/nool.js",
+    "browserify": "browser/nool.js",
     "homepage": "http://c2fo.github.com/nools",
     "author": "Doug Martin (http://c2fo.com)",
     "main": "index.js",
