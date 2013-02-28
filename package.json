@@ -49,6 +49,7 @@
             "iphone/6", "ipad/6"
         ]
     },
+    "browserify" : "browser/nool.js",
     "homepage": "http://c2fo.github.com/nools",
     "author": "Doug Martin (http://c2fo.com)",
     "main": "index.js",
