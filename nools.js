@@ -392,7 +392,7 @@ process.binding = function (name) {
 
 });
 
-require.define("/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js"}
+require.define("/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"index.js","browserify":"browser/nool.js"}
 });
 
 require.define("/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = exports = require("./lib");

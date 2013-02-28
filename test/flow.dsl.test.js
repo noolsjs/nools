@@ -120,7 +120,7 @@ it.describe("Flow dsl",function (it) {
             });
             session.assert(m);
             session.match(function () {
-                assert.equal(i, 2);
+                assert.equal(i, fire.length);
                 next();
             });
 

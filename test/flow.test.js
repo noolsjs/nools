@@ -298,10 +298,8 @@ it.describe("Flow",function (it) {
         });
 
         it.should("emit when rules are fired", function (next) {
-            var m = new Message("hello"), m2 = new Message("hello");
+            var m = new Message("hello");
             var fire = [
-                ["Hello", "hello"],
-                ["Goodbye", "hello goodbye"],
                 ["Hello", "hello"],
                 ["Goodbye", "hello goodbye"]
             ], i = 0;
@@ -310,7 +308,6 @@ it.describe("Flow",function (it) {
                 assert.equal(facts.m.message, fire[i++][1]);
             });
             session.assert(m);
-            session.assert(m2);
             session.match(function () {
                 assert.equal(i, fire.length);
                 next();
