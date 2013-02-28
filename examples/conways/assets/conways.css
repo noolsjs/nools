@@ -1,0 +1,102 @@
+body {
+    font-size: 14px;
+    line-height: 24px;
+    font-weight: bold;
+    font-family: 'Londrina Shadow', cursive;
+}
+
+.container {
+    padding: 10px;
+    width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    -webkit-border-radius: 10px;
+    -moz-border-radius: 10px;
+    border-radius: 10px;
+    background: -webkit-gradient(linear, bottom, left 175px, from(#CCCCCC), to(#EEEEEE));
+    background: -moz-linear-gradient(bottom, #CCCCCC, #EEEEEE 175px);
+    border-top: 1px solid #999;
+    border-bottom: 1px solid #999;
+    border: inset 1px solid #333;
+    -webkit-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3);
+    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3);
+}
+
+.container > textarea {
+    width: 500px;
+    height: 120px;
+    border: 3px solid #cccccc;
+    padding: 5px;
+    font-family: Tahoma, sans-serif;
+    background-position: bottom right;
+    background-repeat: no-repeat;
+}
+
+.container > header {
+    text-align: center;
+    text-align: center;
+}
+
+hr {
+    margin: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    -webkit-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+}
+
+input[type="submit"], input[type="button"] {
+    width: 100px;
+    right: 20px;
+    bottom: 20px;
+    background: #09C;
+    color: #fff;
+    font-family: Tahoma, Geneva, sans-serif;
+    height: 30px;
+    -webkit-border-radius: 15px;
+    -moz-border-radius: 15px;
+    border-radius: 15px;
+    border: 1px solid #999;
+    margin: 10px;
+}
+
+#grid {
+
+    overflow: hidden;
+    width: 350px;
+    height: 360px;
+    margin-left: auto;
+    margin-right: auto;
+    -webkit-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    -webkit-border-radius: 10px;
+    -moz-border-radius: 10px;
+    border-radius: 10px;
+    padding: 3px;
+    overflow: hidden;
+
+}
+
+.row {
+    display: table-row;
+}
+
+.col {
+    width: 10px;
+    height: 10px;
+    display: table-cell;
+    border: 1px solid #cbcbcb;
+    content: " ", -webkit-box-shadow : 0 px 0 px 8 px rgba ( 0, 0, 0, 0.2 );
+    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
+}
+
+.col.live {
+    background-color: black;
+}
+
+.col.dead {
+    background-color: white;
+}

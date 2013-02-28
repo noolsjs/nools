@@ -1,0 +1,123 @@
+
+define Model {
+
+    constructor: function(options){
+        this.id = options.id;
+        this.firstName = options.firstName;
+        this.lastName = options.lastName;
+        this.dob = options.dob;
+        this.email = options.email;
+        this.errors = [];
+    },
+
+    toString : function(){
+        return ["Model : [", [this.id, this.firstName, this.lastName, this.dob, this.email].join(":"), "]"].join("");
+    }
+}
+
+function isEmail(email){
+    return /^(?:[\w\!\#\$\%\&\'\*\+\-\/\=\?\^\`\{\|\}\~]+\.)*[\w\!\#\$\%\&\'\*\+\-\/\=\?\^\`\{\|\}\~]+@(?:(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-](?!\.)){0,61}[a-zA-Z0-9]?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9\-](?!$)){0,61}[a-zA-Z0-9]?)|(?:\[(?:(?:[01]?\d{1,2}|2[0-4]\d|25[0-5])\.){3}(?:[01]?\d{1,2}|2[0-4]\d|25[0-5])\]))$/.test(email);
+}
+
+rule CheckFirstNameRequired {
+    when {
+        m : Model isUndefinedOrNull(m.firstName) or m.firstName.length eq 0;
+    }
+    then {
+        m.errors.push("First name is required");
+    }
+}
+
+rule CheckFirstNameNoNumbers {
+    when {
+        m : Model (isString(m.firstName) and m.firstName like /[0-9]/);
+    }
+    then {
+        m.errors.push("First name is must not contain numbers");
+    }
+}
+
+rule CheckFirstNameLength {
+    when {
+        m : Model (isString(m.firstName) and m.firstName.length gt 10);
+    }
+    then {
+        m.errors.push("First name cannot be longer than 10 characters");
+    }
+}
+
+
+rule CheckLastNameRequired {
+    when {
+        m : Model isUndefinedOrNull(m.lastName) or m.lastName.length eq 0;
+    }
+    then {
+        m.errors.push("Last name is required");
+    }
+}
+
+rule CheckLastNameNoNumbers {
+    when {
+        m : Model (isString(m.lastName) and m.lastName like /[0-9]/);
+    }
+    then {
+        m.errors.push("Last name is must not contain numbers");
+    }
+}
+
+rule CheckLastNameLength {
+    when {
+        m : Model (isString(m.lastName) and m.lastName.length gte 10);
+    }
+    then {
+        m.errors.push("Last name cannot be longer than 10 characters");
+    }
+}
+
+
+rule CheckDobRequired {
+    when {
+        m : Model isDate(m.dob) == false;
+    }
+    then {
+        m.errors.push("Date of birth is required");
+    }
+}
+
+rule CheckDobAgeToYoung {
+    when {
+        m : Model isDate(m.dob) and m.dob gte yearsAgo(18);
+    }
+    then {
+        m.errors.push("Date Of Birth must be >= 18 years ago");
+    }
+}
+
+rule CheckDobAgeToOld {
+    when {
+        m : Model isDate(m.dob) and m.dob lte yearsAgo(100);
+    }
+    then {
+        m.errors.push("You cannot be older than 100 to use this app");
+    }
+}
+
+rule CheckEmail {
+    when {
+        m : Model isEmail(m.email) == false;
+    }
+    then {
+        m.errors.push("Invalid email address");
+    }
+}
+
+rule CheckEmailUnique {
+    when {
+        m1 : Model isString(m1.email) {id:m1Id, email:m1Email};
+        m2 : Model isString(m2.email) and m1Id neq m2.id and m2.email eq m1Email;
+    }
+    then {
+        m2.errors.push("Email is not unqiue");
+    }
+}
+

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RequireJS Manners</title>
+
+    <script data-main="scripts/main" src="scripts/require.js"></script>
+</head>
+<body>
+<div id="output"></div>
+
+<script type="text/javascript">
+    require([
+        'manners/rules/manners',
+        'manners/data'
+    ], function (flow, data) {
+
+        var Guest = flow.getDefined("guest"),
+                LastSeat = flow.getDefined("lastSeat"),
+                Context = flow.getDefined("context"),
+                Count = flow.getDefined("count"),
+                session = flow.getSession(),
+                guests = data.guests;
+
+        for (var i = 0, l = guests.length; i < l; i++) {
+            session.assert(new Guest(guests[i]));
+        }
+        session.assert(new LastSeat(data.seat));
+        session.assert(new Context(data.start));
+        session.assert(new Count({value: 1}));
+
+        var start = new Date();
+        session.match().both(function () {
+            document.getElementById("output").innerHTML += "Duration " + (new Date() - start) + "ms";
+        });
+
+    })
+</script>
+</body>
+</html>
