@@ -1,6 +1,7 @@
 "use strict";
 var it = require("it"),
     declare = require("declare.js"),
+    when = require("promise-extended").when,
     assert = require("assert"),
     nools = require("../index");
 
@@ -424,22 +425,24 @@ it.describe("Flow",function (it) {
         });
 
 
-        it.should("calculate Fibonacci of 10", function () {
-            var session = flow.getSession(new Fibonacci(10));
-            return session.match().then(function () {
-                session.dispose();
-                assert.equal(result, 55);
-            });
+        it.should("calculate fibonacci numbers", function () {
+            return flow.getSession(new Fibonacci(3)).match()
+                .then(function () {
+                    assert.equal(result, 2);
+                    return flow.getSession(new Fibonacci(4)).match();
+                })
+                .then(function () {
+                    assert.equal(result, 3);
+                    return flow.getSession(new Fibonacci(5)).match()
+                })
+                .then(function () {
+                    assert.equal(result, 5);
+                    return flow.getSession(new Fibonacci(6)).match();
+                })
+                .then(function () {
+                    assert.equal(result, 8);
+                });
         });
-
-        it.should("calculate Fibonacci of 150", function () {
-            var session = flow.getSession(new Fibonacci(150));
-            return session.match().then(function () {
-                session.dispose();
-                assert.equal(result, 9.969216677189305e+30);
-            });
-        });
-
     });
 
 

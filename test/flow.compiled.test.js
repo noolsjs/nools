@@ -150,22 +150,24 @@ it.describe("Flow compiled",function (it) {
             Result = flow.getDefined("result");
         });
 
-        it.should("calculate Fibonacci of 10", function () {
+        it.should("calculate fibonacci numbers", function () {
             var result = new Result();
-            var session = flow.getSession(new Fibonacci(10), result);
-            return session.match().then(function () {
-                session.dispose();
-                assert.equal(result.value, 55);
-            });
-        });
-
-        it.should("calculate Fibonacci of 150", function () {
-            var result = new Result();
-            var session = flow.getSession(new Fibonacci(150), result);
-            return session.match().then(function () {
-                session.dispose();
-                assert.equal(result.value, 9.969216677189305e+30);
-            });
+            return flow.getSession(new Fibonacci(3), result).match()
+                .then(function () {
+                    assert.equal(result.value, 2);
+                    return flow.getSession(new Fibonacci(4), result).match();
+                })
+                .then(function () {
+                    assert.equal(result.value, 3);
+                    return flow.getSession(new Fibonacci(5), result).match();
+                })
+                .then(function () {
+                    assert.equal(result.value, 5);
+                    return flow.getSession(new Fibonacci(6), result).match();
+                })
+                .then(function () {
+                    assert.equal(result.value, 8);
+                });
         });
 
     });

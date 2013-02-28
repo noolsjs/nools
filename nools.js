@@ -398,7 +398,18 @@ require.define("/package.json",function(require,module,exports,__dirname,__filen
 require.define("/index.js",function(require,module,exports,__dirname,__filename,process,global){module.exports = exports = require("./lib");
 });
 
-require.define("/lib/index.js",function(require,module,exports,__dirname,__filename,process,global){"use strict";
+require.define("/lib/index.js",function(require,module,exports,__dirname,__filename,process,global){/**
+ *
+ * @projectName nools
+ * @github https://github.com/C2FO/nools
+ * @includeDoc [Change Log] ../History.md
+ * @header [../readme.md]
+ */
+
+
+
+
+"use strict";
 var extd = require("./extended"),
     fs = require("fs"),
     path = require("path"),
