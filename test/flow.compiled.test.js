@@ -9,8 +9,8 @@ it.describe("Flow compiled",function (it) {
 
 
         var called, flow;
+        require("./rules/notRule-compiled");
         it.beforeAll(function () {
-            require("./rules/notRule-compiled");
             flow = nools.getFlow("notRule-compiled");
             called = new (flow.getDefined("count"))();
         });
@@ -41,8 +41,8 @@ it.describe("Flow compiled",function (it) {
     it.describe("or rule", function (it) {
 
         var called, flow;
+        require("./rules/orRule-compiled");
         it.beforeAll(function () {
-            require("./rules/orRule-compiled");
             flow = nools.getFlow("orRule-compiled");
             called = new (flow.getDefined("count"))();
         });
@@ -58,8 +58,8 @@ it.describe("Flow compiled",function (it) {
 
     it.describe("scoped functions", function (it) {
         var session, Message;
+        require("./rules/scope-compiled");
         it.beforeAll(function () {
-            require("./rules/scope-compiled");
             var flow = nools.getFlow("scope-compiled");
             Message = flow.getDefined("message");
             session = flow.getSession();
@@ -80,8 +80,8 @@ it.describe("Flow compiled",function (it) {
         it.timeout(1000);
         var flow, Message, session;
 
+        require("./rules/simple-compiled");
         it.beforeAll(function () {
-            require("./rules/simple-compiled");
             flow = nools.getFlow("simple-compiled");
             Message = flow.getDefined("Message");
 
@@ -142,9 +142,9 @@ it.describe("Flow compiled",function (it) {
 
     it.describe("fibonacci nools dsl", function (it) {
 
+        require("./rules/fibonacci-compiled");
         var flow, Fibonacci, Result;
         it.beforeAll(function () {
-            require("./rules/fibonacci-compiled");
             flow = nools.getFlow("fibonacci-compiled");
             Fibonacci = flow.getDefined("fibonacci");
             Result = flow.getDefined("result");
@@ -187,8 +187,8 @@ it.describe("Flow compiled",function (it) {
 
         var flow, Patient;
 
+        require("./rules/diagnosis-compiled");
         it.beforeAll(function () {
-            require("./rules/diagnosis-compiled");
             flow = nools.getFlow("diagnosis-compiled");
             Patient = flow.getDefined("patient");
         });
