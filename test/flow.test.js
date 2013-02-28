@@ -422,24 +422,33 @@ it.describe("Flow",function (it) {
         });
 
 
-        it.should("calculate fibonacci numbers", function () {
+        it.should("calculate fibonacci 3", function () {
             return flow.getSession(new Fibonacci(3)).match()
                 .then(function () {
                     assert.equal(result, 2);
-                    return flow.getSession(new Fibonacci(4)).match();
-                })
-                .then(function () {
-                    assert.equal(result, 3);
-                    return flow.getSession(new Fibonacci(5)).match()
-                })
+                });
+        });
+
+        it.should("calculate fibonacci 4", function () {
+            return flow.getSession(new Fibonacci(4)).match().then(function () {
+                assert.equal(result, 3);
+            });
+        });
+
+        it.should("calculate fibonacci 5", function () {
+            return flow.getSession(new Fibonacci(5)).match()
                 .then(function () {
                     assert.equal(result, 5);
-                    return flow.getSession(new Fibonacci(6)).match();
-                })
+                });
+        });
+
+        it.should("calculate fibonacci 6", function () {
+            return flow.getSession(new Fibonacci(6)).match()
                 .then(function () {
                     assert.equal(result, 8);
                 });
         });
+
     });
 
 
@@ -548,22 +557,6 @@ it.describe("Flow",function (it) {
             });
         });
 
-        it.should("treat properly on consecutive runs", function () {
-            var session = flow.getSession();
-            session.assert(new Patient("Tom", "none", true, false, false, false));
-            session.assert(new Patient("Bob", "high", false, false, true, false));
-            session.assert(new Patient("Joe", "high", true, false, false, true));
-            session.assert(new Patient("Fred", "none", false, true, false, false));
-            return session.match().then(function () {
-                session.dispose();
-                assert.deepEqual(results, [
-                    {"name": "Fred", "treatment": "allegryShot"},
-                    {"name": "Joe", "treatment": "penicillin"},
-                    {"name": "Bob", "treatment": "bedRest"},
-                    {"name": "Tom", "treatment": "allegryShot"}
-                ]);
-            });
-        });
     });
 
 }).as(module);

@@ -150,21 +150,32 @@ it.describe("Flow compiled",function (it) {
             Result = flow.getDefined("result");
         });
 
-        it.should("calculate fibonacci numbers", function () {
+        it.should("calculate fibonacci 3", function () {
             var result = new Result();
             return flow.getSession(new Fibonacci(3), result).match()
                 .then(function () {
                     assert.equal(result.value, 2);
-                    return flow.getSession(new Fibonacci(4), result).match();
-                })
-                .then(function () {
-                    assert.equal(result.value, 3);
-                    return flow.getSession(new Fibonacci(5), result).match();
-                })
+                });
+        });
+
+        it.should("calculate fibonacci 4", function () {
+            var result = new Result();
+            return flow.getSession(new Fibonacci(4), result).match().then(function () {
+                assert.equal(result.value, 3);
+            });
+        });
+
+        it.should("calculate fibonacci 5", function () {
+            var result = new Result();
+            return flow.getSession(new Fibonacci(5), result).match()
                 .then(function () {
                     assert.equal(result.value, 5);
-                    return flow.getSession(new Fibonacci(6), result).match();
-                })
+                });
+        });
+
+        it.should("calculate fibonacci 6", function () {
+            var result = new Result();
+            return flow.getSession(new Fibonacci(6), result).match()
                 .then(function () {
                     assert.equal(result.value, 8);
                 });
@@ -203,25 +214,6 @@ it.describe("Flow compiled",function (it) {
             });
         });
 
-        it.should("treat properly on consecutive runs", function () {
-            var session = flow.getSession();
-            var results = [];
-            session.assert(new Patient({name: "Tom", fever: "none", spots: true, rash: false, soreThroat: false, innoculated: false}));
-            session.assert(new Patient({name: "Bob", fever: "high", spots: false, rash: false, soreThroat: true, innoculated: false}));
-            session.assert(new Patient({name: "Joe", fever: "high", spots: true, rash: false, soreThroat: false, innoculated: true}));
-            session.assert(new Patient({name: "Fred", fever: "none", spots: false, rash: true, soreThroat: false, innoculated: false}));
-            session.assert(results);
-            //flow.print();
-            return session.match().then(function () {
-                session.dispose();
-                assert.deepEqual(results, [
-                    {"name": "Fred", "treatment": "allergyShot"},
-                    {"name": "Joe", "treatment": "penicillin"},
-                    {"name": "Bob", "treatment": "bedRest"},
-                    {"name": "Tom", "treatment": "allergyShot"}
-                ]);
-            });
-        });
     });
 }).as(module);
 
