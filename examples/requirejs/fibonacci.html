@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RequireJS Fibonacci</title>
+
+    <script data-main="scripts/main" src="scripts/require.js"></script>
+</head>
+<body>
+<div id="output"></div>
+
+<script type="text/javascript">
+    require([
+        'fibonacci/flow'
+    ], function (fibonacciFlow) {
+
+
+        var outputDiv = document.getElementById("output");
+
+        function log(str) {
+            outputDiv.innerHTML += str + "</br>";
+        }
+
+        var Result = fibonacciFlow.Result,
+                Fibonacci = fibonacciFlow.Fibonacci, flow = fibonacciFlow.flow;
+
+
+        var r1 = new Result(),
+                session1 = flow.getSession(new Fibonacci(10), r1),
+                s1 = new Date;
+        session1.match().then(function () {
+            log(r1.result + " [" + (new Date - s1) + "ms]");
+            session1.dispose();
+        });
+
+        var r2 = new Result(),
+                session2 = flow.getSession(new Fibonacci(150), r2),
+                s2 = new Date;
+        session2.match().then(function () {
+            log(r2.result + " [" + (new Date - s2) + "ms]");
+            session2.dispose();
+        });
+
+        var r3 = new Result(),
+                session3 = flow.getSession(new Fibonacci(1000), r3),
+                s3 = new Date;
+        session3.match().then(function () {
+            log(r3.result + " [" + (new Date - s3) + "ms]");
+            session3.dispose();
+        });
+
+    })
+</script>
+</body>
+</html>

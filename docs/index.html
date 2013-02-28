@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>nools</title>
-    <link rel="stylesheet" href="./assets/css/bootstrap.css">
+    <link rel="stylesheet" href="./assets/css/bootstrap.min.css">
     <link rel="stylesheet" href="./assets/css/prettify.css">
     <style type="text/css">
         
@@ -74,13 +74,18 @@
             z-index: 1000;
         }
 
+        .dropdown-menu{
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
         @media (max-width:979px) {
             .subnav{
                 margin-top: auto;
             }
         }
     </style>
-    <link rel="stylesheet" href="./assets/css/bootstrap-responsive.css">
+    <link rel="stylesheet" href="./assets/css/bootstrap-responsive.min.css">
     <script type="text/javascript">
         var init = (function () {
             "use strict";
@@ -172,48 +177,40 @@
 
 
 
-  <p><a href="http://travis-ci.org/C2FO/nools"><img src="https://secure.travis-ci.org/C2FO/nools.png" alt="Build Status"></a>
-</p>
+  <p><a href="https://travis-ci.org/C2FO/nools"><img src="https://travis-ci.org/C2FO/nools.png" alt="Build Status"></a></p>
+<p><a href="http://ci.testling.com/C2FO/nools"><img src="http://ci.testling.com/C2FO/nools.png" alt="browser support"></a></p>
 <h1>Nools</h1>
-<p>Nools is a rules engine for node based on the <a href="http://en.wikipedia.org/wiki/Rete_algorithm">rete</a> network.
-
-</p>
+<p>Nools is a <a href="http://en.wikipedia.org/wiki/Rete_algorithm">rete</a> based rules engine for written entirely in javascript.</p>
 <h1>Installation</h1>
-<p><code>npm install nools</code>
-
-
-</p>
+<pre class='prettyprint linenums lang-js'><code>npm install nools</code></pre>
+<p>Or <a href="https://raw.github.com/doug-martin/C2FO/master/nools.js">download the source</a> (<a href="https://raw.github.com/doug-martin/C2FO/master/nools.min.js">minified</a>)</p>
 <h1>Usage</h1>
 <ul>
 <li>Flows<ul>
-<li><a href="#flow">Defining A Flow</a></li>
-<li><a href="#session">Sessions</a></li>
-<li><a href="#facts">Facts</a></li>
-<li><a href="#firing">Firing</a></li>
-<li><a href="#disposing">Disposing</a></li>
+<li><a href="#flow">Defining A Flow</a> </li>
+<li><a href="#session">Sessions</a> </li>
+<li><a href="#facts">Facts</a> </li>
+<li><a href="#firing">Firing</a> </li>
+<li><a href="#disposing">Disposing</a> </li>
 </ul>
 </li>
 <li><a href="#defining-rule">Defining Rules</a><ul>
-<li><a href="#rule-structure">Structure</a></li>
+<li><a href="#rule-structure">Structure</a> </li>
 <li><a href="#constraints">Constraints</a></li>
 <li><a href="#action">Actions</a></li>
 </ul>
 </li>
+<li><a href="#browser-support">Browser Support</a></li>
 <li><a href="#fib">Fibonacci</a></li>
 </ul>
-<p>To get started with nools the <a href="https://github.com/doug-martin/nools/tree/master/examples">examples</a> and <a href="https://github.com/doug-martin/nools/tree/master/test">tests</a> are a
-great place to get started.
-
-</p>
-<p><a name="flow"></a>
-</p>
+<p>To get started with nools the <a href="https://github.com/doug-martin/nools/tree/master/examples">examples</a> and <a href="https://github.com/doug-martin/nools/tree/master/test">tests</a> are a 
+great place to get started.</p>
+<p><a name="flow"></a></p>
 <h2>Defining a flow</h2>
 <p>When using nools you define a <strong>flow</strong> which acts as a container for rules that can later be used to get
-an <strong>engine session</strong>
-
-</p>
-<h3>Pragmatically</h3>
-<pre class='prettyprint linenums lang-js'><code>var nools = require(&quot;nools&quot;);
+an <strong>engine session</strong></p>
+<h3>Programmatically</h3>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var nools = require(&quot;nools&quot;);
 
 var Message = function (message) {
     this.message = message;
@@ -222,19 +219,17 @@ var Message = function (message) {
 var flow = nools.flow(&quot;Hello World&quot;, function (flow) {
 
     //find any message that start with hello
-    this.rule(&quot;Hello&quot;, [Message, &quot;m&quot;, &quot;m.message =~ /^hello(\\s*world)?$/&quot;], function (facts) {
+    flow.rule(&quot;Hello&quot;, [Message, &quot;m&quot;, &quot;m.message =~ /^hello(\\s*world)?$/&quot;], function (facts) {
         facts.m.message = facts.m.message + &quot; goodbye&quot;;
         this.modify(facts.m);
     });
 
     //find all messages then end in goodbye
-    this.rule(&quot;Goodbye&quot;, [Message, &quot;m&quot;, &quot;m.message =~ /.*goodbye$/&quot;], function (facts) {
+    flow.rule(&quot;Goodbye&quot;, [Message, &quot;m&quot;, &quot;m.message =~ /.*goodbye$/&quot;], function (facts) {
         console.log(facts.m.message);
     });
 });</code></pre>
-<p>In the above flow definition 2 rules were defined
-
-</p>
+<p>In the above flow definition 2 rules were defined</p>
 <ul>
 <li>Hello<ul>
 <li>Requires a Message</li>
@@ -249,10 +244,9 @@ var flow = nools.flow(&quot;Hello World&quot;, function (flow) {
 </ul>
 </li>
 </ul>
-<h3>Nools DSL</h3>
-<p>You may also use the <code>nools</code> rules language to define your rules
-
-</p>
+<h3>DSL</h3>
+<p>You may also use the <code>nools</code> rules language to define your rules.</p>
+<p>The following is the equivalent of the rules defined programmatially above.</p>
 <pre class='prettyprint linenums lang-js'><code>define Message {
     message : &#39;&#39;,
     constructor : function(message){
@@ -260,6 +254,7 @@ var flow = nools.flow(&quot;Hello World&quot;, function (flow) {
     }
 }
 
+//find any message that start with hello
 rule Hello {
     when {
         m : Message m.message =~ /^hello(\\s*world)?$/;
@@ -269,6 +264,7 @@ rule Hello {
     }
 }
 
+//find all messages then end in goodbye
 rule Goodbye {
     when {
         m : Message m.message =~ /.*goodbye$/;
@@ -277,56 +273,111 @@ rule Goodbye {
         console.log(m.message);
     }
 }</code></pre>
-<p>To use the flow
-
-</p>
-<pre class='prettyprint linenums lang-js'><code>var flow = nools.compile(__dirname + &quot;/helloworld.nools&quot;),
+<p>To use the flow</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var flow = nools.compile(__dirname + &quot;/helloworld.nools&quot;),
     Message = flow.getDefined(&quot;message&quot;);</code></pre>
-<p><a name="session"></a>
-</p>
+<h3>Flow Events</h3>
+<p>Each flow can have the following events emitted.</p>
+<ul>
+<li><code>assert (fact)</code> - emitted when facts are asserted</li>
+<li><code>retract (fact)</code> - emitted when facts are retracted</li>
+<li><code>modify (fact)</code> - emitted when facts are modified</li>
+<li><code>fire (name, rule)</code> - emitted when an activation is fired.</li>
+</ul>
+<pre class='prettyprint linenums lang-js'><code>session.on(&quot;assert&quot;, function(fact){
+    //fact was asserted
+});
+
+session.on(&quot;retract&quot;, function(fact){
+    //fact was retracted
+});
+
+session.on(&quot;modify&quot;, function(fact){
+    //fact was modifed
+});
+
+session.on(&quot;fire&quot;, function(name, rule){
+    //a rule was fired.
+});</code></pre>
+<h3><code>nools.compile</code></h3>
+<p>The compile method accepts the following parameters</p>
+<ul>
+<li><code>source|path</code> - The first argument must either be a path that ends in <code>.nools</code> or a string which is the source of the rules that you wish to compile.</li>
+<li><code>options?</code><ul>
+<li><code>name</code> : This is the name of the flow. You can use this name to look up the flow by using <code>nools.getFlow</code>.</li>
+<li><code>define</code> : A hash of Classes that should be aviable to the rules that you are compiling.</li>
+<li><code>scope</code>: A hash of items that should be available to rules as they run. (i.e. a logger)</li>
+</ul>
+</li>
+<li><code>cb?</code> - an options function to invoke when compiling is done.</li>
+</ul>
+<p><strong>Example</strong></p>
+<pre class='prettyprint linenums lang-js'><code>rule &quot;person name is bob&quot; {
+    when {
+        p : Person p.name == &#39;bob&#39;;
+    }
+    then {
+        logger.info(&quot;Found person with name of bob&quot;);
+        retract(p);
+    }
+}</code></pre>
+<p>In the above rules file we make use of a Person class and a logger. In order for nools to properly reference the Class and logger you must specify them in your options.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var flow = nools.compile(&quot;personFlow.nools&quot;, {
+    define: {
+        //The person class the flow should use
+        Person: Person
+    },
+    scope: {
+        //the logger you want your flow to use.
+        logger: logger
+    }
+});</code></pre>
+<p>You may also compile source directly.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var noolsSource = &quot;rule &#39;person name is bob&#39; {&quot;
+    + &quot;   when {&quot;
+    + &quot;     p : Person p.name == &#39;bob&#39;;&quot;
+    + &quot;   }&quot;
+    + &quot;   then {&quot;
+    + &quot;       logger.info(&#39;Found person with name of bob&#39;);&quot;
+    + &quot;       retract(p);&quot;
+    + &quot;   }&quot;
+    + &quot;}&quot;;
+
+var flow = nools.compile(noolsSource, {
+    define: {
+        //The person class the flow should use
+        Person: Person
+    },
+    scope: {
+        //the logger you want your flow to use.
+        logger: logger
+    }
+});</code></pre>
+<p><a name="session"></a></p>
 <h2>Working with a session</h2>
-<p>A session is an instance of the flow that contains a working memory and handles the assertion, modification, and retraction
-of facts from the engine.
-
-</p>
-<p>To obtain an engine session from the flow invoke the <strong>getSession</strong> method.
-
-</p>
-<pre class='prettyprint linenums lang-js'><code>var session = flow.getSession();</code></pre>
-<p><a name="facts"></a>
-</p>
+<p>A session is an instance of the flow that contains a working memory and handles the assertion, modification, and retraction of facts from the engine.</p>
+<p>To obtain an engine session from the flow invoke the  <code>getSession</code> method.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var session = flow.getSession();</code></pre>
+<p><a name="facts"></a></p>
 <h2>Working with facts</h2>
-<p>Facts are items that the rules should try to match.
-
-
-</p>
-<p>To add facts to the session use <strong>assert</strong> method.
-
-</p>
-<pre class='prettyprint linenums lang-js'><code>session.assert(new Message(&quot;hello&quot;));
+<p>Facts are items that the rules should try to match.</p>
+<p>To add facts to the session use <strong>assert</strong> method.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">session.assert(new Message(&quot;hello&quot;));
 session.assert(new Message(&quot;hello world&quot;));
 session.assert(new Message(&quot;goodbye&quot;));</code></pre>
-<p>As a convenience any object passed into <strong>getSession</strong> will also be asserted.
-
-</p>
-<pre class='prettyprint linenums lang-js'><code>flow.getSession(new Message(&quot;hello&quot;), new Message(&quot;hello world&quot;), new Message(&quot;goodbye&quot;));</code></pre>
-<p>To retract facts from the session use the <strong>retract</strong> method.
-
-</p>
-<pre class='prettyprint linenums lang-js'><code>var m = new Message(&quot;hello&quot;);
+<p>As a convenience any object passed into <strong>getSession</strong> will also be asserted.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">flow.getSession(new Message(&quot;hello&quot;), new Message(&quot;hello world&quot;), new Message(&quot;goodbye&quot;));</code></pre>
+<p>To retract facts from the session use the <strong>retract</strong> method.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var m = new Message(&quot;hello&quot;);
 
 //assert the fact into the engine
 session.assert(m);
 
 //remove the fact from the engine
 session.retract(m);</code></pre>
-<p>To modify a fact use the <strong>modify</strong> method.
-
-</p>
-<p><strong>Note</strong> modify will not work with immutable objects (i.e. strings).
-
-</p>
-<pre class='prettyprint linenums lang-js'><code>
+<p>To modify a fact use the <strong>modify</strong> method.</p>
+<p><strong>Note</strong> modify will not work with immutable objects (i.e. strings). </p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">
 var m = new Message(&quot;hello&quot;);
 
 session.assert(m);
@@ -334,20 +385,12 @@ session.assert(m);
 m.message = &quot;hello goodbye&quot;;
 
 session.modify(m);</code></pre>
-<p><strong>assert</strong> is typically used pre engine execution and during the execution of the rules.
-
-</p>
-<p><strong>modify</strong> and <strong>retract</strong> are typically used during the execution of the rules.
-
-
-</p>
-<p><a name="firing"></a>
-</p>
+<p><strong>assert</strong> is typically used pre engine execution and during the execution of the rules.</p>
+<p><strong>modify</strong> and <strong>retract</strong> are typically used during the execution of the rules.</p>
+<p><a name="firing"></a></p>
 <h2>Firing the rules</h2>
-<p>When you get a session from a <strong>flow</strong> no rules will be fired until the <strong>match</strong> method is called.
-
-</p>
-<pre class='prettyprint linenums lang-js'><code>var session = flow.getSession();
+<p>When you get a session from a <strong>flow</strong> no rules will be fired until the <strong>match</strong> method is called.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var session = flow.getSession();
 //assert your different messages
 session.assert(new Message(&quot;goodbye&quot;));
 session.assert(new Message(&quot;hello&quot;));
@@ -361,37 +404,96 @@ session.match(function(err){
         console.log(&quot;done&quot;);
     }
 })</code></pre>
-<p>The <strong>match</strong> method returns a promise that is invoked once there are no more rules to activate.
-
-</p>
-<p>Example of the promise api
-</p>
-<pre class='prettyprint linenums lang-js'><code>session.match().then(
+<p>The <strong>match</strong> method also returns a promise that is resolved once there are no more rules to activate.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">session.match().then(
   function(){
       console.log(&quot;Done&quot;);
-  },
+  }, 
   function(err){
     //uh oh an error occurred
     console.error(err);
   });</code></pre>
-<p><a name="disposing"></a>
-</p>
+<h2>Fire until halt</h2>
+<p>You may also run the engine an a &quot;reactive&quot; mode which will continue to match until <code>halt</code> is invoked.</p>
+<p>In the following example the rules engine continues to evaluate until the counter reaches <code>10000</code>. If you remove the &quot;counted to high&quot; rule then the engine would run indefinitely.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">
+define Counter {
+    count: 0,
+    constructor: function(count){
+        this.count = count;
+    }
+}
+
+//We reached our goal
+rule &quot;I can count!&quot; {
+    when {
+        $ctr: Counter $ctr.count == 10000;
+    }
+    then{
+        console.log(&quot;Look ma! I counted to &quot; + $ctr.count);
+        halt();
+    }
+}
+
+//no counter was asserted so create one
+rule &quot;not count&quot; {
+    when {
+        not($ctr: Counter);
+    }
+    then{
+        console.log(&quot;Imma gonna count!&quot;);
+        assert(new Counter(1));
+    }
+}
+
+//A little status update
+rule &quot;give them an update&quot; {
+    when{
+        $ctr: Counter $ctr.count % 1000 == 0 {count: $count}
+    }
+    then{
+        console.log(&quot;Imma countin...&quot;);
+        modify($ctr, function(){this.count = $count + 1;});
+    }
+}
+
+//just counting away
+rule count {
+    when{
+        $ctr: Counter {count: $count}
+    }
+    then{
+        modify($ctr, function(){this.count = $count + 1;});
+    }
+}</code></pre>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">flow.getSession().matchUntilHalt(function(err){
+    if(err){
+        console.log(err.stack);
+        return;
+    }
+    //halt finally invoked
+});</code></pre>
+<p><code>matchUntilHalt</code> also returns a promise.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">flow.getSession().matchUntilHalt()
+    .then(
+        function(){
+            //all done!
+        },
+        function(err){
+            console.log(err.stack);
+        }
+    );</code></pre>
+<p><a name="disposing"></a></p>
 <h2>Disposing of the session</h2>
-<p>When working with a lot of facts it is wise to call the <strong>dispose</strong> method which will purge the current session of
-all facts, this will help prevent the process growing a large memory footprint.
-
-</p>
-<pre class='prettyprint linenums lang-js'><code>   session.dispose();</code></pre>
-<p><a name="defining-rule"></a>
-</p>
+<p>When working with a lot of facts it is wise to call the <code>dispose</code> method which will purge the current session of
+all facts, this will help prevent the process from growing a large memory footprint.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">session.dispose();</code></pre>
+<p><a name="defining-rule"></a></p>
 <h1>Defining rules</h1>
-<p><a name="rule structure"></a>
-</p>
+<p><a name="rule structure"></a></p>
 <h2>Rule structure</h2>
-<p>Lets look at the &quot;Calculate&quot; rule in the <a href="#fib">Fibonacci</a> example
-
-</p>
-<pre class='prettyprint linenums lang-js'><code>   //flow.rule(type[String|Function], constraints[Array|Array[[]]], action[Function]);
+<p>Lets look at the &quot;Calculate&quot; rule in the <a href="#fib">Fibonacci</a> example</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">   //flow.rule(type[String|Function], constraints[Array|Array[[]]], action[Function]);
    flow.rule(&quot;Calculate&quot;, [
          //Type     alias  pattern           store sequence to s1
         [Fibonacci, &quot;f1&quot;,  &quot;f1.value != -1&quot;, {sequence:&quot;s1&quot;}],
@@ -405,9 +507,7 @@ all facts, this will help prevent the process growing a large memory footprint.
         this.modify(f3);
         this.retract(f1);
     });</code></pre>
-<p>Or using the nools DSL
-
-</p>
+<p>Or using the nools DSL</p>
 <pre class='prettyprint linenums lang-js'><code>rule Calculate{
     when {
         f1 : Fibonacci f1.value != -1 {sequence:s1};
@@ -421,24 +521,18 @@ all facts, this will help prevent the process growing a large memory footprint.
        retract(f1);
     }
 }</code></pre>
-<p><a name="constraints"></a>
-</p>
+<p><a name="constraints"></a></p>
 <h3>Constraints</h3>
-<p>   Constraints define what facts the rule should match. The constraint is a array of either a single constraint (i.e. Bootstrap rule)
-   or an array of constraints(i.e. Calculate).
-
-</p>
-<p>Prgamatically
-</p>
-<pre class='prettyprint linenums lang-js'><code>[
+<p>Constraints define what facts the rule should match. The constraint is a array of either a single constraint (i.e. Bootstrap rule) or an array of constraints(i.e. Calculate).</p>
+<p>Programmatically</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">[
    //Type     alias  pattern           store sequence to s1
   [Fibonacci, &quot;f1&quot;, &quot;f1.value != -1&quot;, {sequence:&quot;s1&quot;}],
   [Fibonacci, &quot;f2&quot;, &quot;f2.value != -1 &amp;&amp; f2.sequence == s1 + 1&quot;, {sequence:&quot;s2&quot;}],
   [Fibonacci, &quot;f3&quot;, &quot;f3.value == -1 &amp;&amp; f3.sequence == s2 + 1&quot;],
   [Result, &quot;r&quot;]
 ]</code></pre>
-<p>Using nools DSL
-</p>
+<p>Using nools DSL</p>
 <pre class='prettyprint linenums lang-js'><code>when {
     f1 : Fibonacci f1.value != -1 {sequence:s1};
     f2 : Fibonacci f2.value != -1 &amp;&amp; f2.sequence == s1 + 1 {sequence:s2};
@@ -462,19 +556,20 @@ all facts, this will help prevent the process growing a large memory footprint.
 <li><code>&amp;&amp;</code>, <code>AND</code>, <code>and</code></li>
 <li><code>||</code>, <code>OR</code>, <code>or</code></li>
 <li><code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>gt</code>, <code>lt</code>, <code>gte</code>, <code>lte</code></li>
-<li><code>==</code>, <code>!=</code>, <code>=~</code>, <code>eq</code>, <code>neq</code>, <code>like</code></li>
-<li><code>+</code>, <code>-</code>, <code>*</code>, <code>/</code></li>
+<li><code>==</code>, <code>!=</code>, <code>=~</code>, <code>!=~</code>, <code>eq</code>, <code>neq</code>, <code>like</code>, <code>notLike</code></li>
+<li><code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code></li>
 <li><code>-</code> (unary minus)</li>
 <li><code>.</code> (member operator)</li>
 <li><code>in</code> (check inclusion in an array)</li>
+<li><code>notIn</code> (check that something is not in an array)</li>
 <li>Defined helper functions<ul>
 <li><code>now</code> - the current date</li>
 <li><code>Date(year?, month?, day?, hour?, minute?, second?, ms?)</code> - creates a new <code>Date</code> object</li>
 <li><code>lengthOf(arr, length)</code> - checks the length of an array</li>
-<li><code>isTrue(something)</code> - check if something === true</li>
+<li><code>isTrue(something)</code> - check if something === true         </li>
 <li><code>isFalse(something)</code> - check if something === false</li>
 <li><code>isRegExp(something)</code> - check if something is a <code>RegExp</code></li>
-<li><code>isArray(something)</code> - check if something is an <code>Array</code></li>
+<li><code>isArray(something)</code> - check if something is an <code>Array</code>                                </li>
 <li><code>isNumber(something)</code> - check if something is an <code>Number</code></li>
 <li><code>isHash(something)</code> - check if something is strictly an <code>Object</code></li>
 <li><code>isObject(something)</code> - check if something is any type of <code>Object</code></li>
@@ -489,7 +584,7 @@ all facts, this will help prevent the process growing a large memory footprint.
 <li><code>isNull(something)</code> - check if something is <code>null</code></li>
 <li><code>isNotNull(something)</code> - check if something is not null</li>
 <li><code>dateCmp(dt1, dt2)</code> - compares two dates return 1, -1, or 0</li>
-<li><code>years|months|days|hours|minutes|seconds``Ago</code>/<code>FromNow``(interval)</code> - adds/subtracts the date unit from the current time</li>
+<li><code>years|months|days|hours|minutes|seconds``Ago</code>/<code>FromNow``(interval)</code> - adds/subtracts the date unit from the current time </li>
 </ul>
 </li>
 </ul>
@@ -497,39 +592,30 @@ all facts, this will help prevent the process growing a large memory footprint.
 <li><p>Reference(optional) - An object where the keys are properties on the current object, and values are aliases to use. The alias may be used in succeeding patterns.</p>
 </li>
 </ol>
-<p><a name="action"></a>
-</p>
+<p><a name="action"></a></p>
 <h3>Action</h3>
 <p>The action is a function that should be fired when all patterns in the rule match. The action is called in the scope
-of the engine so you can use <strong>this</strong> to <strong>assert</strong>, <strong>modify</strong>, or <strong>retract</strong> facts. An object containing all facts and
-references created by the alpha nodes is passed in as the first argument to the action.
-
-</p>
-<p>So calculate&#39;s action modifies f3 by adding the value of f1 and f2 together and modifies f3 and retracts f1.
-
-</p>
-<pre class='prettyprint linenums lang-js'><code>function (facts) {
+of the engine so you can use <code>this</code> to <code>assert</code>, <code>modify</code>, or <code>retract</code> facts. An object containing all facts and
+references created by the alpha nodes is passed in as the first argument to the action.</p>
+<p>So calculate&#39;s action modifies f3 by adding the value of f1 and f2 together and modifies f3 and retracts f1.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">function (facts) {
         var f3 = facts.f3, f1 = facts.f1, f2 = facts.f2;
         var v = f3.value = f1.value + facts.f2.value;
         facts.r.result = v;
         this.modify(f3);
         this.retract(f1);
     }</code></pre>
-<p>The engine is also passed in as a second argument so alternatively you could do the following.
-
-</p>
-<pre class='prettyprint linenums lang-js'><code>function (facts, engine) {
+<p>The session is also passed in as a second argument so alternatively you could do the following.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">function (facts, session) {
         var f3 = facts.f3, f1 = facts.f1, f2 = facts.f2;
         var v = f3.value = f1.value + facts.f2.value;
         facts.r.result = v;
-        engine.modify(f3);
-        engine.retract(f1);
+        session.modify(f3);
+        session.retract(f1);
     }</code></pre>
-<p>If you have an async action that needs to take place an optional third argument can be passed in which is a function
-to be called when the action is completed.
-
-</p>
-<pre class='prettyprint linenums lang-js'><code>function (facts, engine, next) {
+<p>If you have an async action that needs to take place an optional third argument can be passed in which is a function 
+to be called when the action is completed.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">function (facts, engine, next) {
         //some async action
         process.nextTick(function(){
             var f3 = facts.f3, f1 = facts.f1, f2 = facts.f2;
@@ -540,28 +626,97 @@ to be called when the action is completed.
             next();
         })
     }</code></pre>
-<p>If any arguments are passed into next it is assumed there was an error and the session will error out.
-
-</p>
-<p>To define the action with the nools DSL
-
-</p>
+<p>If any arguments are passed into next it is assumed there was an error and the session will error out.</p>
+<p>To define the action with the nools DSL</p>
 <pre class='prettyprint linenums lang-js'><code>then {
     modify(f3, function(){
         this.value = f1.value + f2.value;
     });
     retract(f1);
 }</code></pre>
-<p>For rules defined using the rules language nools will automatically determine what parameters need to be passed in based on what is referenced in the action.
+<p>For rules defined using the rules language nools will automatically determine what parameters need to be passed in based on what is referenced in the action.</p>
+<h2>Emitting custom events.</h2>
+<p>You may also emit events from your rule actions using the sessions emit function.</p>
+<pre class='prettyprint linenums lang-js'><code>then {
+    modify(f3, function(){
+        this.value = f1.value + f2.value;
+    });
+    retract(f1);
+    emit(&quot;my custom event&quot;);
+}</code></pre>
+<p>To listen to the event just use the on method of the session.</p>
+<pre class='prettyprint linenums lang-js'><code>var session = flow.getSession();
 
+session.on(&quot;my custom event&quot;, function(){
+    //custom event called.
+});</code></pre>
+<h1>Browser Support</h1>
+<p><a name="browser-support"></a></p>
+<p><code>Nools</code> can also be used in the browser. The only difference is that you cannot pass a file location to the compile method instead you must provide the source.</p>
+<p>Nools is compatible with amd(requirejs) and can also be used in a standard script tag.</p>
+<h3>Example 1.</h3>
+<p>In this example we compile rules definitions inlined in a script tag.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-html">&lt;script type=&quot;text/javascript&quot; src=&quot;nools.js&quot;&gt;&lt;/script&gt;
+&lt;script type=&quot;text/nools&quot; id=&quot;simple&quot;&gt;
+define Message {
+    message : &quot;&quot;,
+    constructor : function (message) {
+        this.message = message;
+    }
+}
 
+rule Hello {
+    when {
+        m : Message m.message =~ /^hello(\\s*world)?$/
+    }
+    then {
+        modify(m, function(){
+            this.message += &quot; goodbye&quot;;
+        });
+    }
+}
 
-</p>
+rule Goodbye {
+    when {
+        m : Message m.message =~ /.*goodbye$/
+    }
+    then {
+        document.getElementById(&quot;output&quot;).innerHTML += m.message + &quot;&lt;/br&gt;&quot;;
+    }
+}
+&lt;/script&gt;
+&lt;script type=&quot;text/javascript&quot;&gt;
+    function init() {
+       //get the source
+       var source = document.getElementById(&quot;simple&quot;).innerHTML;
+       //compile the source. The name option is required if compiling directly.
+       var flow = nools.compile(source, {name: &quot;simple&quot;}),
+                Message = flow.getDefined(&quot;message&quot;),
+                session = flow.getSession();
+        //assert your different messages
+        session.assert(new Message(&quot;goodbye&quot;));
+        session.assert(new Message(&quot;hello&quot;));
+        session.assert(new Message(&quot;hello world&quot;));
+        session.match();
+    }
+&lt;/script&gt;</code></pre>
+<h3>Using a compiled dsl.</h3>
+<p>You may also use the <code>nools</code> executable to compile source into a browser friendly format skipping the need for compiling each time.</p>
+<pre class='prettyprint linenums lang-js'><code>nools compile ./my/rules.nools &gt; ./compiled.js</code></pre>
+<p>To use the flow require the compile version either through a script tag, <code>amd/requirejs</code>, or <code>commonjs</code> require.</p>
+<p>If you import the flow using a script tag you can get a reference to the flow by using <code>nools.getFlow</code>.</p>
+<pre class='prettyprint linenums lang-js'><code>nools.getFlow(&quot;rules&quot;);</code></pre>
+<p>You may also specify the name of the flow when compiling, it defaults to the name of the nools file less &quot;.nools&quot;</p>
+<pre class='prettyprint linenums lang-js'><code>nools compile -n &quot;my rules&quot; ./my/rules.nools</code></pre>
+<pre class='prettyprint linenums lang-js'><code>nools.getFlow(&quot;my rules&quot;);</code></pre>
+<p>If you are using requirejs or nools must be required using something other than <code>require(&quot;nools&quot;)</code> then you can specify a location of the nools source.</p>
+<pre class='prettyprint linenums lang-js'><code>nools compile -nl &quot;./location/to/nools&quot; ./my/rules.nools</code></pre>
+<h3>RequireJS examples</h3>
+<p>Examples of using nools with require js are located in the <a href="./examples">examples directory</a>.</p>
 <h1>Examples</h1>
-<p><a name="fib"></a>
-</p>
+<p><a name="fib"></a></p>
 <h2>Fibonacci</h2>
-<pre class='prettyprint linenums lang-js'><code>&quot;use strict&quot;;
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">&quot;use strict&quot;;
 
 var nools = require(&quot;nools&quot;);
 
@@ -577,7 +732,7 @@ var Result = function (result) {
 
 var flow = nools.flow(&quot;Fibonacci Flow&quot;, function (flow) {
 
-    flow.rule(&quot;Recurse&quot;, {priority:1}, [
+    flow.rule(&quot;Recurse&quot;, [
         [&quot;not&quot;, Fibonacci, &quot;f&quot;, &quot;f.sequence == 1&quot;],
         [Fibonacci, &quot;f1&quot;, &quot;f1.sequence != 1&quot;]
     ], function (facts) {
@@ -630,15 +785,11 @@ session3.match().then(function () {
     console.log(&quot;%d [%dms]&quot;, r3.result, new Date - s3);
     session3.dispose();
 });</code></pre>
-<p>Output
-
-</p>
+<p>Output</p>
 <pre class='prettyprint linenums lang-js'><code>55 [43ms]
 9.969216677189305e+30 [383ms]
 4.346655768693743e+208 [3580ms]</code></pre>
-<p>Fiboncci with nools DSL
-
-</p>
+<h3>Fibonacci with nools DSL</h3>
 <pre class='prettyprint linenums lang-js'><code>//Define our object classes, you can
 //also declare these outside of the nools
 //file by passing them into the compile method
@@ -651,7 +802,6 @@ define Result {
 }
 
 rule Recurse {
-    priority:1,
     when {
         //you can use not or or methods in here
         not(f : Fibonacci f.sequence == 1);
@@ -690,10 +840,8 @@ rule Calculate {
         retract(f1);
     }
 }</code></pre>
-<p>And to run
-
-</p>
-<pre class='prettyprint linenums lang-js'><code>var flow = nools.compile(__dirname + &quot;/fibonacci.nools&quot;);
+<p>And to run</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var flow = nools.compile(__dirname + &quot;/fibonacci.nools&quot;);
 
 var Fibonacci = flow.getDefined(&quot;fibonacci&quot;), Result = flow.getDefined(&quot;result&quot;);
 var r1 = new Result(),
@@ -719,19 +867,17 @@ session3.match().then(function () {
     console.log(&quot;%d [%dms]&quot;, r3.result, +(new Date()) - s3);
     session3.dispose();
 });</code></pre>
+<h2>License</h2>
+<p>MIT <a href="https://github.com/C2FO/nools/raw/master/LICENSE">https://github.com/C2FO/nools/raw/master/LICENSE</a></p>
+<h2>Meta</h2>
+<ul>
+<li>Code: <code>git clone git://github.com/C2FO/nools.git</code></li>
+</ul>
 
 
 <hr>
 
-    
-  <h2>License</h2>
-<p>MIT <a href="https://github.com/C2FO/nools/raw/master/LICENSE">https://github.com/C2FO/nools/raw/master/LICENSE</a>
-
-</p>
-<h2>Meta</h2>
-<p>Code: <code>git clone git://github.com/C2FO/nools.git</code></p>
-
-
+Documentation generated using <a href="https://github.com/doug-martin/coddoc">coddoc</a>.
 
 
 </div>

@@ -1,0 +1,47 @@
+
+define Counter {
+    count: 0,
+        constructor: function(count){
+        this.count = count;
+    }
+}
+
+rule "counted to high" {
+    when {
+        $ctr: Counter $ctr.count == 10000;
+    }
+    then{
+        console.log("Look ma! I counted to " + $ctr.count);
+        halt();
+    }
+}
+
+rule "not count" {
+    when {
+        not($ctr: Counter);
+    }
+    then{
+        console.log("Imma gonna count!");
+        assert(new Counter(1));
+    }
+}
+
+rule count {
+    when{
+        $ctr: Counter $ctr.count % 1000 == 0 {count: $count}
+    }
+    then{
+        console.log("Imma countin...");
+        modify($ctr, function(){this.count = $count + 1;});
+    }
+}
+
+rule count {
+    when{
+        $ctr: Counter {count: $count}
+    }
+    then{
+        modify($ctr, function(){this.count = $count + 1;});
+    }
+}
+

@@ -1,0 +1,36 @@
+#!/usr/bin/env node
+
+
+var nools = require(".."),
+    path = require("path"),
+    fs = require("fs"),
+    path = require("path"),
+    template = fs.readFileSync(path.join(__dirname, "assets", "compile_wrapper.tmpl"), "utf8"),
+    str = require("string-extended"),
+    program = require('commander');
+
+program
+    .version('0.0.1');
+
+
+program.command("compile")
+    .usage('[options] <file ...>')
+    .description("compile nools dsl")
+    .option("-n --name [value]", "name of the flow to compile, defaults to the name of the file less the extension")
+    .option("-l --nools_location [value]", "location to look for nools when requiring it")
+    .action(function () {
+        var files = Array.prototype.slice.call(arguments);
+        var program = files.pop();
+        var noolsLocation = program["nools_location"] || "nools";
+        files.forEach(function (file) {
+            var name = program.name || path.basename(file, path.extname(file));
+            console.log(str.format(template, { source: JSON.stringify(nools.parse(path.resolve(process.cwd(), file))), name: name, noolsLocation: noolsLocation}).replace(/\s+/g, " "));
+        });
+    });
+
+program.parse(process.argv);
+
+
+
+
+
