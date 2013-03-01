@@ -4,7 +4,7 @@
 
 # Nools
 
-Nools is a [rete](http://en.wikipedia.org/wiki/Rete_algorithm) based rules engine for written entirely in javascript.
+Nools is a [rete](http://en.wikipedia.org/wiki/Rete_algorithm) based rules engine written entirely in javascript.
 
 # Installation
 
@@ -31,14 +31,14 @@ Or [download the source](https://raw.github.com/doug-martin/C2FO/master/nools.js
       
    
 
-To get started with nools the [examples](https://github.com/doug-martin/nools/tree/master/examples) and [tests](https://github.com/doug-martin/nools/tree/master/test) are a 
+The [examples](https://github.com/C2FO/nools/tree/master/examples) and [tests](https://github.com/C2FO/nools/tree/master/test) are a
 great place to get started.
 
 <a name="flow"></a>
 ## Defining a flow
 
 When using nools you define a **flow** which acts as a container for rules that can later be used to get
-an **engine session**
+a **session**
 
 ### Programmatically
 ```javascript
