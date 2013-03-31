@@ -1,3 +1,7 @@
+/**
+ *  This is a simple block comment should be ignored by the parser.
+ */
+
 define Message {
     message : "",
     constructor : function (message) {
