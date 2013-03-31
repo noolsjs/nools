@@ -20,6 +20,10 @@ rule Hello {
     }
 }
 
+/*
+ * Second Block to ensure non-greedy
+ */
+
 rule Goodbye {
     when {
         m : Message m.message =~ /.*goodbye$/
