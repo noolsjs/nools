@@ -586,6 +586,25 @@ then {
 
 For rules defined using the rules language nools will automatically determine what parameters need to be passed in based on what is referenced in the action.
 
+<a name="action"></a>
+
+### Globals
+
+Globals are variables that are accessible through the current working scope in your rules runs from the nools rules format. Globals are used like the following:
+
+```
+global util = require('util');
+
+rule "A Rule" {
+    when {
+    	$obj: Object;
+    }
+    then{
+    	util.log("Hello Globals :)");
+    }
+}
+```
+
 ## Emitting custom events.
 
 You may also emit events from your rule actions using the sessions emit function.
