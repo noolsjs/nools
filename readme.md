@@ -26,6 +26,7 @@ Or [download the source](https://raw.github.com/doug-martin/C2FO/master/nools.js
       * [Structure](#rule-structure) 
       * [Constraints](#constraints)
       * [Actions](#action)
+      * [Globals](#globals)
    * [Browser Support](#browser-support)
    * [Fibonacci](#fib)
       
@@ -590,7 +591,8 @@ For rules defined using the rules language nools will automatically determine wh
 
 ### Globals
 
-Globals are variables that are accessible through the current working scope in your rules runs from the nools rules format. Globals are used like the following:
+Globals are accessible through the current working scope in your rules runs from the nools rules format. Note that globals are not part of the working
+memory so are not accessible during the when portion of your rules run. Globals are used like the following:
 
 ```
 global util = require('util');
