@@ -32,6 +32,12 @@ it.describe("nools dsl parser",function (it) {
             });
         });
 
+		it.should("parse a global statement", function () {
+			var parsed = noolsParser.parse("global util = require('util');");
+			assert.equal(parsed.scope[0].name, 'util');
+			assert.equal(parsed.scope[0].body, "require('util')");
+		});
+
         it.should("throw an error when the define block is missing a name", function () {
             assert.throws(function () {
                 noolsParser.parse("define {myProp : 'value'");
@@ -46,6 +52,18 @@ it.describe("nools dsl parser",function (it) {
                 noolsParser.parse("define Test myProp : 'value'}");
             });
         });
+
+		it.should("throw an error when the global statement is missing a name", function () {
+			assert.throws(function () {
+				noolsParser.parse("global = require('util');");
+			});
+		});
+
+		it.should("throw an error when the global statement is missing a ;", function () {
+			assert.throws(function () {
+				noolsParser.parse("global util = require('util')");
+			});
+		});
     });
 
     it.describe("parsing function", function (it) {
