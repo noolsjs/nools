@@ -1,3 +1,15 @@
+v0.1.1
+
+* Updated grunt
+* Fixed nextTick issues for node v0.10 #32
+* Added ability to remove a defined flow from nools. #31 #22
+* Added ability to use `getDefined` on externally defined fact types. #23
+* Added support for block comments in dsl. #27 @xmltechgeek
+* New globals feature in dsl. #26 @xmltechgeek
+* Fixed all jshint issues
+* Rebuilt nools.js and nools.min.js
+* Added more tests for new globals feature
+
 #0.1.0 / 2013-02-27
 
 * Browser support!

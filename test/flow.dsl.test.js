@@ -3,7 +3,7 @@ var it = require("it"),
     assert = require("assert"),
     nools = require("../index");
 
-it.describe("Flow dsl",function (it) {
+it.describe("Flow dsl", function (it) {
 
     it.describe("not rule", function (it) {
 
@@ -65,6 +65,77 @@ it.describe("Flow dsl",function (it) {
             });
             session.assert(m);
         });
+    });
+
+    it.describe("externally defined Fact types", function (it) {
+
+        function Message(message) {
+            this.message = message;
+        }
+
+        var flow = nools.compile(__dirname + "/rules/simple-external-defined.nools", {
+                define: {
+                    Message: Message
+                }
+
+            }),
+            session;
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("return the externally defined type from getDefined", function () {
+            assert.equal(flow.getDefined("message"), Message);
+        });
+
+        it.should("allow using externally defined Fact types", function (next) {
+            var m = new Message("hello");
+            session.once("assert", function (fact) {
+                assert.deepEqual(fact, m);
+                next();
+            });
+            session.assert(m);
+        });
+    });
+
+    it.describe("globals", function (it) {
+        var flow = nools.compile(__dirname + "/rules/global.nools"),
+            session;
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("call the scoped function", function (next) {
+            session.on("globals", function (globals) {
+                try {
+                    assert.equal(globals.assert, assert);
+                    assert.equal(globals.PI, Math.PI);
+                    assert.equal(globals.SOME_STRING, "some string");
+                    assert.equal(globals.TRUE, true);
+                    assert.equal(globals.NUM, 1.23);
+                    assert.isDate(globals.DATE);
+                    next();
+                } catch (e) {
+                    next(e);
+                }
+            });
+            session.assert("some string");
+            session.match();
+        });
+    });
+
+    it.describe("comments in dsl", function () {
+
+        var flow = nools.compile(__dirname + "/rules/comments.nools");
+
+        it.should("remove all block comments", function () {
+            assert.isFalse(flow.containsRule("Goodbye2"));
+            assert.isTrue(flow.containsRule("Goodbye"));
+            assert.isTrue(flow.containsRule("Hello"));
+        });
+
     });
 
     it.describe("events", function (it) {
@@ -203,10 +274,4 @@ it.describe("Flow dsl",function (it) {
             });
         });
     });
-}).as(module);
-
-
-
-
-
-
+});

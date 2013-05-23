@@ -178,7 +178,7 @@
 
 
   <p><a href="https://travis-ci.org/C2FO/nools"><img src="https://travis-ci.org/C2FO/nools.png" alt="Build Status"></a></p>
-<p><a href="http://ci.testling.com/C2FO/nools"><img src="http://ci.testling.com/C2FO/nools.png" alt="browser support"></a></p>
+<p><a href="https://ci.testling.com/C2FO/nools"><img src="https://ci.testling.com/C2FO/nools.png" alt="browser support"></a></p>
 <h1>Nools</h1>
 <p>Nools is a <a href="http://en.wikipedia.org/wiki/Rete_algorithm">rete</a> based rules engine written entirely in javascript.</p>
 <h1>Installation</h1>
@@ -191,13 +191,15 @@
 <li><a href="#session">Sessions</a> </li>
 <li><a href="#facts">Facts</a> </li>
 <li><a href="#firing">Firing</a> </li>
-<li><a href="#disposing">Disposing</a> </li>
+<li><a href="#disposing">Disposing</a></li>
+<li><a href="#removing-flow">Removing A Flow</a></li>
 </ul>
 </li>
 <li><a href="#defining-rule">Defining Rules</a><ul>
 <li><a href="#rule-structure">Structure</a> </li>
 <li><a href="#constraints">Constraints</a></li>
 <li><a href="#action">Actions</a></li>
+<li><a href="#globals">Globals</a></li>
 </ul>
 </li>
 <li><a href="#browser-support">Browser Support</a></li>
@@ -521,6 +523,20 @@ all facts, this will help prevent the process from growing a large memory footpr
        retract(f1);
     }
 }</code></pre>
+<p><a name="removing-flow"></a></p>
+<h1>Removing a flow</h1>
+<p>To remove a defined flow from <code>nools</code> use the <code>deleteFlow</code> function.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var myFlow = nools.flow(&quot;flow&quot;);
+
+nools.deleteFlow(&quot;flow&quot;); //returns nools for chaining
+
+nools.getFlow(&quot;flow&quot;); //undefined</code></pre>
+<p>You may also remove a flow using the <code>FlowContainer</code> object returned from nools.flow;</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var myFlow = nools.flow(&quot;flow&quot;);
+
+nools.deleteFlow(myFlow); //returns nools for chaining
+
+nools.getFlow(&quot;flow&quot;); //undefined</code></pre>
 <p><a name="constraints"></a></p>
 <h3>Constraints</h3>
 <p>Constraints define what facts the rule should match. The constraint is a array of either a single constraint (i.e. Bootstrap rule) or an array of constraints(i.e. Calculate).</p>
@@ -635,6 +651,41 @@ to be called when the action is completed.</p>
     retract(f1);
 }</code></pre>
 <p>For rules defined using the rules language nools will automatically determine what parameters need to be passed in based on what is referenced in the action.</p>
+<p><a name="globals"></a></p>
+<h3>Globals</h3>
+<p>Globals are accessible through the current working scope of rules defined in a <code>dsl</code>, very similar to using the <code>scope</code> option when compiling.</p>
+<p><strong>Note</strong>  <code>globals</code> are not part of the working memory and therefore are not accessible in the LHS (when) or your rule.</p>
+<p>Globals are used like the following:</p>
+<pre class='prettyprint linenums lang-js'><code>global PI = Math.PI;
+global SOME_STRING = &#39;some string&#39;;
+global TRUE = true;
+global NUM = 1.23;
+global DATE = new Date();
+
+rule &quot;A Rule&quot; {
+    when {
+        $obj: Object;
+    }
+    then{
+        console.log(PI); //Math.PI;
+        console.log(SOME_STRING); //&quot;some string&quot;
+        console.log(TRUE); //true
+        console.log(NUM); //1.23
+        console.log(DATE); //Thu May 23 2013 15:49:22 GMT-0500 (CDT)
+    }
+}</code></pre>
+<p>If you are using <code>nools</code> in <code>node</code> you can also use a require statement.</p>
+<p><strong>NOTE</strong> require does not currently work for relative paths.</p>
+<pre class='prettyprint linenums lang-js'><code>global util = require(&quot;util&quot;);
+
+rule &quot;A Rule&quot; {
+    when {
+        $obj: Object;
+    }
+    then{
+        util.log(&quot;HELLO WORLD&quot;);
+    }
+}</code></pre>
 <h2>Emitting custom events.</h2>
 <p>You may also emit events from your rule actions using the sessions emit function.</p>
 <pre class='prettyprint linenums lang-js'><code>then {
