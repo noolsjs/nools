@@ -21,7 +21,8 @@ Or [download the source](https://raw.github.com/doug-martin/C2FO/master/nools.js
     * [Sessions](#session) 
     * [Facts](#facts) 
     * [Firing](#firing) 
-    * [Disposing](#disposing) 
+    * [Disposing](#disposing)
+    * [Removing A Flow](#removing-flow)
    * [Defining Rules](#defining-rule)
       * [Structure](#rule-structure) 
       * [Constraints](#constraints)
@@ -451,6 +452,30 @@ rule Calculate{
 }
 ```
 
+<a name="removing-flow"></a>
+# Removing a flow
+
+To remove a defined flow from `nools` use the `deleteFlow` function.
+
+```javascript
+var myFlow = nools.flow("flow");
+
+nools.deleteFlow("flow"); //returns nools for chaining
+
+nools.getFlow("flow"); //undefined
+
+```
+
+You may also remove a flow using the `FlowContainer` object returned from nools.flow;
+
+```javascript
+var myFlow = nools.flow("flow");
+
+nools.deleteFlow(myFlow); //returns nools for chaining
+
+nools.getFlow("flow"); //undefined
+```
+
 <a name="constraints"></a>
 ### Constraints
 
@@ -587,22 +612,50 @@ then {
 
 For rules defined using the rules language nools will automatically determine what parameters need to be passed in based on what is referenced in the action.
 
-<a name="action"></a>
+<a name="globals"></a>
 
 ### Globals
 
-Globals are accessible through the current working scope in your rules runs from the nools rules format. Note that globals are not part of the working
-memory so are not accessible during the when portion of your rules run. Globals are used like the following:
+Globals are accessible through the current working scope of rules defined in a `dsl`, very similar to using the `scope` option when compiling.
+
+**Note**  `globals` are not part of the working memory and therefore are not accessible in the LHS (when) or your rule.
+
+Globals are used like the following:
 
 ```
-global util = require('util');
+global PI = Math.PI;
+global SOME_STRING = 'some string';
+global TRUE = true;
+global NUM = 1.23;
+global DATE = new Date();
 
 rule "A Rule" {
     when {
     	$obj: Object;
     }
     then{
-    	util.log("Hello Globals :)");
+    	console.log(PI); //Math.PI;
+    	console.log(SOME_STRING); //"some string"
+    	console.log(TRUE); //true
+    	console.log(NUM); //1.23
+    	console.log(DATE); //Thu May 23 2013 15:49:22 GMT-0500 (CDT)
+    }
+}
+```
+
+If you are using `nools` in `node` you can also use a require statement.
+
+**NOTE** require does not currently work for relative paths.
+
+```
+global util = require("util");
+
+rule "A Rule" {
+    when {
+    	$obj: Object;
+    }
+    then{
+    	util.log("HELLO WORLD");
     }
 }
 ```

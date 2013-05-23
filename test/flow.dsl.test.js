@@ -67,6 +67,65 @@ it.describe("Flow dsl",function (it) {
         });
     });
 
+    it.describe("externally defined Fact types", function (it) {
+
+        function Message(message) {
+            this.message = message;
+        }
+
+        var flow = nools.compile(__dirname + "/rules/simple-external-defined.nools", {
+                define: {
+                    Message: Message
+                }
+
+            }),
+            session;
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("return the externally defined type from getDefined", function () {
+            assert.equal(flow.getDefined("message"), Message);
+        });
+
+        it.should("allow using externally defined Fact types", function (next) {
+            var m = new Message("hello");
+            session.once("assert", function (fact) {
+                assert.deepEqual(fact, m);
+                next();
+            });
+            session.assert(m);
+        });
+    });
+
+    it.describe("globals", function (it) {
+        var flow = nools.compile(__dirname + "/rules/global.nools"),
+            session;
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("call the scoped function", function (next) {
+            session.on("globals", function (globals) {
+                try {
+                    assert.equal(globals.assert, assert);
+                    assert.equal(globals.PI, Math.PI);
+                    assert.equal(globals.SOME_STRING, "some string");
+                    assert.equal(globals.TRUE, true);
+                    assert.equal(globals.NUM, 1.23);
+                    assert.isDate(globals.DATE);
+                    next();
+                } catch (e) {
+                    next(e);
+                }
+            });
+            session.assert("some string");
+            session.match();
+        });
+    });
+
     it.describe("events", function (it) {
 
         it.timeout(1000);
@@ -203,7 +262,7 @@ it.describe("Flow dsl",function (it) {
             });
         });
     });
-}).as(module);
+});
 
 
 
