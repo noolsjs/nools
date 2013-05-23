@@ -1,0 +1,47 @@
+define Message {
+    message : "",
+    constructor : function (message) {
+       this.message = message;
+    }
+}
+
+/**
+ *
+ *  This is a block comment.
+ *
+ */
+rule Hello {
+    when {
+        m : Message m.message =~ /^hello(\\s*world)?$/
+    }
+    then {
+        modify(m, function(){
+            this.message += " goodbye";
+        })
+    }
+}
+
+//line comment
+//line comment
+//line comment
+rule Goodbye {
+    when {
+        m : Message m.message =~ /.*goodbye$/
+    }
+    then {
+        emit("found-goodbye", m);
+    }
+}
+
+/**
+ * comment out this rule
+ * rule Goodbye2 {
+ *   when {
+ *       m : Message m.message =~ /.*goodbye$/
+ *   }
+ *   then {
+ *       emit("found-goodbye2", m);
+ *   }
+ * }
+ */
+
