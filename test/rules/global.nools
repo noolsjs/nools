@@ -1,0 +1,23 @@
+global assert = require('assert');
+global PI = Math.PI;
+global SOME_STRING = 'some string';
+global TRUE = true;
+global NUM = 1.23;
+global DATE = new Date();
+
+rule EmitGlobals {
+    when {
+        s : String;
+    }
+    then {
+        emit("globals", {
+            assert: assert,
+            PI: PI,
+            SOME_STRING: SOME_STRING,
+            NUM: NUM,
+            TRUE: TRUE,
+            DATE: DATE
+        });
+        retract(b);
+    }
+}

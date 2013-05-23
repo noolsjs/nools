@@ -1,7 +1,6 @@
 "use strict";
 var it = require("it"),
     declare = require("declare.js"),
-    when = require("promise-extended").when,
     assert = require("assert"),
     nools = require("../index");
 
@@ -13,6 +12,32 @@ it.describe("nools", function (it) {
             assert.instanceOf(flow, nools.Flow);
             assert.equal("nools flow", flow.name);
             assert.equal(nools.getFlow("nools flow"), flow);
+        });
+    });
+
+    it.describe("#deleteFlow", function (it) {
+        it.should("delete a flow by name", function () {
+            var flow = nools.flow("delete nools flow");
+            assert.isNotNull(flow);
+            assert.instanceOf(flow, nools.Flow);
+            assert.equal("delete nools flow", flow.name);
+            assert.equal(nools.getFlow("delete nools flow"), flow);
+
+            assert.equal(nools.deleteFlow("delete nools flow"), nools);
+            assert.isUndefined(nools.getFlow("delete nools flow"));
+
+        });
+
+        it.should("delete a flow using a Flow instance", function () {
+            var flow = nools.flow("delete nools flow");
+            assert.isNotNull(flow);
+            assert.instanceOf(flow, nools.Flow);
+            assert.equal("delete nools flow", flow.name);
+            assert.equal(nools.getFlow("delete nools flow"), flow);
+
+            assert.equal(nools.deleteFlow(flow), nools);
+            assert.isUndefined(nools.getFlow("delete nools flow"));
+
         });
     });
 });
