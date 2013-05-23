@@ -9,11 +9,14 @@ function matches(str, regex){
     return regex.test(str);
 }
 
+global util = require('util');
+
 rule Hello {
     when {
         m : Message matches(m.message, /^hello(\\s*world)?$/);
     }
     then {
+    	util.log("Hello Globals :)");
         modify(m, function(){
             this.message += " goodbye";
         })
