@@ -3,7 +3,7 @@ var it = require("it"),
     assert = require("assert"),
     nools = require("../index");
 
-it.describe("Flow dsl",function (it) {
+it.describe("Flow dsl", function (it) {
 
     it.describe("not rule", function (it) {
 
@@ -124,6 +124,18 @@ it.describe("Flow dsl",function (it) {
             session.assert("some string");
             session.match();
         });
+    });
+
+    it.describe("comments in dsl", function () {
+
+        var flow = nools.compile(__dirname + "/rules/comments.nools");
+
+        it.should("remove all block comments", function () {
+            assert.isFalse(flow.containsRule("Goodbye2"));
+            assert.isTrue(flow.containsRule("Goodbye"));
+            assert.isTrue(flow.containsRule("Hello"));
+        });
+
     });
 
     it.describe("events", function (it) {
@@ -263,9 +275,3 @@ it.describe("Flow dsl",function (it) {
         });
     });
 });
-
-
-
-
-
-

@@ -249,6 +249,192 @@ exports.relative = function(from, to) {
 };
 
 })(require("__browserify_process"))
+},{"__browserify_process":5}],7:[function(require,module,exports){
+(function(process){if (!process.EventEmitter) process.EventEmitter = function () {};
+
+var EventEmitter = exports.EventEmitter = process.EventEmitter;
+var isArray = typeof Array.isArray === 'function'
+    ? Array.isArray
+    : function (xs) {
+        return Object.prototype.toString.call(xs) === '[object Array]'
+    }
+;
+function indexOf (xs, x) {
+    if (xs.indexOf) return xs.indexOf(x);
+    for (var i = 0; i < xs.length; i++) {
+        if (x === xs[i]) return i;
+    }
+    return -1;
+}
+
+// By default EventEmitters will print a warning if more than
+// 10 listeners are added to it. This is a useful default which
+// helps finding memory leaks.
+//
+// Obviously not all Emitters should be limited to 10. This function allows
+// that to be increased. Set to zero for unlimited.
+var defaultMaxListeners = 10;
+EventEmitter.prototype.setMaxListeners = function(n) {
+  if (!this._events) this._events = {};
+  this._events.maxListeners = n;
+};
+
+
+EventEmitter.prototype.emit = function(type) {
+  // If there is no 'error' event listener then throw.
+  if (type === 'error') {
+    if (!this._events || !this._events.error ||
+        (isArray(this._events.error) && !this._events.error.length))
+    {
+      if (arguments[1] instanceof Error) {
+        throw arguments[1]; // Unhandled 'error' event
+      } else {
+        throw new Error("Uncaught, unspecified 'error' event.");
+      }
+      return false;
+    }
+  }
+
+  if (!this._events) return false;
+  var handler = this._events[type];
+  if (!handler) return false;
+
+  if (typeof handler == 'function') {
+    switch (arguments.length) {
+      // fast cases
+      case 1:
+        handler.call(this);
+        break;
+      case 2:
+        handler.call(this, arguments[1]);
+        break;
+      case 3:
+        handler.call(this, arguments[1], arguments[2]);
+        break;
+      // slower
+      default:
+        var args = Array.prototype.slice.call(arguments, 1);
+        handler.apply(this, args);
+    }
+    return true;
+
+  } else if (isArray(handler)) {
+    var args = Array.prototype.slice.call(arguments, 1);
+
+    var listeners = handler.slice();
+    for (var i = 0, l = listeners.length; i < l; i++) {
+      listeners[i].apply(this, args);
+    }
+    return true;
+
+  } else {
+    return false;
+  }
+};
+
+// EventEmitter is defined in src/node_events.cc
+// EventEmitter.prototype.emit() is also defined there.
+EventEmitter.prototype.addListener = function(type, listener) {
+  if ('function' !== typeof listener) {
+    throw new Error('addListener only takes instances of Function');
+  }
+
+  if (!this._events) this._events = {};
+
+  // To avoid recursion in the case that type == "newListeners"! Before
+  // adding it to the listeners, first emit "newListeners".
+  this.emit('newListener', type, listener);
+
+  if (!this._events[type]) {
+    // Optimize the case of one listener. Don't need the extra array object.
+    this._events[type] = listener;
+  } else if (isArray(this._events[type])) {
+
+    // Check for listener leak
+    if (!this._events[type].warned) {
+      var m;
+      if (this._events.maxListeners !== undefined) {
+        m = this._events.maxListeners;
+      } else {
+        m = defaultMaxListeners;
+      }
+
+      if (m && m > 0 && this._events[type].length > m) {
+        this._events[type].warned = true;
+        console.error('(node) warning: possible EventEmitter memory ' +
+                      'leak detected. %d listeners added. ' +
+                      'Use emitter.setMaxListeners() to increase limit.',
+                      this._events[type].length);
+        console.trace();
+      }
+    }
+
+    // If we've already got an array, just append.
+    this._events[type].push(listener);
+  } else {
+    // Adding the second element, need to change to array.
+    this._events[type] = [this._events[type], listener];
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.on = EventEmitter.prototype.addListener;
+
+EventEmitter.prototype.once = function(type, listener) {
+  var self = this;
+  self.on(type, function g() {
+    self.removeListener(type, g);
+    listener.apply(this, arguments);
+  });
+
+  return this;
+};
+
+EventEmitter.prototype.removeListener = function(type, listener) {
+  if ('function' !== typeof listener) {
+    throw new Error('removeListener only takes instances of Function');
+  }
+
+  // does not use listeners(), so no side effect of creating _events[type]
+  if (!this._events || !this._events[type]) return this;
+
+  var list = this._events[type];
+
+  if (isArray(list)) {
+    var i = indexOf(list, listener);
+    if (i < 0) return this;
+    list.splice(i, 1);
+    if (list.length == 0)
+      delete this._events[type];
+  } else if (this._events[type] === listener) {
+    delete this._events[type];
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.removeAllListeners = function(type) {
+  if (arguments.length === 0) {
+    this._events = {};
+    return this;
+  }
+
+  // does not use listeners(), so no side effect of creating _events[type]
+  if (type && this._events && this._events[type]) this._events[type] = null;
+  return this;
+};
+
+EventEmitter.prototype.listeners = function(type) {
+  if (!this._events) this._events = {};
+  if (!this._events[type]) this._events[type] = [];
+  if (!isArray(this._events[type])) {
+    this._events[type] = [this._events[type]];
+  }
+  return this._events[type];
+};
+
+})(require("__browserify_process"))
 },{"__browserify_process":5}],3:[function(require,module,exports){
 /**
  *
@@ -698,193 +884,7 @@ module.exports = nools;
 
 
 
-},{"fs":4,"path":6,"events":7,"./extended":8,"./rule":9,"./workingMemory":10,"./pattern":11,"./compile":12,"./nextTick":13,"./nodes":14}],7:[function(require,module,exports){
-(function(process){if (!process.EventEmitter) process.EventEmitter = function () {};
-
-var EventEmitter = exports.EventEmitter = process.EventEmitter;
-var isArray = typeof Array.isArray === 'function'
-    ? Array.isArray
-    : function (xs) {
-        return Object.prototype.toString.call(xs) === '[object Array]'
-    }
-;
-function indexOf (xs, x) {
-    if (xs.indexOf) return xs.indexOf(x);
-    for (var i = 0; i < xs.length; i++) {
-        if (x === xs[i]) return i;
-    }
-    return -1;
-}
-
-// By default EventEmitters will print a warning if more than
-// 10 listeners are added to it. This is a useful default which
-// helps finding memory leaks.
-//
-// Obviously not all Emitters should be limited to 10. This function allows
-// that to be increased. Set to zero for unlimited.
-var defaultMaxListeners = 10;
-EventEmitter.prototype.setMaxListeners = function(n) {
-  if (!this._events) this._events = {};
-  this._events.maxListeners = n;
-};
-
-
-EventEmitter.prototype.emit = function(type) {
-  // If there is no 'error' event listener then throw.
-  if (type === 'error') {
-    if (!this._events || !this._events.error ||
-        (isArray(this._events.error) && !this._events.error.length))
-    {
-      if (arguments[1] instanceof Error) {
-        throw arguments[1]; // Unhandled 'error' event
-      } else {
-        throw new Error("Uncaught, unspecified 'error' event.");
-      }
-      return false;
-    }
-  }
-
-  if (!this._events) return false;
-  var handler = this._events[type];
-  if (!handler) return false;
-
-  if (typeof handler == 'function') {
-    switch (arguments.length) {
-      // fast cases
-      case 1:
-        handler.call(this);
-        break;
-      case 2:
-        handler.call(this, arguments[1]);
-        break;
-      case 3:
-        handler.call(this, arguments[1], arguments[2]);
-        break;
-      // slower
-      default:
-        var args = Array.prototype.slice.call(arguments, 1);
-        handler.apply(this, args);
-    }
-    return true;
-
-  } else if (isArray(handler)) {
-    var args = Array.prototype.slice.call(arguments, 1);
-
-    var listeners = handler.slice();
-    for (var i = 0, l = listeners.length; i < l; i++) {
-      listeners[i].apply(this, args);
-    }
-    return true;
-
-  } else {
-    return false;
-  }
-};
-
-// EventEmitter is defined in src/node_events.cc
-// EventEmitter.prototype.emit() is also defined there.
-EventEmitter.prototype.addListener = function(type, listener) {
-  if ('function' !== typeof listener) {
-    throw new Error('addListener only takes instances of Function');
-  }
-
-  if (!this._events) this._events = {};
-
-  // To avoid recursion in the case that type == "newListeners"! Before
-  // adding it to the listeners, first emit "newListeners".
-  this.emit('newListener', type, listener);
-
-  if (!this._events[type]) {
-    // Optimize the case of one listener. Don't need the extra array object.
-    this._events[type] = listener;
-  } else if (isArray(this._events[type])) {
-
-    // Check for listener leak
-    if (!this._events[type].warned) {
-      var m;
-      if (this._events.maxListeners !== undefined) {
-        m = this._events.maxListeners;
-      } else {
-        m = defaultMaxListeners;
-      }
-
-      if (m && m > 0 && this._events[type].length > m) {
-        this._events[type].warned = true;
-        console.error('(node) warning: possible EventEmitter memory ' +
-                      'leak detected. %d listeners added. ' +
-                      'Use emitter.setMaxListeners() to increase limit.',
-                      this._events[type].length);
-        console.trace();
-      }
-    }
-
-    // If we've already got an array, just append.
-    this._events[type].push(listener);
-  } else {
-    // Adding the second element, need to change to array.
-    this._events[type] = [this._events[type], listener];
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.on = EventEmitter.prototype.addListener;
-
-EventEmitter.prototype.once = function(type, listener) {
-  var self = this;
-  self.on(type, function g() {
-    self.removeListener(type, g);
-    listener.apply(this, arguments);
-  });
-
-  return this;
-};
-
-EventEmitter.prototype.removeListener = function(type, listener) {
-  if ('function' !== typeof listener) {
-    throw new Error('removeListener only takes instances of Function');
-  }
-
-  // does not use listeners(), so no side effect of creating _events[type]
-  if (!this._events || !this._events[type]) return this;
-
-  var list = this._events[type];
-
-  if (isArray(list)) {
-    var i = indexOf(list, listener);
-    if (i < 0) return this;
-    list.splice(i, 1);
-    if (list.length == 0)
-      delete this._events[type];
-  } else if (this._events[type] === listener) {
-    delete this._events[type];
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.removeAllListeners = function(type) {
-  if (arguments.length === 0) {
-    this._events = {};
-    return this;
-  }
-
-  // does not use listeners(), so no side effect of creating _events[type]
-  if (type && this._events && this._events[type]) this._events[type] = null;
-  return this;
-};
-
-EventEmitter.prototype.listeners = function(type) {
-  if (!this._events) this._events = {};
-  if (!this._events[type]) this._events[type] = [];
-  if (!isArray(this._events[type])) {
-    this._events[type] = [this._events[type]];
-  }
-  return this._events[type];
-};
-
-})(require("__browserify_process"))
-},{"__browserify_process":5}],11:[function(require,module,exports){
+},{"fs":4,"path":6,"events":7,"./extended":8,"./rule":9,"./workingMemory":10,"./pattern":11,"./compile":12,"./nextTick":13,"./nodes":14}],11:[function(require,module,exports){
 (function () {
     "use strict";
     var extd = require("./extended"),
@@ -6366,7 +6366,42 @@ Node.extend({
     }
 
 }).as(module);
-},{"../extended":8,"./node":42,"./joinReferenceNode":43}],22:[function(require,module,exports){
+},{"../extended":8,"./node":42,"./joinReferenceNode":43}],23:[function(require,module,exports){
+var Node = require("./node");
+
+Node.extend({
+    instance: {
+        propagateAssert: function (context) {
+            this.__propagate("assertLeft", context);
+        },
+
+        propagateRetract: function (context) {
+            this.__propagate("retractLeft", context);
+        },
+
+        propagateResolve: function (context) {
+            this.__propagate("retractResolve", context);
+        },
+
+        modify: function (context) {
+            this.__propagate("modifyLeft", context);
+        },
+
+        retractResolve: function (match) {
+            this.__propagate("retractResolve", match);
+        },
+
+        dispose: function (context) {
+            this.propagateDispose(context);
+        },
+
+        toString: function () {
+            return "LeftAdapterNode " + this.__count;
+        }
+    }
+
+}).as(module);
+},{"./node":42}],22:[function(require,module,exports){
 var JoinNode = require("./joinNode"),
     Context = require("../context"),
     extd = require("../extended"),
@@ -6512,42 +6547,7 @@ JoinNode.extend({
         }
     }
 }).as(module);
-},{"./joinNode":21,"../context":44,"../extended":8}],23:[function(require,module,exports){
-var Node = require("./node");
-
-Node.extend({
-    instance: {
-        propagateAssert: function (context) {
-            this.__propagate("assertLeft", context);
-        },
-
-        propagateRetract: function (context) {
-            this.__propagate("retractLeft", context);
-        },
-
-        propagateResolve: function (context) {
-            this.__propagate("retractResolve", context);
-        },
-
-        modify: function (context) {
-            this.__propagate("modifyLeft", context);
-        },
-
-        retractResolve: function (match) {
-            this.__propagate("retractResolve", match);
-        },
-
-        dispose: function (context) {
-            this.propagateDispose(context);
-        },
-
-        toString: function () {
-            return "LeftAdapterNode " + this.__count;
-        }
-    }
-
-}).as(module);
-},{"./node":42}],24:[function(require,module,exports){
+},{"./joinNode":21,"../context":44,"../extended":8}],24:[function(require,module,exports){
 var Node = require("./node");
 
 Node.extend({
@@ -8320,6 +8320,96 @@ Node.extend({
         }
     }
 }).as(module);
+},{"./node":42}],43:[function(require,module,exports){
+var Node = require("./node");
+Node.extend({
+
+    instance: {
+
+        constructor: function () {
+            this._super(arguments);
+            this.__fh = {};
+            this.__lc = this.__rc = null;
+            this.__variables = [];
+            this.__varLength = 0;
+        },
+
+        setLeftContext: function (lc) {
+            this.__lc = lc;
+            var match = lc.match;
+            var newFh = match.factHash, fh = this.__fh, prop, vars = this.__variables;
+            for (var i = 0, l = this.__varLength; i < l; i++) {
+                prop = vars[i];
+                fh[prop] = newFh[prop];
+            }
+            return this;
+        },
+
+        setRightContext: function (rc) {
+            this.__fh[this.__alias] = (this.__rc = rc).fact.object;
+            return this;
+        },
+
+        clearContexts: function () {
+            this.__fh = {};
+            this.__lc = null;
+            this.__rc = null;
+            return this;
+        },
+
+        clearRightContext: function () {
+            this.__rc = null;
+            this.__fh[this.__alias] = null;
+            return this;
+        },
+
+        clearLeftContext: function () {
+            this.__lc = null;
+            var fh = this.__fh = {}, rc = this.__rc;
+            fh[this.__alias] = rc ? rc.fact.object : null;
+            return this;
+        },
+
+        addConstraint: function (constraint) {
+            if (!this.constraint) {
+                this.constraint = constraint;
+            } else {
+                this.constraint = this.constraint.merge(constraint);
+            }
+            this.__alias = this.constraint.get("alias");
+            this.__varLength = (this.__variables = this.__variables.concat(this.constraint.get("variables"))).length;
+        },
+
+        equal: function (constraint) {
+            if (this.constraint) {
+                return this.constraint.equal(constraint.constraint);
+            }
+        },
+
+        isMatch: function () {
+            var constraint = this.constraint;
+            if (constraint) {
+                return constraint.assert(this.__fh);
+            }
+            return true;
+        },
+
+        match: function () {
+            var ret = {isMatch: false}, constraint = this.constraint;
+            if (!constraint) {
+                ret = this.__lc.match.merge(this.__rc.match);
+            } else {
+                var rightContext = this.__rc, fh = this.__fh;
+                if (constraint.assert(fh)) {
+                    ret = this.__lc.match.merge(rightContext.match);
+                }
+            }
+            return ret;
+        }
+
+    }
+
+}).as(module);
 },{"./node":42}],42:[function(require,module,exports){
 var extd = require("../extended"),
     forEach = extd.forEach,
@@ -8446,97 +8536,7 @@ declare({
 
 }).as(module);
 
-},{"../extended":8,"../context":44}],43:[function(require,module,exports){
-var Node = require("./node");
-Node.extend({
-
-    instance: {
-
-        constructor: function () {
-            this._super(arguments);
-            this.__fh = {};
-            this.__lc = this.__rc = null;
-            this.__variables = [];
-            this.__varLength = 0;
-        },
-
-        setLeftContext: function (lc) {
-            this.__lc = lc;
-            var match = lc.match;
-            var newFh = match.factHash, fh = this.__fh, prop, vars = this.__variables;
-            for (var i = 0, l = this.__varLength; i < l; i++) {
-                prop = vars[i];
-                fh[prop] = newFh[prop];
-            }
-            return this;
-        },
-
-        setRightContext: function (rc) {
-            this.__fh[this.__alias] = (this.__rc = rc).fact.object;
-            return this;
-        },
-
-        clearContexts: function () {
-            this.__fh = {};
-            this.__lc = null;
-            this.__rc = null;
-            return this;
-        },
-
-        clearRightContext: function () {
-            this.__rc = null;
-            this.__fh[this.__alias] = null;
-            return this;
-        },
-
-        clearLeftContext: function () {
-            this.__lc = null;
-            var fh = this.__fh = {}, rc = this.__rc;
-            fh[this.__alias] = rc ? rc.fact.object : null;
-            return this;
-        },
-
-        addConstraint: function (constraint) {
-            if (!this.constraint) {
-                this.constraint = constraint;
-            } else {
-                this.constraint = this.constraint.merge(constraint);
-            }
-            this.__alias = this.constraint.get("alias");
-            this.__varLength = (this.__variables = this.__variables.concat(this.constraint.get("variables"))).length;
-        },
-
-        equal: function (constraint) {
-            if (this.constraint) {
-                return this.constraint.equal(constraint.constraint);
-            }
-        },
-
-        isMatch: function () {
-            var constraint = this.constraint;
-            if (constraint) {
-                return constraint.assert(this.__fh);
-            }
-            return true;
-        },
-
-        match: function () {
-            var ret = {isMatch: false}, constraint = this.constraint;
-            if (!constraint) {
-                ret = this.__lc.match.merge(this.__rc.match);
-            } else {
-                var rightContext = this.__rc, fh = this.__fh;
-                if (constraint.assert(fh)) {
-                    ret = this.__lc.match.merge(rightContext.match);
-                }
-            }
-            return ret;
-        }
-
-    }
-
-}).as(module);
-},{"./node":42}],40:[function(require,module,exports){
+},{"../extended":8,"../context":44}],40:[function(require,module,exports){
 "use strict";
 
 var tokens = require("./tokens.js"),
@@ -11683,7 +11683,7 @@ exports.parse = function (src) {
 
 
 })(require("__browserify_process"))
-},{"declare.js":37,"extended":28,"array-extended":29,"function-extended":34,"is-extended":35,"__browserify_process":5}],34:[function(require,module,exports){
+},{"declare.js":37,"extended":28,"array-extended":29,"is-extended":35,"function-extended":34,"__browserify_process":5}],34:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -13724,6 +13724,15 @@ var ruleTokens = {
 };
 
 module.exports = {
+    "/": function (orig) {
+        if (orig.match(/^\/\*/)) {
+            // Block Comment parse
+            return orig.replace(/\/\*.*?\*\//, "");
+        } else {
+            return orig;
+        }
+    },
+
     "define": function (orig, context) {
         var src = orig.replace(/^define\s*/, "");
         var name = src.match(/^([a-zA-Z_$][0-9a-zA-Z_$]*)/);
@@ -14512,7 +14521,7 @@ module.exports = {
 
 
 
-},{"extended":28,"is-extended":35}],50:[function(require,module,exports){
+},{"is-extended":35,"extended":28}],50:[function(require,module,exports){
 (function () {
     /*jshint strict:false*/
 
