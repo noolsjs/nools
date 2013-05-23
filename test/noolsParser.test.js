@@ -32,11 +32,45 @@ it.describe("nools dsl parser",function (it) {
             });
         });
 
-		it.should("parse a global statement", function () {
-			var parsed = noolsParser.parse("global util = require('util');");
-			assert.equal(parsed.scope[0].name, 'util');
-			assert.equal(parsed.scope[0].body, "require('util')");
-		});
+        it.describe("global", function (it) {
+
+            it.should("parse a function call statement", function () {
+                var parsed = noolsParser.parse("global util = require('util');");
+                assert.equal(parsed.scope[0].name, 'util');
+                assert.equal(parsed.scope[0].body, "require('util')");
+            });
+
+            it.should("parse a member look up", function () {
+                var parsed = noolsParser.parse("global PI = Math.PI;");
+                assert.equal(parsed.scope[0].name, 'PI');
+                assert.equal(parsed.scope[0].body, "Math.PI");
+            });
+
+            it.should("parse a strings", function () {
+                var parsed = noolsParser.parse("global SOME_STRING = 'This is a test';");
+                assert.equal(parsed.scope[0].name, 'SOME_STRING');
+                assert.equal(parsed.scope[0].body, "'This is a test'");
+            });
+
+            it.should("parse a boolean", function () {
+                var parsed = noolsParser.parse("global TRUE = true;");
+                assert.equal(parsed.scope[0].name, 'TRUE');
+                assert.equal(parsed.scope[0].body, "true");
+            });
+
+            it.should("parse numbers", function () {
+                var parsed = noolsParser.parse("global NUM = 1.23;");
+                assert.equal(parsed.scope[0].name, 'NUM');
+                assert.equal(parsed.scope[0].body, "1.23");
+            });
+
+            it.should("parse a new instantiation", function () {
+                var parsed = noolsParser.parse("global NOW = new Date();");
+                assert.equal(parsed.scope[0].name, 'NOW');
+                assert.equal(parsed.scope[0].body, "new Date()");
+            });
+
+        });
 
         it.should("throw an error when the define block is missing a name", function () {
             assert.throws(function () {
@@ -53,17 +87,17 @@ it.describe("nools dsl parser",function (it) {
             });
         });
 
-		it.should("throw an error when the global statement is missing a name", function () {
-			assert.throws(function () {
-				noolsParser.parse("global = require('util');");
-			});
-		});
+        it.should("throw an error when the global statement is missing a name", function () {
+            assert.throws(function () {
+                noolsParser.parse("global = require('util');");
+            });
+        });
 
-		it.should("throw an error when the global statement is missing a ;", function () {
-			assert.throws(function () {
-				noolsParser.parse("global util = require('util')");
-			});
-		});
+        it.should("throw an error when the global statement is missing a ;", function () {
+            assert.throws(function () {
+                noolsParser.parse("global util = require('util')");
+            });
+        });
     });
 
     it.describe("parsing function", function (it) {
