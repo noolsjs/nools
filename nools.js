@@ -14,428 +14,7 @@
 
 },{"../":2}],2:[function(require,module,exports){
 module.exports = exports = require("./lib");
-},{"./lib":3}],4:[function(require,module,exports){
-// nothing to see here... no file methods for the browser
-
-},{}],5:[function(require,module,exports){
-// shim for using process in browser
-
-var process = module.exports = {};
-
-process.nextTick = (function () {
-    var canSetImmediate = typeof window !== 'undefined'
-    && window.setImmediate;
-    var canPost = typeof window !== 'undefined'
-    && window.postMessage && window.addEventListener
-    ;
-
-    if (canSetImmediate) {
-        return function (f) { return window.setImmediate(f) };
-    }
-
-    if (canPost) {
-        var queue = [];
-        window.addEventListener('message', function (ev) {
-            if (ev.source === window && ev.data === 'process-tick') {
-                ev.stopPropagation();
-                if (queue.length > 0) {
-                    var fn = queue.shift();
-                    fn();
-                }
-            }
-        }, true);
-
-        return function nextTick(fn) {
-            queue.push(fn);
-            window.postMessage('process-tick', '*');
-        };
-    }
-
-    return function nextTick(fn) {
-        setTimeout(fn, 0);
-    };
-})();
-
-process.title = 'browser';
-process.browser = true;
-process.env = {};
-process.argv = [];
-
-process.binding = function (name) {
-    throw new Error('process.binding is not supported');
-}
-
-// TODO(shtylman)
-process.cwd = function () { return '/' };
-process.chdir = function (dir) {
-    throw new Error('process.chdir is not supported');
-};
-
-},{}],6:[function(require,module,exports){
-(function(process){function filter (xs, fn) {
-    var res = [];
-    for (var i = 0; i < xs.length; i++) {
-        if (fn(xs[i], i, xs)) res.push(xs[i]);
-    }
-    return res;
-}
-
-// resolves . and .. elements in a path array with directory names there
-// must be no slashes, empty elements, or device names (c:\) in the array
-// (so also no leading and trailing slashes - it does not distinguish
-// relative and absolute paths)
-function normalizeArray(parts, allowAboveRoot) {
-  // if the path tries to go above the root, `up` ends up > 0
-  var up = 0;
-  for (var i = parts.length; i >= 0; i--) {
-    var last = parts[i];
-    if (last == '.') {
-      parts.splice(i, 1);
-    } else if (last === '..') {
-      parts.splice(i, 1);
-      up++;
-    } else if (up) {
-      parts.splice(i, 1);
-      up--;
-    }
-  }
-
-  // if the path is allowed to go above the root, restore leading ..s
-  if (allowAboveRoot) {
-    for (; up--; up) {
-      parts.unshift('..');
-    }
-  }
-
-  return parts;
-}
-
-// Regex to split a filename into [*, dir, basename, ext]
-// posix version
-var splitPathRe = /^(.+\/(?!$)|\/)?((?:.+?)?(\.[^.]*)?)$/;
-
-// path.resolve([from ...], to)
-// posix version
-exports.resolve = function() {
-var resolvedPath = '',
-    resolvedAbsolute = false;
-
-for (var i = arguments.length; i >= -1 && !resolvedAbsolute; i--) {
-  var path = (i >= 0)
-      ? arguments[i]
-      : process.cwd();
-
-  // Skip empty and invalid entries
-  if (typeof path !== 'string' || !path) {
-    continue;
-  }
-
-  resolvedPath = path + '/' + resolvedPath;
-  resolvedAbsolute = path.charAt(0) === '/';
-}
-
-// At this point the path should be resolved to a full absolute path, but
-// handle relative paths to be safe (might happen when process.cwd() fails)
-
-// Normalize the path
-resolvedPath = normalizeArray(filter(resolvedPath.split('/'), function(p) {
-    return !!p;
-  }), !resolvedAbsolute).join('/');
-
-  return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
-};
-
-// path.normalize(path)
-// posix version
-exports.normalize = function(path) {
-var isAbsolute = path.charAt(0) === '/',
-    trailingSlash = path.slice(-1) === '/';
-
-// Normalize the path
-path = normalizeArray(filter(path.split('/'), function(p) {
-    return !!p;
-  }), !isAbsolute).join('/');
-
-  if (!path && !isAbsolute) {
-    path = '.';
-  }
-  if (path && trailingSlash) {
-    path += '/';
-  }
-  
-  return (isAbsolute ? '/' : '') + path;
-};
-
-
-// posix version
-exports.join = function() {
-  var paths = Array.prototype.slice.call(arguments, 0);
-  return exports.normalize(filter(paths, function(p, index) {
-    return p && typeof p === 'string';
-  }).join('/'));
-};
-
-
-exports.dirname = function(path) {
-  var dir = splitPathRe.exec(path)[1] || '';
-  var isWindows = false;
-  if (!dir) {
-    // No dirname
-    return '.';
-  } else if (dir.length === 1 ||
-      (isWindows && dir.length <= 3 && dir.charAt(1) === ':')) {
-    // It is just a slash or a drive letter with a slash
-    return dir;
-  } else {
-    // It is a full dirname, strip trailing slash
-    return dir.substring(0, dir.length - 1);
-  }
-};
-
-
-exports.basename = function(path, ext) {
-  var f = splitPathRe.exec(path)[2] || '';
-  // TODO: make this comparison case-insensitive on windows?
-  if (ext && f.substr(-1 * ext.length) === ext) {
-    f = f.substr(0, f.length - ext.length);
-  }
-  return f;
-};
-
-
-exports.extname = function(path) {
-  return splitPathRe.exec(path)[3] || '';
-};
-
-exports.relative = function(from, to) {
-  from = exports.resolve(from).substr(1);
-  to = exports.resolve(to).substr(1);
-
-  function trim(arr) {
-    var start = 0;
-    for (; start < arr.length; start++) {
-      if (arr[start] !== '') break;
-    }
-
-    var end = arr.length - 1;
-    for (; end >= 0; end--) {
-      if (arr[end] !== '') break;
-    }
-
-    if (start > end) return [];
-    return arr.slice(start, end - start + 1);
-  }
-
-  var fromParts = trim(from.split('/'));
-  var toParts = trim(to.split('/'));
-
-  var length = Math.min(fromParts.length, toParts.length);
-  var samePartsLength = length;
-  for (var i = 0; i < length; i++) {
-    if (fromParts[i] !== toParts[i]) {
-      samePartsLength = i;
-      break;
-    }
-  }
-
-  var outputParts = [];
-  for (var i = samePartsLength; i < fromParts.length; i++) {
-    outputParts.push('..');
-  }
-
-  outputParts = outputParts.concat(toParts.slice(samePartsLength));
-
-  return outputParts.join('/');
-};
-
-})(require("__browserify_process"))
-},{"__browserify_process":5}],7:[function(require,module,exports){
-(function(process){if (!process.EventEmitter) process.EventEmitter = function () {};
-
-var EventEmitter = exports.EventEmitter = process.EventEmitter;
-var isArray = typeof Array.isArray === 'function'
-    ? Array.isArray
-    : function (xs) {
-        return Object.prototype.toString.call(xs) === '[object Array]'
-    }
-;
-function indexOf (xs, x) {
-    if (xs.indexOf) return xs.indexOf(x);
-    for (var i = 0; i < xs.length; i++) {
-        if (x === xs[i]) return i;
-    }
-    return -1;
-}
-
-// By default EventEmitters will print a warning if more than
-// 10 listeners are added to it. This is a useful default which
-// helps finding memory leaks.
-//
-// Obviously not all Emitters should be limited to 10. This function allows
-// that to be increased. Set to zero for unlimited.
-var defaultMaxListeners = 10;
-EventEmitter.prototype.setMaxListeners = function(n) {
-  if (!this._events) this._events = {};
-  this._events.maxListeners = n;
-};
-
-
-EventEmitter.prototype.emit = function(type) {
-  // If there is no 'error' event listener then throw.
-  if (type === 'error') {
-    if (!this._events || !this._events.error ||
-        (isArray(this._events.error) && !this._events.error.length))
-    {
-      if (arguments[1] instanceof Error) {
-        throw arguments[1]; // Unhandled 'error' event
-      } else {
-        throw new Error("Uncaught, unspecified 'error' event.");
-      }
-      return false;
-    }
-  }
-
-  if (!this._events) return false;
-  var handler = this._events[type];
-  if (!handler) return false;
-
-  if (typeof handler == 'function') {
-    switch (arguments.length) {
-      // fast cases
-      case 1:
-        handler.call(this);
-        break;
-      case 2:
-        handler.call(this, arguments[1]);
-        break;
-      case 3:
-        handler.call(this, arguments[1], arguments[2]);
-        break;
-      // slower
-      default:
-        var args = Array.prototype.slice.call(arguments, 1);
-        handler.apply(this, args);
-    }
-    return true;
-
-  } else if (isArray(handler)) {
-    var args = Array.prototype.slice.call(arguments, 1);
-
-    var listeners = handler.slice();
-    for (var i = 0, l = listeners.length; i < l; i++) {
-      listeners[i].apply(this, args);
-    }
-    return true;
-
-  } else {
-    return false;
-  }
-};
-
-// EventEmitter is defined in src/node_events.cc
-// EventEmitter.prototype.emit() is also defined there.
-EventEmitter.prototype.addListener = function(type, listener) {
-  if ('function' !== typeof listener) {
-    throw new Error('addListener only takes instances of Function');
-  }
-
-  if (!this._events) this._events = {};
-
-  // To avoid recursion in the case that type == "newListeners"! Before
-  // adding it to the listeners, first emit "newListeners".
-  this.emit('newListener', type, listener);
-
-  if (!this._events[type]) {
-    // Optimize the case of one listener. Don't need the extra array object.
-    this._events[type] = listener;
-  } else if (isArray(this._events[type])) {
-
-    // Check for listener leak
-    if (!this._events[type].warned) {
-      var m;
-      if (this._events.maxListeners !== undefined) {
-        m = this._events.maxListeners;
-      } else {
-        m = defaultMaxListeners;
-      }
-
-      if (m && m > 0 && this._events[type].length > m) {
-        this._events[type].warned = true;
-        console.error('(node) warning: possible EventEmitter memory ' +
-                      'leak detected. %d listeners added. ' +
-                      'Use emitter.setMaxListeners() to increase limit.',
-                      this._events[type].length);
-        console.trace();
-      }
-    }
-
-    // If we've already got an array, just append.
-    this._events[type].push(listener);
-  } else {
-    // Adding the second element, need to change to array.
-    this._events[type] = [this._events[type], listener];
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.on = EventEmitter.prototype.addListener;
-
-EventEmitter.prototype.once = function(type, listener) {
-  var self = this;
-  self.on(type, function g() {
-    self.removeListener(type, g);
-    listener.apply(this, arguments);
-  });
-
-  return this;
-};
-
-EventEmitter.prototype.removeListener = function(type, listener) {
-  if ('function' !== typeof listener) {
-    throw new Error('removeListener only takes instances of Function');
-  }
-
-  // does not use listeners(), so no side effect of creating _events[type]
-  if (!this._events || !this._events[type]) return this;
-
-  var list = this._events[type];
-
-  if (isArray(list)) {
-    var i = indexOf(list, listener);
-    if (i < 0) return this;
-    list.splice(i, 1);
-    if (list.length == 0)
-      delete this._events[type];
-  } else if (this._events[type] === listener) {
-    delete this._events[type];
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.removeAllListeners = function(type) {
-  if (arguments.length === 0) {
-    this._events = {};
-    return this;
-  }
-
-  // does not use listeners(), so no side effect of creating _events[type]
-  if (type && this._events && this._events[type]) this._events[type] = null;
-  return this;
-};
-
-EventEmitter.prototype.listeners = function(type) {
-  if (!this._events) this._events = {};
-  if (!this._events[type]) this._events[type] = [];
-  if (!isArray(this._events[type])) {
-    this._events[type] = [this._events[type]];
-  }
-  return this._events[type];
-};
-
-})(require("__browserify_process"))
-},{"__browserify_process":5}],3:[function(require,module,exports){
+},{"./lib":3}],3:[function(require,module,exports){
 /**
  *
  * @projectName nools
@@ -709,7 +288,7 @@ var Flow = declare(EventEmitter, {
             var activation = this.agenda.pop(), rootNode = this.rootNode;
             activation.used = true;
             this.emit("fire", activation.rule.name, activation.match.factHash);
-            return when(activation.rule.fire(this, activation.match)).then(bind(this, function () {
+            return when(activation.rule.fire(this, activation.match)).addCallback(bind(this, function () {
                 if (this.__wmAltered) {
                     rootNode.incrementCounter();
                     this.__wmAltered = false;
@@ -722,7 +301,7 @@ var Flow = declare(EventEmitter, {
             this.__halted = false;
             return this.__loop(bind(this, function (ret, fire) {
                 if (!this.agenda.isEmpty() && !this.__halted) {
-                    this.__callNext(fire).then(fire, ret.errback);
+                    this.__callNext(fire).addCallback(fire).addErrback(ret.errback);
                 } else if (!this.__halted) {
                     nextTick(fire);
                 } else {
@@ -734,7 +313,7 @@ var Flow = declare(EventEmitter, {
         match: function (cb) {
             return this.__loop(bind(this, function (ret, fire) {
                 if (!this.agenda.isEmpty()) {
-                    this.__callNext(fire).then(fire, ret.errback);
+                    this.__callNext(fire).addCallback(fire).addErrback(ret.errback);
                 } else {
                     ret.callback();
                 }
@@ -884,7 +463,428 @@ module.exports = nools;
 
 
 
-},{"fs":4,"path":6,"events":7,"./extended":8,"./rule":9,"./workingMemory":10,"./pattern":11,"./compile":12,"./nextTick":13,"./nodes":14}],11:[function(require,module,exports){
+},{"fs":4,"path":5,"events":6,"./extended":7,"./rule":8,"./workingMemory":9,"./compile":10,"./pattern":11,"./nextTick":12,"./nodes":13}],14:[function(require,module,exports){
+// shim for using process in browser
+
+var process = module.exports = {};
+
+process.nextTick = (function () {
+    var canSetImmediate = typeof window !== 'undefined'
+    && window.setImmediate;
+    var canPost = typeof window !== 'undefined'
+    && window.postMessage && window.addEventListener
+    ;
+
+    if (canSetImmediate) {
+        return function (f) { return window.setImmediate(f) };
+    }
+
+    if (canPost) {
+        var queue = [];
+        window.addEventListener('message', function (ev) {
+            if (ev.source === window && ev.data === 'process-tick') {
+                ev.stopPropagation();
+                if (queue.length > 0) {
+                    var fn = queue.shift();
+                    fn();
+                }
+            }
+        }, true);
+
+        return function nextTick(fn) {
+            queue.push(fn);
+            window.postMessage('process-tick', '*');
+        };
+    }
+
+    return function nextTick(fn) {
+        setTimeout(fn, 0);
+    };
+})();
+
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+}
+
+// TODO(shtylman)
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+
+},{}],6:[function(require,module,exports){
+(function(process){if (!process.EventEmitter) process.EventEmitter = function () {};
+
+var EventEmitter = exports.EventEmitter = process.EventEmitter;
+var isArray = typeof Array.isArray === 'function'
+    ? Array.isArray
+    : function (xs) {
+        return Object.prototype.toString.call(xs) === '[object Array]'
+    }
+;
+function indexOf (xs, x) {
+    if (xs.indexOf) return xs.indexOf(x);
+    for (var i = 0; i < xs.length; i++) {
+        if (x === xs[i]) return i;
+    }
+    return -1;
+}
+
+// By default EventEmitters will print a warning if more than
+// 10 listeners are added to it. This is a useful default which
+// helps finding memory leaks.
+//
+// Obviously not all Emitters should be limited to 10. This function allows
+// that to be increased. Set to zero for unlimited.
+var defaultMaxListeners = 10;
+EventEmitter.prototype.setMaxListeners = function(n) {
+  if (!this._events) this._events = {};
+  this._events.maxListeners = n;
+};
+
+
+EventEmitter.prototype.emit = function(type) {
+  // If there is no 'error' event listener then throw.
+  if (type === 'error') {
+    if (!this._events || !this._events.error ||
+        (isArray(this._events.error) && !this._events.error.length))
+    {
+      if (arguments[1] instanceof Error) {
+        throw arguments[1]; // Unhandled 'error' event
+      } else {
+        throw new Error("Uncaught, unspecified 'error' event.");
+      }
+      return false;
+    }
+  }
+
+  if (!this._events) return false;
+  var handler = this._events[type];
+  if (!handler) return false;
+
+  if (typeof handler == 'function') {
+    switch (arguments.length) {
+      // fast cases
+      case 1:
+        handler.call(this);
+        break;
+      case 2:
+        handler.call(this, arguments[1]);
+        break;
+      case 3:
+        handler.call(this, arguments[1], arguments[2]);
+        break;
+      // slower
+      default:
+        var args = Array.prototype.slice.call(arguments, 1);
+        handler.apply(this, args);
+    }
+    return true;
+
+  } else if (isArray(handler)) {
+    var args = Array.prototype.slice.call(arguments, 1);
+
+    var listeners = handler.slice();
+    for (var i = 0, l = listeners.length; i < l; i++) {
+      listeners[i].apply(this, args);
+    }
+    return true;
+
+  } else {
+    return false;
+  }
+};
+
+// EventEmitter is defined in src/node_events.cc
+// EventEmitter.prototype.emit() is also defined there.
+EventEmitter.prototype.addListener = function(type, listener) {
+  if ('function' !== typeof listener) {
+    throw new Error('addListener only takes instances of Function');
+  }
+
+  if (!this._events) this._events = {};
+
+  // To avoid recursion in the case that type == "newListeners"! Before
+  // adding it to the listeners, first emit "newListeners".
+  this.emit('newListener', type, listener);
+
+  if (!this._events[type]) {
+    // Optimize the case of one listener. Don't need the extra array object.
+    this._events[type] = listener;
+  } else if (isArray(this._events[type])) {
+
+    // Check for listener leak
+    if (!this._events[type].warned) {
+      var m;
+      if (this._events.maxListeners !== undefined) {
+        m = this._events.maxListeners;
+      } else {
+        m = defaultMaxListeners;
+      }
+
+      if (m && m > 0 && this._events[type].length > m) {
+        this._events[type].warned = true;
+        console.error('(node) warning: possible EventEmitter memory ' +
+                      'leak detected. %d listeners added. ' +
+                      'Use emitter.setMaxListeners() to increase limit.',
+                      this._events[type].length);
+        console.trace();
+      }
+    }
+
+    // If we've already got an array, just append.
+    this._events[type].push(listener);
+  } else {
+    // Adding the second element, need to change to array.
+    this._events[type] = [this._events[type], listener];
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.on = EventEmitter.prototype.addListener;
+
+EventEmitter.prototype.once = function(type, listener) {
+  var self = this;
+  self.on(type, function g() {
+    self.removeListener(type, g);
+    listener.apply(this, arguments);
+  });
+
+  return this;
+};
+
+EventEmitter.prototype.removeListener = function(type, listener) {
+  if ('function' !== typeof listener) {
+    throw new Error('removeListener only takes instances of Function');
+  }
+
+  // does not use listeners(), so no side effect of creating _events[type]
+  if (!this._events || !this._events[type]) return this;
+
+  var list = this._events[type];
+
+  if (isArray(list)) {
+    var i = indexOf(list, listener);
+    if (i < 0) return this;
+    list.splice(i, 1);
+    if (list.length == 0)
+      delete this._events[type];
+  } else if (this._events[type] === listener) {
+    delete this._events[type];
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.removeAllListeners = function(type) {
+  if (arguments.length === 0) {
+    this._events = {};
+    return this;
+  }
+
+  // does not use listeners(), so no side effect of creating _events[type]
+  if (type && this._events && this._events[type]) this._events[type] = null;
+  return this;
+};
+
+EventEmitter.prototype.listeners = function(type) {
+  if (!this._events) this._events = {};
+  if (!this._events[type]) this._events[type] = [];
+  if (!isArray(this._events[type])) {
+    this._events[type] = [this._events[type]];
+  }
+  return this._events[type];
+};
+
+})(require("__browserify_process"))
+},{"__browserify_process":14}],5:[function(require,module,exports){
+(function(process){function filter (xs, fn) {
+    var res = [];
+    for (var i = 0; i < xs.length; i++) {
+        if (fn(xs[i], i, xs)) res.push(xs[i]);
+    }
+    return res;
+}
+
+// resolves . and .. elements in a path array with directory names there
+// must be no slashes, empty elements, or device names (c:\) in the array
+// (so also no leading and trailing slashes - it does not distinguish
+// relative and absolute paths)
+function normalizeArray(parts, allowAboveRoot) {
+  // if the path tries to go above the root, `up` ends up > 0
+  var up = 0;
+  for (var i = parts.length; i >= 0; i--) {
+    var last = parts[i];
+    if (last == '.') {
+      parts.splice(i, 1);
+    } else if (last === '..') {
+      parts.splice(i, 1);
+      up++;
+    } else if (up) {
+      parts.splice(i, 1);
+      up--;
+    }
+  }
+
+  // if the path is allowed to go above the root, restore leading ..s
+  if (allowAboveRoot) {
+    for (; up--; up) {
+      parts.unshift('..');
+    }
+  }
+
+  return parts;
+}
+
+// Regex to split a filename into [*, dir, basename, ext]
+// posix version
+var splitPathRe = /^(.+\/(?!$)|\/)?((?:.+?)?(\.[^.]*)?)$/;
+
+// path.resolve([from ...], to)
+// posix version
+exports.resolve = function() {
+var resolvedPath = '',
+    resolvedAbsolute = false;
+
+for (var i = arguments.length; i >= -1 && !resolvedAbsolute; i--) {
+  var path = (i >= 0)
+      ? arguments[i]
+      : process.cwd();
+
+  // Skip empty and invalid entries
+  if (typeof path !== 'string' || !path) {
+    continue;
+  }
+
+  resolvedPath = path + '/' + resolvedPath;
+  resolvedAbsolute = path.charAt(0) === '/';
+}
+
+// At this point the path should be resolved to a full absolute path, but
+// handle relative paths to be safe (might happen when process.cwd() fails)
+
+// Normalize the path
+resolvedPath = normalizeArray(filter(resolvedPath.split('/'), function(p) {
+    return !!p;
+  }), !resolvedAbsolute).join('/');
+
+  return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
+};
+
+// path.normalize(path)
+// posix version
+exports.normalize = function(path) {
+var isAbsolute = path.charAt(0) === '/',
+    trailingSlash = path.slice(-1) === '/';
+
+// Normalize the path
+path = normalizeArray(filter(path.split('/'), function(p) {
+    return !!p;
+  }), !isAbsolute).join('/');
+
+  if (!path && !isAbsolute) {
+    path = '.';
+  }
+  if (path && trailingSlash) {
+    path += '/';
+  }
+  
+  return (isAbsolute ? '/' : '') + path;
+};
+
+
+// posix version
+exports.join = function() {
+  var paths = Array.prototype.slice.call(arguments, 0);
+  return exports.normalize(filter(paths, function(p, index) {
+    return p && typeof p === 'string';
+  }).join('/'));
+};
+
+
+exports.dirname = function(path) {
+  var dir = splitPathRe.exec(path)[1] || '';
+  var isWindows = false;
+  if (!dir) {
+    // No dirname
+    return '.';
+  } else if (dir.length === 1 ||
+      (isWindows && dir.length <= 3 && dir.charAt(1) === ':')) {
+    // It is just a slash or a drive letter with a slash
+    return dir;
+  } else {
+    // It is a full dirname, strip trailing slash
+    return dir.substring(0, dir.length - 1);
+  }
+};
+
+
+exports.basename = function(path, ext) {
+  var f = splitPathRe.exec(path)[2] || '';
+  // TODO: make this comparison case-insensitive on windows?
+  if (ext && f.substr(-1 * ext.length) === ext) {
+    f = f.substr(0, f.length - ext.length);
+  }
+  return f;
+};
+
+
+exports.extname = function(path) {
+  return splitPathRe.exec(path)[3] || '';
+};
+
+exports.relative = function(from, to) {
+  from = exports.resolve(from).substr(1);
+  to = exports.resolve(to).substr(1);
+
+  function trim(arr) {
+    var start = 0;
+    for (; start < arr.length; start++) {
+      if (arr[start] !== '') break;
+    }
+
+    var end = arr.length - 1;
+    for (; end >= 0; end--) {
+      if (arr[end] !== '') break;
+    }
+
+    if (start > end) return [];
+    return arr.slice(start, end - start + 1);
+  }
+
+  var fromParts = trim(from.split('/'));
+  var toParts = trim(to.split('/'));
+
+  var length = Math.min(fromParts.length, toParts.length);
+  var samePartsLength = length;
+  for (var i = 0; i < length; i++) {
+    if (fromParts[i] !== toParts[i]) {
+      samePartsLength = i;
+      break;
+    }
+  }
+
+  var outputParts = [];
+  for (var i = samePartsLength; i < fromParts.length; i++) {
+    outputParts.push('..');
+  }
+
+  outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+  return outputParts.join('/');
+};
+
+})(require("__browserify_process"))
+},{"__browserify_process":14}],4:[function(require,module,exports){
+// nothing to see here... no file methods for the browser
+
+},{}],11:[function(require,module,exports){
 (function () {
     "use strict";
     var extd = require("./extended"),
@@ -979,7 +979,7 @@ module.exports = nools;
 })();
 
 
-},{"./extended":8,"./constraintMatcher":15,"./constraint":16}],13:[function(require,module,exports){
+},{"./extended":7,"./constraintMatcher":15,"./constraint":16}],12:[function(require,module,exports){
 (function(process){/*global setImmediate, window, MessageChannel*/
 var extd = require("./extended");
 var nextTick;
@@ -1018,12 +1018,11 @@ if (typeof setImmediate === "function") {
 
 module.exports = nextTick;
 })(require("__browserify_process"))
-},{"./extended":8,"__browserify_process":5}],9:[function(require,module,exports){
+},{"./extended":7,"__browserify_process":14}],8:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     isArray = extd.isArray,
     Promise = extd.Promise,
-    when = extd.when,
     declare = extd.declare,
     parser = require("./parser"),
     pattern = require("./pattern"),
@@ -1126,9 +1125,9 @@ var Rule = declare({
             var ret = new Promise(), cb = this.cb;
             try {
                 if (cb.length === 3) {
-                    this.cb.call(flow, match.factHash, flow, ret.classic);
+                    cb.call(flow, match.factHash, flow, ret.classic);
                 } else {
-                    when(this.cb.call(flow, match.factHash, flow)).then(ret.callback, ret.errback);
+                    return cb.call(flow, match.factHash, flow);
                 }
             } catch (e) {
                 ret.errback(e);
@@ -1202,7 +1201,7 @@ exports.createRule = createRule;
 
 
 
-},{"./extended":8,"./pattern":11,"./parser":17}],18:[function(require,module,exports){
+},{"./extended":7,"./pattern":11,"./parser":17}],18:[function(require,module,exports){
 require=(function(e,t,n,r){function i(r){if(!n[r]){if(!t[r]){if(e)return e(r);throw new Error("Cannot find module '"+r+"'")}var s=n[r]={exports:{}};t[r][0](function(e){var n=t[r][1][e];return i(n?n:e)},s,s.exports)}return n[r].exports}for(var s=0;s<r.length;s++)i(r[s]);return i})(typeof require!=="undefined"&&require,{1:[function(require,module,exports){
 exports.readIEEE754 = function(buffer, offset, isBE, mLen, nBytes) {
   var e, m,
@@ -5067,7 +5066,7 @@ SlowBuffer.prototype.writeDoubleBE = Buffer.prototype.writeDoubleBE;
 },{}]},{},[])
 ;;module.exports=require("buffer-browserify")
 
-},{}],12:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 (function(Buffer){(function () {
     /*jshint evil:true*/
     "use strict";
@@ -5309,7 +5308,7 @@ SlowBuffer.prototype.writeDoubleBE = Buffer.prototype.writeDoubleBE;
 
 })();
 })(require("__browserify_buffer").Buffer)
-},{"./constraintMatcher.js":15,"./extended":8,"./rule":9,"./parser":17,"__browserify_buffer":18}],14:[function(require,module,exports){
+},{"./constraintMatcher.js":15,"./extended":7,"./rule":8,"./parser":17,"__browserify_buffer":18}],13:[function(require,module,exports){
 "use strict";
 var extd = require("../extended"),
     forEach = extd.forEach,
@@ -5528,7 +5527,7 @@ declare({
 
 
 
-},{"../pattern.js":11,"../extended":8,"../constraint":16,"./aliasNode":19,"./equalityNode":20,"./joinNode":21,"./notNode":22,"./leftAdapterNode":23,"./rightAdapterNode":24,"./typeNode":25,"./terminalNode":26,"./propertyNode":27}],15:[function(require,module,exports){
+},{"../pattern.js":11,"../extended":7,"../constraint":16,"./aliasNode":19,"./equalityNode":20,"./joinNode":21,"./notNode":22,"./leftAdapterNode":23,"./rightAdapterNode":24,"./typeNode":25,"./terminalNode":26,"./propertyNode":27}],15:[function(require,module,exports){
 "use strict";
 
 var extd = require("./extended"),
@@ -5887,7 +5886,7 @@ exports.getIdentifiers = function (constraint) {
 
 
 
-},{"./extended":8,"./constraint":16}],8:[function(require,module,exports){
+},{"./extended":7,"./constraint":16}],7:[function(require,module,exports){
 module.exports = require("extended")()
     .register(require("array-extended"))
     .register(require("date-extended"))
@@ -5903,7 +5902,7 @@ module.exports = require("extended")()
 
 
 
-},{"extended":28,"array-extended":29,"date-extended":30,"object-extended":31,"promise-extended":32,"string-extended":33,"is-extended":34,"function-extended":35,"ht":36,"declare.js":37,"leafy":38}],10:[function(require,module,exports){
+},{"extended":28,"array-extended":29,"date-extended":30,"object-extended":31,"string-extended":32,"promise-extended":33,"function-extended":34,"is-extended":35,"ht":36,"declare.js":37,"leafy":38}],9:[function(require,module,exports){
 "use strict";
 var declare = require("declare.js");
 
@@ -6161,7 +6160,7 @@ Constraint.extend({
 
 
 
-},{"./extended":8,"./constraintMatcher":15}],17:[function(require,module,exports){
+},{"./extended":7,"./constraintMatcher":15}],17:[function(require,module,exports){
 (function () {
     "use strict";
     var constraintParser = require("./constraint/parser"),
@@ -6366,7 +6365,7 @@ Node.extend({
     }
 
 }).as(module);
-},{"../extended":8,"./node":42,"./joinReferenceNode":43}],22:[function(require,module,exports){
+},{"../extended":7,"./node":42,"./joinReferenceNode":43}],22:[function(require,module,exports){
 var JoinNode = require("./joinNode"),
     Context = require("../context"),
     extd = require("../extended"),
@@ -6512,7 +6511,7 @@ JoinNode.extend({
         }
     }
 }).as(module);
-},{"./joinNode":21,"../context":44,"../extended":8}],23:[function(require,module,exports){
+},{"./joinNode":21,"../context":44,"../extended":7}],23:[function(require,module,exports){
 var Node = require("./node");
 
 Node.extend({
@@ -6701,7 +6700,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./node":42,"../extended":8}],27:[function(require,module,exports){
+},{"./node":42,"../extended":7}],27:[function(require,module,exports){
 var AlphaNode = require("./alphaNode"),
     Context = require("../context"),
     extd = require("../extended");
@@ -6736,7 +6735,7 @@ AlphaNode.extend({
 
 
 
-},{"./alphaNode":41,"../context":44,"../extended":8}],39:[function(require,module,exports){
+},{"./alphaNode":41,"../context":44,"../extended":7}],39:[function(require,module,exports){
 (function(process){/* parser generated by jison 0.4.2 */
 var parser = (function(){
 var parser = {trace: function trace() { },
@@ -7223,7 +7222,7 @@ if (typeof module !== 'undefined' && require.main === module) {
 }
 }
 })(require("__browserify_process"))
-},{"fs":4,"path":6,"__browserify_process":5}],37:[function(require,module,exports){
+},{"fs":4,"path":5,"__browserify_process":14}],37:[function(require,module,exports){
 module.exports = require("./declare.js");
 },{"./declare.js":45}],45:[function(require,module,exports){
 (function () {
@@ -8300,7 +8299,7 @@ var Context = declare({
 
 
 
-},{"./extended":8}],41:[function(require,module,exports){
+},{"./extended":7}],41:[function(require,module,exports){
 "use strict";
 var Node = require("./node");
 
@@ -8446,7 +8445,7 @@ declare({
 
 }).as(module);
 
-},{"../extended":8,"../context":44}],43:[function(require,module,exports){
+},{"../extended":7,"../context":44}],43:[function(require,module,exports){
 var Node = require("./node");
 Node.extend({
 
@@ -8576,7 +8575,7 @@ exports.parse = function (src) {
 };
 
 
-},{"./tokens.js":47,"./util.js":48,"../../extended":8}],48:[function(require,module,exports){
+},{"./tokens.js":47,"./util.js":48,"../../extended":7}],48:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -9358,7 +9357,7 @@ exports.parse = function (src) {
 
 
 })()
-},{"extended":28,"is-extended":34}],30:[function(require,module,exports){
+},{"extended":28,"is-extended":35}],30:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -10306,7 +10305,7 @@ exports.parse = function (src) {
 
 
 
-},{"extended":28,"is-extended":34,"array-extended":29}],31:[function(require,module,exports){
+},{"is-extended":35,"extended":28,"array-extended":29}],31:[function(require,module,exports){
 (function(){(function () {
     "use strict";
     /*global extended isExtended*/
@@ -10525,518 +10524,7 @@ exports.parse = function (src) {
 
 
 })()
-},{"array-extended":49,"extended":28,"is-extended":34}],32:[function(require,module,exports){
-(function(process){(function () {
-    "use strict";
-    /*global setImmediate, MessageChannel*/
-
-
-    var arraySlice = Array.prototype.slice;
-
-    function argsToArray(args, slice) {
-        slice = slice || 0;
-        return arraySlice.call(args, slice);
-    }
-
-
-    function definePromise(declare, extended, array, is, fn) {
-
-        var forEach = array.forEach,
-            isUndefinedOrNull = is.isUndefinedOrNull,
-            isArray = is.isArray,
-            isFunction = is.isFunction,
-            isBoolean = is.isBoolean,
-            bind = fn.bind,
-            bindIgnore = fn.bindIgnore;
-
-        function createHandler(fn, promise) {
-            return function _handler() {
-                try {
-                    when(fn.apply(null, arguments))
-                        .addCallback(promise)
-                        .addErrback(promise);
-                } catch (e) {
-                    promise.errback(e);
-                }
-            };
-        }
-
-        var nextTick;
-        if (typeof setImmediate === "function") {
-            // In IE10, or use https://github.com/NobleJS/setImmediate
-            if (typeof window !== "undefined") {
-                nextTick = setImmediate.bind(window);
-            } else {
-                nextTick = setImmediate;
-            }
-        } else if (typeof process !== "undefined") {
-            // node
-            nextTick = process.nextTick;
-        } else if (typeof MessageChannel !== "undefined") {
-            // modern browsers
-            // http://www.nonblocking.io/2011/06/windownexttick.html
-            var channel = new MessageChannel();
-            // linked list of tasks (single, with head node)
-            var head = {}, tail = head;
-            channel.port1.onmessage = function () {
-                head = head.next;
-                var task = head.task;
-                delete head.task;
-                task();
-            };
-            nextTick = function (task) {
-                tail = tail.next = {task: task};
-                channel.port2.postMessage(0);
-            };
-        } else {
-            // old browsers
-            nextTick = function (task) {
-                setTimeout(task, 0);
-            };
-        }
-
-
-        //noinspection JSHint
-        var Promise = declare({
-            instance: {
-                __fired: false,
-
-                __results: null,
-
-                __error: null,
-
-                __errorCbs: null,
-
-                __cbs: null,
-
-                constructor: function () {
-                    this.__errorCbs = [];
-                    this.__cbs = [];
-                    fn.bindAll(this, ["callback", "errback", "resolve", "classic", "__resolve", "addCallback", "addErrback"]);
-                },
-
-                __resolve: function () {
-                    if (!this.__fired) {
-                        this.__fired = true;
-                        var cbs = this.__error ? this.__errorCbs : this.__cbs,
-                            len = cbs.length, i,
-                            results = this.__error || this.__results;
-                        for (i = 0; i < len; i++) {
-                            this.__callNextTick(cbs[i], results);
-                        }
-
-                    }
-                },
-
-                __callNextTick: function (cb, results) {
-                    nextTick(function () {
-                        cb.apply(this, results);
-                    });
-                },
-
-                addCallback: function (cb) {
-                    if (cb) {
-                        if (isPromiseLike(cb) && cb.callback) {
-                            cb = cb.callback;
-                        }
-                        if (this.__fired && this.__results) {
-                            this.__callNextTick(cb, this.__results);
-                        } else {
-                            this.__cbs.push(cb);
-                        }
-                    }
-                    return this;
-                },
-
-
-                addErrback: function (cb) {
-                    if (cb) {
-                        if (isPromiseLike(cb) && cb.errback) {
-                            cb = cb.errback;
-                        }
-                        if (this.__fired && this.__error) {
-                            this.__callNextTick(cb, this.__error);
-                        } else {
-                            this.__errorCbs.push(cb);
-                        }
-                    }
-                    return this;
-                },
-
-                callback: function (args) {
-                    if (!this.__fired) {
-                        this.__results = arguments;
-                        this.__resolve();
-                    }
-                    return this.promise();
-                },
-
-                errback: function (args) {
-                    if (!this.__fired) {
-                        this.__error = arguments;
-                        this.__resolve();
-                    }
-                    return this.promise();
-                },
-
-                resolve: function (err, args) {
-                    if (err) {
-                        this.errback(err);
-                    } else {
-                        this.callback.apply(this, argsToArray(arguments, 1));
-                    }
-                    return this;
-                },
-
-                classic: function (cb) {
-                    if ("function" === typeof cb) {
-                        this.addErrback(function (err) {
-                            cb(err);
-                        });
-                        this.addCallback(function () {
-                            cb.apply(this, [null].concat(argsToArray(arguments)));
-                        });
-                    }
-                    return this;
-                },
-
-                then: function (callback, errback) {
-
-                    var promise = new Promise(), errorHandler = promise;
-                    if (isFunction(errback)) {
-                        errorHandler = createHandler(errback, promise);
-                    }
-                    this.addErrback(errorHandler);
-                    if (isFunction(callback)) {
-                        this.addCallback(createHandler(callback, promise));
-                    } else {
-                        this.addCallback(promise);
-                    }
-
-                    return promise.promise();
-                },
-
-                both: function (callback) {
-                    return this.then(callback, callback);
-                },
-
-                promise: function () {
-                    var ret = {
-                        then: bind(this, "then"),
-                        both: bind(this, "both"),
-                        promise: function () {
-                            return ret;
-                        }
-                    };
-                    forEach(["addCallback", "addErrback", "classic"], function (action) {
-                        ret[action] = bind(this, function () {
-                            this[action].apply(this, arguments);
-                            return ret;
-                        });
-                    }, this);
-
-                    return ret;
-                }
-
-
-            }
-        });
-
-
-        var PromiseList = Promise.extend({
-            instance: {
-
-                /*@private*/
-                __results: null,
-
-                /*@private*/
-                __errors: null,
-
-                /*@private*/
-                __promiseLength: 0,
-
-                /*@private*/
-                __defLength: 0,
-
-                /*@private*/
-                __firedLength: 0,
-
-                normalizeResults: false,
-
-                constructor: function (defs, normalizeResults) {
-                    this.__errors = [];
-                    this.__results = [];
-                    this.normalizeResults = isBoolean(normalizeResults) ? normalizeResults : false;
-                    this._super(arguments);
-                    if (defs && defs.length) {
-                        this.__defLength = defs.length;
-                        forEach(defs, this.__addPromise, this);
-                    } else {
-                        this.__resolve();
-                    }
-                },
-
-                __addPromise: function (promise, i) {
-                    promise.then(
-                        bind(this, function () {
-                            var args = argsToArray(arguments);
-                            args.unshift(i);
-                            this.callback.apply(this, args);
-                        }),
-                        bind(this, function () {
-                            var args = argsToArray(arguments);
-                            args.unshift(i);
-                            this.errback.apply(this, args);
-                        })
-                    );
-                },
-
-                __resolve: function () {
-                    if (!this.__fired) {
-                        this.__fired = true;
-                        var cbs = this.__errors.length ? this.__errorCbs : this.__cbs,
-                            len = cbs.length, i,
-                            results = this.__errors.length ? this.__errors : this.__results;
-                        for (i = 0; i < len; i++) {
-                            this.__callNextTick(cbs[i], results);
-                        }
-
-                    }
-                },
-
-                __callNextTick: function (cb, results) {
-                    nextTick(function () {
-                        cb.apply(null, [results]);
-                    });
-                },
-
-                addCallback: function (cb) {
-                    if (cb) {
-                        if (isPromiseLike(cb) && cb.callback) {
-                            cb = bind(cb, "callback");
-                        }
-                        if (this.__fired && !this.__errors.length) {
-                            this.__callNextTick(cb, this.__results);
-                        } else {
-                            this.__cbs.push(cb);
-                        }
-                    }
-                    return this;
-                },
-
-                addErrback: function (cb) {
-                    if (cb) {
-                        if (isPromiseLike(cb) && cb.errback) {
-                            cb = bind(cb, "errback");
-                        }
-                        if (this.__fired && this.__errors.length) {
-                            this.__callNextTick(cb, this.__errors);
-                        } else {
-                            this.__errorCbs.push(cb);
-                        }
-                    }
-                    return this;
-                },
-
-
-                callback: function (i) {
-                    if (this.__fired) {
-                        throw new Error("Already fired!");
-                    }
-                    var args = argsToArray(arguments);
-                    if (this.normalizeResults) {
-                        args = args.slice(1);
-                        args = args.length === 1 ? args.pop() : args;
-                    }
-                    this.__results[i] = args;
-                    this.__firedLength++;
-                    if (this.__firedLength === this.__defLength) {
-                        this.__resolve();
-                    }
-                    return this.promise();
-                },
-
-
-                errback: function (i) {
-                    if (this.__fired) {
-                        throw new Error("Already fired!");
-                    }
-                    var args = argsToArray(arguments);
-                    if (this.normalizeResults) {
-                        args = args.slice(1);
-                        args = args.length === 1 ? args.pop() : args;
-                    }
-                    this.__errors[i] = args;
-                    this.__firedLength++;
-                    if (this.__firedLength === this.__defLength) {
-                        this.__resolve();
-                    }
-                    return this.promise();
-                }
-
-            }
-        });
-
-
-        function callNext(list, results, propogate) {
-            var ret = new Promise().callback();
-            forEach(list, function (listItem) {
-                ret = ret.then(propogate ? listItem : bindIgnore(null, listItem));
-                if (!propogate) {
-                    ret = ret.then(function (res) {
-                        results.push(res);
-                        return results;
-                    });
-                }
-            });
-            return ret;
-        }
-
-        function isPromiseLike(obj) {
-            return !isUndefinedOrNull(obj) && (isFunction(obj.then));
-        }
-
-        function wrapThenPromise(p) {
-            var ret = new Promise();
-            p.then(bind(ret, "callback"), bind(ret, "errback"));
-            return  ret.promise();
-        }
-
-        function when(args) {
-            var p;
-            args = argsToArray(arguments);
-            if (!args.length) {
-                p = new Promise().callback(args).promise();
-            } else if (args.length === 1) {
-                args = args.pop();
-                if (isPromiseLike(args)) {
-                    if (args.addCallback && args.addErrback) {
-                        p = new Promise();
-                        args.addCallback(p.callback);
-                        args.addErrback(p.errback);
-                    } else {
-                        p = wrapThenPromise(args);
-                    }
-                } else if (isArray(args) && array.every(args, isPromiseLike)) {
-                    p = new PromiseList(args, true).promise();
-                } else {
-                    p = new Promise().callback(args);
-                }
-            } else {
-                p = new PromiseList(array.map(args, function (a) {
-                    return when(a);
-                }), true).promise();
-            }
-            return p;
-
-        }
-
-        function wrap(fn, scope) {
-            return function _wrap() {
-                var ret = new Promise();
-                var args = argsToArray(arguments);
-                args.push(ret.resolve);
-                fn.apply(scope || this, args);
-                return ret.promise();
-            };
-        }
-
-        function serial(list) {
-            if (isArray(list)) {
-                return callNext(list, [], false);
-            } else {
-                throw new Error("When calling promise.serial the first argument must be an array");
-            }
-        }
-
-
-        function chain(list) {
-            if (isArray(list)) {
-                return callNext(list, [], true);
-            } else {
-                throw new Error("When calling promise.serial the first argument must be an array");
-            }
-        }
-
-
-        function wait(args, fn) {
-            args = argsToArray(arguments);
-            var resolved = false;
-            fn = args.pop();
-            var p = when(args);
-            return function waiter() {
-                if (!resolved) {
-                    args = arguments;
-                    return p.then(bind(this, function doneWaiting() {
-                        resolved = true;
-                        return fn.apply(this, args);
-                    }));
-                } else {
-                    return when(fn.apply(this, arguments));
-                }
-            };
-        }
-
-        function createPromise() {
-            return new Promise();
-        }
-
-        function createPromiseList(promises) {
-            return new PromiseList(promises, true).promise();
-        }
-
-        function createRejected(val) {
-            return createPromise().errback(val);
-        }
-
-        function createResolved(val) {
-            return createPromise().callback(val);
-        }
-
-
-        return extended
-            .define({
-                isPromiseLike: isPromiseLike
-            }).expose({
-                isPromiseLike: isPromiseLike,
-                when: when,
-                wrap: wrap,
-                wait: wait,
-                serial: serial,
-                chain: chain,
-                Promise: Promise,
-                PromiseList: PromiseList,
-                promise: createPromise,
-                defer: createPromise,
-                deferredList: createPromiseList,
-                reject: createRejected,
-                resolve: createResolved
-            });
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = definePromise(require("declare.js"), require("extended"), require("array-extended"), require("is-extended"), require("function-extended"));
-        }
-    } else if ("function" === typeof define) {
-        define(["declare", "extended", "array-extended", "is-extended", "function-extended"], function (declare, extended, array, is, fn) {
-            return definePromise(declare, extended, array, is, fn);
-        });
-    } else {
-        this.promiseExtended = definePromise(this.declare, this.extended, this.arrayExtended, this.isExtended, this.functionExtended);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-})(require("__browserify_process"))
-},{"declare.js":37,"extended":28,"is-extended":34,"array-extended":29,"function-extended":35,"__browserify_process":5}],33:[function(require,module,exports){
+},{"array-extended":49,"extended":28,"is-extended":35}],32:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -11683,7 +11171,762 @@ exports.parse = function (src) {
 
 
 
-},{"extended":28,"is-extended":34,"date-extended":30,"array-extended":29}],34:[function(require,module,exports){
+},{"is-extended":35,"extended":28,"date-extended":30,"array-extended":29}],33:[function(require,module,exports){
+(function(process){(function () {
+    "use strict";
+    /*global setImmediate, MessageChannel*/
+
+
+    var arraySlice = Array.prototype.slice;
+
+    function argsToArray(args, slice) {
+        slice = slice || 0;
+        return arraySlice.call(args, slice);
+    }
+
+
+    function definePromise(declare, extended, array, is, fn) {
+
+        var forEach = array.forEach,
+            isUndefinedOrNull = is.isUndefinedOrNull,
+            isArray = is.isArray,
+            isFunction = is.isFunction,
+            isBoolean = is.isBoolean,
+            bind = fn.bind,
+            bindIgnore = fn.bindIgnore;
+
+        function createHandler(fn, promise) {
+            return function _handler() {
+                try {
+                    when(fn.apply(null, arguments))
+                        .addCallback(promise)
+                        .addErrback(promise);
+                } catch (e) {
+                    promise.errback(e);
+                }
+            };
+        }
+
+        var nextTick;
+        if (typeof setImmediate === "function") {
+            // In IE10, or use https://github.com/NobleJS/setImmediate
+            if (typeof window !== "undefined") {
+                nextTick = setImmediate.bind(window);
+            } else {
+                nextTick = setImmediate;
+            }
+        } else if (typeof process !== "undefined") {
+            // node
+            nextTick = process.nextTick;
+        } else if (typeof MessageChannel !== "undefined") {
+            // modern browsers
+            // http://www.nonblocking.io/2011/06/windownexttick.html
+            var channel = new MessageChannel();
+            // linked list of tasks (single, with head node)
+            var head = {}, tail = head;
+            channel.port1.onmessage = function () {
+                head = head.next;
+                var task = head.task;
+                delete head.task;
+                task();
+            };
+            nextTick = function (task) {
+                tail = tail.next = {task: task};
+                channel.port2.postMessage(0);
+            };
+        } else {
+            // old browsers
+            nextTick = function (task) {
+                setTimeout(task, 0);
+            };
+        }
+
+
+        //noinspection JSHint
+        var Promise = declare({
+            instance: {
+                __fired: false,
+
+                __results: null,
+
+                __error: null,
+
+                __errorCbs: null,
+
+                __cbs: null,
+
+                constructor: function () {
+                    this.__errorCbs = [];
+                    this.__cbs = [];
+                    fn.bindAll(this, ["callback", "errback", "resolve", "classic", "__resolve", "addCallback", "addErrback"]);
+                },
+
+                __resolve: function () {
+                    if (!this.__fired) {
+                        this.__fired = true;
+                        var cbs = this.__error ? this.__errorCbs : this.__cbs,
+                            len = cbs.length, i,
+                            results = this.__error || this.__results;
+                        for (i = 0; i < len; i++) {
+                            this.__callNextTick(cbs[i], results);
+                        }
+
+                    }
+                },
+
+                __callNextTick: function (cb, results) {
+                    nextTick(function () {
+                        cb.apply(this, results);
+                    });
+                },
+
+                addCallback: function (cb) {
+                    if (cb) {
+                        if (isPromiseLike(cb) && cb.callback) {
+                            cb = cb.callback;
+                        }
+                        if (this.__fired && this.__results) {
+                            this.__callNextTick(cb, this.__results);
+                        } else {
+                            this.__cbs.push(cb);
+                        }
+                    }
+                    return this;
+                },
+
+
+                addErrback: function (cb) {
+                    if (cb) {
+                        if (isPromiseLike(cb) && cb.errback) {
+                            cb = cb.errback;
+                        }
+                        if (this.__fired && this.__error) {
+                            this.__callNextTick(cb, this.__error);
+                        } else {
+                            this.__errorCbs.push(cb);
+                        }
+                    }
+                    return this;
+                },
+
+                callback: function (args) {
+                    if (!this.__fired) {
+                        this.__results = arguments;
+                        this.__resolve();
+                    }
+                    return this.promise();
+                },
+
+                errback: function (args) {
+                    if (!this.__fired) {
+                        this.__error = arguments;
+                        this.__resolve();
+                    }
+                    return this.promise();
+                },
+
+                resolve: function (err, args) {
+                    if (err) {
+                        this.errback(err);
+                    } else {
+                        this.callback.apply(this, argsToArray(arguments, 1));
+                    }
+                    return this;
+                },
+
+                classic: function (cb) {
+                    if ("function" === typeof cb) {
+                        this.addErrback(function (err) {
+                            cb(err);
+                        });
+                        this.addCallback(function () {
+                            cb.apply(this, [null].concat(argsToArray(arguments)));
+                        });
+                    }
+                    return this;
+                },
+
+                then: function (callback, errback) {
+
+                    var promise = new Promise(), errorHandler = promise;
+                    if (isFunction(errback)) {
+                        errorHandler = createHandler(errback, promise);
+                    }
+                    this.addErrback(errorHandler);
+                    if (isFunction(callback)) {
+                        this.addCallback(createHandler(callback, promise));
+                    } else {
+                        this.addCallback(promise);
+                    }
+
+                    return promise.promise();
+                },
+
+                both: function (callback) {
+                    return this.then(callback, callback);
+                },
+
+                promise: function () {
+                    var ret = {
+                        then: bind(this, "then"),
+                        both: bind(this, "both"),
+                        promise: function () {
+                            return ret;
+                        }
+                    };
+                    forEach(["addCallback", "addErrback", "classic"], function (action) {
+                        ret[action] = bind(this, function () {
+                            this[action].apply(this, arguments);
+                            return ret;
+                        });
+                    }, this);
+
+                    return ret;
+                }
+
+
+            }
+        });
+
+
+        var PromiseList = Promise.extend({
+            instance: {
+
+                /*@private*/
+                __results: null,
+
+                /*@private*/
+                __errors: null,
+
+                /*@private*/
+                __promiseLength: 0,
+
+                /*@private*/
+                __defLength: 0,
+
+                /*@private*/
+                __firedLength: 0,
+
+                normalizeResults: false,
+
+                constructor: function (defs, normalizeResults) {
+                    this.__errors = [];
+                    this.__results = [];
+                    this.normalizeResults = isBoolean(normalizeResults) ? normalizeResults : false;
+                    this._super(arguments);
+                    if (defs && defs.length) {
+                        this.__defLength = defs.length;
+                        forEach(defs, this.__addPromise, this);
+                    } else {
+                        this.__resolve();
+                    }
+                },
+
+                __addPromise: function (promise, i) {
+                    promise.then(
+                        bind(this, function () {
+                            var args = argsToArray(arguments);
+                            args.unshift(i);
+                            this.callback.apply(this, args);
+                        }),
+                        bind(this, function () {
+                            var args = argsToArray(arguments);
+                            args.unshift(i);
+                            this.errback.apply(this, args);
+                        })
+                    );
+                },
+
+                __resolve: function () {
+                    if (!this.__fired) {
+                        this.__fired = true;
+                        var cbs = this.__errors.length ? this.__errorCbs : this.__cbs,
+                            len = cbs.length, i,
+                            results = this.__errors.length ? this.__errors : this.__results;
+                        for (i = 0; i < len; i++) {
+                            this.__callNextTick(cbs[i], results);
+                        }
+
+                    }
+                },
+
+                __callNextTick: function (cb, results) {
+                    nextTick(function () {
+                        cb.apply(null, [results]);
+                    });
+                },
+
+                addCallback: function (cb) {
+                    if (cb) {
+                        if (isPromiseLike(cb) && cb.callback) {
+                            cb = bind(cb, "callback");
+                        }
+                        if (this.__fired && !this.__errors.length) {
+                            this.__callNextTick(cb, this.__results);
+                        } else {
+                            this.__cbs.push(cb);
+                        }
+                    }
+                    return this;
+                },
+
+                addErrback: function (cb) {
+                    if (cb) {
+                        if (isPromiseLike(cb) && cb.errback) {
+                            cb = bind(cb, "errback");
+                        }
+                        if (this.__fired && this.__errors.length) {
+                            this.__callNextTick(cb, this.__errors);
+                        } else {
+                            this.__errorCbs.push(cb);
+                        }
+                    }
+                    return this;
+                },
+
+
+                callback: function (i) {
+                    if (this.__fired) {
+                        throw new Error("Already fired!");
+                    }
+                    var args = argsToArray(arguments);
+                    if (this.normalizeResults) {
+                        args = args.slice(1);
+                        args = args.length === 1 ? args.pop() : args;
+                    }
+                    this.__results[i] = args;
+                    this.__firedLength++;
+                    if (this.__firedLength === this.__defLength) {
+                        this.__resolve();
+                    }
+                    return this.promise();
+                },
+
+
+                errback: function (i) {
+                    if (this.__fired) {
+                        throw new Error("Already fired!");
+                    }
+                    var args = argsToArray(arguments);
+                    if (this.normalizeResults) {
+                        args = args.slice(1);
+                        args = args.length === 1 ? args.pop() : args;
+                    }
+                    this.__errors[i] = args;
+                    this.__firedLength++;
+                    if (this.__firedLength === this.__defLength) {
+                        this.__resolve();
+                    }
+                    return this.promise();
+                }
+
+            }
+        });
+
+
+        function callNext(list, results, propogate) {
+            var ret = new Promise().callback();
+            forEach(list, function (listItem) {
+                ret = ret.then(propogate ? listItem : bindIgnore(null, listItem));
+                if (!propogate) {
+                    ret = ret.then(function (res) {
+                        results.push(res);
+                        return results;
+                    });
+                }
+            });
+            return ret;
+        }
+
+        function isPromiseLike(obj) {
+            return !isUndefinedOrNull(obj) && (isFunction(obj.then));
+        }
+
+        function wrapThenPromise(p) {
+            var ret = new Promise();
+            p.then(bind(ret, "callback"), bind(ret, "errback"));
+            return  ret.promise();
+        }
+
+        function when(args) {
+            var p;
+            args = argsToArray(arguments);
+            if (!args.length) {
+                p = new Promise().callback(args).promise();
+            } else if (args.length === 1) {
+                args = args.pop();
+                if (isPromiseLike(args)) {
+                    if (args.addCallback && args.addErrback) {
+                        p = new Promise();
+                        args.addCallback(p.callback);
+                        args.addErrback(p.errback);
+                    } else {
+                        p = wrapThenPromise(args);
+                    }
+                } else if (isArray(args) && array.every(args, isPromiseLike)) {
+                    p = new PromiseList(args, true).promise();
+                } else {
+                    p = new Promise().callback(args);
+                }
+            } else {
+                p = new PromiseList(array.map(args, function (a) {
+                    return when(a);
+                }), true).promise();
+            }
+            return p;
+
+        }
+
+        function wrap(fn, scope) {
+            return function _wrap() {
+                var ret = new Promise();
+                var args = argsToArray(arguments);
+                args.push(ret.resolve);
+                fn.apply(scope || this, args);
+                return ret.promise();
+            };
+        }
+
+        function serial(list) {
+            if (isArray(list)) {
+                return callNext(list, [], false);
+            } else {
+                throw new Error("When calling promise.serial the first argument must be an array");
+            }
+        }
+
+
+        function chain(list) {
+            if (isArray(list)) {
+                return callNext(list, [], true);
+            } else {
+                throw new Error("When calling promise.serial the first argument must be an array");
+            }
+        }
+
+
+        function wait(args, fn) {
+            args = argsToArray(arguments);
+            var resolved = false;
+            fn = args.pop();
+            var p = when(args);
+            return function waiter() {
+                if (!resolved) {
+                    args = arguments;
+                    return p.then(bind(this, function doneWaiting() {
+                        resolved = true;
+                        return fn.apply(this, args);
+                    }));
+                } else {
+                    return when(fn.apply(this, arguments));
+                }
+            };
+        }
+
+        function createPromise() {
+            return new Promise();
+        }
+
+        function createPromiseList(promises) {
+            return new PromiseList(promises, true).promise();
+        }
+
+        function createRejected(val) {
+            return createPromise().errback(val);
+        }
+
+        function createResolved(val) {
+            return createPromise().callback(val);
+        }
+
+
+        return extended
+            .define({
+                isPromiseLike: isPromiseLike
+            }).expose({
+                isPromiseLike: isPromiseLike,
+                when: when,
+                wrap: wrap,
+                wait: wait,
+                serial: serial,
+                chain: chain,
+                Promise: Promise,
+                PromiseList: PromiseList,
+                promise: createPromise,
+                defer: createPromise,
+                deferredList: createPromiseList,
+                reject: createRejected,
+                resolve: createResolved
+            });
+
+    }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            module.exports = definePromise(require("declare.js"), require("extended"), require("array-extended"), require("is-extended"), require("function-extended"));
+        }
+    } else if ("function" === typeof define) {
+        define(["declare", "extended", "array-extended", "is-extended", "function-extended"], function (declare, extended, array, is, fn) {
+            return definePromise(declare, extended, array, is, fn);
+        });
+    } else {
+        this.promiseExtended = definePromise(this.declare, this.extended, this.arrayExtended, this.isExtended, this.functionExtended);
+    }
+
+}).call(this);
+
+
+
+
+
+
+
+})(require("__browserify_process"))
+},{"declare.js":37,"extended":28,"array-extended":29,"is-extended":35,"function-extended":34,"__browserify_process":14}],34:[function(require,module,exports){
+(function () {
+    "use strict";
+
+    function defineFunction(extended, is) {
+
+        var isArray = is.isArray,
+            isObject = is.isObject,
+            isString = is.isString,
+            isFunction = is.isFunction,
+            arraySlice = Array.prototype.slice;
+
+        function argsToArray(args, slice) {
+            slice = slice || 0;
+            return arraySlice.call(args, slice);
+        }
+
+        function hitch(scope, method, args) {
+            args = argsToArray(arguments, 2);
+            if ((isString(method) && !(method in scope))) {
+                throw new Error(method + " property not defined in scope");
+            } else if (!isString(method) && !isFunction(method)) {
+                throw new Error(method + " is not a function");
+            }
+            if (isString(method)) {
+                return function () {
+                    var func = scope[method];
+                    if (isFunction(func)) {
+                        var scopeArgs = args.concat(argsToArray(arguments));
+                        return func.apply(scope, scopeArgs);
+                    } else {
+                        return func;
+                    }
+                };
+            } else {
+                if (args.length) {
+                    return function () {
+                        var scopeArgs = args.concat(argsToArray(arguments));
+                        return method.apply(scope, scopeArgs);
+                    };
+                } else {
+
+                    return function () {
+                        return method.apply(scope, arguments);
+                    };
+                }
+            }
+        }
+
+
+        function applyFirst(method, args) {
+            args = argsToArray(arguments, 1);
+            if (!isString(method) && !isFunction(method)) {
+                throw new Error(method + " must be the name of a property or function to execute");
+            }
+            if (isString(method)) {
+                return function () {
+                    var scopeArgs = argsToArray(arguments), scope = scopeArgs.shift();
+                    var func = scope[method];
+                    if (isFunction(func)) {
+                        scopeArgs = args.concat(scopeArgs);
+                        return func.apply(scope, scopeArgs);
+                    } else {
+                        return func;
+                    }
+                };
+            } else {
+                return function () {
+                    var scopeArgs = argsToArray(arguments), scope = scopeArgs.shift();
+                    scopeArgs = args.concat(scopeArgs);
+                    return method.apply(scope, scopeArgs);
+                };
+            }
+        }
+
+
+        function hitchIgnore(scope, method, args) {
+            args = argsToArray(arguments, 2);
+            if ((isString(method) && !(method in scope))) {
+                throw new Error(method + " property not defined in scope");
+            } else if (!isString(method) && !isFunction(method)) {
+                throw new Error(method + " is not a function");
+            }
+            if (isString(method)) {
+                return function () {
+                    var func = scope[method];
+                    if (isFunction(func)) {
+                        return func.apply(scope, args);
+                    } else {
+                        return func;
+                    }
+                };
+            } else {
+                return function () {
+                    return method.apply(scope, args);
+                };
+            }
+        }
+
+
+        function hitchAll(scope) {
+            var funcs = argsToArray(arguments, 1);
+            if (!isObject(scope) && !isFunction(scope)) {
+                throw new TypeError("scope must be an object");
+            }
+            if (funcs.length === 1 && isArray(funcs[0])) {
+                funcs = funcs[0];
+            }
+            if (!funcs.length) {
+                funcs = [];
+                for (var k in scope) {
+                    if (scope.hasOwnProperty(k) && isFunction(scope[k])) {
+                        funcs.push(k);
+                    }
+                }
+            }
+            for (var i = 0, l = funcs.length; i < l; i++) {
+                scope[funcs[i]] = hitch(scope, scope[funcs[i]]);
+            }
+            return scope;
+        }
+
+
+        function partial(method, args) {
+            args = argsToArray(arguments, 1);
+            if (!isString(method) && !isFunction(method)) {
+                throw new Error(method + " must be the name of a property or function to execute");
+            }
+            if (isString(method)) {
+                return function () {
+                    var func = this[method];
+                    if (isFunction(func)) {
+                        var scopeArgs = args.concat(argsToArray(arguments));
+                        return func.apply(this, scopeArgs);
+                    } else {
+                        return func;
+                    }
+                };
+            } else {
+                return function () {
+                    var scopeArgs = args.concat(argsToArray(arguments));
+                    return method.apply(this, scopeArgs);
+                };
+            }
+        }
+
+        function curryFunc(f, execute) {
+            return function () {
+                var args = argsToArray(arguments);
+                return execute ? f.apply(this, arguments) : function () {
+                    return f.apply(this, args.concat(argsToArray(arguments)));
+                };
+            };
+        }
+
+
+        function curry(depth, cb, scope) {
+            var f;
+            if (scope) {
+                f = hitch(scope, cb);
+            } else {
+                f = cb;
+            }
+            if (depth) {
+                var len = depth - 1;
+                for (var i = len; i >= 0; i--) {
+                    f = curryFunc(f, i === len);
+                }
+            }
+            return f;
+        }
+
+        return extended
+            .define(isObject, {
+                bind: hitch,
+                bindAll: hitchAll,
+                bindIgnore: hitchIgnore,
+                curry: function (scope, depth, fn) {
+                    return curry(depth, fn, scope);
+                }
+            })
+            .define(isFunction, {
+                bind: function (fn, obj) {
+                    return hitch.apply(this, [obj, fn].concat(argsToArray(arguments, 2)));
+                },
+                bindIgnore: function (fn, obj) {
+                    return hitchIgnore.apply(this, [obj, fn].concat(argsToArray(arguments, 2)));
+                },
+                partial: partial,
+                applyFirst: applyFirst,
+                curry: function (fn, num, scope) {
+                    return curry(num, fn, scope);
+                },
+                noWrap: {
+                    f: function () {
+                        return this.value();
+                    }
+                }
+            })
+            .define(isString, {
+                bind: function (str, scope) {
+                    return hitch(scope, str);
+                },
+                bindIgnore: function (str, scope) {
+                    return hitchIgnore(scope, str);
+                },
+                partial: partial,
+                applyFirst: applyFirst,
+                curry: function (fn, depth, scope) {
+                    return curry(depth, fn, scope);
+                }
+            })
+            .expose({
+                bind: hitch,
+                bindAll: hitchAll,
+                bindIgnore: hitchIgnore,
+                partial: partial,
+                applyFirst: applyFirst,
+                curry: curry
+            });
+
+    }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            module.exports = defineFunction(require("extended"), require("is-extended"));
+
+        }
+    } else if ("function" === typeof define) {
+        define(["extended", "is-extended"], function (extended, is) {
+            return defineFunction(extended, is);
+        });
+    } else {
+        this.functionExtended = defineFunction(this.extended, this.isExtended);
+    }
+
+}).call(this);
+
+
+
+
+
+
+
+},{"extended":28,"is-extended":35}],35:[function(require,module,exports){
 (function(Buffer){(function () {
     "use strict";
 
@@ -12181,251 +12424,7 @@ exports.parse = function (src) {
 
 
 })(require("__browserify_buffer").Buffer)
-},{"extended":28,"__browserify_buffer":18}],35:[function(require,module,exports){
-(function () {
-    "use strict";
-
-    function defineFunction(extended, is) {
-
-        var isArray = is.isArray,
-            isObject = is.isObject,
-            isString = is.isString,
-            isFunction = is.isFunction,
-            arraySlice = Array.prototype.slice;
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
-
-        function hitch(scope, method, args) {
-            args = argsToArray(arguments, 2);
-            if ((isString(method) && !(method in scope))) {
-                throw new Error(method + " property not defined in scope");
-            } else if (!isString(method) && !isFunction(method)) {
-                throw new Error(method + " is not a function");
-            }
-            if (isString(method)) {
-                return function () {
-                    var func = scope[method];
-                    if (isFunction(func)) {
-                        var scopeArgs = args.concat(argsToArray(arguments));
-                        return func.apply(scope, scopeArgs);
-                    } else {
-                        return func;
-                    }
-                };
-            } else {
-                if (args.length) {
-                    return function () {
-                        var scopeArgs = args.concat(argsToArray(arguments));
-                        return method.apply(scope, scopeArgs);
-                    };
-                } else {
-
-                    return function () {
-                        return method.apply(scope, arguments);
-                    };
-                }
-            }
-        }
-
-
-        function applyFirst(method, args) {
-            args = argsToArray(arguments, 1);
-            if (!isString(method) && !isFunction(method)) {
-                throw new Error(method + " must be the name of a property or function to execute");
-            }
-            if (isString(method)) {
-                return function () {
-                    var scopeArgs = argsToArray(arguments), scope = scopeArgs.shift();
-                    var func = scope[method];
-                    if (isFunction(func)) {
-                        scopeArgs = args.concat(scopeArgs);
-                        return func.apply(scope, scopeArgs);
-                    } else {
-                        return func;
-                    }
-                };
-            } else {
-                return function () {
-                    var scopeArgs = argsToArray(arguments), scope = scopeArgs.shift();
-                    scopeArgs = args.concat(scopeArgs);
-                    return method.apply(scope, scopeArgs);
-                };
-            }
-        }
-
-
-        function hitchIgnore(scope, method, args) {
-            args = argsToArray(arguments, 2);
-            if ((isString(method) && !(method in scope))) {
-                throw new Error(method + " property not defined in scope");
-            } else if (!isString(method) && !isFunction(method)) {
-                throw new Error(method + " is not a function");
-            }
-            if (isString(method)) {
-                return function () {
-                    var func = scope[method];
-                    if (isFunction(func)) {
-                        return func.apply(scope, args);
-                    } else {
-                        return func;
-                    }
-                };
-            } else {
-                return function () {
-                    return method.apply(scope, args);
-                };
-            }
-        }
-
-
-        function hitchAll(scope) {
-            var funcs = argsToArray(arguments, 1);
-            if (!isObject(scope) && !isFunction(scope)) {
-                throw new TypeError("scope must be an object");
-            }
-            if (funcs.length === 1 && isArray(funcs[0])) {
-                funcs = funcs[0];
-            }
-            if (!funcs.length) {
-                funcs = [];
-                for (var k in scope) {
-                    if (scope.hasOwnProperty(k) && isFunction(scope[k])) {
-                        funcs.push(k);
-                    }
-                }
-            }
-            for (var i = 0, l = funcs.length; i < l; i++) {
-                scope[funcs[i]] = hitch(scope, scope[funcs[i]]);
-            }
-            return scope;
-        }
-
-
-        function partial(method, args) {
-            args = argsToArray(arguments, 1);
-            if (!isString(method) && !isFunction(method)) {
-                throw new Error(method + " must be the name of a property or function to execute");
-            }
-            if (isString(method)) {
-                return function () {
-                    var func = this[method];
-                    if (isFunction(func)) {
-                        var scopeArgs = args.concat(argsToArray(arguments));
-                        return func.apply(this, scopeArgs);
-                    } else {
-                        return func;
-                    }
-                };
-            } else {
-                return function () {
-                    var scopeArgs = args.concat(argsToArray(arguments));
-                    return method.apply(this, scopeArgs);
-                };
-            }
-        }
-
-        function curryFunc(f, execute) {
-            return function () {
-                var args = argsToArray(arguments);
-                return execute ? f.apply(this, arguments) : function () {
-                    return f.apply(this, args.concat(argsToArray(arguments)));
-                };
-            };
-        }
-
-
-        function curry(depth, cb, scope) {
-            var f;
-            if (scope) {
-                f = hitch(scope, cb);
-            } else {
-                f = cb;
-            }
-            if (depth) {
-                var len = depth - 1;
-                for (var i = len; i >= 0; i--) {
-                    f = curryFunc(f, i === len);
-                }
-            }
-            return f;
-        }
-
-        return extended
-            .define(isObject, {
-                bind: hitch,
-                bindAll: hitchAll,
-                bindIgnore: hitchIgnore,
-                curry: function (scope, depth, fn) {
-                    return curry(depth, fn, scope);
-                }
-            })
-            .define(isFunction, {
-                bind: function (fn, obj) {
-                    return hitch.apply(this, [obj, fn].concat(argsToArray(arguments, 2)));
-                },
-                bindIgnore: function (fn, obj) {
-                    return hitchIgnore.apply(this, [obj, fn].concat(argsToArray(arguments, 2)));
-                },
-                partial: partial,
-                applyFirst: applyFirst,
-                curry: function (fn, num, scope) {
-                    return curry(num, fn, scope);
-                },
-                noWrap: {
-                    f: function () {
-                        return this.value();
-                    }
-                }
-            })
-            .define(isString, {
-                bind: function (str, scope) {
-                    return hitch(scope, str);
-                },
-                bindIgnore: function (str, scope) {
-                    return hitchIgnore(scope, str);
-                },
-                partial: partial,
-                applyFirst: applyFirst,
-                curry: function (fn, depth, scope) {
-                    return curry(depth, fn, scope);
-                }
-            })
-            .expose({
-                bind: hitch,
-                bindAll: hitchAll,
-                bindIgnore: hitchIgnore,
-                partial: partial,
-                applyFirst: applyFirst,
-                curry: curry
-            });
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineFunction(require("extended"), require("is-extended"));
-
-        }
-    } else if ("function" === typeof define) {
-        define(["extended", "is-extended"], function (extended, is) {
-            return defineFunction(extended, is);
-        });
-    } else {
-        this.functionExtended = defineFunction(this.extended, this.isExtended);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-},{"extended":28,"is-extended":34}],36:[function(require,module,exports){
+},{"extended":28,"__browserify_buffer":18}],36:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -12690,7 +12689,7 @@ exports.parse = function (src) {
 
 
 
-},{"extended":28,"declare.js":37,"is-extended":34,"array-extended":29}],38:[function(require,module,exports){
+},{"extended":28,"declare.js":37,"is-extended":35,"array-extended":29}],38:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -13597,7 +13596,7 @@ exports.parse = function (src) {
 
 
 
-},{"extended":28,"declare.js":37,"is-extended":34,"array-extended":29,"string-extended":33}],46:[function(require,module,exports){
+},{"extended":28,"declare.js":37,"is-extended":35,"array-extended":29,"string-extended":32}],46:[function(require,module,exports){
 module.exports = require("./extender.js");
 },{"./extender.js":50}],47:[function(require,module,exports){
 (function(){"use strict";
@@ -14521,7 +14520,7 @@ module.exports = {
 
 
 
-},{"extended":28,"is-extended":34}],50:[function(require,module,exports){
+},{"extended":28,"is-extended":35}],50:[function(require,module,exports){
 (function () {
     /*jshint strict:false*/
 

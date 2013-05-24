@@ -106,8 +106,33 @@ it.describe("Flow",function (it) {
         it.should("call hello world rule", function () {
             var session = flow.getSession();
             session.assert(new HelloFact());
-            session.match();
-            assert.equal(called, 1);
+            return session.match().then(function () {
+                assert.equal(called, 1);
+            });
+        });
+
+    });
+
+    it.describe("errors", function (it) {
+
+        var HelloFact = declare({
+            instance: {
+                value: true
+            }
+        });
+
+        var flow = nools.flow("error flow", function (flow) {
+            flow.rule("hello rule", [HelloFact, "h"], function () {
+                throw new Error("thrown error");
+            });
+        });
+
+        it.should("handle errors", function () {
+            var session = flow.getSession();
+            session.assert(new HelloFact());
+            return session.match().then(assert.fail, function () {
+                assert.ok(true);
+            });
         });
 
     });

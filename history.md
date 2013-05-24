@@ -1,4 +1,8 @@
-v0.1.1
+#v0.1.2 / 2012-05-24
+
+* Removed unneeded calls to `.then` to address performance degredation (#30)
+
+#v0.1.1 / 2012-05-23
 
 * Updated grunt
 * Fixed nextTick issues for node v0.10 #32
