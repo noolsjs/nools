@@ -14,7 +14,428 @@
 
 },{"../":2}],2:[function(require,module,exports){
 module.exports = exports = require("./lib");
-},{"./lib":3}],3:[function(require,module,exports){
+},{"./lib":3}],4:[function(require,module,exports){
+// nothing to see here... no file methods for the browser
+
+},{}],5:[function(require,module,exports){
+// shim for using process in browser
+
+var process = module.exports = {};
+
+process.nextTick = (function () {
+    var canSetImmediate = typeof window !== 'undefined'
+    && window.setImmediate;
+    var canPost = typeof window !== 'undefined'
+    && window.postMessage && window.addEventListener
+    ;
+
+    if (canSetImmediate) {
+        return function (f) { return window.setImmediate(f) };
+    }
+
+    if (canPost) {
+        var queue = [];
+        window.addEventListener('message', function (ev) {
+            if (ev.source === window && ev.data === 'process-tick') {
+                ev.stopPropagation();
+                if (queue.length > 0) {
+                    var fn = queue.shift();
+                    fn();
+                }
+            }
+        }, true);
+
+        return function nextTick(fn) {
+            queue.push(fn);
+            window.postMessage('process-tick', '*');
+        };
+    }
+
+    return function nextTick(fn) {
+        setTimeout(fn, 0);
+    };
+})();
+
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+}
+
+// TODO(shtylman)
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+
+},{}],6:[function(require,module,exports){
+(function(process){function filter (xs, fn) {
+    var res = [];
+    for (var i = 0; i < xs.length; i++) {
+        if (fn(xs[i], i, xs)) res.push(xs[i]);
+    }
+    return res;
+}
+
+// resolves . and .. elements in a path array with directory names there
+// must be no slashes, empty elements, or device names (c:\) in the array
+// (so also no leading and trailing slashes - it does not distinguish
+// relative and absolute paths)
+function normalizeArray(parts, allowAboveRoot) {
+  // if the path tries to go above the root, `up` ends up > 0
+  var up = 0;
+  for (var i = parts.length; i >= 0; i--) {
+    var last = parts[i];
+    if (last == '.') {
+      parts.splice(i, 1);
+    } else if (last === '..') {
+      parts.splice(i, 1);
+      up++;
+    } else if (up) {
+      parts.splice(i, 1);
+      up--;
+    }
+  }
+
+  // if the path is allowed to go above the root, restore leading ..s
+  if (allowAboveRoot) {
+    for (; up--; up) {
+      parts.unshift('..');
+    }
+  }
+
+  return parts;
+}
+
+// Regex to split a filename into [*, dir, basename, ext]
+// posix version
+var splitPathRe = /^(.+\/(?!$)|\/)?((?:.+?)?(\.[^.]*)?)$/;
+
+// path.resolve([from ...], to)
+// posix version
+exports.resolve = function() {
+var resolvedPath = '',
+    resolvedAbsolute = false;
+
+for (var i = arguments.length; i >= -1 && !resolvedAbsolute; i--) {
+  var path = (i >= 0)
+      ? arguments[i]
+      : process.cwd();
+
+  // Skip empty and invalid entries
+  if (typeof path !== 'string' || !path) {
+    continue;
+  }
+
+  resolvedPath = path + '/' + resolvedPath;
+  resolvedAbsolute = path.charAt(0) === '/';
+}
+
+// At this point the path should be resolved to a full absolute path, but
+// handle relative paths to be safe (might happen when process.cwd() fails)
+
+// Normalize the path
+resolvedPath = normalizeArray(filter(resolvedPath.split('/'), function(p) {
+    return !!p;
+  }), !resolvedAbsolute).join('/');
+
+  return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
+};
+
+// path.normalize(path)
+// posix version
+exports.normalize = function(path) {
+var isAbsolute = path.charAt(0) === '/',
+    trailingSlash = path.slice(-1) === '/';
+
+// Normalize the path
+path = normalizeArray(filter(path.split('/'), function(p) {
+    return !!p;
+  }), !isAbsolute).join('/');
+
+  if (!path && !isAbsolute) {
+    path = '.';
+  }
+  if (path && trailingSlash) {
+    path += '/';
+  }
+  
+  return (isAbsolute ? '/' : '') + path;
+};
+
+
+// posix version
+exports.join = function() {
+  var paths = Array.prototype.slice.call(arguments, 0);
+  return exports.normalize(filter(paths, function(p, index) {
+    return p && typeof p === 'string';
+  }).join('/'));
+};
+
+
+exports.dirname = function(path) {
+  var dir = splitPathRe.exec(path)[1] || '';
+  var isWindows = false;
+  if (!dir) {
+    // No dirname
+    return '.';
+  } else if (dir.length === 1 ||
+      (isWindows && dir.length <= 3 && dir.charAt(1) === ':')) {
+    // It is just a slash or a drive letter with a slash
+    return dir;
+  } else {
+    // It is a full dirname, strip trailing slash
+    return dir.substring(0, dir.length - 1);
+  }
+};
+
+
+exports.basename = function(path, ext) {
+  var f = splitPathRe.exec(path)[2] || '';
+  // TODO: make this comparison case-insensitive on windows?
+  if (ext && f.substr(-1 * ext.length) === ext) {
+    f = f.substr(0, f.length - ext.length);
+  }
+  return f;
+};
+
+
+exports.extname = function(path) {
+  return splitPathRe.exec(path)[3] || '';
+};
+
+exports.relative = function(from, to) {
+  from = exports.resolve(from).substr(1);
+  to = exports.resolve(to).substr(1);
+
+  function trim(arr) {
+    var start = 0;
+    for (; start < arr.length; start++) {
+      if (arr[start] !== '') break;
+    }
+
+    var end = arr.length - 1;
+    for (; end >= 0; end--) {
+      if (arr[end] !== '') break;
+    }
+
+    if (start > end) return [];
+    return arr.slice(start, end - start + 1);
+  }
+
+  var fromParts = trim(from.split('/'));
+  var toParts = trim(to.split('/'));
+
+  var length = Math.min(fromParts.length, toParts.length);
+  var samePartsLength = length;
+  for (var i = 0; i < length; i++) {
+    if (fromParts[i] !== toParts[i]) {
+      samePartsLength = i;
+      break;
+    }
+  }
+
+  var outputParts = [];
+  for (var i = samePartsLength; i < fromParts.length; i++) {
+    outputParts.push('..');
+  }
+
+  outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+  return outputParts.join('/');
+};
+
+})(require("__browserify_process"))
+},{"__browserify_process":5}],7:[function(require,module,exports){
+(function(process){if (!process.EventEmitter) process.EventEmitter = function () {};
+
+var EventEmitter = exports.EventEmitter = process.EventEmitter;
+var isArray = typeof Array.isArray === 'function'
+    ? Array.isArray
+    : function (xs) {
+        return Object.prototype.toString.call(xs) === '[object Array]'
+    }
+;
+function indexOf (xs, x) {
+    if (xs.indexOf) return xs.indexOf(x);
+    for (var i = 0; i < xs.length; i++) {
+        if (x === xs[i]) return i;
+    }
+    return -1;
+}
+
+// By default EventEmitters will print a warning if more than
+// 10 listeners are added to it. This is a useful default which
+// helps finding memory leaks.
+//
+// Obviously not all Emitters should be limited to 10. This function allows
+// that to be increased. Set to zero for unlimited.
+var defaultMaxListeners = 10;
+EventEmitter.prototype.setMaxListeners = function(n) {
+  if (!this._events) this._events = {};
+  this._events.maxListeners = n;
+};
+
+
+EventEmitter.prototype.emit = function(type) {
+  // If there is no 'error' event listener then throw.
+  if (type === 'error') {
+    if (!this._events || !this._events.error ||
+        (isArray(this._events.error) && !this._events.error.length))
+    {
+      if (arguments[1] instanceof Error) {
+        throw arguments[1]; // Unhandled 'error' event
+      } else {
+        throw new Error("Uncaught, unspecified 'error' event.");
+      }
+      return false;
+    }
+  }
+
+  if (!this._events) return false;
+  var handler = this._events[type];
+  if (!handler) return false;
+
+  if (typeof handler == 'function') {
+    switch (arguments.length) {
+      // fast cases
+      case 1:
+        handler.call(this);
+        break;
+      case 2:
+        handler.call(this, arguments[1]);
+        break;
+      case 3:
+        handler.call(this, arguments[1], arguments[2]);
+        break;
+      // slower
+      default:
+        var args = Array.prototype.slice.call(arguments, 1);
+        handler.apply(this, args);
+    }
+    return true;
+
+  } else if (isArray(handler)) {
+    var args = Array.prototype.slice.call(arguments, 1);
+
+    var listeners = handler.slice();
+    for (var i = 0, l = listeners.length; i < l; i++) {
+      listeners[i].apply(this, args);
+    }
+    return true;
+
+  } else {
+    return false;
+  }
+};
+
+// EventEmitter is defined in src/node_events.cc
+// EventEmitter.prototype.emit() is also defined there.
+EventEmitter.prototype.addListener = function(type, listener) {
+  if ('function' !== typeof listener) {
+    throw new Error('addListener only takes instances of Function');
+  }
+
+  if (!this._events) this._events = {};
+
+  // To avoid recursion in the case that type == "newListeners"! Before
+  // adding it to the listeners, first emit "newListeners".
+  this.emit('newListener', type, listener);
+
+  if (!this._events[type]) {
+    // Optimize the case of one listener. Don't need the extra array object.
+    this._events[type] = listener;
+  } else if (isArray(this._events[type])) {
+
+    // Check for listener leak
+    if (!this._events[type].warned) {
+      var m;
+      if (this._events.maxListeners !== undefined) {
+        m = this._events.maxListeners;
+      } else {
+        m = defaultMaxListeners;
+      }
+
+      if (m && m > 0 && this._events[type].length > m) {
+        this._events[type].warned = true;
+        console.error('(node) warning: possible EventEmitter memory ' +
+                      'leak detected. %d listeners added. ' +
+                      'Use emitter.setMaxListeners() to increase limit.',
+                      this._events[type].length);
+        console.trace();
+      }
+    }
+
+    // If we've already got an array, just append.
+    this._events[type].push(listener);
+  } else {
+    // Adding the second element, need to change to array.
+    this._events[type] = [this._events[type], listener];
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.on = EventEmitter.prototype.addListener;
+
+EventEmitter.prototype.once = function(type, listener) {
+  var self = this;
+  self.on(type, function g() {
+    self.removeListener(type, g);
+    listener.apply(this, arguments);
+  });
+
+  return this;
+};
+
+EventEmitter.prototype.removeListener = function(type, listener) {
+  if ('function' !== typeof listener) {
+    throw new Error('removeListener only takes instances of Function');
+  }
+
+  // does not use listeners(), so no side effect of creating _events[type]
+  if (!this._events || !this._events[type]) return this;
+
+  var list = this._events[type];
+
+  if (isArray(list)) {
+    var i = indexOf(list, listener);
+    if (i < 0) return this;
+    list.splice(i, 1);
+    if (list.length == 0)
+      delete this._events[type];
+  } else if (this._events[type] === listener) {
+    delete this._events[type];
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.removeAllListeners = function(type) {
+  if (arguments.length === 0) {
+    this._events = {};
+    return this;
+  }
+
+  // does not use listeners(), so no side effect of creating _events[type]
+  if (type && this._events && this._events[type]) this._events[type] = null;
+  return this;
+};
+
+EventEmitter.prototype.listeners = function(type) {
+  if (!this._events) this._events = {};
+  if (!this._events[type]) this._events[type] = [];
+  if (!isArray(this._events[type])) {
+    this._events[type] = [this._events[type]];
+  }
+  return this._events[type];
+};
+
+})(require("__browserify_process"))
+},{"__browserify_process":5}],3:[function(require,module,exports){
 /**
  *
  * @projectName nools
@@ -91,6 +512,21 @@ var FactHash = declare({
             return this.memoryValues[indexOf(this.memory, k)];
         },
 
+        __compact: function () {
+            var oldM = this.memory.slice(0),
+                oldMv = this.memoryValues.slice(0),
+                l = oldMv.length,
+                m = this.memory = [],
+                mv = this.memoryValues = [],
+                oldMemoryValue;
+            for (var i = 0; i < l; i++) {
+                oldMemoryValue = oldMv[i];
+                if (oldMemoryValue.length !== 0) {
+                    mv[m.push(oldM[i]) - 1] = oldMemoryValue;
+                }
+            }
+        },
+
         remove: function (v) {
             var facts = v.match.facts, j = facts.length - 1, mv = this.memoryValues, m = this.memory;
             for (; j >= 0; j--) {
@@ -98,6 +534,7 @@ var FactHash = declare({
                 var arr = mv[i], index = indexOf(arr, v);
                 arr.splice(index, 1);
             }
+            this.__compact();
         },
 
         insert: function (insert) {
@@ -463,428 +900,7 @@ module.exports = nools;
 
 
 
-},{"fs":4,"path":5,"events":6,"./extended":7,"./rule":8,"./workingMemory":9,"./compile":10,"./pattern":11,"./nextTick":12,"./nodes":13}],14:[function(require,module,exports){
-// shim for using process in browser
-
-var process = module.exports = {};
-
-process.nextTick = (function () {
-    var canSetImmediate = typeof window !== 'undefined'
-    && window.setImmediate;
-    var canPost = typeof window !== 'undefined'
-    && window.postMessage && window.addEventListener
-    ;
-
-    if (canSetImmediate) {
-        return function (f) { return window.setImmediate(f) };
-    }
-
-    if (canPost) {
-        var queue = [];
-        window.addEventListener('message', function (ev) {
-            if (ev.source === window && ev.data === 'process-tick') {
-                ev.stopPropagation();
-                if (queue.length > 0) {
-                    var fn = queue.shift();
-                    fn();
-                }
-            }
-        }, true);
-
-        return function nextTick(fn) {
-            queue.push(fn);
-            window.postMessage('process-tick', '*');
-        };
-    }
-
-    return function nextTick(fn) {
-        setTimeout(fn, 0);
-    };
-})();
-
-process.title = 'browser';
-process.browser = true;
-process.env = {};
-process.argv = [];
-
-process.binding = function (name) {
-    throw new Error('process.binding is not supported');
-}
-
-// TODO(shtylman)
-process.cwd = function () { return '/' };
-process.chdir = function (dir) {
-    throw new Error('process.chdir is not supported');
-};
-
-},{}],6:[function(require,module,exports){
-(function(process){if (!process.EventEmitter) process.EventEmitter = function () {};
-
-var EventEmitter = exports.EventEmitter = process.EventEmitter;
-var isArray = typeof Array.isArray === 'function'
-    ? Array.isArray
-    : function (xs) {
-        return Object.prototype.toString.call(xs) === '[object Array]'
-    }
-;
-function indexOf (xs, x) {
-    if (xs.indexOf) return xs.indexOf(x);
-    for (var i = 0; i < xs.length; i++) {
-        if (x === xs[i]) return i;
-    }
-    return -1;
-}
-
-// By default EventEmitters will print a warning if more than
-// 10 listeners are added to it. This is a useful default which
-// helps finding memory leaks.
-//
-// Obviously not all Emitters should be limited to 10. This function allows
-// that to be increased. Set to zero for unlimited.
-var defaultMaxListeners = 10;
-EventEmitter.prototype.setMaxListeners = function(n) {
-  if (!this._events) this._events = {};
-  this._events.maxListeners = n;
-};
-
-
-EventEmitter.prototype.emit = function(type) {
-  // If there is no 'error' event listener then throw.
-  if (type === 'error') {
-    if (!this._events || !this._events.error ||
-        (isArray(this._events.error) && !this._events.error.length))
-    {
-      if (arguments[1] instanceof Error) {
-        throw arguments[1]; // Unhandled 'error' event
-      } else {
-        throw new Error("Uncaught, unspecified 'error' event.");
-      }
-      return false;
-    }
-  }
-
-  if (!this._events) return false;
-  var handler = this._events[type];
-  if (!handler) return false;
-
-  if (typeof handler == 'function') {
-    switch (arguments.length) {
-      // fast cases
-      case 1:
-        handler.call(this);
-        break;
-      case 2:
-        handler.call(this, arguments[1]);
-        break;
-      case 3:
-        handler.call(this, arguments[1], arguments[2]);
-        break;
-      // slower
-      default:
-        var args = Array.prototype.slice.call(arguments, 1);
-        handler.apply(this, args);
-    }
-    return true;
-
-  } else if (isArray(handler)) {
-    var args = Array.prototype.slice.call(arguments, 1);
-
-    var listeners = handler.slice();
-    for (var i = 0, l = listeners.length; i < l; i++) {
-      listeners[i].apply(this, args);
-    }
-    return true;
-
-  } else {
-    return false;
-  }
-};
-
-// EventEmitter is defined in src/node_events.cc
-// EventEmitter.prototype.emit() is also defined there.
-EventEmitter.prototype.addListener = function(type, listener) {
-  if ('function' !== typeof listener) {
-    throw new Error('addListener only takes instances of Function');
-  }
-
-  if (!this._events) this._events = {};
-
-  // To avoid recursion in the case that type == "newListeners"! Before
-  // adding it to the listeners, first emit "newListeners".
-  this.emit('newListener', type, listener);
-
-  if (!this._events[type]) {
-    // Optimize the case of one listener. Don't need the extra array object.
-    this._events[type] = listener;
-  } else if (isArray(this._events[type])) {
-
-    // Check for listener leak
-    if (!this._events[type].warned) {
-      var m;
-      if (this._events.maxListeners !== undefined) {
-        m = this._events.maxListeners;
-      } else {
-        m = defaultMaxListeners;
-      }
-
-      if (m && m > 0 && this._events[type].length > m) {
-        this._events[type].warned = true;
-        console.error('(node) warning: possible EventEmitter memory ' +
-                      'leak detected. %d listeners added. ' +
-                      'Use emitter.setMaxListeners() to increase limit.',
-                      this._events[type].length);
-        console.trace();
-      }
-    }
-
-    // If we've already got an array, just append.
-    this._events[type].push(listener);
-  } else {
-    // Adding the second element, need to change to array.
-    this._events[type] = [this._events[type], listener];
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.on = EventEmitter.prototype.addListener;
-
-EventEmitter.prototype.once = function(type, listener) {
-  var self = this;
-  self.on(type, function g() {
-    self.removeListener(type, g);
-    listener.apply(this, arguments);
-  });
-
-  return this;
-};
-
-EventEmitter.prototype.removeListener = function(type, listener) {
-  if ('function' !== typeof listener) {
-    throw new Error('removeListener only takes instances of Function');
-  }
-
-  // does not use listeners(), so no side effect of creating _events[type]
-  if (!this._events || !this._events[type]) return this;
-
-  var list = this._events[type];
-
-  if (isArray(list)) {
-    var i = indexOf(list, listener);
-    if (i < 0) return this;
-    list.splice(i, 1);
-    if (list.length == 0)
-      delete this._events[type];
-  } else if (this._events[type] === listener) {
-    delete this._events[type];
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.removeAllListeners = function(type) {
-  if (arguments.length === 0) {
-    this._events = {};
-    return this;
-  }
-
-  // does not use listeners(), so no side effect of creating _events[type]
-  if (type && this._events && this._events[type]) this._events[type] = null;
-  return this;
-};
-
-EventEmitter.prototype.listeners = function(type) {
-  if (!this._events) this._events = {};
-  if (!this._events[type]) this._events[type] = [];
-  if (!isArray(this._events[type])) {
-    this._events[type] = [this._events[type]];
-  }
-  return this._events[type];
-};
-
-})(require("__browserify_process"))
-},{"__browserify_process":14}],5:[function(require,module,exports){
-(function(process){function filter (xs, fn) {
-    var res = [];
-    for (var i = 0; i < xs.length; i++) {
-        if (fn(xs[i], i, xs)) res.push(xs[i]);
-    }
-    return res;
-}
-
-// resolves . and .. elements in a path array with directory names there
-// must be no slashes, empty elements, or device names (c:\) in the array
-// (so also no leading and trailing slashes - it does not distinguish
-// relative and absolute paths)
-function normalizeArray(parts, allowAboveRoot) {
-  // if the path tries to go above the root, `up` ends up > 0
-  var up = 0;
-  for (var i = parts.length; i >= 0; i--) {
-    var last = parts[i];
-    if (last == '.') {
-      parts.splice(i, 1);
-    } else if (last === '..') {
-      parts.splice(i, 1);
-      up++;
-    } else if (up) {
-      parts.splice(i, 1);
-      up--;
-    }
-  }
-
-  // if the path is allowed to go above the root, restore leading ..s
-  if (allowAboveRoot) {
-    for (; up--; up) {
-      parts.unshift('..');
-    }
-  }
-
-  return parts;
-}
-
-// Regex to split a filename into [*, dir, basename, ext]
-// posix version
-var splitPathRe = /^(.+\/(?!$)|\/)?((?:.+?)?(\.[^.]*)?)$/;
-
-// path.resolve([from ...], to)
-// posix version
-exports.resolve = function() {
-var resolvedPath = '',
-    resolvedAbsolute = false;
-
-for (var i = arguments.length; i >= -1 && !resolvedAbsolute; i--) {
-  var path = (i >= 0)
-      ? arguments[i]
-      : process.cwd();
-
-  // Skip empty and invalid entries
-  if (typeof path !== 'string' || !path) {
-    continue;
-  }
-
-  resolvedPath = path + '/' + resolvedPath;
-  resolvedAbsolute = path.charAt(0) === '/';
-}
-
-// At this point the path should be resolved to a full absolute path, but
-// handle relative paths to be safe (might happen when process.cwd() fails)
-
-// Normalize the path
-resolvedPath = normalizeArray(filter(resolvedPath.split('/'), function(p) {
-    return !!p;
-  }), !resolvedAbsolute).join('/');
-
-  return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
-};
-
-// path.normalize(path)
-// posix version
-exports.normalize = function(path) {
-var isAbsolute = path.charAt(0) === '/',
-    trailingSlash = path.slice(-1) === '/';
-
-// Normalize the path
-path = normalizeArray(filter(path.split('/'), function(p) {
-    return !!p;
-  }), !isAbsolute).join('/');
-
-  if (!path && !isAbsolute) {
-    path = '.';
-  }
-  if (path && trailingSlash) {
-    path += '/';
-  }
-  
-  return (isAbsolute ? '/' : '') + path;
-};
-
-
-// posix version
-exports.join = function() {
-  var paths = Array.prototype.slice.call(arguments, 0);
-  return exports.normalize(filter(paths, function(p, index) {
-    return p && typeof p === 'string';
-  }).join('/'));
-};
-
-
-exports.dirname = function(path) {
-  var dir = splitPathRe.exec(path)[1] || '';
-  var isWindows = false;
-  if (!dir) {
-    // No dirname
-    return '.';
-  } else if (dir.length === 1 ||
-      (isWindows && dir.length <= 3 && dir.charAt(1) === ':')) {
-    // It is just a slash or a drive letter with a slash
-    return dir;
-  } else {
-    // It is a full dirname, strip trailing slash
-    return dir.substring(0, dir.length - 1);
-  }
-};
-
-
-exports.basename = function(path, ext) {
-  var f = splitPathRe.exec(path)[2] || '';
-  // TODO: make this comparison case-insensitive on windows?
-  if (ext && f.substr(-1 * ext.length) === ext) {
-    f = f.substr(0, f.length - ext.length);
-  }
-  return f;
-};
-
-
-exports.extname = function(path) {
-  return splitPathRe.exec(path)[3] || '';
-};
-
-exports.relative = function(from, to) {
-  from = exports.resolve(from).substr(1);
-  to = exports.resolve(to).substr(1);
-
-  function trim(arr) {
-    var start = 0;
-    for (; start < arr.length; start++) {
-      if (arr[start] !== '') break;
-    }
-
-    var end = arr.length - 1;
-    for (; end >= 0; end--) {
-      if (arr[end] !== '') break;
-    }
-
-    if (start > end) return [];
-    return arr.slice(start, end - start + 1);
-  }
-
-  var fromParts = trim(from.split('/'));
-  var toParts = trim(to.split('/'));
-
-  var length = Math.min(fromParts.length, toParts.length);
-  var samePartsLength = length;
-  for (var i = 0; i < length; i++) {
-    if (fromParts[i] !== toParts[i]) {
-      samePartsLength = i;
-      break;
-    }
-  }
-
-  var outputParts = [];
-  for (var i = samePartsLength; i < fromParts.length; i++) {
-    outputParts.push('..');
-  }
-
-  outputParts = outputParts.concat(toParts.slice(samePartsLength));
-
-  return outputParts.join('/');
-};
-
-})(require("__browserify_process"))
-},{"__browserify_process":14}],4:[function(require,module,exports){
-// nothing to see here... no file methods for the browser
-
-},{}],11:[function(require,module,exports){
+},{"fs":4,"path":6,"events":7,"./extended":8,"./rule":9,"./workingMemory":10,"./pattern":11,"./compile":12,"./nextTick":13,"./nodes":14}],11:[function(require,module,exports){
 (function () {
     "use strict";
     var extd = require("./extended"),
@@ -979,7 +995,7 @@ exports.relative = function(from, to) {
 })();
 
 
-},{"./extended":7,"./constraintMatcher":15,"./constraint":16}],12:[function(require,module,exports){
+},{"./extended":8,"./constraint":15,"./constraintMatcher":16}],13:[function(require,module,exports){
 (function(process){/*global setImmediate, window, MessageChannel*/
 var extd = require("./extended");
 var nextTick;
@@ -1018,7 +1034,7 @@ if (typeof setImmediate === "function") {
 
 module.exports = nextTick;
 })(require("__browserify_process"))
-},{"./extended":7,"__browserify_process":14}],8:[function(require,module,exports){
+},{"./extended":8,"__browserify_process":5}],9:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     isArray = extd.isArray,
@@ -1201,7 +1217,7 @@ exports.createRule = createRule;
 
 
 
-},{"./extended":7,"./pattern":11,"./parser":17}],18:[function(require,module,exports){
+},{"./extended":8,"./pattern":11,"./parser":17}],18:[function(require,module,exports){
 require=(function(e,t,n,r){function i(r){if(!n[r]){if(!t[r]){if(e)return e(r);throw new Error("Cannot find module '"+r+"'")}var s=n[r]={exports:{}};t[r][0](function(e){var n=t[r][1][e];return i(n?n:e)},s,s.exports)}return n[r].exports}for(var s=0;s<r.length;s++)i(r[s]);return i})(typeof require!=="undefined"&&require,{1:[function(require,module,exports){
 exports.readIEEE754 = function(buffer, offset, isBE, mLen, nBytes) {
   var e, m,
@@ -5066,7 +5082,7 @@ SlowBuffer.prototype.writeDoubleBE = Buffer.prototype.writeDoubleBE;
 },{}]},{},[])
 ;;module.exports=require("buffer-browserify")
 
-},{}],10:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 (function(Buffer){(function () {
     /*jshint evil:true*/
     "use strict";
@@ -5308,7 +5324,7 @@ SlowBuffer.prototype.writeDoubleBE = Buffer.prototype.writeDoubleBE;
 
 })();
 })(require("__browserify_buffer").Buffer)
-},{"./constraintMatcher.js":15,"./extended":7,"./rule":8,"./parser":17,"__browserify_buffer":18}],13:[function(require,module,exports){
+},{"./constraintMatcher.js":16,"./extended":8,"./rule":9,"./parser":17,"__browserify_buffer":18}],14:[function(require,module,exports){
 "use strict";
 var extd = require("../extended"),
     forEach = extd.forEach,
@@ -5527,7 +5543,7 @@ declare({
 
 
 
-},{"../pattern.js":11,"../extended":7,"../constraint":16,"./aliasNode":19,"./equalityNode":20,"./joinNode":21,"./notNode":22,"./leftAdapterNode":23,"./rightAdapterNode":24,"./typeNode":25,"./terminalNode":26,"./propertyNode":27}],15:[function(require,module,exports){
+},{"../pattern.js":11,"../extended":8,"../constraint":15,"./aliasNode":19,"./equalityNode":20,"./joinNode":21,"./notNode":22,"./leftAdapterNode":23,"./rightAdapterNode":24,"./typeNode":25,"./terminalNode":26,"./propertyNode":27}],16:[function(require,module,exports){
 "use strict";
 
 var extd = require("./extended"),
@@ -5886,7 +5902,7 @@ exports.getIdentifiers = function (constraint) {
 
 
 
-},{"./extended":7,"./constraint":16}],7:[function(require,module,exports){
+},{"./extended":8,"./constraint":15}],8:[function(require,module,exports){
 module.exports = require("extended")()
     .register(require("array-extended"))
     .register(require("date-extended"))
@@ -5902,7 +5918,7 @@ module.exports = require("extended")()
 
 
 
-},{"extended":28,"array-extended":29,"date-extended":30,"object-extended":31,"string-extended":32,"promise-extended":33,"function-extended":34,"is-extended":35,"ht":36,"declare.js":37,"leafy":38}],9:[function(require,module,exports){
+},{"extended":28,"array-extended":29,"date-extended":30,"object-extended":31,"string-extended":32,"promise-extended":33,"function-extended":34,"is-extended":35,"ht":36,"declare.js":37,"leafy":38}],10:[function(require,module,exports){
 "use strict";
 var declare = require("declare.js");
 
@@ -5986,7 +6002,7 @@ declare({
 }).as(exports, "WorkingMemory");
 
 
-},{"declare.js":37}],16:[function(require,module,exports){
+},{"declare.js":37}],15:[function(require,module,exports){
 "use strict";
 
 var extd = require("./extended"),
@@ -6160,7 +6176,7 @@ Constraint.extend({
 
 
 
-},{"./extended":7,"./constraintMatcher":15}],17:[function(require,module,exports){
+},{"./extended":8,"./constraintMatcher":16}],17:[function(require,module,exports){
 (function () {
     "use strict";
     var constraintParser = require("./constraint/parser"),
@@ -6365,7 +6381,7 @@ Node.extend({
     }
 
 }).as(module);
-},{"../extended":7,"./node":42,"./joinReferenceNode":43}],22:[function(require,module,exports){
+},{"../extended":8,"./node":42,"./joinReferenceNode":43}],22:[function(require,module,exports){
 var JoinNode = require("./joinNode"),
     Context = require("../context"),
     extd = require("../extended"),
@@ -6511,7 +6527,7 @@ JoinNode.extend({
         }
     }
 }).as(module);
-},{"./joinNode":21,"../context":44,"../extended":7}],23:[function(require,module,exports){
+},{"./joinNode":21,"../context":44,"../extended":8}],23:[function(require,module,exports){
 var Node = require("./node");
 
 Node.extend({
@@ -6700,7 +6716,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./node":42,"../extended":7}],27:[function(require,module,exports){
+},{"./node":42,"../extended":8}],27:[function(require,module,exports){
 var AlphaNode = require("./alphaNode"),
     Context = require("../context"),
     extd = require("../extended");
@@ -6735,7 +6751,7 @@ AlphaNode.extend({
 
 
 
-},{"./alphaNode":41,"../context":44,"../extended":7}],39:[function(require,module,exports){
+},{"./alphaNode":41,"../context":44,"../extended":8}],39:[function(require,module,exports){
 (function(process){/* parser generated by jison 0.4.2 */
 var parser = (function(){
 var parser = {trace: function trace() { },
@@ -7222,7 +7238,7 @@ if (typeof module !== 'undefined' && require.main === module) {
 }
 }
 })(require("__browserify_process"))
-},{"fs":4,"path":5,"__browserify_process":14}],37:[function(require,module,exports){
+},{"fs":4,"path":6,"__browserify_process":5}],37:[function(require,module,exports){
 module.exports = require("./declare.js");
 },{"./declare.js":45}],45:[function(require,module,exports){
 (function () {
@@ -8299,7 +8315,47 @@ var Context = declare({
 
 
 
-},{"./extended":7}],41:[function(require,module,exports){
+},{"./extended":8}],40:[function(require,module,exports){
+"use strict";
+
+var tokens = require("./tokens.js"),
+    extd = require("../../extended"),
+    keys = extd.hash.keys,
+    utils = require("./util.js");
+
+var parse = function (src, keywords, context) {
+    var orig = src;
+    src = src.replace(/\/\/(.*)[\n|\r|\r\n]/g, "").replace(/\n|\r|\r\n/g, " ");
+
+    var blockTypes = new RegExp("^(" + keys(keywords).join("|") + ")"), index;
+    while (src && (index = utils.findNextTokenIndex(src)) !== -1) {
+        src = src.substr(index);
+        var blockType = src.match(blockTypes);
+        if (blockType !== null) {
+            blockType = blockType[1];
+            if (blockType in keywords) {
+                try {
+                    src = keywords[blockType](src, context, parse).replace(/^\s*|\s*$/g, "");
+                } catch (e) {
+                    throw new Error("Invalid " + blockType + " definition \n" + e.message + "; \nstarting at : " + orig);
+                }
+            } else {
+                throw new Error("Unknown token" + blockType);
+            }
+        } else {
+            throw new Error("Error parsing " + src);
+        }
+    }
+};
+
+exports.parse = function (src) {
+    var context = {define: [], rules: [], scope: []};
+    parse(src, tokens, context);
+    return context;
+};
+
+
+},{"./tokens.js":47,"./util.js":48,"../../extended":8}],41:[function(require,module,exports){
 "use strict";
 var Node = require("./node");
 
@@ -8318,6 +8374,96 @@ Node.extend({
             return this.constraint.equal(constraint.constraint);
         }
     }
+}).as(module);
+},{"./node":42}],43:[function(require,module,exports){
+var Node = require("./node");
+Node.extend({
+
+    instance: {
+
+        constructor: function () {
+            this._super(arguments);
+            this.__fh = {};
+            this.__lc = this.__rc = null;
+            this.__variables = [];
+            this.__varLength = 0;
+        },
+
+        setLeftContext: function (lc) {
+            this.__lc = lc;
+            var match = lc.match;
+            var newFh = match.factHash, fh = this.__fh, prop, vars = this.__variables;
+            for (var i = 0, l = this.__varLength; i < l; i++) {
+                prop = vars[i];
+                fh[prop] = newFh[prop];
+            }
+            return this;
+        },
+
+        setRightContext: function (rc) {
+            this.__fh[this.__alias] = (this.__rc = rc).fact.object;
+            return this;
+        },
+
+        clearContexts: function () {
+            this.__fh = {};
+            this.__lc = null;
+            this.__rc = null;
+            return this;
+        },
+
+        clearRightContext: function () {
+            this.__rc = null;
+            this.__fh[this.__alias] = null;
+            return this;
+        },
+
+        clearLeftContext: function () {
+            this.__lc = null;
+            var fh = this.__fh = {}, rc = this.__rc;
+            fh[this.__alias] = rc ? rc.fact.object : null;
+            return this;
+        },
+
+        addConstraint: function (constraint) {
+            if (!this.constraint) {
+                this.constraint = constraint;
+            } else {
+                this.constraint = this.constraint.merge(constraint);
+            }
+            this.__alias = this.constraint.get("alias");
+            this.__varLength = (this.__variables = this.__variables.concat(this.constraint.get("variables"))).length;
+        },
+
+        equal: function (constraint) {
+            if (this.constraint) {
+                return this.constraint.equal(constraint.constraint);
+            }
+        },
+
+        isMatch: function () {
+            var constraint = this.constraint;
+            if (constraint) {
+                return constraint.assert(this.__fh);
+            }
+            return true;
+        },
+
+        match: function () {
+            var ret = {isMatch: false}, constraint = this.constraint;
+            if (!constraint) {
+                ret = this.__lc.match.merge(this.__rc.match);
+            } else {
+                var rightContext = this.__rc, fh = this.__fh;
+                if (constraint.assert(fh)) {
+                    ret = this.__lc.match.merge(rightContext.match);
+                }
+            }
+            return ret;
+        }
+
+    }
+
 }).as(module);
 },{"./node":42}],42:[function(require,module,exports){
 var extd = require("../extended"),
@@ -8445,137 +8591,7 @@ declare({
 
 }).as(module);
 
-},{"../extended":7,"../context":44}],43:[function(require,module,exports){
-var Node = require("./node");
-Node.extend({
-
-    instance: {
-
-        constructor: function () {
-            this._super(arguments);
-            this.__fh = {};
-            this.__lc = this.__rc = null;
-            this.__variables = [];
-            this.__varLength = 0;
-        },
-
-        setLeftContext: function (lc) {
-            this.__lc = lc;
-            var match = lc.match;
-            var newFh = match.factHash, fh = this.__fh, prop, vars = this.__variables;
-            for (var i = 0, l = this.__varLength; i < l; i++) {
-                prop = vars[i];
-                fh[prop] = newFh[prop];
-            }
-            return this;
-        },
-
-        setRightContext: function (rc) {
-            this.__fh[this.__alias] = (this.__rc = rc).fact.object;
-            return this;
-        },
-
-        clearContexts: function () {
-            this.__fh = {};
-            this.__lc = null;
-            this.__rc = null;
-            return this;
-        },
-
-        clearRightContext: function () {
-            this.__rc = null;
-            this.__fh[this.__alias] = null;
-            return this;
-        },
-
-        clearLeftContext: function () {
-            this.__lc = null;
-            var fh = this.__fh = {}, rc = this.__rc;
-            fh[this.__alias] = rc ? rc.fact.object : null;
-            return this;
-        },
-
-        addConstraint: function (constraint) {
-            if (!this.constraint) {
-                this.constraint = constraint;
-            } else {
-                this.constraint = this.constraint.merge(constraint);
-            }
-            this.__alias = this.constraint.get("alias");
-            this.__varLength = (this.__variables = this.__variables.concat(this.constraint.get("variables"))).length;
-        },
-
-        equal: function (constraint) {
-            if (this.constraint) {
-                return this.constraint.equal(constraint.constraint);
-            }
-        },
-
-        isMatch: function () {
-            var constraint = this.constraint;
-            if (constraint) {
-                return constraint.assert(this.__fh);
-            }
-            return true;
-        },
-
-        match: function () {
-            var ret = {isMatch: false}, constraint = this.constraint;
-            if (!constraint) {
-                ret = this.__lc.match.merge(this.__rc.match);
-            } else {
-                var rightContext = this.__rc, fh = this.__fh;
-                if (constraint.assert(fh)) {
-                    ret = this.__lc.match.merge(rightContext.match);
-                }
-            }
-            return ret;
-        }
-
-    }
-
-}).as(module);
-},{"./node":42}],40:[function(require,module,exports){
-"use strict";
-
-var tokens = require("./tokens.js"),
-    extd = require("../../extended"),
-    keys = extd.hash.keys,
-    utils = require("./util.js");
-
-var parse = function (src, keywords, context) {
-    var orig = src;
-    src = src.replace(/\/\/(.*)[\n|\r|\r\n]/g, "").replace(/\n|\r|\r\n/g, " ");
-
-    var blockTypes = new RegExp("^(" + keys(keywords).join("|") + ")"), index;
-    while (src && (index = utils.findNextTokenIndex(src)) !== -1) {
-        src = src.substr(index);
-        var blockType = src.match(blockTypes);
-        if (blockType !== null) {
-            blockType = blockType[1];
-            if (blockType in keywords) {
-                try {
-                    src = keywords[blockType](src, context, parse).replace(/^\s*|\s*$/g, "");
-                } catch (e) {
-                    throw new Error("Invalid " + blockType + " definition \n" + e.message + "; \nstarting at : " + orig);
-                }
-            } else {
-                throw new Error("Unknown token" + blockType);
-            }
-        } else {
-            throw new Error("Error parsing " + src);
-        }
-    }
-};
-
-exports.parse = function (src) {
-    var context = {define: [], rules: [], scope: []};
-    parse(src, tokens, context);
-    return context;
-};
-
-
-},{"./tokens.js":47,"./util.js":48,"../../extended":7}],48:[function(require,module,exports){
+},{"../extended":8,"../context":44}],48:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -10305,7 +10321,7 @@ exports.parse = function (src) {
 
 
 
-},{"is-extended":35,"extended":28,"array-extended":29}],31:[function(require,module,exports){
+},{"extended":28,"is-extended":35,"array-extended":29}],31:[function(require,module,exports){
 (function(){(function () {
     "use strict";
     /*global extended isExtended*/
@@ -11171,7 +11187,7 @@ exports.parse = function (src) {
 
 
 
-},{"is-extended":35,"extended":28,"date-extended":30,"array-extended":29}],33:[function(require,module,exports){
+},{"extended":28,"is-extended":35,"date-extended":30,"array-extended":29}],33:[function(require,module,exports){
 (function(process){(function () {
     "use strict";
     /*global setImmediate, MessageChannel*/
@@ -11682,7 +11698,7 @@ exports.parse = function (src) {
 
 
 })(require("__browserify_process"))
-},{"declare.js":37,"extended":28,"array-extended":29,"is-extended":35,"function-extended":34,"__browserify_process":14}],34:[function(require,module,exports){
+},{"declare.js":37,"extended":28,"array-extended":29,"is-extended":35,"function-extended":34,"__browserify_process":5}],34:[function(require,module,exports){
 (function () {
     "use strict";
 
