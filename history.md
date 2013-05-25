@@ -1,3 +1,7 @@
+#v0.1.3 / 2012-05-24
+
+* Fixed memory leak with FactHashes for the agendas
+
 #v0.1.2 / 2012-05-24
 
 * Removed unneeded calls to `.then` to address performance degredation (#30)
