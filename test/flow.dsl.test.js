@@ -67,6 +67,28 @@ it.describe("Flow dsl", function (it) {
         });
     });
 
+    it.describe("rules with provided scope", function (it) {
+        var matches = function (str, regex) {
+            return regex.test(str);
+        };
+        var flow = nools.compile(__dirname + "/rules/provided-scope.nools", {scope: {doesMatch: matches}}),
+            Message = flow.getDefined("Message"),
+            session;
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("call the scoped function", function (next) {
+            var m = new Message("hello");
+            session.once("assert", function (fact) {
+                assert.deepEqual(fact, m);
+                next();
+            });
+            session.assert(m);
+        });
+    });
+
     it.describe("externally defined Fact types", function (it) {
 
         function Message(message) {
@@ -206,6 +228,88 @@ it.describe("Flow dsl", function (it) {
             session.match();
         });
 
+    });
+
+    it.describe("agenda-groups", function (it) {
+        var flow = nools.compile(__dirname + "/rules/agenda-group.nools"),
+            Message = flow.getDefined("message"),
+            session;
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("only fire events in focused group", function () {
+            var events = [];
+            session.assert(new Message("hello"));
+            session.focus("ag1");
+            session.on("fire", function (name) {
+                events.push(name);
+            });
+            return session.match()
+                .then(function () {
+                    assert.deepEqual(events, ["Hello World", "GoodBye"]);
+                    events = [];
+                    session = flow.getSession();
+                    session.assert(new Message("hello"));
+                    session.focus("ag2");
+                    session.on("fire", function (name) {
+                        events.push(name);
+                    });
+                    return session.match().then(function () {
+                        assert.deepEqual(events, ["Hello World 2", "GoodBye 2"]);
+                    });
+                });
+        });
+
+        it.should("should treat focus like a stack", function () {
+            var events = [];
+            session.assert(new Message("hello"));
+            session.focus("ag2");
+            session.focus("ag1");
+            session.on("fire", function (name) {
+                events.push(name);
+            });
+            return session.match()
+                .then(function () {
+                    assert.deepEqual(events, ["Hello World", "GoodBye", "GoodBye 2"]);
+                    events = [];
+                    session = flow.getSession();
+                    session.assert(new Message("hello"));
+                    session.focus("ag1");
+                    session.focus("ag2");
+                    session.on("fire", function (name) {
+                        events.push(name);
+                    });
+                    return session.match().then(function () {
+                        assert.deepEqual(events, ["Hello World 2", "GoodBye 2", "GoodBye"]);
+                    });
+                });
+        });
+    });
+
+    it.describe("auto-focus", function (it) {
+        var flow = nools.compile(__dirname + "/rules/auto-focus.nools"),
+            State = flow.getDefined("state"),
+            session;
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("activate agenda groups in proper order", function () {
+            session.assert(new State("A", "NOT_RUN"));
+            session.assert(new State("B", "NOT_RUN"));
+            session.assert(new State("C", "NOT_RUN"));
+            session.assert(new State("D", "NOT_RUN"));
+            var fired = [];
+            session.on("fire", function (name) {
+                fired.push(name);
+            });
+            return session.match().then(function () {
+                assert.deepEqual(fired, ["Bootstrap", "A to B", "B to C", "B to D"]);
+            });
+        });
     });
 
     it.describe("fibonacci nools dsl", function (it) {

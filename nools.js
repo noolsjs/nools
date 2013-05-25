@@ -452,12 +452,9 @@ var extd = require("./extended"),
     fs = require("fs"),
     path = require("path"),
     bind = extd.bind,
-    indexOf = extd.indexOf,
     forEach = extd.forEach,
     declare = extd.declare,
     Promise = extd.Promise,
-    when = extd.when,
-    AVLTree = extd.AVLTree,
     nodes = require("./nodes"),
     EventEmitter = require("events").EventEmitter,
     rule = require("./rule"),
@@ -466,178 +463,10 @@ var extd = require("./extended"),
     InitialFact = require("./pattern").InitialFact,
     Fact = wm.Fact,
     compile = require("./compile"),
-    nextTick = require("./nextTick");
+    nextTick = require("./nextTick"),
+    AgendaTree = require("./agenda");
 
 var nools = {};
-
-var sortAgenda = function (a, b) {
-    /*jshint noempty:false*/
-    if (a === b) {
-        return 0;
-    }
-    var ret;
-    var p1 = a.rule.priority, p2 = b.rule.priority;
-    if (p1 !== p2) {
-        ret = p1 - p2;
-    } else if (a.counter !== b.counter) {
-        ret = a.counter - b.counter;
-    }
-    if (!ret) {
-
-        var i = 0;
-        var aMatchRecency = a.match.recency,
-            bMatchRecency = b.match.recency, aLength = aMatchRecency.length - 1, bLength = bMatchRecency.length - 1;
-        while (aMatchRecency[i] === bMatchRecency[i] && i < aLength && i < bLength && i++) {
-        }
-        ret = aMatchRecency[i] - bMatchRecency[i];
-        if (!ret) {
-            ret = aLength - bLength;
-        }
-        //   }
-    }
-    if (!ret) {
-        ret = a.recency - b.recency;
-    }
-    return ret > 0 ? 1 : -1;
-};
-
-var FactHash = declare({
-    instance: {
-        constructor: function () {
-            this.memory = [];
-            this.memoryValues = [];
-        },
-
-        get: function (k) {
-            return this.memoryValues[indexOf(this.memory, k)];
-        },
-
-        __compact: function () {
-            var oldM = this.memory.slice(0),
-                oldMv = this.memoryValues.slice(0),
-                l = oldMv.length,
-                m = this.memory = [],
-                mv = this.memoryValues = [],
-                oldMemoryValue;
-            for (var i = 0; i < l; i++) {
-                oldMemoryValue = oldMv[i];
-                if (oldMemoryValue.length !== 0) {
-                    mv[m.push(oldM[i]) - 1] = oldMemoryValue;
-                }
-            }
-        },
-
-        remove: function (v) {
-            var facts = v.match.facts, j = facts.length - 1, mv = this.memoryValues, m = this.memory;
-            for (; j >= 0; j--) {
-                var i = indexOf(m, facts[j]);
-                var arr = mv[i], index = indexOf(arr, v);
-                arr.splice(index, 1);
-            }
-            this.__compact();
-        },
-
-        insert: function (insert) {
-            var facts = insert.match.facts, mv = this.memoryValues, m = this.memory;
-            var k = facts.length - 1;
-            for (; k >= 0; k--) {
-                var o = facts[k], i = indexOf(m, o), arr = mv[i];
-                if (!arr) {
-                    arr = mv[m.push(o) - 1] = [];
-                }
-                arr.push(insert);
-            }
-        }
-    }
-
-});
-
-
-var REVERSE_ORDER = AVLTree.REVERSE_ORDER;
-var AgendaTree = declare({
-
-    instance: {
-        constructor: function () {
-            this.masterAgenda = new AVLTree({compare: sortAgenda});
-            this.rules = {};
-        },
-
-        register: function (node) {
-            this.rules[node.name] = {tree: new AVLTree({compare: sortAgenda}), factTable: new FactHash()};
-        },
-
-        isEmpty: function () {
-            return this.masterAgenda.isEmpty();
-        },
-
-
-        pop: function () {
-            var tree = this.masterAgenda, root = tree.__root;
-            while (root.right) {
-                root = root.right;
-            }
-            var v = root.data;
-            tree.remove(v);
-            var rule = this.rules[v.name];
-            rule.tree.remove(v);
-            rule.factTable.remove(v);
-            return v;
-        },
-
-        peek: function () {
-            var tree = this.masterAgenda, root = tree.__root;
-            while (root.right) {
-                root = root.right;
-            }
-            return root.data;
-        },
-
-        removeByFact: function (node, fact) {
-            var rule = this.rules[node.name], tree = rule.tree, factTable = rule.factTable;
-            var ma = this.masterAgenda;
-            var remove = factTable.get(fact) || [];
-            var i = remove.length - 1;
-            for (; i >= 0; i--) {
-                var r = remove[i];
-                factTable.remove(r);
-                tree.remove(r);
-                ma.remove(r);
-            }
-            remove.length = 0;
-        },
-
-        retract: function (node, cb) {
-            var rule = this.rules[node.name], tree = rule.tree, factTable = rule.factTable;
-            var ma = this.masterAgenda;
-            tree.traverse(tree.__root, REVERSE_ORDER, function (v) {
-                if (cb(v)) {
-                    factTable.remove(v);
-                    ma.remove(v);
-                    tree.remove(v);
-                }
-            });
-        },
-
-        insert: function (node, insert) {
-            var rule = this.rules[node.name];
-            rule.tree.insert(insert);
-            this.masterAgenda.insert(insert);
-            rule.factTable.insert(insert);
-        },
-
-        dispose: function () {
-            this.masterAgenda.clear();
-            var rules = this.rules;
-            for (var i in rules) {
-                if (i in rules) {
-                    rules[i].tree.clear();
-                }
-            }
-            this.rules = {};
-        }
-    }
-
-});
 
 
 var Flow = declare(EventEmitter, {
@@ -652,8 +481,15 @@ var Flow = declare(EventEmitter, {
             this.__rules = {};
             this.__wmAltered = false;
             this.workingMemory = new WorkingMemory();
-            this.agenda = new AgendaTree();
+            this.agenda = new AgendaTree(this);
+            this.agenda.on("fire", bind(this, "emit", "fire"));
+            this.agenda.on("focused", bind(this, "emit", "focused"));
             this.rootNode = new nodes.RootNode(this.workingMemory, this.agenda);
+        },
+
+        focus: function (focused) {
+            this.agenda.setFocus(focused);
+            return this;
         },
 
         halt: function () {
@@ -722,10 +558,8 @@ var Flow = declare(EventEmitter, {
         },
 
         __callNext: function () {
-            var activation = this.agenda.pop(), rootNode = this.rootNode;
-            activation.used = true;
-            this.emit("fire", activation.rule.name, activation.match.factHash);
-            return when(activation.rule.fire(this, activation.match)).addCallback(bind(this, function () {
+            var rootNode = this.rootNode;
+            return this.agenda.fireNext().addCallback(bind(this, function () {
                 if (this.__wmAltered) {
                     rootNode.incrementCounter();
                     this.__wmAltered = false;
@@ -737,8 +571,8 @@ var Flow = declare(EventEmitter, {
         matchUntilHalt: function (cb) {
             this.__halted = false;
             return this.__loop(bind(this, function (ret, fire) {
-                if (!this.agenda.isEmpty() && !this.__halted) {
-                    this.__callNext(fire).addCallback(fire).addErrback(ret.errback);
+                if (!this.__halted) {
+                    this.__callNext().addCallback(fire).addErrback(ret.errback);
                 } else if (!this.__halted) {
                     nextTick(fire);
                 } else {
@@ -749,11 +583,9 @@ var Flow = declare(EventEmitter, {
 
         match: function (cb) {
             return this.__loop(bind(this, function (ret, fire) {
-                if (!this.agenda.isEmpty()) {
-                    this.__callNext(fire).addCallback(fire).addErrback(ret.errback);
-                } else {
-                    ret.callback();
-                }
+                this.__callNext().addCallback(function (fired) {
+                    return fired ? fire() : ret.callback();
+                }).addErrback(ret.errback);
             }), cb);
         },
 
@@ -821,6 +653,7 @@ var FlowContainer = declare({
 
         rule: function () {
             this.__rules = this.__rules.concat(rule.createRule.apply(rule, arguments));
+            return this;
         },
 
         getSession: function () {
@@ -900,7 +733,7 @@ module.exports = nools;
 
 
 
-},{"fs":4,"path":6,"events":7,"./extended":8,"./rule":9,"./workingMemory":10,"./pattern":11,"./compile":12,"./nextTick":13,"./nodes":14}],11:[function(require,module,exports){
+},{"fs":4,"path":6,"events":7,"./extended":8,"./rule":9,"./workingMemory":10,"./pattern":11,"./compile":12,"./nextTick":13,"./agenda":14,"./nodes":15}],11:[function(require,module,exports){
 (function () {
     "use strict";
     var extd = require("./extended"),
@@ -995,7 +828,7 @@ module.exports = nools;
 })();
 
 
-},{"./extended":8,"./constraint":15,"./constraintMatcher":16}],13:[function(require,module,exports){
+},{"./extended":8,"./constraintMatcher":16,"./constraint":17}],13:[function(require,module,exports){
 (function(process){/*global setImmediate, window, MessageChannel*/
 var extd = require("./extended");
 var nextTick;
@@ -1034,7 +867,248 @@ if (typeof setImmediate === "function") {
 
 module.exports = nextTick;
 })(require("__browserify_process"))
-},{"./extended":8,"__browserify_process":5}],9:[function(require,module,exports){
+},{"./extended":8,"__browserify_process":5}],14:[function(require,module,exports){
+"use strict";
+var extd = require("./extended"),
+    when = extd.when,
+    indexOf = extd.indexOf,
+    declare = extd.declare,
+    AVLTree = extd.AVLTree,
+    EventEmitter = require("events").EventEmitter;
+
+var sortAgenda = function (a, b) {
+    /*jshint noempty:false*/
+    if (a === b) {
+        return 0;
+    }
+    var ret;
+    var p1 = a.rule.priority, p2 = b.rule.priority;
+    if (p1 !== p2) {
+        ret = p1 - p2;
+    } else if (a.counter !== b.counter) {
+        ret = a.counter - b.counter;
+    }
+    if (!ret) {
+
+        var i = 0;
+        var aMatchRecency = a.match.recency,
+            bMatchRecency = b.match.recency, aLength = aMatchRecency.length - 1, bLength = bMatchRecency.length - 1;
+        while (aMatchRecency[i] === bMatchRecency[i] && i < aLength && i < bLength && i++) {
+        }
+        ret = aMatchRecency[i] - bMatchRecency[i];
+        if (!ret) {
+            ret = aLength - bLength;
+        }
+        //   }
+    }
+    if (!ret) {
+        ret = a.recency - b.recency;
+    }
+    return ret > 0 ? 1 : -1;
+};
+
+var FactHash = declare({
+    instance: {
+        constructor: function () {
+            this.memory = [];
+            this.memoryValues = [];
+        },
+
+        clear: function () {
+            this.memory.length = this.memoryValues.length = 0;
+        },
+
+        get: function (k) {
+            return this.memoryValues[indexOf(this.memory, k)];
+        },
+
+        __compact: function () {
+            var oldM = this.memory.slice(0),
+                oldMv = this.memoryValues.slice(0),
+                l = oldMv.length,
+                m = this.memory = [],
+                mv = this.memoryValues = [],
+                oldMemoryValue;
+            for (var i = 0; i < l; i++) {
+                oldMemoryValue = oldMv[i];
+                if (oldMemoryValue.length !== 0) {
+                    mv[m.push(oldM[i]) - 1] = oldMemoryValue;
+                }
+            }
+        },
+
+        remove: function (v) {
+            var facts = v.match.facts, j = facts.length - 1, mv = this.memoryValues, m = this.memory;
+            for (; j >= 0; j--) {
+                var i = indexOf(m, facts[j]);
+                var arr = mv[i], index = indexOf(arr, v);
+                arr.splice(index, 1);
+            }
+            this.__compact();
+        },
+
+        insert: function (insert) {
+            var facts = insert.match.facts, mv = this.memoryValues, m = this.memory;
+            var k = facts.length - 1;
+            for (; k >= 0; k--) {
+                var o = facts[k], i = indexOf(m, o), arr = mv[i];
+                if (!arr) {
+                    arr = mv[m.push(o) - 1] = [];
+                }
+                arr.push(insert);
+            }
+        }
+    }
+
+});
+
+
+var REVERSE_ORDER = AVLTree.REVERSE_ORDER, DEFAULT_AGENDA_GROUP = "main";
+module.exports = declare(EventEmitter, {
+
+    instance: {
+        constructor: function (flow) {
+            this.agendaGroups = {};
+            this.agendaGroupStack = [DEFAULT_AGENDA_GROUP];
+            this.rules = {};
+            this.flow = flow;
+            this.setFocus(DEFAULT_AGENDA_GROUP).addAgendaGroup(DEFAULT_AGENDA_GROUP);
+        },
+
+        addAgendaGroup: function (groupName) {
+            if (!extd.has(this.agendaGroups, groupName)) {
+                this.agendaGroups[groupName] = new AVLTree({compare: sortAgenda});
+            }
+        },
+
+        getAgendaGroup: function (groupName) {
+            return this.agendaGroups[groupName || DEFAULT_AGENDA_GROUP];
+        },
+
+        setFocus: function (agendaGroup) {
+            if (agendaGroup !== this.getFocused()) {
+                this.agendaGroupStack.push(agendaGroup);
+                this.emit("focused", agendaGroup);
+            }
+            return this;
+        },
+
+        getFocused: function () {
+            var ags = this.agendaGroupStack;
+            return ags[ags.length - 1];
+        },
+
+        getFocusedAgenda: function () {
+            return this.agendaGroups[this.getFocused()];
+        },
+
+        register: function (node) {
+            var agendaGroup = node.rule.agendaGroup;
+            this.rules[node.name] = {tree: new AVLTree({compare: sortAgenda}), factTable: new FactHash()};
+            if (agendaGroup) {
+                this.addAgendaGroup(agendaGroup);
+            }
+        },
+
+        isEmpty: function () {
+            var agendaGroupStack = this.agendaGroupStack, changed = false;
+            while (this.getFocusedAgenda().isEmpty() && this.getFocused() !== DEFAULT_AGENDA_GROUP) {
+                agendaGroupStack.pop();
+                changed = true;
+            }
+            if (changed) {
+                this.emit("focused", this.getFocused());
+            }
+            return this.getFocusedAgenda().isEmpty();
+        },
+
+        fireNext: function () {
+            var agendaGroupStack = this.agendaGroupStack;
+            while (this.getFocusedAgenda().isEmpty() && this.getFocused() !== DEFAULT_AGENDA_GROUP) {
+                agendaGroupStack.pop();
+            }
+            if (!this.getFocusedAgenda().isEmpty()) {
+                var activation = this.pop();
+                this.emit("fire", activation.rule.name, activation.match.factHash);
+                return when(activation.rule.fire(this.flow, activation.match)).then(function () {
+                    //return true if an activation fired
+                    return true;
+                });
+            }
+            //return false if activation not fired
+            return extd.resolve(false);
+        },
+
+        pop: function () {
+            var tree = this.getFocusedAgenda(), root = tree.__root;
+            while (root.right) {
+                root = root.right;
+            }
+            var v = root.data;
+            tree.remove(v);
+            var rule = this.rules[v.name];
+            rule.tree.remove(v);
+            rule.factTable.remove(v);
+            return v;
+        },
+
+        removeByFact: function (node, fact) {
+            var rule = this.rules[node.name], tree = rule.tree, factTable = rule.factTable;
+            var ma = this.getAgendaGroup(node.rule.agendaGroup);
+            var remove = factTable.get(fact) || [];
+            var i = remove.length - 1;
+            for (; i >= 0; i--) {
+                var r = remove[i];
+                factTable.remove(r);
+                tree.remove(r);
+                ma.remove(r);
+            }
+            remove.length = 0;
+        },
+
+        retract: function (node, cb) {
+            var rule = this.rules[node.name], tree = rule.tree, factTable = rule.factTable;
+            var ma = this.getAgendaGroup(node.rule.agendaGroup);
+            tree.traverse(tree.__root, REVERSE_ORDER, function (v) {
+                if (cb(v)) {
+                    factTable.remove(v);
+                    ma.remove(v);
+                    tree.remove(v);
+                }
+            });
+        },
+
+        insert: function (node, insert) {
+            var rule = this.rules[node.name], nodeRule = node.rule, agendaGroup = nodeRule.agendaGroup;
+            rule.tree.insert(insert);
+            this.getAgendaGroup(agendaGroup).insert(insert);
+            if (agendaGroup) {
+                if (nodeRule.autoFocus) {
+                    this.setFocus(agendaGroup);
+                }
+            }
+
+            rule.factTable.insert(insert);
+        },
+
+        dispose: function () {
+            for (var i in this.agendaGroups) {
+                this.agendaGroups[i].clear();
+            }
+            var rules = this.rules;
+            for (i in rules) {
+                if (i in rules) {
+                    rules[i].tree.clear();
+                    rules[i].factTable.clear();
+
+                }
+            }
+            this.rules = {};
+        }
+    }
+
+});
+},{"events":7,"./extended":8}],9:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     isArray = extd.isArray,
@@ -1134,6 +1208,10 @@ var Rule = declare({
             this.name = name;
             this.pattern = pattern;
             this.cb = cb;
+            if (options.agendaGroup) {
+                this.agendaGroup = options.agendaGroup;
+                this.autoFocus = extd.isBoolean(options.autoFocus) ? options.autoFocus : false;
+            }
             this.priority = options.priority || options.salience || 0;
         },
 
@@ -1217,7 +1295,7 @@ exports.createRule = createRule;
 
 
 
-},{"./extended":8,"./pattern":11,"./parser":17}],18:[function(require,module,exports){
+},{"./extended":8,"./pattern":11,"./parser":18}],19:[function(require,module,exports){
 require=(function(e,t,n,r){function i(r){if(!n[r]){if(!t[r]){if(e)return e(r);throw new Error("Cannot find module '"+r+"'")}var s=n[r]={exports:{}};t[r][0](function(e){var n=t[r][1][e];return i(n?n:e)},s,s.exports)}return n[r].exports}for(var s=0;s<r.length;s++)i(r[s]);return i})(typeof require!=="undefined"&&require,{1:[function(require,module,exports){
 exports.readIEEE754 = function(buffer, offset, isBE, mLen, nBytes) {
   var e, m,
@@ -5100,7 +5178,7 @@ SlowBuffer.prototype.writeDoubleBE = Buffer.prototype.writeDoubleBE;
         bind = extd.bind,
         rules = require("./rule");
 
-    var modifiers = ["assert", "modify", "retract", "emit", "halt"];
+    var modifiers = ["assert", "modify", "retract", "emit", "halt", "focus"];
 
     /**
      * @private
@@ -5324,7 +5402,7 @@ SlowBuffer.prototype.writeDoubleBE = Buffer.prototype.writeDoubleBE;
 
 })();
 })(require("__browserify_buffer").Buffer)
-},{"./constraintMatcher.js":16,"./extended":8,"./rule":9,"./parser":17,"__browserify_buffer":18}],14:[function(require,module,exports){
+},{"./constraintMatcher.js":16,"./extended":8,"./rule":9,"./parser":18,"__browserify_buffer":19}],15:[function(require,module,exports){
 "use strict";
 var extd = require("../extended"),
     forEach = extd.forEach,
@@ -5543,7 +5621,7 @@ declare({
 
 
 
-},{"../pattern.js":11,"../extended":8,"../constraint":15,"./aliasNode":19,"./equalityNode":20,"./joinNode":21,"./notNode":22,"./leftAdapterNode":23,"./rightAdapterNode":24,"./typeNode":25,"./terminalNode":26,"./propertyNode":27}],16:[function(require,module,exports){
+},{"../pattern.js":11,"../extended":8,"../constraint":17,"./aliasNode":20,"./equalityNode":21,"./joinNode":22,"./notNode":23,"./leftAdapterNode":24,"./rightAdapterNode":25,"./typeNode":26,"./terminalNode":27,"./propertyNode":28}],16:[function(require,module,exports){
 "use strict";
 
 var extd = require("./extended"),
@@ -5902,7 +5980,7 @@ exports.getIdentifiers = function (constraint) {
 
 
 
-},{"./extended":8,"./constraint":15}],8:[function(require,module,exports){
+},{"./extended":8,"./constraint":17}],8:[function(require,module,exports){
 module.exports = require("extended")()
     .register(require("array-extended"))
     .register(require("date-extended"))
@@ -5918,7 +5996,7 @@ module.exports = require("extended")()
 
 
 
-},{"extended":28,"array-extended":29,"date-extended":30,"object-extended":31,"string-extended":32,"promise-extended":33,"function-extended":34,"is-extended":35,"ht":36,"declare.js":37,"leafy":38}],10:[function(require,module,exports){
+},{"extended":29,"array-extended":30,"date-extended":31,"object-extended":32,"string-extended":33,"promise-extended":34,"function-extended":35,"is-extended":36,"ht":37,"declare.js":38,"leafy":39}],10:[function(require,module,exports){
 "use strict";
 var declare = require("declare.js");
 
@@ -6002,7 +6080,7 @@ declare({
 }).as(exports, "WorkingMemory");
 
 
-},{"declare.js":37}],15:[function(require,module,exports){
+},{"declare.js":38}],17:[function(require,module,exports){
 "use strict";
 
 var extd = require("./extended"),
@@ -6176,7 +6254,7 @@ Constraint.extend({
 
 
 
-},{"./extended":8,"./constraintMatcher":16}],17:[function(require,module,exports){
+},{"./extended":8,"./constraintMatcher":16}],18:[function(require,module,exports){
 (function () {
     "use strict";
     var constraintParser = require("./constraint/parser"),
@@ -6194,7 +6272,7 @@ Constraint.extend({
         return noolParser.parse(source);
     };
 })();
-},{"./constraint/parser":39,"./nools/nool.parser":40}],19:[function(require,module,exports){
+},{"./constraint/parser":40,"./nools/nool.parser":41}],20:[function(require,module,exports){
 var AlphaNode = require("./alphaNode");
 
 AlphaNode.extend({
@@ -6222,7 +6300,7 @@ AlphaNode.extend({
         }
     }
 }).as(module);
-},{"./alphaNode":41}],20:[function(require,module,exports){
+},{"./alphaNode":42}],21:[function(require,module,exports){
 var AlphaNode = require("./alphaNode");
 
 AlphaNode.extend({
@@ -6243,7 +6321,7 @@ AlphaNode.extend({
         }
     }
 }).as(module);
-},{"./alphaNode":41}],21:[function(require,module,exports){
+},{"./alphaNode":42}],22:[function(require,module,exports){
 var extd = require("../extended"),
     values = extd.hash.values,
     indexOf = extd.indexOf,
@@ -6381,7 +6459,7 @@ Node.extend({
     }
 
 }).as(module);
-},{"../extended":8,"./node":42,"./joinReferenceNode":43}],22:[function(require,module,exports){
+},{"../extended":8,"./node":43,"./joinReferenceNode":44}],23:[function(require,module,exports){
 var JoinNode = require("./joinNode"),
     Context = require("../context"),
     extd = require("../extended"),
@@ -6527,7 +6605,7 @@ JoinNode.extend({
         }
     }
 }).as(module);
-},{"./joinNode":21,"../context":44,"../extended":8}],23:[function(require,module,exports){
+},{"../context":45,"./joinNode":22,"../extended":8}],24:[function(require,module,exports){
 var Node = require("./node");
 
 Node.extend({
@@ -6562,7 +6640,7 @@ Node.extend({
     }
 
 }).as(module);
-},{"./node":42}],24:[function(require,module,exports){
+},{"./node":43}],25:[function(require,module,exports){
 var Node = require("./node");
 
 Node.extend({
@@ -6597,7 +6675,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./node":42}],25:[function(require,module,exports){
+},{"./node":43}],26:[function(require,module,exports){
 var AlphaNode = require("./alphaNode"),
     Context = require("../context");
 
@@ -6637,7 +6715,7 @@ AlphaNode.extend({
         }
     }
 }).as(module);
-},{"./alphaNode":41,"../context":44}],26:[function(require,module,exports){
+},{"./alphaNode":42,"../context":45}],27:[function(require,module,exports){
 var Node = require("./node"),
     extd = require("../extended"),
     bind = extd.bind,
@@ -6716,7 +6794,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./node":42,"../extended":8}],27:[function(require,module,exports){
+},{"./node":43,"../extended":8}],28:[function(require,module,exports){
 var AlphaNode = require("./alphaNode"),
     Context = require("../context"),
     extd = require("../extended");
@@ -6751,7 +6829,7 @@ AlphaNode.extend({
 
 
 
-},{"./alphaNode":41,"../context":44,"../extended":8}],39:[function(require,module,exports){
+},{"./alphaNode":42,"../context":45,"../extended":8}],40:[function(require,module,exports){
 (function(process){/* parser generated by jison 0.4.2 */
 var parser = (function(){
 var parser = {trace: function trace() { },
@@ -7238,9 +7316,9 @@ if (typeof module !== 'undefined' && require.main === module) {
 }
 }
 })(require("__browserify_process"))
-},{"fs":4,"path":6,"__browserify_process":5}],37:[function(require,module,exports){
+},{"fs":4,"path":6,"__browserify_process":5}],38:[function(require,module,exports){
 module.exports = require("./declare.js");
-},{"./declare.js":45}],45:[function(require,module,exports){
+},{"./declare.js":46}],46:[function(require,module,exports){
 (function () {
 
     /**
@@ -8129,7 +8207,7 @@ module.exports = require("./declare.js");
 
 
 
-},{}],28:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 (function(){(function () {
     "use strict";
     /*global extender is, dateExtended*/
@@ -8229,7 +8307,7 @@ module.exports = require("./declare.js");
 
 
 })()
-},{"extender":46}],44:[function(require,module,exports){
+},{"extender":47}],45:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     declare = extd.declare,
@@ -8315,47 +8393,7 @@ var Context = declare({
 
 
 
-},{"./extended":8}],40:[function(require,module,exports){
-"use strict";
-
-var tokens = require("./tokens.js"),
-    extd = require("../../extended"),
-    keys = extd.hash.keys,
-    utils = require("./util.js");
-
-var parse = function (src, keywords, context) {
-    var orig = src;
-    src = src.replace(/\/\/(.*)[\n|\r|\r\n]/g, "").replace(/\n|\r|\r\n/g, " ");
-
-    var blockTypes = new RegExp("^(" + keys(keywords).join("|") + ")"), index;
-    while (src && (index = utils.findNextTokenIndex(src)) !== -1) {
-        src = src.substr(index);
-        var blockType = src.match(blockTypes);
-        if (blockType !== null) {
-            blockType = blockType[1];
-            if (blockType in keywords) {
-                try {
-                    src = keywords[blockType](src, context, parse).replace(/^\s*|\s*$/g, "");
-                } catch (e) {
-                    throw new Error("Invalid " + blockType + " definition \n" + e.message + "; \nstarting at : " + orig);
-                }
-            } else {
-                throw new Error("Unknown token" + blockType);
-            }
-        } else {
-            throw new Error("Error parsing " + src);
-        }
-    }
-};
-
-exports.parse = function (src) {
-    var context = {define: [], rules: [], scope: []};
-    parse(src, tokens, context);
-    return context;
-};
-
-
-},{"./tokens.js":47,"./util.js":48,"../../extended":8}],41:[function(require,module,exports){
+},{"./extended":8}],42:[function(require,module,exports){
 "use strict";
 var Node = require("./node");
 
@@ -8375,97 +8413,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./node":42}],43:[function(require,module,exports){
-var Node = require("./node");
-Node.extend({
-
-    instance: {
-
-        constructor: function () {
-            this._super(arguments);
-            this.__fh = {};
-            this.__lc = this.__rc = null;
-            this.__variables = [];
-            this.__varLength = 0;
-        },
-
-        setLeftContext: function (lc) {
-            this.__lc = lc;
-            var match = lc.match;
-            var newFh = match.factHash, fh = this.__fh, prop, vars = this.__variables;
-            for (var i = 0, l = this.__varLength; i < l; i++) {
-                prop = vars[i];
-                fh[prop] = newFh[prop];
-            }
-            return this;
-        },
-
-        setRightContext: function (rc) {
-            this.__fh[this.__alias] = (this.__rc = rc).fact.object;
-            return this;
-        },
-
-        clearContexts: function () {
-            this.__fh = {};
-            this.__lc = null;
-            this.__rc = null;
-            return this;
-        },
-
-        clearRightContext: function () {
-            this.__rc = null;
-            this.__fh[this.__alias] = null;
-            return this;
-        },
-
-        clearLeftContext: function () {
-            this.__lc = null;
-            var fh = this.__fh = {}, rc = this.__rc;
-            fh[this.__alias] = rc ? rc.fact.object : null;
-            return this;
-        },
-
-        addConstraint: function (constraint) {
-            if (!this.constraint) {
-                this.constraint = constraint;
-            } else {
-                this.constraint = this.constraint.merge(constraint);
-            }
-            this.__alias = this.constraint.get("alias");
-            this.__varLength = (this.__variables = this.__variables.concat(this.constraint.get("variables"))).length;
-        },
-
-        equal: function (constraint) {
-            if (this.constraint) {
-                return this.constraint.equal(constraint.constraint);
-            }
-        },
-
-        isMatch: function () {
-            var constraint = this.constraint;
-            if (constraint) {
-                return constraint.assert(this.__fh);
-            }
-            return true;
-        },
-
-        match: function () {
-            var ret = {isMatch: false}, constraint = this.constraint;
-            if (!constraint) {
-                ret = this.__lc.match.merge(this.__rc.match);
-            } else {
-                var rightContext = this.__rc, fh = this.__fh;
-                if (constraint.assert(fh)) {
-                    ret = this.__lc.match.merge(rightContext.match);
-                }
-            }
-            return ret;
-        }
-
-    }
-
-}).as(module);
-},{"./node":42}],42:[function(require,module,exports){
+},{"./node":43}],43:[function(require,module,exports){
 var extd = require("../extended"),
     forEach = extd.forEach,
     indexOf = extd.indexOf,
@@ -8591,7 +8539,137 @@ declare({
 
 }).as(module);
 
-},{"../extended":8,"../context":44}],48:[function(require,module,exports){
+},{"../extended":8,"../context":45}],44:[function(require,module,exports){
+var Node = require("./node");
+Node.extend({
+
+    instance: {
+
+        constructor: function () {
+            this._super(arguments);
+            this.__fh = {};
+            this.__lc = this.__rc = null;
+            this.__variables = [];
+            this.__varLength = 0;
+        },
+
+        setLeftContext: function (lc) {
+            this.__lc = lc;
+            var match = lc.match;
+            var newFh = match.factHash, fh = this.__fh, prop, vars = this.__variables;
+            for (var i = 0, l = this.__varLength; i < l; i++) {
+                prop = vars[i];
+                fh[prop] = newFh[prop];
+            }
+            return this;
+        },
+
+        setRightContext: function (rc) {
+            this.__fh[this.__alias] = (this.__rc = rc).fact.object;
+            return this;
+        },
+
+        clearContexts: function () {
+            this.__fh = {};
+            this.__lc = null;
+            this.__rc = null;
+            return this;
+        },
+
+        clearRightContext: function () {
+            this.__rc = null;
+            this.__fh[this.__alias] = null;
+            return this;
+        },
+
+        clearLeftContext: function () {
+            this.__lc = null;
+            var fh = this.__fh = {}, rc = this.__rc;
+            fh[this.__alias] = rc ? rc.fact.object : null;
+            return this;
+        },
+
+        addConstraint: function (constraint) {
+            if (!this.constraint) {
+                this.constraint = constraint;
+            } else {
+                this.constraint = this.constraint.merge(constraint);
+            }
+            this.__alias = this.constraint.get("alias");
+            this.__varLength = (this.__variables = this.__variables.concat(this.constraint.get("variables"))).length;
+        },
+
+        equal: function (constraint) {
+            if (this.constraint) {
+                return this.constraint.equal(constraint.constraint);
+            }
+        },
+
+        isMatch: function () {
+            var constraint = this.constraint;
+            if (constraint) {
+                return constraint.assert(this.__fh);
+            }
+            return true;
+        },
+
+        match: function () {
+            var ret = {isMatch: false}, constraint = this.constraint;
+            if (!constraint) {
+                ret = this.__lc.match.merge(this.__rc.match);
+            } else {
+                var rightContext = this.__rc, fh = this.__fh;
+                if (constraint.assert(fh)) {
+                    ret = this.__lc.match.merge(rightContext.match);
+                }
+            }
+            return ret;
+        }
+
+    }
+
+}).as(module);
+},{"./node":43}],41:[function(require,module,exports){
+"use strict";
+
+var tokens = require("./tokens.js"),
+    extd = require("../../extended"),
+    keys = extd.hash.keys,
+    utils = require("./util.js");
+
+var parse = function (src, keywords, context) {
+    var orig = src;
+    src = src.replace(/\/\/(.*)[\n|\r|\r\n]/g, "").replace(/\n|\r|\r\n/g, " ");
+
+    var blockTypes = new RegExp("^(" + keys(keywords).join("|") + ")"), index;
+    while (src && (index = utils.findNextTokenIndex(src)) !== -1) {
+        src = src.substr(index);
+        var blockType = src.match(blockTypes);
+        if (blockType !== null) {
+            blockType = blockType[1];
+            if (blockType in keywords) {
+                try {
+                    src = keywords[blockType](src, context, parse).replace(/^\s*|\s*$/g, "");
+                } catch (e) {
+                    throw new Error("Invalid " + blockType + " definition \n" + e.message + "; \nstarting at : " + orig);
+                }
+            } else {
+                throw new Error("Unknown token" + blockType);
+            }
+        } else {
+            throw new Error("Error parsing " + src);
+        }
+    }
+};
+
+exports.parse = function (src) {
+    var context = {define: [], rules: [], scope: []};
+    parse(src, tokens, context);
+    return context;
+};
+
+
+},{"./tokens.js":48,"./util.js":49,"../../extended":8}],49:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -8675,7 +8753,7 @@ declare({
 
 
 })();
-},{}],29:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 (function(){(function () {
     "use strict";
     /*global define*/
@@ -9373,7 +9451,7 @@ declare({
 
 
 })()
-},{"extended":28,"is-extended":35}],30:[function(require,module,exports){
+},{"extended":29,"is-extended":36}],31:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -10321,7 +10399,7 @@ declare({
 
 
 
-},{"extended":28,"is-extended":35,"array-extended":29}],31:[function(require,module,exports){
+},{"extended":29,"is-extended":36,"array-extended":30}],32:[function(require,module,exports){
 (function(){(function () {
     "use strict";
     /*global extended isExtended*/
@@ -10540,7 +10618,7 @@ declare({
 
 
 })()
-},{"array-extended":49,"extended":28,"is-extended":35}],32:[function(require,module,exports){
+},{"array-extended":50,"extended":29,"is-extended":36}],33:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -11187,7 +11265,7 @@ declare({
 
 
 
-},{"extended":28,"is-extended":35,"date-extended":30,"array-extended":29}],33:[function(require,module,exports){
+},{"extended":29,"is-extended":36,"date-extended":31,"array-extended":30}],34:[function(require,module,exports){
 (function(process){(function () {
     "use strict";
     /*global setImmediate, MessageChannel*/
@@ -11698,7 +11776,7 @@ declare({
 
 
 })(require("__browserify_process"))
-},{"declare.js":37,"extended":28,"array-extended":29,"is-extended":35,"function-extended":34,"__browserify_process":5}],34:[function(require,module,exports){
+},{"declare.js":38,"extended":29,"array-extended":30,"is-extended":36,"function-extended":35,"__browserify_process":5}],35:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -11942,7 +12020,7 @@ declare({
 
 
 
-},{"extended":28,"is-extended":35}],35:[function(require,module,exports){
+},{"extended":29,"is-extended":36}],36:[function(require,module,exports){
 (function(Buffer){(function () {
     "use strict";
 
@@ -12440,7 +12518,7 @@ declare({
 
 
 })(require("__browserify_buffer").Buffer)
-},{"extended":28,"__browserify_buffer":18}],36:[function(require,module,exports){
+},{"extended":29,"__browserify_buffer":19}],37:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -12705,7 +12783,7 @@ declare({
 
 
 
-},{"extended":28,"declare.js":37,"is-extended":35,"array-extended":29}],38:[function(require,module,exports){
+},{"extended":29,"declare.js":38,"is-extended":36,"array-extended":30}],39:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -13612,9 +13690,9 @@ declare({
 
 
 
-},{"extended":28,"declare.js":37,"is-extended":35,"array-extended":29,"string-extended":32}],46:[function(require,module,exports){
+},{"extended":29,"declare.js":38,"is-extended":36,"array-extended":30,"string-extended":33}],47:[function(require,module,exports){
 module.exports = require("./extender.js");
-},{"./extender.js":50}],47:[function(require,module,exports){
+},{"./extender.js":51}],48:[function(require,module,exports){
 (function(){"use strict";
 
 var utils = require("./util.js");
@@ -13643,6 +13721,50 @@ var ruleTokens = {
             }
         };
     })(),
+
+    agendaGroup: (function () {
+        var agendaGroupRegexp = /^(agenda-group|agendaGroup)\s*:\s*([a-zA-Z_$][0-9a-zA-Z_$]*|"[^"]*"|'[^']*')\s*[,;]?/;
+        return function (src, context) {
+            if (agendaGroupRegexp.test(src)) {
+                var parts = src.match(agendaGroupRegexp),
+                    agendaGroup = parts[2];
+                if (agendaGroup) {
+                    context.options.agendaGroup = agendaGroup.replace(/^["']|["']$/g, "");
+                } else {
+                    throw new Error("Invalid agenda-group " + parts[2]);
+                }
+                return src.replace(parts[0], "");
+            } else {
+                throw new Error("invalid format");
+            }
+        };
+    })(),
+
+    autoFocus: (function () {
+        var autoFocusRegexp = /^(auto-focus|autoFocus)\s*:\s*(true|false)\s*[,;]?/;
+        return function (src, context) {
+            if (autoFocusRegexp.test(src)) {
+                var parts = src.match(autoFocusRegexp),
+                    autoFocus = parts[2];
+                if (autoFocus) {
+                    context.options.autoFocus = autoFocus === "true" ? true : false;
+                } else {
+                    throw new Error("Invalid auto-focus " + parts[2]);
+                }
+                return src.replace(parts[0], "");
+            } else {
+                throw new Error("invalid format");
+            }
+        };
+    })(),
+
+    "agenda-group": function () {
+        return this.agendaGroup.apply(this, arguments);
+    },
+
+    "auto-focus": function () {
+        return this.autoFocus.apply(this, arguments);
+    },
 
     priority: function () {
         return this.salience.apply(this, arguments);
@@ -13840,7 +13962,7 @@ module.exports = {
 
 
 })()
-},{"./util.js":48}],49:[function(require,module,exports){
+},{"./util.js":49}],50:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -14536,7 +14658,7 @@ module.exports = {
 
 
 
-},{"extended":28,"is-extended":35}],50:[function(require,module,exports){
+},{"extended":29,"is-extended":36}],51:[function(require,module,exports){
 (function () {
     /*jshint strict:false*/
 
@@ -15077,5 +15199,5 @@ module.exports = {
     }
 
 }).call(this);
-},{"declare.js":37}]},{},[1])
+},{"declare.js":38}]},{},[1])
 ;

@@ -140,6 +140,90 @@ it.describe("Flow compiled",function (it) {
 
     });
 
+    it.describe("agenda-groups", function (it) {
+        require("./rules/agenda-group-compiled");
+        var flow = nools.getFlow("agenda-group-compiled"),
+            Message = flow.getDefined("message"),
+            session;
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("only fire events in focused group", function () {
+            var events = [];
+            session.assert(new Message("hello"));
+            session.focus("ag1");
+            session.on("fire", function (name) {
+                events.push(name);
+            });
+            return session.match()
+                .then(function () {
+                    assert.deepEqual(events, ["Hello World", "GoodBye"]);
+                    events = [];
+                    session = flow.getSession();
+                    session.assert(new Message("hello"));
+                    session.focus("ag2");
+                    session.on("fire", function (name) {
+                        events.push(name);
+                    });
+                    return session.match().then(function () {
+                        assert.deepEqual(events, ["Hello World 2", "GoodBye 2"]);
+                    });
+                });
+        });
+
+        it.should("should treat focus like a stack", function () {
+            var events = [];
+            session.assert(new Message("hello"));
+            session.focus("ag2");
+            session.focus("ag1");
+            session.on("fire", function (name) {
+                events.push(name);
+            });
+            return session.match()
+                .then(function () {
+                    assert.deepEqual(events, ["Hello World", "GoodBye", "GoodBye 2"]);
+                    events = [];
+                    session = flow.getSession();
+                    session.assert(new Message("hello"));
+                    session.focus("ag1");
+                    session.focus("ag2");
+                    session.on("fire", function (name) {
+                        events.push(name);
+                    });
+                    return session.match().then(function () {
+                        assert.deepEqual(events, ["Hello World 2", "GoodBye 2", "GoodBye"]);
+                    });
+                });
+        });
+    });
+
+    it.describe("auto-focus", function (it) {
+        require("./rules/auto-focus-compiled");
+        var flow = nools.getFlow("auto-focus-compiled"),
+            State = flow.getDefined("state"),
+            session;
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("activate agenda groups in proper order", function () {
+            session.assert(new State("A", "NOT_RUN"));
+            session.assert(new State("B", "NOT_RUN"));
+            session.assert(new State("C", "NOT_RUN"));
+            session.assert(new State("D", "NOT_RUN"));
+            var fired = [];
+            session.on("fire", function (name) {
+                fired.push(name);
+            });
+            return session.match().then(function () {
+                assert.deepEqual(fired, ["Bootstrap", "A to B", "B to C", "B to D"]);
+            });
+        });
+    });
+
     it.describe("fibonacci nools dsl", function (it) {
 
         require("./rules/fibonacci-compiled");

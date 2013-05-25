@@ -3,7 +3,7 @@ var it = require("it"),
     assert = require("assert"),
     noolsParser = require("../lib/parser/nools/nool.parser.js");
 
-it.describe("nools dsl parser",function (it) {
+it.describe("nools dsl parser", function (it) {
 
     it.describe("parsing define", function (it) {
         it.should("parse a define statement", function () {
@@ -374,6 +374,256 @@ it.describe("nools dsl parser",function (it) {
             });
         });
 
+        it.describe("salience/priority", function (it) {
+
+            it.should("parse rules with a salience", function () {
+                var parsed3 = noolsParser.parse("rule 'test \"rule\"' { salience: 10, when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                assert.deepEqual(parsed3, {
+                    define: [],
+                    rules: [
+                        {
+                            name: 'test "rule"',
+                            constraints: [
+                                ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
+                            ],
+                            action: "console.log($test);",
+                            options: {priority: 10}
+                        }
+                    ],
+                    "scope": []
+                });
+            });
+
+            it.should("parse rules with a priority", function () {
+                var parsed3 = noolsParser.parse("rule 'test \"rule\"' { priority: 10, when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                assert.deepEqual(parsed3, {
+                    define: [],
+                    rules: [
+                        {
+                            name: 'test "rule"',
+                            constraints: [
+                                ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
+                            ],
+                            action: "console.log($test);",
+                            options: {priority: 10}
+                        }
+                    ],
+                    "scope": []
+                });
+            });
+
+            it.should("parse rules with a salience with a ;", function () {
+                var parsed3 = noolsParser.parse("rule 'test \"rule\"' { salience: 10; when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                assert.deepEqual(parsed3, {
+                    define: [],
+                    rules: [
+                        {
+                            name: 'test "rule"',
+                            constraints: [
+                                ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
+                            ],
+                            action: "console.log($test);",
+                            options: {priority: 10}
+                        }
+                    ],
+                    "scope": []
+                });
+            });
+
+            it.should("parse rules with a priority with a ;", function () {
+                var parsed3 = noolsParser.parse("rule 'test \"rule\"' { priority: 10; when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                assert.deepEqual(parsed3, {
+                    define: [],
+                    rules: [
+                        {
+                            name: 'test "rule"',
+                            constraints: [
+                                ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
+                            ],
+                            action: "console.log($test);",
+                            options: {priority: 10}
+                        }
+                    ],
+                    "scope": []
+                });
+            });
+
+            it.should("throw an error if the salience is not a number", function () {
+                assert.throws(function () {
+                    noolsParser.parse("rule 'test \"rule\"' { priority: a; when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                });
+                assert.throws(function () {
+                    noolsParser.parse("rule 'test \"rule\"' { priority: 'a'; when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                });
+
+                assert.throws(function () {
+                    noolsParser.parse("rule 'test \"rule\"' { priority: true; when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                });
+            });
+
+        });
+
+        it.describe("agenda-group/agendaGroup", function (it) {
+
+            it.should("parse rules with a 'agenda-group'", function () {
+                var parsed3 = noolsParser.parse("rule 'test \"rule\"' { agenda-group: group1, when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                assert.deepEqual(parsed3, {
+                    define: [],
+                    rules: [
+                        {
+                            name: 'test "rule"',
+                            constraints: [
+                                ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
+                            ],
+                            action: "console.log($test);",
+                            options: {agendaGroup: "group1"}
+                        }
+                    ],
+                    "scope": []
+                });
+            });
+
+            it.should("parse rules with a 'agendaGroup'", function () {
+                var parsed3 = noolsParser.parse("rule 'test \"rule\"' { agendaGroup: group1, when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                assert.deepEqual(parsed3, {
+                    define: [],
+                    rules: [
+                        {
+                            name: 'test "rule"',
+                            constraints: [
+                                ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
+                            ],
+                            action: "console.log($test);",
+                            options: {agendaGroup: "group1"}
+                        }
+                    ],
+                    "scope": []
+                });
+            });
+
+            it.should("parse rules with a 'agenda-group' with names in '\"\'", function () {
+                var parsed3 = noolsParser.parse("rule 'test \"rule\"' { agendaGroup: \"group one\"; when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                assert.deepEqual(parsed3, {
+                    define: [],
+                    rules: [
+                        {
+                            name: 'test "rule"',
+                            constraints: [
+                                ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
+                            ],
+                            action: "console.log($test);",
+                            options: {agendaGroup: "group one"}
+                        }
+                    ],
+                    "scope": []
+                });
+            });
+
+
+            it.should("parse rules with a 'agenda-group' with names in \"'\"", function () {
+                var parsed3 = noolsParser.parse("rule 'test \"rule\"' { agenda-group: 'group one'; when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                assert.deepEqual(parsed3, {
+                    define: [],
+                    rules: [
+                        {
+                            name: 'test "rule"',
+                            constraints: [
+                                ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
+                            ],
+                            action: "console.log($test);",
+                            options: {agendaGroup: "group one"}
+                        }
+                    ],
+                    "scope": []
+                });
+            });
+        });
+
+        it.describe("rules with auto-focus/autoFocus", function (it) {
+
+            it.should("parse rules with a 'auto-focus' as true", function () {
+                var parsed3 = noolsParser.parse("rule 'test \"rule\"' { agenda-group: 'group one'; auto-focus: true; when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                assert.deepEqual(parsed3, {
+                    define: [],
+                    rules: [
+                        {
+                            name: 'test "rule"',
+                            constraints: [
+                                ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
+                            ],
+                            action: "console.log($test);",
+                            options: {agendaGroup: "group one", autoFocus: true}
+                        }
+                    ],
+                    "scope": []
+                });
+            });
+
+            it.should("parse rules with a 'auto-focus' as false", function () {
+                var parsed3 = noolsParser.parse("rule 'test \"rule\"' { agenda-group: 'group one'; auto-focus: false; when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                assert.deepEqual(parsed3, {
+                    define: [],
+                    rules: [
+                        {
+                            name: 'test "rule"',
+                            constraints: [
+                                ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
+                            ],
+                            action: "console.log($test);",
+                            options: {agendaGroup: "group one", autoFocus: false}
+                        }
+                    ],
+                    "scope": []
+                });
+            });
+
+            it.should("parse rules with a 'autoFocus' as true", function () {
+                var parsed3 = noolsParser.parse("rule 'test \"rule\"' { agendaGroup: 'group one'; autoFocus: true; when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                assert.deepEqual(parsed3, {
+                    define: [],
+                    rules: [
+                        {
+                            name: 'test "rule"',
+                            constraints: [
+                                ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
+                            ],
+                            action: "console.log($test);",
+                            options: {agendaGroup: "group one", autoFocus: true}
+                        }
+                    ],
+                    "scope": []
+                });
+            });
+
+            it.should("parse rules with a 'autoFocus' as false", function () {
+                var parsed3 = noolsParser.parse("rule 'test \"rule\"' { agendaGroup: 'group one'; autoFocus: false; when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                assert.deepEqual(parsed3, {
+                    define: [],
+                    rules: [
+                        {
+                            name: 'test "rule"',
+                            constraints: [
+                                ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
+                            ],
+                            action: "console.log($test);",
+                            options: {agendaGroup: "group one", autoFocus: false}
+                        }
+                    ],
+                    "scope": []
+                });
+            });
+
+            it.should("throw errors for values other than true or false", function () {
+                assert.throws(function () {
+                    noolsParser.parse("rule 'test \"rule\"' { agendaGroup: 'group one'; autoFocus: h; when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                });
+                assert.throws(function () {
+                    noolsParser.parse("rule 'test \"rule\"' { agendaGroup: 'group one'; autoFocus: 1; when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
+                });
+            });
+
+        });
+
         it.should("throw an error for invalid when clauses", function () {
             assert.throws(function () {
                 //missing colon
@@ -405,6 +655,6 @@ it.describe("nools dsl parser",function (it) {
         });
 
     });
-}).as(module);
+});
 
 
