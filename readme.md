@@ -23,8 +23,13 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
     * [Firing](#firing) 
     * [Disposing](#disposing)
     * [Removing A Flow](#removing-flow)
+    * [Agenda Group](#agenda-groups)
+      * [Focus](#agenda-groups-focus)
+      * [Auto Focus](#agenda-groups-auto-focus)
    * [Defining Rules](#defining-rule)
-      * [Structure](#rule-structure) 
+      * [Structure](#rule-structure)
+      * [Salience](#rule-salience)
+      * [Scope](#rule-scope)
       * [Constraints](#constraints)
       * [Actions](#action)
       * [Globals](#globals)
@@ -409,6 +414,262 @@ all facts, this will help prevent the process from growing a large memory footpr
 session.dispose();
 ```
 
+<a name="removing-flow"></a>
+# Removing a flow
+
+To remove a defined flow from `nools` use the `deleteFlow` function.
+
+```javascript
+var myFlow = nools.flow("flow");
+
+nools.deleteFlow("flow"); //returns nools for chaining
+
+nools.getFlow("flow"); //undefined
+
+```
+
+You may also remove a flow using the `FlowContainer` object returned from nools.flow;
+
+```javascript
+var myFlow = nools.flow("flow");
+
+nools.deleteFlow(myFlow); //returns nools for chaining
+
+nools.getFlow("flow"); //undefined
+```
+
+<a name="agenda-groups"></a>
+## Agenda Groups
+
+Agenda groups allow for logical groups of rules within a flow.
+
+The agenda manages a `stack` of `agenda-groups` that are currently in focus. The default `agenda-group` is called `main` and all rules that do not have an `agenda-group` specified are placed into the `main` `agenda-group`.
+
+As rules are fired when a particular `agenda-group` runs out of activations then that a `agenda-group` is popped from the internal `agenda-group` stack and the next one comes into focus. This continues until `focus` is explicitly called again or the `main` `agenda-group` comes into focus.
+
+**Note** Once an agenda group loses focus it must be re-added to the stack in order for those activations to be focused again.
+
+To add a rule to an agenda-group you can use the `agendaGroup` option.
+
+```javascript
+this.rule("Hello World", {agendaGroup: "ag1"}, [Message, "m", "m.name == 'hello'"], function (facts) {
+    this.modify(facts.m, function () {
+        this.name = "goodbye";
+    });
+});
+
+this.rule("Hello World2", {agendaGroup: "ag2"}, [Message, "m", "m.name == 'hello'"], function (facts) {
+    this.modify(facts.m, function () {
+        this.name = "goodbye";
+    });
+});
+```
+
+Or in the dsl
+
+```
+rule "Hello World" {
+    agenda-group: "ag1";
+    when{
+        m : Message m.name == 'hello';
+    }
+    then{
+        modify(m, function(){
+            this.name = "goodbye"
+        });
+    }
+}
+
+rule "Hello World 2" {
+    agenda-group: "ag2";
+    when{
+        m : Message m.name == 'hello';
+    }
+    then {
+        modify(m, function(){
+            this.name = "goodbye"
+        });
+    }
+}
+```
+
+In the above rules we have defined two agenda-groups called `ag1` and `ag2`
+
+<a name="agenda-groups-focus"></a>
+### Focus
+
+When running your rules and you want a particular agenda group to run you must call `focus` on the flow and specify the `agenda-group` to add to the stack.
+
+```
+//assuming a flow with the rules specified above.
+var fired = [];
+flow
+   .focus("ag1")
+   .on("fire", function(ruleName){
+      fired.push(ruleName); //[ 'Hello World' ]
+   })
+   .assert(new Message("hello"))
+   .match(function(){
+        console.log(fired);
+   });
+```
+
+Or you can add multiple focuses to the stack
+
+```javascript
+var fired = [], fired2 = [];
+flow
+    .getSession(new Message("hello"))
+    .focus("ag2")
+    .focus("ag1")
+    .on("fire", function (ruleName) {
+       fired.push(ruleName);
+    })
+    .match(function () {
+        console.log(fired); //[ 'Hello World', 'Hello World2' ]
+    });
+
+flow
+    .getSession(new Message("hello"))
+    .focus("ag1")
+    .focus("ag2")
+    .on("fire", function (ruleName) {
+       fired2.push(ruleName);
+    })
+    .match(function () {
+        console.log(fired2); //[ 'Hello World2', 'Hello World' ]
+    });
+```
+
+Notice above that the last `agenda-group` focused is added to the array first.
+
+<a name="agenda-groups-auto-focus"></a>
+### Auto Focus
+
+Sometimes you may want an `agenda-group` to `auto-focus` whenever a certain rule is activated.
+
+```
+this.rule("Bootstrap", [State, "a", "a.name == 'A' && a.state == 'NOT_RUN'"], function (facts) {
+    this.modify(facts.a, function () {
+        this.state = 'FINISHED';
+    });
+});
+
+this.rule("A to B",
+    [
+        [State, "a", "a.name == 'A' && a.state == 'FINISHED'"],
+        [State, "b", "b.name == 'B' && b.state == 'NOT_RUN'"]
+    ],
+    function (facts) {
+        this.modify(facts.b, function () {
+            this.state = "FINISHED";
+        });
+    });
+
+this.rule("B to C",
+    {agendaGroup: "B to C", autoFocus: true},
+    [
+        [State, "b", "b.name == 'B' && b.state == 'FINISHED'"],
+        [State, "c", "c.name == 'C' && c.state == 'NOT_RUN'"]
+    ],
+    function (facts) {
+        this.modify(facts.c, function () {
+            this.state = 'FINISHED';
+        });
+        this.focus("B to D");
+    });
+
+this.rule("B to D",
+    {agendaGroup: "B to D"},
+    [
+        [State, "b", "b.name == 'B' && b.state == 'FINISHED'"],
+        [State, "d", "d.name == 'D' && d.state == 'NOT_RUN'"]
+    ],
+    function (facts) {
+        this.modify(facts.d, function () {
+        this.state = 'FINISHED';
+    });
+});
+```
+
+Or using the dsl
+
+```
+rule Bootstrap {
+    when{
+        a : State a.name == 'A' && a.state == 'NOT_RUN';
+    }
+    then{
+        modify(a, function(){
+            this.state = 'FINISHED';
+        });
+    }
+}
+
+
+rule 'A to B' {
+    when{
+        a : State a.name == 'A' && a.state == 'FINISHED';
+        b : State b.name == 'B' && b.state == 'NOT_RUN';
+    }
+    then{
+        modify(b, function(){
+            this.state = 'FINISHED';
+        });
+    }
+}
+
+rule 'B to C' {
+    agenda-group: 'B to C';
+    auto-focus: true;
+    when{
+        b: State b.name == 'B' && b.state == 'FINISHED';
+        c : State c.name == 'C' && c.state == 'NOT_RUN';
+    }
+    then{
+        modify(c, function(){
+            this.state = 'FINISHED';
+        });
+        focus('B to D')
+    }
+}
+
+rule 'B to D' {
+    agenda-group: 'B to D';
+    when{
+        b: State b.name == 'B' && b.state == 'FINISHED';
+        d : State d.name == 'D' && d.state == 'NOT_RUN';
+    }
+    then{
+        modify(d, function(){
+            this.state = 'FINISHED';
+        });
+    }
+}
+```
+
+In the above rules we created a state machine that has a rule with `auto-focus` set to true.
+
+This allows you to not have to specify `focus` when running the flow.
+
+```javascript
+var fired = [];
+flow
+    .getSession(
+        new State("A", "NOT_RUN"),
+        new State("B", "NOT_RUN")),
+        new State("C", "NOT_RUN")),
+        new State("D", "NOT_RUN")
+    )
+    .on("fire", function (name) {
+        fired.push(name);
+    })
+    .match()
+    .then(function () {
+        console.log(fired); //["Bootstrap", "A to B", "B to C", "B to D"]
+    });
+```
+
 <a name="defining-rule"></a>
 # Defining rules
 
@@ -452,28 +713,123 @@ rule Calculate{
 }
 ```
 
-<a name="removing-flow"></a>
-# Removing a flow
+<a name="rule-salience"></a>
+### Salience
 
-To remove a defined flow from `nools` use the `deleteFlow` function.
+Salience is an option that can be specified on a rule giving it a priority and allowing the developer some control over conflict resolution of activations.
 
 ```javascript
-var myFlow = nools.flow("flow");
+this.rule("Hello4", {salience: 7}, [Message, "m", "m.name == 'Hello'"], function (facts) {
+});
 
-nools.deleteFlow("flow"); //returns nools for chaining
+this.rule("Hello3", {salience: 8}, [Message, "m", "m.name == 'Hello'"], function (facts) {
+});
 
-nools.getFlow("flow"); //undefined
+this.rule("Hello2", {salience: 9}, [Message, "m", "m.name == 'Hello'"], function (facts) {
+});
+
+this.rule("Hello1", {salience: 10}, [Message, "m", "m.name == 'Hello'"], function (facts) {
+});
+```
+
+In the above flow we define four rules each with a different salience, when a single message is asserted they will fire in order of salience (highest to lowest).
+
+```javascript
+var fired = [];
+flow1
+    .getSession(new Message("Hello"))
+    .on("fire", function (name) {
+        fired.push(name);
+    })
+    .match()
+    .then(function(){
+        console.log(fired); //["Hello1", "Hello2", "Hello3", "Hello4"]
+    });
+```
+
+
+
+<a name="rule-scope"></a>
+### Scope
+
+Scope allows you to access function from within your rules.
+
+If you are using vanilla JS you can use the `scope` option when defining your rule.
+
+```javascript
+
+this.rule("hello rule", {scope: {isEqualTo: isEqualTo}},
+   [
+      ["or",
+         [String, "s", "isEqualTo(s, 'hello')"],
+         [String, "s", "isEqualTo(s, 'world')"]
+      ],
+      [Count, "called", null]
+   ],
+   function (facts) {
+      facts.called.called++;
+   });
+
 
 ```
 
-You may also remove a flow using the `FlowContainer` object returned from nools.flow;
+If you are using the dsl.
+
+```
+function matches(str, regex){
+    return regex.test(str);
+}
+
+rule Hello {
+    when {
+        m : Message matches(m.message, /^hello(\\s*world)?$/);
+    }
+    then {
+        modify(m, function(){
+            this.message += " goodbye";
+        })
+    }
+}
+
+rule Goodbye {
+    when {
+        m : Message matches(m.message, /.*goodbye$/);
+    }
+    then {
+    }
+}
+```
+
+Or you can pass in a custom function using the scope option in compile.
+
+```
+rule Hello {
+    when {
+        m : Message doesMatch(m.message, /^hello(\\s*world)?$/);
+    }
+    then {
+        modify(m, function(){
+            this.message += " goodbye";
+        })
+    }
+}
+
+rule Goodbye {
+    when {
+        m : Message doesMatch(m.message, /.*goodbye$/);
+    }
+    then {
+    }
+}
+```
+
+Provided the `doesMatch` function in the scope option of compile.
 
 ```javascript
-var myFlow = nools.flow("flow");
-
-nools.deleteFlow(myFlow); //returns nools for chaining
-
-nools.getFlow("flow"); //undefined
+function matches(str, regex) {
+   return regex.test(str);
+};
+var flow = nools.compile(__dirname + "/rules/provided-scope.nools", {scope: {doesMatch: matches}});
 ```
 
 <a name="constraints"></a>

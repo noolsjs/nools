@@ -1,3 +1,13 @@
+#v0.1.4 / 2012-05-25
+
+* Added new agenda-group (#29)
+* More documentation
+  * Salience
+  * Agenda Groups
+  * Auto-focus
+  * Scope
+* Cleaned up agenda and made more modular
+
 #v0.1.3 / 2012-05-24
 
 * Fixed memory leak with FactHashes for the agendas

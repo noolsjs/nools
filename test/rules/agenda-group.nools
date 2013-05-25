@@ -1,0 +1,45 @@
+define Message{
+    constructor: function(name){
+        this.name = name;
+    }
+}
+
+rule "Hello World" {
+    agenda-group: "ag1";
+    when{
+        m : Message m.name == 'hello';
+    }
+    then{
+        modify(m, function(){
+            this.name = "goodbye"
+        });
+    }
+}
+
+rule "Hello World 2" {
+    agenda-group: "ag2";
+    when{
+        m : Message m.name == 'hello';
+    }
+    then {
+        modify(m, function(){
+            this.name = "goodbye"
+        });
+    }
+}
+
+rule "GoodBye"{
+    agenda-group: "ag1";
+    when {
+        m : Message m.name == 'goodbye';
+    }
+    then {}
+}
+
+rule "GoodBye 2" {
+    agenda-group: "ag2";
+    when {
+        m : Message m.name == 'goodbye';
+    }
+    then {}
+}
