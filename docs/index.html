@@ -193,10 +193,17 @@
 <li><a href="#firing">Firing</a> </li>
 <li><a href="#disposing">Disposing</a></li>
 <li><a href="#removing-flow">Removing A Flow</a></li>
+<li><a href="#agenda-groups">Agenda Group</a><ul>
+<li><a href="#agenda-groups-focus">Focus</a></li>
+<li><a href="#agenda-groups-auto-focus">Auto Focus</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a href="#defining-rule">Defining Rules</a><ul>
-<li><a href="#rule-structure">Structure</a> </li>
+<li><a href="#rule-structure">Structure</a></li>
+<li><a href="#rule-salience">Salience</a></li>
+<li><a href="#rule-scope">Scope</a></li>
 <li><a href="#constraints">Constraints</a></li>
 <li><a href="#action">Actions</a></li>
 <li><a href="#globals">Globals</a></li>
@@ -490,6 +497,214 @@ rule count {
 <p>When working with a lot of facts it is wise to call the <code>dispose</code> method which will purge the current session of
 all facts, this will help prevent the process from growing a large memory footprint.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">session.dispose();</code></pre>
+<p><a name="removing-flow"></a></p>
+<h1>Removing a flow</h1>
+<p>To remove a defined flow from <code>nools</code> use the <code>deleteFlow</code> function.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var myFlow = nools.flow(&quot;flow&quot;);
+
+nools.deleteFlow(&quot;flow&quot;); //returns nools for chaining
+
+nools.getFlow(&quot;flow&quot;); //undefined</code></pre>
+<p>You may also remove a flow using the <code>FlowContainer</code> object returned from nools.flow;</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var myFlow = nools.flow(&quot;flow&quot;);
+
+nools.deleteFlow(myFlow); //returns nools for chaining
+
+nools.getFlow(&quot;flow&quot;); //undefined</code></pre>
+<p><a name="agenda-groups"></a></p>
+<h2>Agenda Groups</h2>
+<p>Agenda groups allow for logical groups of rules within a flow.</p>
+<p>The agenda manages a <code>stack</code> of <code>agenda-groups</code> that are currently in focus. The default <code>agenda-group</code> is called <code>main</code> and all rules that do not have an <code>agenda-group</code> specified are placed into the <code>main</code> <code>agenda-group</code>.</p>
+<p>As rules are fired when a particular <code>agenda-group</code> runs out of activations then that a <code>agenda-group</code> is popped from the internal <code>agenda-group</code> stack and the next one comes into focus. This continues until <code>focus</code> is explicitly called again or the <code>main</code> <code>agenda-group</code> comes into focus.</p>
+<p><strong>Note</strong> Once an agenda group loses focus it must be re-added to the stack in order for those activations to be focused again.</p>
+<p>To add a rule to an agenda-group you can use the <code>agendaGroup</code> option.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">this.rule(&quot;Hello World&quot;, {agendaGroup: &quot;ag1&quot;}, [Message, &quot;m&quot;, &quot;m.name == &#39;hello&#39;&quot;], function (facts) {
+    this.modify(facts.m, function () {
+        this.name = &quot;goodbye&quot;;
+    });
+});
+
+this.rule(&quot;Hello World2&quot;, {agendaGroup: &quot;ag2&quot;}, [Message, &quot;m&quot;, &quot;m.name == &#39;hello&#39;&quot;], function (facts) {
+    this.modify(facts.m, function () {
+        this.name = &quot;goodbye&quot;;
+    });
+});</code></pre>
+<p>Or in the dsl</p>
+<pre class='prettyprint linenums lang-js'><code>rule &quot;Hello World&quot; {
+    agenda-group: &quot;ag1&quot;;
+    when{
+        m : Message m.name == &#39;hello&#39;;
+    }
+    then{
+        modify(m, function(){
+            this.name = &quot;goodbye&quot;
+        });
+    }
+}
+
+rule &quot;Hello World 2&quot; {
+    agenda-group: &quot;ag2&quot;;
+    when{
+        m : Message m.name == &#39;hello&#39;;
+    }
+    then {
+        modify(m, function(){
+            this.name = &quot;goodbye&quot;
+        });
+    }
+}</code></pre>
+<p>In the above rules we have defined two agenda-groups called <code>ag1</code> and <code>ag2</code></p>
+<p><a name="agenda-groups-focus"></a></p>
+<h3>Focus</h3>
+<p>When running your rules and you want a particular agenda group to run you must call <code>focus</code> on the flow and specify the <code>agenda-group</code> to add to the stack.</p>
+<pre class='prettyprint linenums lang-js'><code>//assuming a flow with the rules specified above.
+var fired = [];
+flow
+   .focus(&quot;ag1&quot;)
+   .on(&quot;fire&quot;, function(ruleName){
+      fired.push(ruleName); //[ &#39;Hello World&#39; ]
+   })
+   .assert(new Message(&quot;hello&quot;))
+   .match(function(){
+        console.log(fired);
+   });</code></pre>
+<p>Or you can add multiple focuses to the stack</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var fired = [], fired2 = [];
+flow
+    .getSession(new Message(&quot;hello&quot;))
+    .focus(&quot;ag2&quot;)
+    .focus(&quot;ag1&quot;)
+    .on(&quot;fire&quot;, function (ruleName) {
+       fired.push(ruleName);
+    })
+    .match(function () {
+        console.log(fired); //[ &#39;Hello World&#39;, &#39;Hello World2&#39; ]
+    });
+
+flow
+    .getSession(new Message(&quot;hello&quot;))
+    .focus(&quot;ag1&quot;)
+    .focus(&quot;ag2&quot;)
+    .on(&quot;fire&quot;, function (ruleName) {
+       fired2.push(ruleName);
+    })
+    .match(function () {
+        console.log(fired2); //[ &#39;Hello World2&#39;, &#39;Hello World&#39; ]
+    });</code></pre>
+<p>Notice above that the last <code>agenda-group</code> focused is added to the array first.</p>
+<p><a name="agenda-groups-auto-focus"></a></p>
+<h3>Auto Focus</h3>
+<p>Sometimes you may want an <code>agenda-group</code> to <code>auto-focus</code> whenever a certain rule is activated.</p>
+<pre class='prettyprint linenums lang-js'><code>this.rule(&quot;Bootstrap&quot;, [State, &quot;a&quot;, &quot;a.name == &#39;A&#39; &amp;&amp; a.state == &#39;NOT_RUN&#39;&quot;], function (facts) {
+    this.modify(facts.a, function () {
+        this.state = &#39;FINISHED&#39;;
+    });
+});
+
+this.rule(&quot;A to B&quot;,
+    [
+        [State, &quot;a&quot;, &quot;a.name == &#39;A&#39; &amp;&amp; a.state == &#39;FINISHED&#39;&quot;],
+        [State, &quot;b&quot;, &quot;b.name == &#39;B&#39; &amp;&amp; b.state == &#39;NOT_RUN&#39;&quot;]
+    ],
+    function (facts) {
+        this.modify(facts.b, function () {
+            this.state = &quot;FINISHED&quot;;
+        });
+    });
+
+this.rule(&quot;B to C&quot;,
+    {agendaGroup: &quot;B to C&quot;, autoFocus: true},
+    [
+        [State, &quot;b&quot;, &quot;b.name == &#39;B&#39; &amp;&amp; b.state == &#39;FINISHED&#39;&quot;],
+        [State, &quot;c&quot;, &quot;c.name == &#39;C&#39; &amp;&amp; c.state == &#39;NOT_RUN&#39;&quot;]
+    ],
+    function (facts) {
+        this.modify(facts.c, function () {
+            this.state = &#39;FINISHED&#39;;
+        });
+        this.focus(&quot;B to D&quot;);
+    });
+
+this.rule(&quot;B to D&quot;,
+    {agendaGroup: &quot;B to D&quot;},
+    [
+        [State, &quot;b&quot;, &quot;b.name == &#39;B&#39; &amp;&amp; b.state == &#39;FINISHED&#39;&quot;],
+        [State, &quot;d&quot;, &quot;d.name == &#39;D&#39; &amp;&amp; d.state == &#39;NOT_RUN&#39;&quot;]
+    ],
+    function (facts) {
+        this.modify(facts.d, function () {
+        this.state = &#39;FINISHED&#39;;
+    });
+});</code></pre>
+<p>Or using the dsl</p>
+<pre class='prettyprint linenums lang-js'><code>rule Bootstrap {
+    when{
+        a : State a.name == &#39;A&#39; &amp;&amp; a.state == &#39;NOT_RUN&#39;;
+    }
+    then{
+        modify(a, function(){
+            this.state = &#39;FINISHED&#39;;
+        });
+    }
+}
+
+
+rule &#39;A to B&#39; {
+    when{
+        a : State a.name == &#39;A&#39; &amp;&amp; a.state == &#39;FINISHED&#39;;
+        b : State b.name == &#39;B&#39; &amp;&amp; b.state == &#39;NOT_RUN&#39;;
+    }
+    then{
+        modify(b, function(){
+            this.state = &#39;FINISHED&#39;;
+        });
+    }
+}
+
+rule &#39;B to C&#39; {
+    agenda-group: &#39;B to C&#39;;
+    auto-focus: true;
+    when{
+        b: State b.name == &#39;B&#39; &amp;&amp; b.state == &#39;FINISHED&#39;;
+        c : State c.name == &#39;C&#39; &amp;&amp; c.state == &#39;NOT_RUN&#39;;
+    }
+    then{
+        modify(c, function(){
+            this.state = &#39;FINISHED&#39;;
+        });
+        focus(&#39;B to D&#39;)
+    }
+}
+
+rule &#39;B to D&#39; {
+    agenda-group: &#39;B to D&#39;;
+    when{
+        b: State b.name == &#39;B&#39; &amp;&amp; b.state == &#39;FINISHED&#39;;
+        d : State d.name == &#39;D&#39; &amp;&amp; d.state == &#39;NOT_RUN&#39;;
+    }
+    then{
+        modify(d, function(){
+            this.state = &#39;FINISHED&#39;;
+        });
+    }
+}</code></pre>
+<p>In the above rules we created a state machine that has a rule with <code>auto-focus</code> set to true.</p>
+<p>This allows you to not have to specify <code>focus</code> when running the flow.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var fired = [];
+flow
+    .getSession(
+        new State(&quot;A&quot;, &quot;NOT_RUN&quot;),
+        new State(&quot;B&quot;, &quot;NOT_RUN&quot;)),
+        new State(&quot;C&quot;, &quot;NOT_RUN&quot;)),
+        new State(&quot;D&quot;, &quot;NOT_RUN&quot;)
+    )
+    .on(&quot;fire&quot;, function (name) {
+        fired.push(name);
+    })
+    .match()
+    .then(function () {
+        console.log(fired); //[&quot;Bootstrap&quot;, &quot;A to B&quot;, &quot;B to C&quot;, &quot;B to D&quot;]
+    });</code></pre>
 <p><a name="defining-rule"></a></p>
 <h1>Defining rules</h1>
 <p><a name="rule structure"></a></p>
@@ -523,20 +738,94 @@ all facts, this will help prevent the process from growing a large memory footpr
        retract(f1);
     }
 }</code></pre>
-<p><a name="removing-flow"></a></p>
-<h1>Removing a flow</h1>
-<p>To remove a defined flow from <code>nools</code> use the <code>deleteFlow</code> function.</p>
-<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var myFlow = nools.flow(&quot;flow&quot;);
+<p><a name="rule-salience"></a></p>
+<h3>Salience</h3>
+<p>Salience is an option that can be specified on a rule giving it a priority and allowing the developer some control over conflict resolution of activations.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">this.rule(&quot;Hello4&quot;, {salience: 7}, [Message, &quot;m&quot;, &quot;m.name == &#39;Hello&#39;&quot;], function (facts) {
+});
 
-nools.deleteFlow(&quot;flow&quot;); //returns nools for chaining
+this.rule(&quot;Hello3&quot;, {salience: 8}, [Message, &quot;m&quot;, &quot;m.name == &#39;Hello&#39;&quot;], function (facts) {
+});
 
-nools.getFlow(&quot;flow&quot;); //undefined</code></pre>
-<p>You may also remove a flow using the <code>FlowContainer</code> object returned from nools.flow;</p>
-<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var myFlow = nools.flow(&quot;flow&quot;);
+this.rule(&quot;Hello2&quot;, {salience: 9}, [Message, &quot;m&quot;, &quot;m.name == &#39;Hello&#39;&quot;], function (facts) {
+});
 
-nools.deleteFlow(myFlow); //returns nools for chaining
+this.rule(&quot;Hello1&quot;, {salience: 10}, [Message, &quot;m&quot;, &quot;m.name == &#39;Hello&#39;&quot;], function (facts) {
+});</code></pre>
+<p>In the above flow we define four rules each with a different salience, when a single message is asserted they will fire in order of salience (highest to lowest).</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var fired = [];
+flow1
+    .getSession(new Message(&quot;Hello&quot;))
+    .on(&quot;fire&quot;, function (name) {
+        fired.push(name);
+    })
+    .match()
+    .then(function(){
+        console.log(fired); //[&quot;Hello1&quot;, &quot;Hello2&quot;, &quot;Hello3&quot;, &quot;Hello4&quot;]
+    });</code></pre>
+<p><a name="rule-scope"></a></p>
+<h3>Scope</h3>
+<p>Scope allows you to access function from within your rules.</p>
+<p>If you are using vanilla JS you can use the <code>scope</code> option when defining your rule.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">
+this.rule(&quot;hello rule&quot;, {scope: {isEqualTo: isEqualTo}},
+   [
+      [&quot;or&quot;,
+         [String, &quot;s&quot;, &quot;isEqualTo(s, &#39;hello&#39;)&quot;],
+         [String, &quot;s&quot;, &quot;isEqualTo(s, &#39;world&#39;)&quot;]
+      ],
+      [Count, &quot;called&quot;, null]
+   ],
+   function (facts) {
+      facts.called.called++;
+   });</code></pre>
+<p>If you are using the dsl.</p>
+<pre class='prettyprint linenums lang-js'><code>function matches(str, regex){
+    return regex.test(str);
+}
 
-nools.getFlow(&quot;flow&quot;); //undefined</code></pre>
+rule Hello {
+    when {
+        m : Message matches(m.message, /^hello(\\s*world)?$/);
+    }
+    then {
+        modify(m, function(){
+            this.message += &quot; goodbye&quot;;
+        })
+    }
+}
+
+rule Goodbye {
+    when {
+        m : Message matches(m.message, /.*goodbye$/);
+    }
+    then {
+    }
+}</code></pre>
+<p>Or you can pass in a custom function using the scope option in compile.</p>
+<pre class='prettyprint linenums lang-js'><code>rule Hello {
+    when {
+        m : Message doesMatch(m.message, /^hello(\\s*world)?$/);
+    }
+    then {
+        modify(m, function(){
+            this.message += &quot; goodbye&quot;;
+        })
+    }
+}
+
+rule Goodbye {
+    when {
+        m : Message doesMatch(m.message, /.*goodbye$/);
+    }
+    then {
+    }
+}</code></pre>
+<p>Provided the <code>doesMatch</code> function in the scope option of compile.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">function matches(str, regex) {
+   return regex.test(str);
+};
+var flow = nools.compile(__dirname + &quot;/rules/provided-scope.nools&quot;, {scope: {doesMatch: matches}});</code></pre>
 <p><a name="constraints"></a></p>
 <h3>Constraints</h3>
 <p>Constraints define what facts the rule should match. The constraint is a array of either a single constraint (i.e. Bootstrap rule) or an array of constraints(i.e. Calculate).</p>

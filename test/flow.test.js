@@ -42,7 +42,7 @@ it.describe("nools", function (it) {
     });
 });
 
-it.describe("Flow",function (it) {
+it.describe("Flow", function (it) {
 
     it.describe("#rule", function (it) {
         var called = 0;
@@ -88,6 +88,7 @@ it.describe("Flow",function (it) {
         });
 
     });
+
     it.describe("simple rule", function (it) {
 
         var called = 0;
@@ -367,6 +368,215 @@ it.describe("Flow",function (it) {
 
     });
 
+    it.describe("agenda-groups", function (it) {
+
+        function Message(name) {
+            this.name = name;
+        }
+
+        var flow = nools.flow("agendGroups", function () {
+                this.rule("Hello World", {agendaGroup: "ag1"}, [Message, "m", "m.name == 'hello'"], function (facts) {
+                    this.modify(facts.m, function () {
+                        this.name = "goodbye";
+                    });
+                });
+
+                this.rule("Hello World 2", {agendaGroup: "ag2"}, [Message, "m", "m.name == 'hello'"], function (facts) {
+                    this.modify(facts.m, function () {
+                        this.name = "goodbye";
+                    });
+                });
+
+                this.rule("GoodBye", {agendaGroup: "ag1"}, [Message, "m", "m.name == 'goodbye'"], function (facts) {
+                    //noop
+                });
+
+                this.rule("GoodBye 2", {agendaGroup: "ag2"}, [Message, "m", "m.name == 'goodbye'"], function (facts) {
+                    //noop
+                });
+            }),
+            session;
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("only fire events in focused group", function () {
+            var events = [];
+            session.assert(new Message("hello"));
+            session.focus("ag1");
+            session.on("fire", function (name) {
+                events.push(name);
+            });
+            return session.match()
+                .then(function () {
+                    assert.deepEqual(events, ["Hello World", "GoodBye"]);
+                    events = [];
+                    session = flow.getSession();
+                    session.assert(new Message("hello"));
+                    session.focus("ag2");
+                    session.on("fire", function (name) {
+                        events.push(name);
+                    });
+                    return session.match().then(function () {
+                        assert.deepEqual(events, ["Hello World 2", "GoodBye 2"]);
+                    });
+                });
+        });
+
+        it.should("should treat focus like a stack", function () {
+            var events = [];
+            session.assert(new Message("hello"));
+            session.focus("ag2");
+            session.focus("ag1");
+            session.on("fire", function (name) {
+                events.push(name);
+            });
+            return session.match()
+                .then(function () {
+                    assert.deepEqual(events, ["Hello World", "GoodBye", "GoodBye 2"]);
+                    events = [];
+                    session = flow.getSession();
+                    session.assert(new Message("hello"));
+                    session.focus("ag1");
+                    session.focus("ag2");
+                    session.on("fire", function (name) {
+                        events.push(name);
+                    });
+                    return session.match().then(function () {
+                        assert.deepEqual(events, ["Hello World 2", "GoodBye 2", "GoodBye"]);
+                    });
+                });
+        });
+    });
+
+    it.describe("auto-focus", function (it) {
+        /*jshint indent*/
+        function State(name, state) {
+            this.name = name;
+            this.state = state;
+        }
+
+        var flow = nools.flow("autoFocus", function () {
+
+                this.rule("Bootstrap", [State, "a", "a.name == 'A' && a.state == 'NOT_RUN'"], function (facts) {
+                    this.modify(facts.a, function () {
+                        this.state = 'FINISHED';
+                    });
+                });
+
+                this.rule("A to B",
+                    [
+                        [State, "a", "a.name == 'A' && a.state == 'FINISHED'"],
+                        [State, "b", "b.name == 'B' && b.state == 'NOT_RUN'"]
+                    ],
+                    function (facts) {
+                        this.modify(facts.b, function () {
+                            this.state = "FINISHED";
+                        });
+                    });
+
+                this.rule("B to C",
+                    {agendaGroup: "B to C", autoFocus: true},
+                    [
+                        [State, "b", "b.name == 'B' && b.state == 'FINISHED'"],
+                        [State, "c", "c.name == 'C' && c.state == 'NOT_RUN'"]
+                    ],
+                    function (facts) {
+                        this.modify(facts.c, function () {
+                            this.state = 'FINISHED';
+                        });
+                        this.focus("B to D");
+                    });
+
+                this.rule("B to D",
+                    {agendaGroup: "B to D"},
+                    [
+                        [State, "b", "b.name == 'B' && b.state == 'FINISHED'"],
+                        [State, "d", "d.name == 'D' && d.state == 'NOT_RUN'"]
+                    ],
+                    function (facts) {
+                        this.modify(facts.d, function () {
+                            this.state = 'FINISHED';
+                        });
+                    });
+            }),
+            session;
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("activate agenda groups in proper order", function () {
+            session.assert(new State("A", "NOT_RUN"));
+            session.assert(new State("B", "NOT_RUN"));
+            session.assert(new State("C", "NOT_RUN"));
+            session.assert(new State("D", "NOT_RUN"));
+            var fired = [];
+            session.on("fire", function (name) {
+                fired.push(name);
+            });
+            return session.match().then(function () {
+                assert.deepEqual(fired, ["Bootstrap", "A to B", "B to C", "B to D"]);
+            });
+        });
+    });
+
+    it.describe("salience", function (it) {
+        /*jshint indent*/
+        function Message(name) {
+            this.name = name;
+        }
+
+        var flow1 = nools.flow("salience1", function () {
+
+                this.rule("Hello4", {salience: 7}, [Message, "m", "m.name == 'Hello'"], function (facts) {
+                });
+
+                this.rule("Hello3", {salience: 8}, [Message, "m", "m.name == 'Hello'"], function (facts) {
+                });
+
+                this.rule("Hello2", {salience: 9}, [Message, "m", "m.name == 'Hello'"], function (facts) {
+                });
+
+                this.rule("Hello1", {salience: 10}, [Message, "m", "m.name == 'Hello'"], function (facts) {
+                });
+            }),
+            flow2 = nools.flow("salience2", function () {
+
+                this.rule("Hello4", {salience: 10}, [Message, "m", "m.name == 'Hello'"], function (facts) {
+                });
+
+                this.rule("Hello3", {salience: 9}, [Message, "m", "m.name == 'Hello'"], function (facts) {
+                });
+
+                this.rule("Hello2", {salience: 8}, [Message, "m", "m.name == 'Hello'"], function (facts) {
+                });
+
+                this.rule("Hello1", {salience: 7}, [Message, "m", "m.name == 'Hello'"], function (facts) {
+                });
+            });
+
+
+        it.should("activate in the proper order", function () {
+            var fired1 = [], fired2 = [];
+            var session1 = flow1.getSession(new Message("Hello")).on("fire", function (name) {
+                    fired1.push(name);
+                }),
+                session2 = flow2.getSession(new Message("Hello")).on("fire", function (name) {
+                    fired2.push(name);
+                });
+            return session1.match()
+                .then(function () {
+                    return session2.match();
+                })
+                .then(function () {
+                    assert.deepEqual(fired1, ["Hello1", "Hello2", "Hello3", "Hello4"]);
+                    assert.deepEqual(fired2, ["Hello4", "Hello3", "Hello2", "Hello1"]);
+                });
+        });
+    });
+
     it.describe("#matchUntilHalt", function (it) {
         function Message(m) {
             this.message = m;
@@ -501,7 +711,6 @@ it.describe("Flow",function (it) {
 
     });
 
-
     it.describe("diagnosis", function (it) {
 
         var Patient = declare({
@@ -609,7 +818,7 @@ it.describe("Flow",function (it) {
 
     });
 
-}).as(module);
+});
 
 
 
