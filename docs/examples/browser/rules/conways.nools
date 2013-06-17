@@ -1,0 +1,62 @@
+rule Populate {
+     agenda-group: 'populate'
+      when {
+            cells: Array;
+      }
+      then {
+            loop(cells, function(cell){
+                assert(cell);
+            });
+            emit("evaluate");
+            focus("evaluate");
+      }
+}
+
+rule KillTheLonely{
+    agenda-group: 'evaluate'
+    when {
+        c : Cell c.state == 'live' && c.numberOfLiveNeighbors() < 2;
+    }
+    then {
+        c.queueNextState("dead");
+    }
+}
+
+rule KillTheOverCrowded{
+    agenda-group: 'evaluate'
+    when {
+        c : Cell c.state == 'live' && c.numberOfLiveNeighbors() > 3;
+    }
+    then {
+        c.queueNextState("dead");
+    }
+}
+
+rule GiveBirth{
+    agenda-group: 'evaluate'
+    when {
+        c : Cell c.state == 'dead' && c.numberOfLiveNeighbors() == 3;
+    }
+    then {
+        c.queueNextState("live");
+    }
+}
+
+
+rule Transition {
+     when {
+         cells: Array;
+     }
+     then {
+        var transitioned = false;
+        loop(cells, function(cell){
+            if(cell.transition()){
+                emit("cell-transition", cell);
+                transitioned = true;
+            }
+            retract(cell);
+        });
+        modify(cells);
+        focus("populate");
+     }
+}

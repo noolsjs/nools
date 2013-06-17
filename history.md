@@ -1,3 +1,12 @@
+#v0.1.5 / 2012-06-17
+
+* More Examples
+* Changed nools compile to transpile to Javascript!
+* Better performance
+  * Simple Benchmark: Before ~600ms, Now ~350ms
+  * Manners Benchmark (32): Before ~10s, Now ~4sec
+  * WaltzDB: Before ~30sec, Now ~15sec
+
 #v0.1.4 / 2012-05-25
 
 * Added new agenda-group (#29)
