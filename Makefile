@@ -9,6 +9,9 @@ docs: docclean
 
 docclean :
 	rm -rf docs/*
+	mkdir -p ./docs/examples/browser
+	cp -r ./examples/browser/ ./docs/examples/browser
+	cp ./nools.min.js ./docs/nools.js
 
 benchmarks:
 	for file in $(BENCHMARKS) ; do \

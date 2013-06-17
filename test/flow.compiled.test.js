@@ -9,9 +9,8 @@ it.describe("Flow compiled",function (it) {
 
 
         var called, flow;
-        require("./rules/notRule-compiled");
         it.beforeAll(function () {
-            flow = nools.getFlow("notRule-compiled");
+            flow = require("./rules/notRule-compiled")();
             called = new (flow.getDefined("count"))();
         });
 
@@ -41,9 +40,8 @@ it.describe("Flow compiled",function (it) {
     it.describe("or rule", function (it) {
 
         var called, flow;
-        require("./rules/orRule-compiled");
         it.beforeAll(function () {
-            flow = nools.getFlow("orRule-compiled");
+            flow = require("./rules/orRule-compiled")();
             called = new (flow.getDefined("count"))();
         });
 
@@ -58,9 +56,8 @@ it.describe("Flow compiled",function (it) {
 
     it.describe("scoped functions", function (it) {
         var session, Message;
-        require("./rules/scope-compiled");
         it.beforeAll(function () {
-            var flow = nools.getFlow("scope-compiled");
+            var flow = require("./rules/scope-compiled")();
             Message = flow.getDefined("message");
             session = flow.getSession();
         });
@@ -80,9 +77,8 @@ it.describe("Flow compiled",function (it) {
         it.timeout(1000);
         var flow, Message, session;
 
-        require("./rules/simple-compiled");
         it.beforeAll(function () {
-            flow = nools.getFlow("simple-compiled");
+            flow = require("./rules/simple-compiled")();
             Message = flow.getDefined("Message");
 
         });
@@ -141,8 +137,7 @@ it.describe("Flow compiled",function (it) {
     });
 
     it.describe("agenda-groups", function (it) {
-        require("./rules/agenda-group-compiled");
-        var flow = nools.getFlow("agenda-group-compiled"),
+        var flow = require("./rules/agenda-group-compiled")(),
             Message = flow.getDefined("message"),
             session;
 
@@ -200,8 +195,7 @@ it.describe("Flow compiled",function (it) {
     });
 
     it.describe("auto-focus", function (it) {
-        require("./rules/auto-focus-compiled");
-        var flow = nools.getFlow("auto-focus-compiled"),
+        var flow = require("./rules/auto-focus-compiled")(),
             State = flow.getDefined("state"),
             session;
 
@@ -226,10 +220,9 @@ it.describe("Flow compiled",function (it) {
 
     it.describe("fibonacci nools dsl", function (it) {
 
-        require("./rules/fibonacci-compiled");
         var flow, Fibonacci, Result;
         it.beforeAll(function () {
-            flow = nools.getFlow("fibonacci-compiled");
+            flow = require("./rules/fibonacci-compiled")();
             Fibonacci = flow.getDefined("fibonacci");
             Result = flow.getDefined("result");
         });
@@ -271,9 +264,8 @@ it.describe("Flow compiled",function (it) {
 
         var flow, Patient;
 
-        require("./rules/diagnosis-compiled");
         it.beforeAll(function () {
-            flow = nools.getFlow("diagnosis-compiled");
+            flow = require("./rules/diagnosis-compiled")();
             Patient = flow.getDefined("patient");
         });
 

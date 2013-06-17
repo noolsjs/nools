@@ -1,0 +1,84 @@
+
+function loop(cells, cb){
+    var rows = cells.length, cols = cells[0].length, row, rowLength, col, colDepth;
+    for (var i = 0; i < rows; i++) {
+        row = cells[i];
+        rowLength = row.length;
+        for (var j = 0; j < rowLength; j++) {
+            col = row[j];
+            colDepth = col.length;
+            for(var k = 0; k < colDepth; k++){
+                cb(col[k], i, j, k, cells);
+            }
+        }
+    }
+}
+
+rule Populate {
+     agenda-group: 'populate'
+      when {
+            cells: Array;
+      }
+      then {
+            loop(cells, function(cell){
+                assert(cell);
+            });
+            focus("evaluate");
+      }
+}
+
+rule KillTheLonely{
+    agenda-group: 'evaluate'
+    when {
+        c : Cell c.state == 'live' && c.numberOfLiveNeighbors() < 2;
+    }
+    then {
+        c.queueNextState("dead");
+        retract(c);
+    }
+}
+
+rule KillTheOverCrowded{
+    agenda-group: 'evaluate'
+    when {
+        c : Cell c.state == 'live' && c.numberOfLiveNeighbors() > 3;
+    }
+    then {
+        c.queueNextState("dead");
+        retract(c);
+    }
+}
+
+rule GiveBirth{
+    agenda-group: 'evaluate'
+    when {
+        c : Cell c.state == 'dead' && c.numberOfLiveNeighbors() == 3;
+    }
+    then {
+        c.queueNextState("live");
+        retract(c);
+    }
+}
+
+
+rule Transition {
+     when {
+         cells: Array;
+     }
+     then {
+        var transitioned = false;
+        loop(cells, function(cell){
+            if(cell.transition()){
+                emit("cell-transition", cell);
+                transitioned = true;
+            }
+        });
+        emit("evaluate");
+        modify(cells);
+        if(transitioned){
+            focus("populate");
+        }else{
+            halt();
+        }
+     }
+}

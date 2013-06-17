@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conways</title>
+    <link type="text/css" rel="stylesheet" href="assets/conways.css">
+    <link type="text/css" rel="stylesheet" href="//code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css">
+    <link href='http://fonts.googleapis.com/css?family=Londrina+Shadow' rel='stylesheet' type='text/css'>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Conways Game Of Life 2D</h1>
+
+        <form>
+            <input type="submit" id="run" value="Run!"/>
+            <input type="button" id="stop" value="Stop"/>
+            <input type="button" id="clear" value="Clear"/>
+            <input type="button" id="edit" value="Edit Rules"/>
+            <select id="patterns"></select>
+        </form>
+    </header>
+    <div id="grid"></div>
+</div>
+
+<div id="editor-dialog">
+    <div id="editor"></div>
+</div>
+
+<script type="text/javascript" src="//code.jquery.com/jquery-1.10.1.min.js"></script>
+<script type="text/javascript" src="//code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/0.2.0/ace.js"></script>
+<script type="text/javascript" src="../../nools.js"></script>
+<script type="text/javascript" src="src/common.js"></script>
+<script type="text/javascript" src="src/patterns.js"></script>
+<script type="text/javascript" src="src/cell.js"></script>
+<script type="text/javascript" src="rules/conways.js"></script>
+<script type="text/javascript">
+
+    (function () {
+        var session, statsListener,
+                matchPromise = promise(), currPattern = patterns.hi;
+
+
+        var grid = $("#grid"), cells = [], rows = Math.floor((window.innerHeight - 100) / 25), cols = Math.floor(window.innerWidth / 20);
+
+        function setCellState(cell, isAlive) {
+            cell.state = isAlive ? "live" : "dead";
+            cell.el.removeClass(isAlive ? "dead" : "live").addClass(isAlive ? "live" : "dead");
+        }
+
+        function promise() {
+            return {
+                then: function (cb) {
+                    return cb() || this;
+                }
+            }
+        }
+
+        function createGrid() {
+            grid.empty();
+            cells = [];
+            for (var row = 0; row < rows; row++) {
+                cells[row] = [];
+                var rowDom = $("<div/>").addClass("row").appendTo(grid);
+                for (var col = 0; col < cols; col++) {
+                    var cell = cells[row][col] = new Cell(row, col);
+                    cell.el = $("<div class='col dead'></div>").appendTo(rowDom);
+                    setCellState(cell, false);
+                    if (row > 0) {
+                        cell.addNeighbor(cells[cell.row - 1][cell.col]);
+                        if (col < cols - 1) {
+                            cell.addNeighbor(cells[cell.row - 1][cell.col + 1]);
+                        }
+                        if (col > 0) {
+                            cell.addNeighbor(cells[cell.row - 1][cell.col - 1]);
+                        }
+                    }
+                    if (row >= 0 && col > 0) {
+                        cell.addNeighbor(cells[cell.row][cell.col - 1]);
+                    }
+                }
+            }
+        }
+
+        function applyPattern(pattern) {
+            return stop().then(function () {
+                pattern = pattern || currPattern(rows, cols)
+                if (cells.length) {
+                    var row;
+                    for (var i = 0; i < rows; i++) {
+                        row = pattern[i] || [];
+                        for (var j = 0; j < cols; j++) {
+                            setCellState(cells[i][j], row[j] || false);
+                        }
+                    }
+                }
+            });
+        }
+
+        function clear() {
+            return stop().then(function () {
+                applyPattern([]);
+            });
+        }
+
+        function run() {
+            createGrid();
+            applyPattern();
+            session = statsListener.listen(flow.getSession());
+            session.assert(cells);
+            session.focus("populate")
+                    .on("cell-transition", function (cell) {
+                        var isAlive = cell.state === "live";
+                        cell.el
+                                .removeClass(isAlive ? "dead" : "live")
+                                .addClass(isAlive ? "live" : "dead");
+                    });
+            return (matchPromise = session.matchUntilHalt()).then(function () {
+                session.dispose();
+            }, function (err) {
+                throw err;
+            });
+
+        }
+
+        function stop() {
+            if (session) {
+                session.dispose();
+                session.halt();
+                return matchPromise;
+            }
+            return promise();
+        }
+
+
+        $(document).ready(function () {
+            $.ajax({
+                url: "./rules/conways.nools"
+            }).then(function (res) {
+
+                        var flowStr = res;
+                        flow = nools.compile(res, {name: "conways2d", define: {Cell: Cell}, scope: { loop: loop}});
+
+                        statsListener = stats();
+                        //setup grid;
+                        createGrid();
+                        var $select = $("#patterns");
+                        $select.append($('<option/>', {
+                            value: i,
+                            text: i
+                        }));
+                        for (var i in patterns) {
+                            $select.append($('<option/>', {
+                                value: i,
+                                text: i
+                            }));
+                        }
+                        $select.on("change", function () {
+                            currPattern = patterns[$(this).val()];
+                            stop().then(function () {
+                                applyPattern();
+                            });
+                        });
+                        $select.val("random").trigger("change");
+
+                        $("form").on("submit", function () {
+                            run();
+                            return false;
+                        });
+
+                        $("#stop").on("click", function () {
+                            stop();
+                        });
+
+                        $("#clear").on("click", function () {
+                            clear();
+                        });
+
+                        $("#edit").on("click", function () {
+                            $("#editor-dialog").dialog("open");
+                            return false;
+                        });
+
+                        $("#editor-dialog").dialog({
+                            autoOpen: false,
+                            modal: true,
+                            width: window.innerWidth * 0.9,
+                            height: window.innerHeight * 0.9,
+                            open: function () {
+                                (editor = ace.edit("editor").getSession()).setValue(flowStr);
+                            },
+                            buttons: {
+                                "Save": function () {
+                                    $(this).dialog("close");
+                                    nools.deleteFlow("conways2d");
+                                    stop().then(run);
+                                    flow = nools.compile((flowStr = editor.getValue()), {name: "conways2d", define: {Cell: Cell}, scope: { loop: loop}});
+                                },
+                                Cancel: function () {
+                                    $(this).dialog("close");
+                                }
+                            }
+                        });
+
+                    });
+        });
+    }());
+</script>
+
+</body>
+</html>
