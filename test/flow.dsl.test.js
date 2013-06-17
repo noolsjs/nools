@@ -125,6 +125,8 @@ it.describe("Flow dsl", function (it) {
         var flow = nools.compile(__dirname + "/rules/global.nools"),
             session;
 
+        it.timeout(1000);
+
         it.beforeEach(function () {
             session = flow.getSession();
         });

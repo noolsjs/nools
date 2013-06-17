@@ -1,0 +1,3 @@
+/*! arguments-extended - v0.0.3 - 2013-06-06
+ * Copyright (c) 2013 Doug Martin; Licensed MIT */
+(function(){"use strict";function e(e,t){function n(e,t){var n=-1,r=0,d=e.length,i=[];for(t=t||0,n+=t;d>++n;)i[r++]=e[n];return i}var r=(Array.prototype.slice,t.isArguments);return e.define(r,{toArray:n}).expose({argsToArray:n})}"undefined"!=typeof exports?"undefined"!=typeof module&&module.exports&&(module.exports=e(require("extended"),require("is-extended"))):"function"==typeof define&&define.amd?define(["../../../","is-extended"],function(t,n){return e(t,n)}):this.argumentsExtended=e(this.extended,this.isExtended)}).call(this);

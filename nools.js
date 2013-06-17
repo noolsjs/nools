@@ -440,6 +440,7 @@ EventEmitter.prototype.listeners = function(type) {
  *
  * @projectName nools
  * @github https://github.com/C2FO/nools
+ * @includeDoc [Examples] ../docs-md/examples.md
  * @includeDoc [Change Log] ../History.md
  * @header [../readme.md]
  */
@@ -461,7 +462,6 @@ var extd = require("./extended"),
     wm = require("./workingMemory"),
     WorkingMemory = wm.WorkingMemory,
     InitialFact = require("./pattern").InitialFact,
-    Fact = wm.Fact,
     compile = require("./compile"),
     nextTick = require("./nextTick"),
     AgendaTree = require("./agenda");
@@ -505,7 +505,7 @@ var Flow = declare(EventEmitter, {
 
         assert: function (fact) {
             this.__wmAltered = true;
-            this.__factHelper(fact, true);
+            this.rootNode.assertFact(this.workingMemory.assertFact(fact));
             this.emit("assert", fact);
             return fact;
         },
@@ -514,7 +514,7 @@ var Flow = declare(EventEmitter, {
         retract: function (fact) {
             //fact = this.workingMemory.getFact(fact);
             this.__wmAltered = true;
-            this.__factHelper(fact, false);
+            this.rootNode.retractFact(this.workingMemory.retractFact(fact));
             this.emit("retract", fact);
             return fact;
         },
@@ -523,12 +523,14 @@ var Flow = declare(EventEmitter, {
         // retract followed by an assert.
         modify: function (fact, cb) {
             //fact = this.workingMemory.getFact(fact);
-            var f = this.retract(fact);
+            this.__wmAltered = true;
+            this.rootNode.retractFact(this.workingMemory.retractFact(fact));
             if ("function" === typeof cb) {
                 cb.call(fact, fact);
             }
             this.emit("modify", fact);
-            return this.assert(f);
+            this.rootNode.assertFact(this.workingMemory.assertFact(fact));
+            return fact;
         },
 
         print: function () {
@@ -548,7 +550,9 @@ var Flow = declare(EventEmitter, {
             if (rootNode) {
                 rootNode.resetCounter();
                 (function fire() {
-                    looper(ret, fire);
+                    nextTick(function () {
+                        looper(ret, fire);
+                    });
                 })();
             } else {
                 ret.callback();
@@ -559,61 +563,56 @@ var Flow = declare(EventEmitter, {
 
         __callNext: function () {
             var rootNode = this.rootNode;
-            return this.agenda.fireNext().addCallback(bind(this, function () {
+            var next = this.agenda.fireNext();
+            if (extd.isPromiseLike(next)) {
+                var self = this;
+                return next.addCallback(function () {
+                    if (self.__wmAltered) {
+                        rootNode.incrementCounter();
+                        self.__wmAltered = false;
+                    }
+                });
+            } else {
                 if (this.__wmAltered) {
                     rootNode.incrementCounter();
                     this.__wmAltered = false;
                 }
-            }));
+                return next;
+            }
         },
 
 
         matchUntilHalt: function (cb) {
             this.__halted = false;
-            return this.__loop(bind(this, function (ret, fire) {
-                if (!this.__halted) {
-                    this.__callNext().addCallback(fire).addErrback(ret.errback);
-                } else if (!this.__halted) {
-                    nextTick(fire);
+            var self = this;
+            return this.__loop(function (ret, fire) {
+                if (!self.__halted) {
+                    var next = self.__callNext();
+                    if (extd.isBoolean(next)) {
+                        fire();
+                    } else {
+                        next.addCallback(fire).addErrback(ret.errback);
+                    }
                 } else {
                     ret.callback();
                 }
-            }), cb);
+            }, cb);
         },
 
         match: function (cb) {
-            return this.__loop(bind(this, function (ret, fire) {
-                this.__callNext().addCallback(function (fired) {
-                    return fired ? fire() : ret.callback();
-                }).addErrback(ret.errback);
-            }), cb);
-        },
-
-        __factHelper: function (object, assert) {
-            var f = new Fact(object);
-            if (assert) {
-                f = this.__assertFact(f);
-            } else {
-                f = this.__retractFact(f);
-            }
-            return f;
-        },
-
-        __assertFact: function (fact) {
-            var wmFact = this.workingMemory.assertFact(fact);
-            if (wmFact) {
-                this.rootNode.assertFact(wmFact);
-            }
-            return wmFact;
-        },
-
-        __retractFact: function (fact) {
-            var wmFact = this.workingMemory.retractFact(fact);
-            if (wmFact && this.rootNode) {
-                this.rootNode.retractFact(wmFact);
-            }
-            return wmFact;
+            var self = this;
+            return this.__loop(function (ret, fire) {
+                var next = self.__callNext();
+                if (extd.isBoolean(next)) {
+                    next ? fire() : ret.callback();
+                } else {
+                    next.addCallback(function (fired) {
+                        return fired ? fire() : ret.callback();
+                    }).addErrback(ret.errback);
+                }
+            }, cb);
         }
+
     }
 });
 
@@ -727,13 +726,19 @@ nools.compile = function (file, options, cb) {
     return  compile.compile(file, options, cb, FlowContainer);
 };
 
+nools.transpile = function (file, options) {
+    options = options || {};
+    if (extd.isString(file)) {
+        options.name = options.name || (isNoolsFile(file) ? path.basename(file, path.extname(file)) : null);
+        file = parse(file);
+    }
+    return compile.transpile(file, options);
+};
+
 nools.parse = parse;
 
 module.exports = nools;
-
-
-
-},{"fs":4,"path":6,"events":7,"./extended":8,"./rule":9,"./workingMemory":10,"./pattern":11,"./compile":12,"./nextTick":13,"./agenda":14,"./nodes":15}],11:[function(require,module,exports){
+},{"fs":4,"path":6,"events":7,"./extended":8,"./workingMemory":9,"./rule":10,"./pattern":11,"./nextTick":12,"./agenda":13,"./nodes":14,"./compile":15}],11:[function(require,module,exports){
 (function () {
     "use strict";
     var extd = require("./extended"),
@@ -828,7 +833,7 @@ module.exports = nools;
 })();
 
 
-},{"./extended":8,"./constraintMatcher":16,"./constraint":17}],13:[function(require,module,exports){
+},{"./extended":8,"./constraint":16,"./constraintMatcher":17}],12:[function(require,module,exports){
 (function(process){/*global setImmediate, window, MessageChannel*/
 var extd = require("./extended");
 var nextTick;
@@ -867,13 +872,13 @@ if (typeof setImmediate === "function") {
 
 module.exports = nextTick;
 })(require("__browserify_process"))
-},{"./extended":8,"__browserify_process":5}],14:[function(require,module,exports){
+},{"./extended":8,"__browserify_process":5}],13:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
-    when = extd.when,
     indexOf = extd.indexOf,
     declare = extd.declare,
     AVLTree = extd.AVLTree,
+    LinkedList = extd.LinkedList,
     EventEmitter = require("events").EventEmitter;
 
 var sortAgenda = function (a, b) {
@@ -910,50 +915,57 @@ var sortAgenda = function (a, b) {
 var FactHash = declare({
     instance: {
         constructor: function () {
-            this.memory = [];
-            this.memoryValues = [];
+            this.memory = {};
+            this.memoryValues = new LinkedList();
         },
 
         clear: function () {
+            this.memoryValues.clear();
+            this.memory = {};
             this.memory.length = this.memoryValues.length = 0;
         },
 
         get: function (k) {
-            return this.memoryValues[indexOf(this.memory, k)];
+            var node = this.memory[k.id];
+            return node ? node.data : [];
         },
 
-        __compact: function () {
-            var oldM = this.memory.slice(0),
-                oldMv = this.memoryValues.slice(0),
-                l = oldMv.length,
-                m = this.memory = [],
-                mv = this.memoryValues = [],
-                oldMemoryValue;
-            for (var i = 0; i < l; i++) {
-                oldMemoryValue = oldMv[i];
-                if (oldMemoryValue.length !== 0) {
-                    mv[m.push(oldM[i]) - 1] = oldMemoryValue;
+
+        remove: function (v) {
+            var facts = v.match.facts,
+                l = facts.length,
+                mv = this.memoryValues,
+                m = this.memory,
+                i = -1,
+                arr, index, node, fId;
+            while (++i < l) {
+                fId = facts[i].id;
+                node = m[fId];
+                arr = node.data;
+                index = indexOf(arr, v);
+                arr.splice(index, 1);
+                if (arr.length === 0) {
+                    mv.remove(node);
+                    delete m[fId];
                 }
             }
         },
 
-        remove: function (v) {
-            var facts = v.match.facts, j = facts.length - 1, mv = this.memoryValues, m = this.memory;
-            for (; j >= 0; j--) {
-                var i = indexOf(m, facts[j]);
-                var arr = mv[i], index = indexOf(arr, v);
-                arr.splice(index, 1);
-            }
-            this.__compact();
-        },
-
         insert: function (insert) {
-            var facts = insert.match.facts, mv = this.memoryValues, m = this.memory;
-            var k = facts.length - 1;
-            for (; k >= 0; k--) {
-                var o = facts[k], i = indexOf(m, o), arr = mv[i];
-                if (!arr) {
-                    arr = mv[m.push(o) - 1] = [];
+            var facts = insert.match.facts,
+                mv = this.memoryValues,
+                m = this.memory,
+                l = facts.length,
+                i = -1,
+                node, o, arr, fId;
+            while (++i < l) {
+                o = facts[i];
+                fId = o.id;
+                node = m[o.id];
+                if (!node) {
+                    m[fId] = mv.push((arr = []));
+                } else {
+                    arr = node.data;
                 }
                 arr.push(insert);
             }
@@ -1023,20 +1035,25 @@ module.exports = declare(EventEmitter, {
         },
 
         fireNext: function () {
-            var agendaGroupStack = this.agendaGroupStack;
+            var agendaGroupStack = this.agendaGroupStack, ret = false;
             while (this.getFocusedAgenda().isEmpty() && this.getFocused() !== DEFAULT_AGENDA_GROUP) {
                 agendaGroupStack.pop();
             }
             if (!this.getFocusedAgenda().isEmpty()) {
                 var activation = this.pop();
                 this.emit("fire", activation.rule.name, activation.match.factHash);
-                return when(activation.rule.fire(this.flow, activation.match)).then(function () {
-                    //return true if an activation fired
-                    return true;
-                });
+                var fired = activation.rule.fire(this.flow, activation.match);
+                if (extd.isPromiseLike(fired)) {
+                    ret = fired.then(function () {
+                        //return true if an activation fired
+                        return true;
+                    });
+                } else {
+                    ret = true;
+                }
             }
             //return false if activation not fired
-            return extd.resolve(false);
+            return ret;
         },
 
         pop: function () {
@@ -1056,9 +1073,9 @@ module.exports = declare(EventEmitter, {
             var rule = this.rules[node.name], tree = rule.tree, factTable = rule.factTable;
             var ma = this.getAgendaGroup(node.rule.agendaGroup);
             var remove = factTable.get(fact) || [];
-            var i = remove.length - 1;
-            for (; i >= 0; i--) {
-                var r = remove[i];
+            var i = remove.length, r;
+            while (--i > -1) {
+                r = remove[i];
                 factTable.remove(r);
                 tree.remove(r);
                 ma.remove(r);
@@ -1108,7 +1125,7 @@ module.exports = declare(EventEmitter, {
     }
 
 });
-},{"events":7,"./extended":8}],9:[function(require,module,exports){
+},{"events":7,"./extended":8}],10:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     isArray = extd.isArray,
@@ -1221,7 +1238,7 @@ var Rule = declare({
                 if (cb.length === 3) {
                     cb.call(flow, match.factHash, flow, ret.classic);
                 } else {
-                    return cb.call(flow, match.factHash, flow);
+                    ret = cb.call(flow, match.factHash, flow);
                 }
             } catch (e) {
                 ret.errback(e);
@@ -1295,7 +1312,226 @@ exports.createRule = createRule;
 
 
 
-},{"./extended":8,"./pattern":11,"./parser":18}],19:[function(require,module,exports){
+},{"./extended":8,"./pattern":11,"./parser":18}],14:[function(require,module,exports){
+"use strict";
+var extd = require("../extended"),
+    forEach = extd.forEach,
+    some = extd.some,
+    declare = extd.declare,
+    pattern = require("../pattern.js"),
+    ObjectPattern = pattern.ObjectPattern,
+    NotPattern = pattern.NotPattern,
+    CompositePattern = pattern.CompositePattern,
+    InitialFactPattern = pattern.InitialFactPattern,
+    constraints = require("../constraint"),
+    HashConstraint = constraints.HashConstraint,
+    ReferenceConstraint = constraints.ReferenceConstraint,
+    AliasNode = require("./aliasNode"),
+    EqualityNode = require("./equalityNode"),
+    JoinNode = require("./joinNode"),
+    NotNode = require("./notNode"),
+    LeftAdapterNode = require("./leftAdapterNode"),
+    RightAdapterNode = require("./rightAdapterNode"),
+    TypeNode = require("./typeNode"),
+    TerminalNode = require("./terminalNode"),
+    PropertyNode = require("./propertyNode");
+
+declare({
+    instance: {
+        constructor: function (wm, agendaTree) {
+            this.terminalNodes = [];
+            this.joinNodes = [];
+            this.nodes = [];
+            this.constraints = [];
+            this.typeNodes = [];
+            this.__ruleCount = 0;
+            this.bucket = {
+                counter: 0,
+                recency: 0
+            };
+            this.agendaTree = agendaTree;
+        },
+
+        assertRule: function (rule) {
+            var terminalNode = new TerminalNode(this.bucket, this.__ruleCount++, rule, this.agendaTree);
+            this.__addToNetwork(rule, rule.pattern, terminalNode);
+            this.__mergeJoinNodes();
+            this.terminalNodes.push(terminalNode);
+        },
+
+        resetCounter: function () {
+            this.bucket.counter = 0;
+        },
+
+        incrementCounter: function () {
+            this.bucket.counter++;
+        },
+
+        assertFact: function (fact) {
+            var typeNodes = this.typeNodes, i = typeNodes.length - 1;
+            for (; i >= 0; i--) {
+                typeNodes[i].assert(fact);
+            }
+        },
+
+        retractFact: function (fact) {
+            var typeNodes = this.typeNodes, i = typeNodes.length - 1;
+            for (; i >= 0; i--) {
+                typeNodes[i].retract(fact);
+            }
+        },
+
+
+        containsRule: function (name) {
+            return some(this.terminalNodes, function (n) {
+                return n.rule.name === name;
+            });
+        },
+
+        dispose: function () {
+            var typeNodes = this.typeNodes, i = typeNodes.length - 1;
+            for (; i >= 0; i--) {
+                typeNodes[i].dispose();
+            }
+        },
+
+        __mergeJoinNodes: function () {
+            var joinNodes = this.joinNodes;
+            for (var i = 0; i < joinNodes.length; i++) {
+                var j1 = joinNodes[i], j2 = joinNodes[i + 1];
+                if (j1 && j2 && j1.constraint.equal(j2.constraint)) {
+                    j1.merge(j2);
+                    joinNodes.splice(i + 1, 1);
+                }
+            }
+        },
+
+        __checkEqual: function (node) {
+            var constraints = this.constraints, i = constraints.length - 1;
+            for (; i >= 0; i--) {
+                var n = constraints[i];
+                if (node.equal(n)) {
+                    return  n;
+                }
+            }
+            constraints.push(node);
+            return node;
+        },
+
+        __createTypeNode: function (rule, pattern) {
+            var ret = new TypeNode(pattern.get("constraints")[0]);
+            var constraints = this.typeNodes, i = constraints.length - 1;
+            for (; i >= 0; i--) {
+                var n = constraints[i];
+                if (ret.equal(n)) {
+                    return  n;
+                }
+            }
+            constraints.push(ret);
+            return ret;
+        },
+
+        __createEqualityNode: function (rule, constraint) {
+            return this.__checkEqual(new EqualityNode(constraint)).addRule(rule);
+        },
+
+        __createPropertyNode: function (rule, constraint) {
+            return this.__checkEqual(new PropertyNode(constraint)).addRule(rule);
+        },
+
+        __createAliasNode: function (rule, pattern) {
+            return this.__checkEqual(new AliasNode(pattern)).addRule(rule);
+        },
+
+        __createAdapterNode: function (rule, side) {
+            return (side === "left" ? new LeftAdapterNode() : new RightAdapterNode()).addRule(rule);
+        },
+
+        __createJoinNode: function (rule, pattern, outNode, side) {
+            var joinNode;
+            if (pattern.rightPattern instanceof NotPattern) {
+                joinNode = new NotNode();
+            } else {
+                joinNode = new JoinNode();
+                this.joinNodes.push(joinNode);
+            }
+            var parentNode = joinNode;
+            if (outNode instanceof JoinNode) {
+                var adapterNode = this.__createAdapterNode(rule, side);
+                parentNode.addOutNode(adapterNode, pattern);
+                parentNode = adapterNode;
+            }
+            parentNode.addOutNode(outNode, pattern);
+            return joinNode.addRule(rule);
+        },
+
+        __addToNetwork: function (rule, pattern, outNode, side) {
+            if (pattern instanceof ObjectPattern) {
+                if (pattern instanceof NotPattern && (!side || side === "left")) {
+                    return this.__createBetaNode(rule, new CompositePattern(new InitialFactPattern(), pattern), outNode, side);
+                }
+                this.__createAlphaNode(rule, pattern, outNode, side);
+            } else if (pattern instanceof CompositePattern) {
+                this.__createBetaNode(rule, pattern, outNode, side);
+            }
+        },
+
+        __createBetaNode: function (rule, pattern, outNode, side) {
+            var joinNode = this.__createJoinNode(rule, pattern, outNode, side);
+            this.__addToNetwork(rule, pattern.rightPattern, joinNode, "right");
+            this.__addToNetwork(rule, pattern.leftPattern, joinNode, "left");
+            outNode.addParentNode(joinNode);
+            return joinNode;
+        },
+
+
+        __createAlphaNode: function (rule, pattern, outNode, side) {
+            var constraints = pattern.get("constraints");
+            var typeNode = this.__createTypeNode(rule, pattern);
+            var aliasNode = this.__createAliasNode(rule, pattern);
+            typeNode.addOutNode(aliasNode, pattern);
+            aliasNode.addParentNode(typeNode);
+            var parentNode = aliasNode;
+            var i = constraints.length - 1;
+            for (; i > 0; i--) {
+                var constraint = constraints[i], node;
+                if (constraint instanceof HashConstraint) {
+                    node = this.__createPropertyNode(rule, constraint);
+                } else if (constraint instanceof ReferenceConstraint) {
+                    outNode.constraint.addConstraint(constraint);
+                    continue;
+                } else {
+                    node = this.__createEqualityNode(rule, constraint);
+                }
+                parentNode.addOutNode(node, pattern);
+                node.addParentNode(parentNode);
+                parentNode = node;
+            }
+            if (outNode instanceof JoinNode) {
+                var adapterNode = this.__createAdapterNode(rule, side);
+                adapterNode.addParentNode(parentNode);
+                parentNode.addOutNode(adapterNode, pattern);
+                parentNode = adapterNode;
+            }
+            outNode.addParentNode(parentNode);
+            parentNode.addOutNode(outNode, pattern);
+            return typeNode;
+        },
+
+        print: function () {
+            forEach(this.terminalNodes, function (t) {
+                t.print("    ");
+            });
+        }
+    }
+}).as(exports, "RootNode");
+
+
+
+
+
+
+},{"../pattern.js":11,"../extended":8,"../constraint":16,"./aliasNode":19,"./equalityNode":20,"./joinNode":21,"./notNode":22,"./leftAdapterNode":23,"./rightAdapterNode":24,"./typeNode":25,"./terminalNode":26,"./propertyNode":27}],28:[function(require,module,exports){
 require=(function(e,t,n,r){function i(r){if(!n[r]){if(!t[r]){if(e)return e(r);throw new Error("Cannot find module '"+r+"'")}var s=n[r]={exports:{}};t[r][0](function(e){var n=t[r][1][e];return i(n?n:e)},s,s.exports)}return n[r].exports}for(var s=0;s<r.length;s++)i(r[s]);return i})(typeof require!=="undefined"&&require,{1:[function(require,module,exports){
 exports.readIEEE754 = function(buffer, offset, isBE, mLen, nBytes) {
   var e, m,
@@ -5160,468 +5396,454 @@ SlowBuffer.prototype.writeDoubleBE = Buffer.prototype.writeDoubleBE;
 },{}]},{},[])
 ;;module.exports=require("buffer-browserify")
 
-},{}],12:[function(require,module,exports){
-(function(Buffer){(function () {
-    /*jshint evil:true*/
-    "use strict";
-    var extd = require("./extended"),
-        parser = require("./parser"),
-        constraintMatcher = require("./constraintMatcher.js"),
-        indexOf = extd.indexOf,
-        forEach = extd.forEach,
-        map = extd.map,
-        removeDuplicates = extd.removeDuplicates,
-        obj = extd.hash,
-        keys = obj.keys,
-        merge = extd.merge,
-        isString = extd.isString,
-        bind = extd.bind,
-        rules = require("./rule");
-
-    var modifiers = ["assert", "modify", "retract", "emit", "halt", "focus"];
-
-    /**
-     * @private
-     * Parses an action from a rule definition
-     * @param {String} action the body of the action to execute
-     * @param {Array} identifiers array of identifiers collected
-     * @param {Object} defined an object of defined
-     * @param scope
-     * @return {Object}
-     */
-    var parseAction = function (action, identifiers, defined, scope) {
-        var declares = [];
-        forEach(identifiers, function (i) {
-            if (action.indexOf(i) !== -1) {
-                declares.push("var " + i + "= facts." + i + ";");
-            }
-        });
-        forEach(modifiers, function (i) {
-            if (action.indexOf(i) !== -1) {
-                declares.push("var " + i + "= bind(flow, flow." + i + ");");
-            }
-        });
-        extd(defined).keys().forEach(function (i) {
-            if (action.indexOf(i) !== -1) {
-                declares.push("var " + i + "= defined." + i + ";");
-            }
-        });
-
-        extd(scope).keys().forEach(function (i) {
-            if (action.indexOf(i) !== -1) {
-                declares.push("var " + i + "= scope." + i + ";");
-            }
-        });
-        var params = ["facts", 'flow'];
-        if (/next\(.*\)/.test(action)) {
-            params.push("next");
-        }
-        action = "with(this){" + declares.join("") + action + "}";
-        try {
-            return bind({defined: defined, scope: scope, bind: bind}, new Function(params.join(","), action));
-        } catch (e) {
-            throw new Error("Invalid action : " + action + "\n" + e.message);
-        }
-    };
-
-    var createRuleFromObject = (function () {
-        var __resolveRule = function (rule, identifiers, conditions, defined, name) {
-            var condition = [], definedClass = rule[0], alias = rule[1], constraint = rule[2], refs = rule[3];
-            if (extd.isHash(constraint)) {
-                refs = constraint;
-                constraint = null;
-            }
-            if (definedClass && !!(definedClass = defined[definedClass])) {
-                condition.push(definedClass);
-            } else {
-                throw new Error("Invalid class " + rule[0] + " for rule " + name);
-            }
-            condition.push(alias, constraint, refs);
-            conditions.push(condition);
-            identifiers.push(alias);
-            if (constraint) {
-                forEach(constraintMatcher.getIdentifiers(parser.parseConstraint(constraint)), function (i) {
-                    identifiers.push(i);
-                });
-            }
-            if (extd.isObject(refs)) {
-                for (var j in refs) {
-                    var ident = refs[j];
-                    if (indexOf(identifiers, ident) === -1) {
-                        identifiers.push(ident);
-                    }
-                }
-            }
-
-        };
-        return function (obj, defined, scope) {
-            var name = obj.name;
-            if (extd.isEmpty(obj)) {
-                throw new Error("Rule is empty");
-            }
-            var options = obj.options || {};
-            options.scope = scope;
-            var constraints = obj.constraints || [], l = constraints.length;
-            if (!l) {
-                constraints = ["true"];
-            }
-            var action = obj.action;
-            if (extd.isUndefined(action)) {
-                throw new Error("No action was defined for rule " + name);
-            }
-            var conditions = [], identifiers = [];
-            extd(constraints).forEach(function (rule) {
-
-                if (rule.length) {
-                    var r0 = rule[0];
-                    if (r0 === "not") {
-                        var temp = [];
-                        rule.shift();
-                        __resolveRule(rule, identifiers, temp, defined, name);
-                        var cond = temp[0];
-                        cond.unshift(r0);
-                        conditions.push(cond);
-                    } else if (r0 === "or") {
-                        var conds = [r0];
-                        rule.shift();
-                        forEach(rule, function (cond) {
-                            __resolveRule(cond, identifiers, conds, defined, name);
-                        });
-                        conditions.push(conds);
-                    } else {
-                        __resolveRule(rule, identifiers, conditions, defined, name);
-                        identifiers = removeDuplicates(identifiers);
-                    }
-                }
-
-            });
-            return rules.createRule(name, options, conditions, parseAction(action, identifiers, defined, scope));
-        };
-    })();
-
-    var createFunction = function (body, defined, scope, scopeNames, definedNames) {
-        var declares = [];
-        forEach(definedNames, function (i) {
-            if (body.indexOf(i) !== -1) {
-                declares.push("var " + i + "= defined." + i + ";");
-            }
-        });
-
-        forEach(scopeNames, function (i) {
-            if (body.indexOf(i) !== -1) {
-                declares.push("var " + i + "= scope." + i + ";");
-            }
-        });
-        body = ["((function(){", declares.join(""), "\n\treturn ", body, "\n})())"].join("");
-        try {
-            return eval(body);
-        } catch (e) {
-            throw new Error("Invalid action : " + body + "\n" + e.message);
-        }
-    };
-
-    var createDefined = (function () {
-
-        var _createDefined = function (options) {
-            options = isString(options) ? new Function("return " + options + ";")() : options;
-            var ret = options.hasOwnProperty("constructor") && "function" === typeof options.constructor ? options.constructor : function (opts) {
-                opts = opts || {};
-                for (var i in opts) {
-                    if (i in options) {
-                        this[i] = opts[i];
-                    }
-                }
-            };
-            var proto = ret.prototype;
-            for (var i in options) {
-                proto[i] = options[i];
-            }
-            return ret;
-
-        };
-
-        return function (options) {
-            return _createDefined(options.properties);
-        };
-    })();
-
-    exports.parse = function (src) {
-        //parse flow from file
-        return parser.parseRuleSet(src);
-
-    };
-
-    exports.compile = function (flowObj, options, cb, Container) {
-        if (extd.isFunction(options)) {
-            cb = options;
-            options = {};
-        } else {
-            options = options || {};
-            cb = null;
-        }
-        var name = flowObj.name || options.name;
-        //if !name throw an error
-        if (!name) {
-            throw new Error("Name must be present in JSON or options");
-        }
-        var flow = new Container(name);
-        var defined = merge({Array: Array, String: String, Number: Number, Boolean: Boolean, RegExp: RegExp, Date: Date, Object: Object}, options.define || {});
-        if (typeof Buffer !== "undefined") {
-            defined.Buffer = Buffer;
-        }
-        var scope = merge({console: console}, options.scope);
-        //add any defined classes in the parsed flowObj to defined
-        forEach(flowObj.define, function (d) {
-            defined[d.name] = createDefined(d);
-        });
-
-        //expose any defined classes to the flow.
-        extd(defined).forEach(function (cls, name) {
-            flow.addDefined(name, cls);
-        });
-
-        var scopeNames = extd(flowObj.scope).pluck("name").union(extd(scope).keys()).value();
-        var definedNames = map(keys(defined), function (s) {
-            return s;
-        });
-        forEach(flowObj.scope, function (s) {
-            scope[s.name] = createFunction(s.body, defined, scope, scopeNames, definedNames);
-        });
-        var rules = flowObj.rules;
-        if (rules.length) {
-            forEach(rules, function (rule) {
-                flow.__rules = flow.__rules.concat(createRuleFromObject(rule, defined, scope));
-            });
-        }
-        if (cb) {
-            cb.call(flow, flow);
-        }
-        return flow;
-    };
-
-
-})();
-})(require("__browserify_buffer").Buffer)
-},{"./constraintMatcher.js":16,"./extended":8,"./rule":9,"./parser":18,"__browserify_buffer":19}],15:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
+(function(Buffer){/*jshint evil:true*/
 "use strict";
 var extd = require("../extended"),
+    parser = require("../parser"),
+    constraintMatcher = require("../constraintMatcher.js"),
+    indexOf = extd.indexOf,
     forEach = extd.forEach,
-    some = extd.some,
-    declare = extd.declare,
-    pattern = require("../pattern.js"),
-    ObjectPattern = pattern.ObjectPattern,
-    NotPattern = pattern.NotPattern,
-    CompositePattern = pattern.CompositePattern,
-    InitialFactPattern = pattern.InitialFactPattern,
-    constraints = require("../constraint"),
-    HashConstraint = constraints.HashConstraint,
-    ReferenceConstraint = constraints.ReferenceConstraint,
-    AliasNode = require("./aliasNode"),
-    EqualityNode = require("./equalityNode"),
-    JoinNode = require("./joinNode"),
-    NotNode = require("./notNode"),
-    LeftAdapterNode = require("./leftAdapterNode"),
-    RightAdapterNode = require("./rightAdapterNode"),
-    TypeNode = require("./typeNode"),
-    TerminalNode = require("./terminalNode"),
-    PropertyNode = require("./propertyNode");
+    removeDuplicates = extd.removeDuplicates,
+    map = extd.map,
+    obj = extd.hash,
+    keys = obj.keys,
+    merge = extd.merge,
+    rules = require("../rule"),
+    common = require("./common"),
+    createDefined = common.createDefined,
+    createFunction = common.createFunction;
+
+
+/**
+ * @private
+ * Parses an action from a rule definition
+ * @param {String} action the body of the action to execute
+ * @param {Array} identifiers array of identifiers collected
+ * @param {Object} defined an object of defined
+ * @param scope
+ * @return {Object}
+ */
+var parseAction = function (action, identifiers, defined, scope) {
+    var declares = [];
+    forEach(identifiers, function (i) {
+        if (action.indexOf(i) !== -1) {
+            declares.push("var " + i + "= facts." + i + ";");
+        }
+    });
+    extd(defined).keys().forEach(function (i) {
+        if (action.indexOf(i) !== -1) {
+            declares.push("var " + i + "= defined." + i + ";");
+        }
+    });
+
+    extd(scope).keys().forEach(function (i) {
+        if (action.indexOf(i) !== -1) {
+            declares.push("var " + i + "= scope." + i + ";");
+        }
+    });
+    var params = ["facts", 'flow'];
+    if (/next\(.*\)/.test(action)) {
+        params.push("next");
+    }
+    action = "with(flow){" + declares.join("") + action + "}";
+    try {
+        return new Function("defined, scope", "return " + new Function(params.join(","), action).toString())(defined, scope);
+    } catch (e) {
+        throw new Error("Invalid action : " + action + "\n" + e.message);
+    }
+};
+
+var createRuleFromObject = (function () {
+    var __resolveRule = function (rule, identifiers, conditions, defined, name) {
+        var condition = [], definedClass = rule[0], alias = rule[1], constraint = rule[2], refs = rule[3];
+        if (extd.isHash(constraint)) {
+            refs = constraint;
+            constraint = null;
+        }
+        if (definedClass && !!(definedClass = defined[definedClass])) {
+            condition.push(definedClass);
+        } else {
+            throw new Error("Invalid class " + rule[0] + " for rule " + name);
+        }
+        condition.push(alias, constraint, refs);
+        conditions.push(condition);
+        identifiers.push(alias);
+        if (constraint) {
+            forEach(constraintMatcher.getIdentifiers(parser.parseConstraint(constraint)), function (i) {
+                identifiers.push(i);
+            });
+        }
+        if (extd.isObject(refs)) {
+            for (var j in refs) {
+                var ident = refs[j];
+                if (indexOf(identifiers, ident) === -1) {
+                    identifiers.push(ident);
+                }
+            }
+        }
+
+    };
+    return function (obj, defined, scope) {
+        var name = obj.name;
+        if (extd.isEmpty(obj)) {
+            throw new Error("Rule is empty");
+        }
+        var options = obj.options || {};
+        options.scope = scope;
+        var constraints = obj.constraints || [], l = constraints.length;
+        if (!l) {
+            constraints = ["true"];
+        }
+        var action = obj.action;
+        if (extd.isUndefined(action)) {
+            throw new Error("No action was defined for rule " + name);
+        }
+        var conditions = [], identifiers = [];
+        extd(constraints).forEach(function (rule) {
+
+            if (rule.length) {
+                var r0 = rule[0];
+                if (r0 === "not") {
+                    var temp = [];
+                    rule.shift();
+                    __resolveRule(rule, identifiers, temp, defined, name);
+                    var cond = temp[0];
+                    cond.unshift(r0);
+                    conditions.push(cond);
+                } else if (r0 === "or") {
+                    var conds = [r0];
+                    rule.shift();
+                    forEach(rule, function (cond) {
+                        __resolveRule(cond, identifiers, conds, defined, name);
+                    });
+                    conditions.push(conds);
+                } else {
+                    __resolveRule(rule, identifiers, conditions, defined, name);
+                    identifiers = removeDuplicates(identifiers);
+                }
+            }
+
+        });
+        return rules.createRule(name, options, conditions, parseAction(action, identifiers, defined, scope));
+    };
+})();
+
+exports.parse = function (src) {
+    //parse flow from file
+    return parser.parseRuleSet(src);
+
+};
+exports.compile = function (flowObj, options, cb, Container) {
+    if (extd.isFunction(options)) {
+        cb = options;
+        options = {};
+    } else {
+        options = options || {};
+        cb = null;
+    }
+    var name = flowObj.name || options.name;
+    //if !name throw an error
+    if (!name) {
+        throw new Error("Name must be present in JSON or options");
+    }
+    var flow = new Container(name);
+    var defined = merge({Array: Array, String: String, Number: Number, Boolean: Boolean, RegExp: RegExp, Date: Date, Object: Object}, options.define || {});
+    if (typeof Buffer !== "undefined") {
+        defined.Buffer = Buffer;
+    }
+    var scope = merge({console: console}, options.scope);
+    //add any defined classes in the parsed flowObj to defined
+    forEach(flowObj.define, function (d) {
+        defined[d.name] = createDefined(d);
+    });
+
+    //expose any defined classes to the flow.
+    extd(defined).forEach(function (cls, name) {
+        flow.addDefined(name, cls);
+    });
+
+    var scopeNames = extd(flowObj.scope).pluck("name").union(extd(scope).keys()).value();
+    var definedNames = map(keys(defined), function (s) {
+        return s;
+    });
+    forEach(flowObj.scope, function (s) {
+        scope[s.name] = createFunction(s.body, defined, scope, scopeNames, definedNames);
+    });
+    var rules = flowObj.rules;
+    if (rules.length) {
+        forEach(rules, function (rule) {
+            flow.__rules = flow.__rules.concat(createRuleFromObject(rule, defined, scope));
+        });
+    }
+    if (cb) {
+        cb.call(flow, flow);
+    }
+    return flow;
+};
+
+exports.transpile = require("./transpile").transpile;
+
+
+
+
+})(require("__browserify_buffer").Buffer)
+},{"../constraintMatcher.js":17,"../extended":8,"../rule":10,"./common":29,"./transpile":30,"../parser":18,"__browserify_buffer":28}],8:[function(require,module,exports){
+module.exports = require("extended")()
+    .register(require("array-extended"))
+    .register(require("date-extended"))
+    .register(require("object-extended"))
+    .register(require("string-extended"))
+    .register(require("promise-extended"))
+    .register(require("function-extended"))
+    .register(require("is-extended"))
+    .register("HashTable", require("ht"))
+    .register("declare", require("declare.js"))
+    .register(require("leafy"))
+    .register("LinkedList", require("./linkedList"));
+
+
+},{"./linkedList":31,"extended":32,"array-extended":33,"object-extended":34,"date-extended":35,"string-extended":36,"promise-extended":37,"function-extended":38,"is-extended":39,"ht":40,"declare.js":41,"leafy":42}],9:[function(require,module,exports){
+"use strict";
+var declare = require("declare.js");
+
+
+var id = 0;
+
+var Fact = declare({
+
+    instance: {
+        constructor: function (obj) {
+            this.object = obj;
+            this.recency = 0;
+            this.id = id++;
+        },
+
+        equals: function (fact) {
+            return fact === this.object;
+        },
+
+        hashCode: function () {
+            return this.id;
+        }
+    }
+
+});
 
 declare({
+
     instance: {
-        constructor: function (wm, agendaTree) {
-            this.terminalNodes = [];
-            this.joinNodes = [];
-            this.nodes = [];
-            this.constraints = [];
-            this.typeNodes = [];
-            this.__ruleCount = 0;
-            this.bucket = {
-                counter: 0,
-                recency: 0
-            };
-            this.agendaTree = agendaTree;
-        },
 
-        assertRule: function (rule) {
-            var terminalNode = new TerminalNode(this.bucket, this.__ruleCount++, rule, this.agendaTree);
-            this.__addToNetwork(rule, rule.pattern, terminalNode);
-            this.__mergeJoinNodes();
-            this.terminalNodes.push(terminalNode);
-        },
-
-        resetCounter: function () {
-            this.bucket.counter = 0;
-        },
-
-        incrementCounter: function () {
-            this.bucket.counter++;
-        },
-
-        assertFact: function (fact) {
-            var typeNodes = this.typeNodes, i = typeNodes.length - 1;
-            for (; i >= 0; i--) {
-                typeNodes[i].assert(fact);
-            }
-        },
-
-        retractFact: function (fact) {
-            var typeNodes = this.typeNodes, i = typeNodes.length - 1;
-            for (; i >= 0; i--) {
-                typeNodes[i].retract(fact);
-            }
-        },
-
-
-        containsRule: function (name) {
-            return some(this.terminalNodes, function (n) {
-                return n.rule.name === name;
-            });
+        constructor: function () {
+            this.recency = 0;
+            this.facts = [];
         },
 
         dispose: function () {
-            var typeNodes = this.typeNodes, i = typeNodes.length - 1;
-            for (; i >= 0; i--) {
-                typeNodes[i].dispose();
-            }
+            this.facts.length = 0;
         },
 
-        __mergeJoinNodes: function () {
-            var joinNodes = this.joinNodes;
-            for (var i = 0; i < joinNodes.length; i++) {
-                var j1 = joinNodes[i], j2 = joinNodes[i + 1];
-                if (j1 && j2 && j1.constraint.equal(j2.constraint)) {
-                    j1.merge(j2);
-                    joinNodes.splice(i + 1, 1);
-                }
-            }
+        assertFact: function (fact) {
+            fact = new Fact(fact);
+            fact.recency = this.recency++;
+            this.facts.push(fact);
+            return fact;
         },
 
-        __checkEqual: function (node) {
-            var constraints = this.constraints, i = constraints.length - 1;
-            for (; i >= 0; i--) {
-                var n = constraints[i];
-                if (node.equal(n)) {
-                    return  n;
+        retractFact: function (fact) {
+            var facts = this.facts, l = facts.length, i = -1, existingFact;
+            while (++i < l) {
+                existingFact = facts[i];
+                if (existingFact.equals(fact)) {
+                    this.facts.splice(i, 1);
+                    return existingFact;
                 }
             }
-            constraints.push(node);
-            return node;
+            //if we made it here we did not find the fact
+            throw new Error("the fact to remove does not exist");
+
+
+        }
+    }
+
+}).as(exports, "WorkingMemory");
+
+
+},{"declare.js":41}],16:[function(require,module,exports){
+"use strict";
+
+var extd = require("./extended"),
+    merge = extd.merge,
+    instanceOf = extd.instanceOf,
+    filter = extd.filter,
+    declare = extd.declare,
+    constraintMatcher;
+
+var Constraint = declare({
+
+    instance: {
+        constructor: function (type, constraint) {
+            if (!constraintMatcher) {
+                constraintMatcher = require("./constraintMatcher");
+            }
+            this.type = type;
+            this.constraint = constraint;
+        },
+        "assert": function () {
+            throw new Error("not implemented");
         },
 
-        __createTypeNode: function (rule, pattern) {
-            var ret = new TypeNode(pattern.get("constraints")[0]);
-            var constraints = this.typeNodes, i = constraints.length - 1;
-            for (; i >= 0; i--) {
-                var n = constraints[i];
-                if (ret.equal(n)) {
-                    return  n;
-                }
+        equal: function (constraint) {
+            return instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias") && extd.deepEqual(this.constraint, constraint.constraint);
+        },
+
+        getters: {
+            variables: function () {
+                return [this.get("alias")];
             }
-            constraints.push(ret);
+        }
+
+
+    }
+});
+
+Constraint.extend({
+    instance: {
+        constructor: function (type) {
+            this._super(["object", type]);
+        },
+
+        "assert": function (param) {
+            return param instanceof this.constraint || param.constructor === this.constraint;
+        },
+
+        equal: function (constraint) {
+            return instanceOf(constraint, this._static) && this.constraint === constraint.constraint;
+        }
+    }
+}).as(exports, "ObjectConstraint");
+
+Constraint.extend({
+
+    instance: {
+        constructor: function (constraint, options) {
+            this._super(["equality", constraint]);
+            options = options || {};
+            this.pattern = options.pattern;
+            this._matcher = constraintMatcher.getMatcher(constraint, options.scope || {});
+        },
+
+        "assert": function (values) {
+            return this._matcher(values);
+        }
+    }
+}).as(exports, "EqualityConstraint");
+
+Constraint.extend({
+
+    instance: {
+        constructor: function () {
+            this._super(["equality", [true]]);
+        },
+
+        equal: function (constraint) {
+            return instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias");
+        },
+
+
+        "assert": function () {
+            return true;
+        }
+    }
+}).as(exports, "TrueConstraint");
+
+Constraint.extend({
+
+    instance: {
+        constructor: function (constraint, options) {
+            this.cache = {};
+            this._super(["reference", constraint]);
+            options = options || {};
+            this.values = [];
+            this.pattern = options.pattern;
+            this._options = options;
+            this._matcher = constraintMatcher.getMatcher(constraint, options.scope || {});
+        },
+
+        "assert": function (values) {
+            try {
+                return this._matcher(values);
+            } catch (e) {
+                throw new Error("Error with evaluating pattern " + this.pattern + " " + e.message);
+            }
+
+        },
+
+        merge: function (that) {
+            var ret = this;
+            if (that instanceof this._static) {
+                ret = new this._static([this.constraint, that.constraint, "and"], merge({}, this._options, this._options));
+                ret._alias = this._alias || that._alias;
+                ret.vars = this.vars.concat(that.vars);
+            }
             return ret;
         },
 
-        __createEqualityNode: function (rule, constraint) {
-            return this.__checkEqual(new EqualityNode(constraint)).addRule(rule);
+        equal: function (constraint) {
+            return instanceOf(constraint, this._static) && extd.deepEqual(this.constraint, constraint.constraint);
         },
 
-        __createPropertyNode: function (rule, constraint) {
-            return this.__checkEqual(new PropertyNode(constraint)).addRule(rule);
-        },
 
-        __createAliasNode: function (rule, pattern) {
-            return this.__checkEqual(new AliasNode(pattern)).addRule(rule);
-        },
+        getters: {
+            variables: function () {
+                return this.vars;
+            },
 
-        __createAdapterNode: function (rule, side) {
-            return (side === "left" ? new LeftAdapterNode() : new RightAdapterNode()).addRule(rule);
-        },
-
-        __createJoinNode: function (rule, pattern, outNode, side) {
-            var joinNode;
-            if (pattern.rightPattern instanceof NotPattern) {
-                joinNode = new NotNode();
-            } else {
-                joinNode = new JoinNode();
-                this.joinNodes.push(joinNode);
-            }
-            var parentNode = joinNode;
-            if (outNode instanceof JoinNode) {
-                var adapterNode = this.__createAdapterNode(rule, side);
-                parentNode.addOutNode(adapterNode, pattern);
-                parentNode = adapterNode;
-            }
-            parentNode.addOutNode(outNode, pattern);
-            return joinNode.addRule(rule);
-        },
-
-        __addToNetwork: function (rule, pattern, outNode, side) {
-            if (pattern instanceof ObjectPattern) {
-                if (pattern instanceof NotPattern && (!side || side === "left")) {
-                    return this.__createBetaNode(rule, new CompositePattern(new InitialFactPattern(), pattern), outNode, side);
-                }
-                this.__createAlphaNode(rule, pattern, outNode, side);
-            } else if (pattern instanceof CompositePattern) {
-                this.__createBetaNode(rule, pattern, outNode, side);
+            alias: function () {
+                return this._alias;
             }
         },
 
-        __createBetaNode: function (rule, pattern, outNode, side) {
-            var joinNode = this.__createJoinNode(rule, pattern, outNode, side);
-            this.__addToNetwork(rule, pattern.rightPattern, joinNode, "right");
-            this.__addToNetwork(rule, pattern.leftPattern, joinNode, "left");
-            outNode.addParentNode(joinNode);
-            return joinNode;
-        },
-
-
-        __createAlphaNode: function (rule, pattern, outNode, side) {
-            var constraints = pattern.get("constraints");
-            var typeNode = this.__createTypeNode(rule, pattern);
-            var aliasNode = this.__createAliasNode(rule, pattern);
-            typeNode.addOutNode(aliasNode, pattern);
-            aliasNode.addParentNode(typeNode);
-            var parentNode = aliasNode;
-            var i = constraints.length - 1;
-            for (; i > 0; i--) {
-                var constraint = constraints[i], node;
-                if (constraint instanceof HashConstraint) {
-                    node = this.__createPropertyNode(rule, constraint);
-                } else if (constraint instanceof ReferenceConstraint) {
-                    outNode.constraint.addConstraint(constraint);
-                    continue;
-                } else {
-                    node = this.__createEqualityNode(rule, constraint);
-                }
-                parentNode.addOutNode(node, pattern);
-                node.addParentNode(parentNode);
-                parentNode = node;
+        setters: {
+            alias: function (alias) {
+                this._alias = alias;
+                this.vars = filter(constraintMatcher.getIdentifiers(this.constraint), function (v) {
+                    return v !== alias;
+                });
             }
-            if (outNode instanceof JoinNode) {
-                var adapterNode = this.__createAdapterNode(rule, side);
-                adapterNode.addParentNode(parentNode);
-                parentNode.addOutNode(adapterNode, pattern);
-                parentNode = adapterNode;
-            }
-            outNode.addParentNode(parentNode);
-            parentNode.addOutNode(outNode, pattern);
-            return typeNode;
-        },
-
-        print: function () {
-            forEach(this.terminalNodes, function (t) {
-                t.print("    ");
-            });
         }
     }
-}).as(exports, "RootNode");
+
+}).as(exports, "ReferenceConstraint");
+
+
+Constraint.extend({
+    instance: {
+        constructor: function (hash) {
+            this._super(["hash", hash]);
+        },
+
+        equal: function (constraint) {
+            return extd.instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias") && extd.deepEqual(this.constraint, constraint.constraint);
+        },
+
+        "assert": function () {
+            return true;
+        },
+
+        getters: {
+            variables: function () {
+                return this.constraint;
+            }
+        }
+
+    }
+}).as(exports, "HashConstraint");
 
 
 
 
-
-
-},{"../pattern.js":11,"../extended":8,"../constraint":17,"./aliasNode":20,"./equalityNode":21,"./joinNode":22,"./notNode":23,"./leftAdapterNode":24,"./rightAdapterNode":25,"./typeNode":26,"./terminalNode":27,"./propertyNode":28}],16:[function(require,module,exports){
+},{"./extended":8,"./constraintMatcher":17}],17:[function(require,module,exports){
 "use strict";
 
 var extd = require("./extended"),
@@ -5980,281 +6202,7 @@ exports.getIdentifiers = function (constraint) {
 
 
 
-},{"./extended":8,"./constraint":17}],8:[function(require,module,exports){
-module.exports = require("extended")()
-    .register(require("array-extended"))
-    .register(require("date-extended"))
-    .register(require("object-extended"))
-    .register(require("string-extended"))
-    .register(require("promise-extended"))
-    .register(require("function-extended"))
-    .register(require("is-extended"))
-    .register("HashTable", require("ht"))
-    .register("declare", require("declare.js"))
-    .register(require("leafy"));
-
-
-
-
-},{"extended":29,"array-extended":30,"date-extended":31,"object-extended":32,"string-extended":33,"promise-extended":34,"function-extended":35,"is-extended":36,"ht":37,"declare.js":38,"leafy":39}],10:[function(require,module,exports){
-"use strict";
-var declare = require("declare.js");
-
-
-var id = 0;
-
-declare({
-
-    instance: {
-        constructor: function (obj) {
-            this.object = obj;
-            this.recency = 0;
-            this.id = id++;
-        },
-
-        equals: function (fact) {
-            if (fact instanceof this._static) {
-                return fact !== null && fact.object === this.object;
-            } else {
-                return fact !== null && fact === this.object;
-            }
-        },
-
-        hashCode: function () {
-            return this.id;
-        }
-    }
-
-}).as(exports, "Fact");
-
-declare({
-
-    instance: {
-
-        constructor: function () {
-            this.recency = 0;
-            this.facts = [];
-        },
-
-        dispose: function () {
-            this.facts.length = 0;
-        },
-
-        assertFact: function (fact) {
-            if (fact.object === null) {
-                throw new Error('The fact asserted cannot be null!');
-            }
-            fact.recency = this.recency++;
-            this.facts.push(fact);
-            return fact;
-        },
-
-        modifyFact: function (fact) {
-            var facts = this.facts, l = facts.length;
-            for (var i = 0; i < l; i++) {
-                var existingFact = facts[i];
-                if (existingFact.equals(fact)) {
-                    return existingFact;
-                }
-            }
-            //if we made it here we did not find the fact
-            throw new Error("the fact to modify does not exist");
-        },
-
-        retractFact: function (fact) {
-            var facts = this.facts, l = facts.length;
-            for (var i = 0; i < l; i++) {
-                var existingFact = facts[i];
-                if (existingFact.equals(fact)) {
-                    this.facts.splice(i, 1);
-                    return existingFact;
-                }
-            }
-            //if we made it here we did not find the fact
-            throw new Error("the fact to remove does not exist");
-
-
-        }
-    }
-
-}).as(exports, "WorkingMemory");
-
-
-},{"declare.js":38}],17:[function(require,module,exports){
-"use strict";
-
-var extd = require("./extended"),
-    merge = extd.merge,
-    instanceOf = extd.instanceOf,
-    filter = extd.filter,
-    declare = extd.declare,
-    constraintMatcher;
-
-var Constraint = declare({
-
-    instance: {
-        constructor: function (type, constraint) {
-            if (!constraintMatcher) {
-                constraintMatcher = require("./constraintMatcher");
-            }
-            this.type = type;
-            this.constraint = constraint;
-        },
-        "assert": function () {
-            throw new Error("not implemented");
-        },
-
-        equal: function (constraint) {
-            return instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias") && extd.deepEqual(this.constraint, constraint.constraint);
-        },
-
-        getters: {
-            variables: function () {
-                return [this.get("alias")];
-            }
-        }
-
-
-    }
-});
-
-Constraint.extend({
-    instance: {
-        constructor: function (type) {
-            this._super(["object", type]);
-        },
-
-        "assert": function (param) {
-            return param instanceof this.constraint || param.constructor === this.constraint;
-        },
-
-        equal: function (constraint) {
-            return instanceOf(constraint, this._static) && this.constraint === constraint.constraint;
-        }
-    }
-}).as(exports, "ObjectConstraint");
-
-Constraint.extend({
-
-    instance: {
-        constructor: function (constraint, options) {
-            this._super(["equality", constraint]);
-            options = options || {};
-            this.pattern = options.pattern;
-            this._matcher = constraintMatcher.getMatcher(constraint, options.scope || {});
-        },
-
-        "assert": function (values) {
-            return this._matcher(values);
-        }
-    }
-}).as(exports, "EqualityConstraint");
-
-Constraint.extend({
-
-    instance: {
-        constructor: function () {
-            this._super(["equality", [true]]);
-        },
-
-        equal: function (constraint) {
-            return instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias");
-        },
-
-
-        "assert": function () {
-            return true;
-        }
-    }
-}).as(exports, "TrueConstraint");
-
-Constraint.extend({
-
-    instance: {
-        constructor: function (constraint, options) {
-            this.cache = {};
-            this._super(["reference", constraint]);
-            options = options || {};
-            this.values = [];
-            this.pattern = options.pattern;
-            this._options = options;
-            this._matcher = constraintMatcher.getMatcher(constraint, options.scope || {});
-        },
-
-        "assert": function (values) {
-            try {
-                return this._matcher(values);
-            } catch (e) {
-                throw new Error("Error with evaluating pattern " + this.pattern + " " + e.message);
-            }
-
-        },
-
-        merge: function (that) {
-            var ret = this;
-            if (that instanceof this._static) {
-                ret = new this._static([this.constraint, that.constraint, "and"], merge({}, this._options, this._options));
-                ret._alias = this._alias || that._alias;
-                ret.vars = this.vars.concat(that.vars);
-            }
-            return ret;
-        },
-
-        equal: function (constraint) {
-            return instanceOf(constraint, this._static) && extd.deepEqual(this.constraint, constraint.constraint);
-        },
-
-
-        getters: {
-            variables: function () {
-                return this.vars;
-            },
-
-            alias: function () {
-                return this._alias;
-            }
-        },
-
-        setters: {
-            alias: function (alias) {
-                this._alias = alias;
-                this.vars = filter(constraintMatcher.getIdentifiers(this.constraint), function (v) {
-                    return v !== alias;
-                });
-            }
-        }
-    }
-
-}).as(exports, "ReferenceConstraint");
-
-
-Constraint.extend({
-    instance: {
-        constructor: function (hash) {
-            this._super(["hash", hash]);
-        },
-
-        equal: function (constraint) {
-            return extd.instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias") && extd.deepEqual(this.constraint, constraint.constraint);
-        },
-
-        "assert": function () {
-            return true;
-        },
-
-        getters: {
-            variables: function () {
-                return this.constraint;
-            }
-        }
-
-    }
-}).as(exports, "HashConstraint");
-
-
-
-
-},{"./extended":8,"./constraintMatcher":16}],18:[function(require,module,exports){
+},{"./extended":8,"./constraint":16}],18:[function(require,module,exports){
 (function () {
     "use strict";
     var constraintParser = require("./constraint/parser"),
@@ -6272,7 +6220,7 @@ Constraint.extend({
         return noolParser.parse(source);
     };
 })();
-},{"./constraint/parser":40,"./nools/nool.parser":41}],20:[function(require,module,exports){
+},{"./constraint/parser":43,"./nools/nool.parser":44}],19:[function(require,module,exports){
 var AlphaNode = require("./alphaNode");
 
 AlphaNode.extend({
@@ -6300,7 +6248,7 @@ AlphaNode.extend({
         }
     }
 }).as(module);
-},{"./alphaNode":42}],21:[function(require,module,exports){
+},{"./alphaNode":45}],20:[function(require,module,exports){
 var AlphaNode = require("./alphaNode");
 
 AlphaNode.extend({
@@ -6321,7 +6269,7 @@ AlphaNode.extend({
         }
     }
 }).as(module);
-},{"./alphaNode":42}],22:[function(require,module,exports){
+},{"./alphaNode":45}],21:[function(require,module,exports){
 var extd = require("../extended"),
     values = extd.hash.values,
     indexOf = extd.indexOf,
@@ -6364,15 +6312,15 @@ Node.extend({
         },
 
         retractResolve: function (match) {
-            var es = values(this.leftMemory), j = es.length - 1, leftTuples = this.leftTuples;
-            for (; j >= 0; j--) {
-                var contexts = es[j], i = contexts.length - 1, context;
-                for (; i >= 0; i--) {
+            var es = values(this.leftMemory), j = es.length, leftTuples = this.leftTuples;
+            while (--j > -1) {
+                var contexts = es[j], i = contexts.length, context;
+                while (--i > -1) {
                     context = contexts[i];
                     if (this.resolve(context.match, match)) {
                         leftTuples.splice(indexOf(leftTuples, context), 1);
                         contexts.splice(i, 1);
-                        return this._propagateRetractResolve(match);
+                        break;
                     }
                 }
             }
@@ -6382,7 +6330,9 @@ Node.extend({
         retractLeft: function (fact) {
             var contexts = this.leftMemory[fact.id], tuples = this.leftTuples, i, l;
             if (contexts) {
-                for (i = 0, l = contexts.length; i < l; i++) {
+                i = -1;
+                l = contexts.length;
+                while (++i < l) {
                     tuples.splice(indexOf(tuples, contexts[i]), 1);
                 }
                 delete this.leftMemory[fact.id];
@@ -6417,9 +6367,9 @@ Node.extend({
 
         assertLeft: function (context) {
             this.__addToLeftMemory(context);
-            var rm = this.rightTuples, i = rm.length - 1, thisConstraint = this.constraint, mr;
+            var rm = this.rightTuples, i = -1, l = rm.length, thisConstraint = this.constraint, mr;
             thisConstraint.setLeftContext(context);
-            for (; i >= 0; i--) {
+            while (++i < l) {
                 if ((mr = thisConstraint.setRightContext(rm[i]).match()).isMatch) {
                     this.__propagate("assert", context.clone(null, null, mr));
                 }
@@ -6431,9 +6381,9 @@ Node.extend({
             var fact = context.fact;
             this.rightMemory[fact.id] = context;
             this.rightTuples.push(context);
-            var fl = this.leftTuples, i = fl.length - 1, thisConstraint = this.constraint, mr;
+            var fl = this.leftTuples, i = -1, l = fl.length, thisConstraint = this.constraint, mr;
             thisConstraint.setRightContext(context);
-            for (; i >= 0; i--) {
+            while (++i < l) {
                 if ((mr = thisConstraint.setLeftContext(fl[i]).match()).isMatch) {
                     this.__propagate("assert", context.clone(null, null, mr));
                 }
@@ -6459,7 +6409,7 @@ Node.extend({
     }
 
 }).as(module);
-},{"../extended":8,"./node":43,"./joinReferenceNode":44}],23:[function(require,module,exports){
+},{"../extended":8,"./node":46,"./joinReferenceNode":47}],22:[function(require,module,exports){
 var JoinNode = require("./joinNode"),
     Context = require("../context"),
     extd = require("../extended"),
@@ -6493,7 +6443,8 @@ JoinNode.extend({
                     thisConstraint.setLeftContext(leftContext);
                     for (j = index; j < k; j++) {
                         rc = rValues[j];
-                        if (thisConstraint.setRightContext(rc).isMatch()) {
+                        thisConstraint.setRightContext(rc);
+                        if (thisConstraint.isMatch()) {
                             leftContext.blocker = rc;
                             rc.blocking.push(leftContext);
                             this.__addToLeftTupleMemory(leftContext);
@@ -6533,28 +6484,31 @@ JoinNode.extend({
         },
 
         assertLeft: function (context) {
-            var values = this.rightTuples, thisConstraint = this.constraint;
-            thisConstraint.setLeftContext(context);
-            for (var i = 0, l = values.length; i < l; i++) {
-                var rc = values[i];
-                if (thisConstraint.setRightContext(rc).isMatch()) {
-                    context.blocker = rc;
-                    rc.blocking.push(context);
-                    this.__addToLeftTupleMemory(context);
-                    return;
+            var values = this.rightTuples, thisConstraint = this.constraint, i = -1, l = values.length, rc;
+            if (l !== 0) {
+                thisConstraint.setLeftContext(context);
+                while (++i < l) {
+                    if (thisConstraint.setRightContext(rc = values[i]).isMatch()) {
+                        context.blocker = rc;
+                        rc.blocking.push(context);
+                        this.__addToLeftTupleMemory(context);
+                        context = null;
+                        break;
+                    }
                 }
             }
-            thisConstraint.clearContexts();
-            this.__addToLeftMemory(context).propagateAssert(new Context(context.fact, null, context.match));
+            if (context) {
+                this.__addToLeftMemory(context).propagateAssert(new Context(context.fact, null, context.match));
+            }
         },
 
         assertRight: function (context) {
             context.blocking = [];
             this.rightTuples.push(context);
             this.rightMemory[context.fact.id] = context;
-            var fl = this.leftTuples, i = fl.length - 1, leftContext, thisConstraint = this.constraint;
+            var fl = this.leftTuples, i = fl.length, leftContext, thisConstraint = this.constraint;
             thisConstraint.setRightContext(context);
-            for (; i >= 0; i--) {
+            while (--i > -1) {
                 leftContext = fl[i];
                 if (thisConstraint.setLeftContext(leftContext).isMatch()) {
                     this._propagateRetractResolve(leftContext.match);
@@ -6605,7 +6559,7 @@ JoinNode.extend({
         }
     }
 }).as(module);
-},{"../context":45,"./joinNode":22,"../extended":8}],24:[function(require,module,exports){
+},{"./joinNode":21,"../context":48,"../extended":8}],23:[function(require,module,exports){
 var Node = require("./node");
 
 Node.extend({
@@ -6640,7 +6594,7 @@ Node.extend({
     }
 
 }).as(module);
-},{"./node":43}],25:[function(require,module,exports){
+},{"./node":46}],24:[function(require,module,exports){
 var Node = require("./node");
 
 Node.extend({
@@ -6675,7 +6629,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./node":43}],26:[function(require,module,exports){
+},{"./node":46}],25:[function(require,module,exports){
 var AlphaNode = require("./alphaNode"),
     Context = require("../context");
 
@@ -6715,7 +6669,7 @@ AlphaNode.extend({
         }
     }
 }).as(module);
-},{"./alphaNode":42,"../context":45}],27:[function(require,module,exports){
+},{"./alphaNode":45,"../context":48}],26:[function(require,module,exports){
 var Node = require("./node"),
     extd = require("../extended"),
     bind = extd.bind,
@@ -6794,7 +6748,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./node":43,"../extended":8}],28:[function(require,module,exports){
+},{"./node":46,"../extended":8}],27:[function(require,module,exports){
 var AlphaNode = require("./alphaNode"),
     Context = require("../context"),
     extd = require("../extended");
@@ -6829,7 +6783,64 @@ AlphaNode.extend({
 
 
 
-},{"./alphaNode":42,"../context":45,"../extended":8}],40:[function(require,module,exports){
+},{"./alphaNode":45,"../context":48,"../extended":8}],29:[function(require,module,exports){
+/*jshint evil:true*/
+"use strict";
+var extd = require("../extended"),
+    forEach = extd.forEach,
+    isString = extd.isString;
+
+exports.modifiers = ["assert", "modify", "retract", "emit", "halt", "focus"];
+
+var createFunction = function (body, defined, scope, scopeNames, definedNames) {
+    var declares = [];
+    forEach(definedNames, function (i) {
+        if (body.indexOf(i) !== -1) {
+            declares.push("var " + i + "= defined." + i + ";");
+        }
+    });
+
+    forEach(scopeNames, function (i) {
+        if (body.indexOf(i) !== -1) {
+            declares.push("var " + i + "= scope." + i + ";");
+        }
+    });
+    body = ["((function(){", declares.join(""), "\n\treturn ", body, "\n})())"].join("");
+    try {
+        return eval(body);
+    } catch (e) {
+        throw new Error("Invalid action : " + body + "\n" + e.message);
+    }
+};
+
+var createDefined = (function () {
+
+    var _createDefined = function (options) {
+        options = isString(options) ? new Function("return " + options + ";")() : options;
+        var ret = options.hasOwnProperty("constructor") && "function" === typeof options.constructor ? options.constructor : function (opts) {
+            opts = opts || {};
+            for (var i in opts) {
+                if (i in options) {
+                    this[i] = opts[i];
+                }
+            }
+        };
+        var proto = ret.prototype;
+        for (var i in options) {
+            proto[i] = options[i];
+        }
+        return ret;
+
+    };
+
+    return function (options) {
+        return _createDefined(options.properties);
+    };
+})();
+
+exports.createFunction = createFunction;
+exports.createDefined = createDefined;
+},{"../extended":8}],43:[function(require,module,exports){
 (function(process){/* parser generated by jison 0.4.2 */
 var parser = (function(){
 var parser = {trace: function trace() { },
@@ -7316,9 +7327,217 @@ if (typeof module !== 'undefined' && require.main === module) {
 }
 }
 })(require("__browserify_process"))
-},{"fs":4,"path":6,"__browserify_process":5}],38:[function(require,module,exports){
+},{"fs":4,"path":6,"__browserify_process":5}],30:[function(require,module,exports){
+(function(Buffer){var extd = require("../extended"),
+    forEach = extd.forEach,
+    indexOf = extd.indexOf,
+    merge = extd.merge,
+    isString = extd.isString,
+    constraintMatcher = require("../constraintMatcher"),
+    parser = require("../parser");
+
+function definedToJs(options) {
+    /*jshint evil:true*/
+    options = isString(options) ? new Function("return " + options + ";")() : options;
+    var ret = ["(function(){"], value;
+
+    if (options.hasOwnProperty("constructor") && "function" === typeof options.constructor) {
+        ret.push("var Defined = " + options.constructor.toString() + ";");
+    } else {
+        ret.push("var Defined = function(opts){ for(var i in opts){if(opts.hasOwnProperty(i)){this[i] = opts[i];}}};");
+    }
+    ret.push("var proto = Defined.prototype;");
+    for (var key in options) {
+        if (options.hasOwnProperty(key)) {
+            value = options[key];
+            ret.push("proto." + key + " = " + (extd.isFunction(value) ? value.toString() : extd.format("%j", value)) + ";");
+        }
+    }
+    ret.push("return Defined;");
+    ret.push("}())");
+    return ret.join("");
+
+}
+
+function actionToJs(action, identifiers, defined, scope) {
+    var declares = [];
+    forEach(identifiers, function (i) {
+        if (action.indexOf(i) !== -1) {
+            declares.push("var " + i + "= facts." + i + ";");
+        }
+    });
+    extd(defined).keys().forEach(function (i) {
+        if (action.indexOf(i) !== -1) {
+            declares.push("var " + i + "= defined." + i + ";");
+        }
+    });
+
+    extd(scope).keys().forEach(function (i) {
+        if (action.indexOf(i) !== -1) {
+            declares.push("var " + i + "= scope." + i + ";");
+        }
+    });
+    var params = ["facts", 'flow'];
+    if (/next\(.*\)/.test(action)) {
+        params.push("next");
+    }
+    action = declares.join("") + action;
+    try {
+        return ["function(", params.join(","), "){with(flow){", action, "}}"].join("");
+    } catch (e) {
+        throw new Error("Invalid action : " + action + "\n" + e.message);
+    }
+}
+
+function constraintsToJs(constraint, identifiers) {
+    constraint = constraint.slice(0);
+    var ret = [];
+    if (constraint[0] === "or") {
+        ret.push('"' + constraint.shift() + '", ');
+        ret = ret.concat(extd.map(constraint, function (c) {
+            return constraintsToJs(c, identifiers);
+        }));
+        return ret;
+    } else if (constraint[0] === "not") {
+        ret.push('"', constraint.shift(), '", ');
+    }
+    identifiers.push(constraint[1]);
+    ret.push(constraint[0], ', "' + constraint[1].replace(/"/g, "\"") + '"');
+    constraint.splice(0, 2);
+    if (constraint.length) {
+        //constraint
+        var c = constraint.shift();
+        if (extd.isString(c)) {
+            ret.push(',"' + c.replace(/"/g, "\""), '"');
+            forEach(constraintMatcher.getIdentifiers(parser.parseConstraint(c)), function (i) {
+                identifiers.push(i);
+            });
+        } else {
+            ret.push(',"true"');
+            constraint.unshift(c);
+        }
+    }
+    if (constraint.length) {
+        //ret of options
+        var refs = constraint.shift();
+        extd(refs).values().forEach(function (ident) {
+            if (indexOf(identifiers, ident) === -1) {
+                identifiers.push(ident);
+            }
+        });
+        ret.push(',' + extd.format('%j', [refs]));
+    }
+    return '[' + ret.join("") + ']';
+}
+
+exports.transpile = function (flowObj, options) {
+    options = options || {};
+    var ret = [];
+    ret.push("(function(){");
+    ret.push("return function(options){");
+    ret.push("options = options || {};");
+    ret.push("var bind = function(scope, fn){return function(){return fn.apply(scope, arguments);};}, defined = options.defined || {}, scope = options.scope || {};");
+    var defined = merge({Array: Array, String: String, Number: Number, Boolean: Boolean, RegExp: RegExp, Date: Date, Object: Object}, options.define || {});
+    if (typeof Buffer !== "undefined") {
+        defined.Buffer = Buffer;
+    }
+    var scope = merge({console: console}, options.scope);
+    ret.push(["return nools.flow('", options.name, "', function(){"].join(""));
+    //add any defined classes in the parsed flowObj to defined
+    ret.push(extd(flowObj.define || []).map(function (defined) {
+        var name = defined.name;
+        defined[name] = {};
+        return ["var", name, "= defined." + name, "= this.addDefined('" + name + "',", definedToJs(defined.properties) + ");"].join(" ");
+    }).value().join("\n"));
+    ret.push(extd(flowObj.scope || []).map(function (s) {
+        var name = s.name;
+        scope[name] = {};
+        return ["var", name, "= scope." + name, "= ", s.body, ";"].join(" ");
+    }).value().join("\n"));
+    ret.push("scope.console = console;\n");
+
+
+    ret.push(extd(flowObj.rules || []).map(function (rule) {
+        var identifiers = [], ret = ["this.rule('", rule.name, "'"], options = extd.merge(rule.options || {}, {scope: "scope"});
+        ret.push(",", extd.format("%j", [options]).replace(/(:"scope")/, ":scope"));
+        if (rule.constraints && !extd.isEmpty(rule.constraints)) {
+            ret.push(", [");
+            ret.push(extd(rule.constraints).map(function (c) {
+                return constraintsToJs(c, identifiers);
+            }).value().join(","));
+            ret.push("]");
+        }
+        ret.push(",", actionToJs(rule.action, identifiers, defined, scope));
+        ret.push(");");
+        return ret.join("");
+    }).value().join(""));
+    ret.push("});");
+    ret.push("};");
+    ret.push("}());");
+    return ret.join("");
+};
+
+
+
+})(require("__browserify_buffer").Buffer)
+},{"../extended":8,"../constraintMatcher":17,"../parser":18,"__browserify_buffer":28}],41:[function(require,module,exports){
 module.exports = require("./declare.js");
-},{"./declare.js":46}],46:[function(require,module,exports){
+},{"./declare.js":49}],31:[function(require,module,exports){
+var declare = require("declare.js");
+declare({
+
+    instance: {
+        constructor: function () {
+            this.head = null;
+            this.tail = null;
+            this.length = null;
+        },
+
+        push: function (data) {
+            var tail = this.tail, head = this.head, node = {data: data, prev: tail, next: null};
+            if (tail) {
+                this.tail.next = node;
+            }
+            this.tail = node;
+            if (!head) {
+                this.head = node;
+            }
+            this.length++;
+            return node;
+        },
+
+        remove: function (node) {
+            if (node.prev) {
+                node.prev.next = node.next;
+            } else {
+                this.head = node.next;
+            }
+            if (node.next) {
+                node.next.prev = node.prev;
+            } else {
+                this.tail = node.prev;
+            }
+            node.data = node.prev = node.next = null;
+            this.length--;
+        },
+
+        forEach: function (cb) {
+            var head = {next: this.head};
+            while ((head = head.next)) {
+                cb(head.data);
+            }
+        },
+
+        clear: function () {
+            this.head = this.tail = null;
+            this.length = 0;
+        }
+
+    }
+
+}).as(module);
+
+},{"declare.js":41}],49:[function(require,module,exports){
 (function () {
 
     /**
@@ -7797,6 +8016,8 @@ module.exports = require("./declare.js");
     function createDeclared() {
         var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
 
+        var SUPER_REGEXP = /(super)/g;
+
         function argsToArray(args, slice) {
             slice = slice || 0;
             return arraySlice.call(args, slice);
@@ -7935,16 +8156,37 @@ module.exports = require("./declare.js");
 
 
         function functionWrapper(f, name) {
-            var wrapper = function wrapper() {
-                var ret, meta = this.__meta || {};
-                var orig = meta.superMeta;
-                meta.superMeta = {f: f, pos: 0, name: name};
-                ret = f.apply(this, arguments);
-                meta.superMeta = orig;
-                return ret;
-            };
-            wrapper._f = f;
-            return wrapper;
+            if (f.toString().match(SUPER_REGEXP)) {
+                var wrapper = function wrapper() {
+                    var ret, meta = this.__meta || {};
+                    var orig = meta.superMeta;
+                    meta.superMeta = {f: f, pos: 0, name: name};
+                    switch (arguments.length) {
+                    case 0:
+                        ret = f.call(this);
+                        break;
+                    case 1:
+                        ret = f.call(this, arguments[0]);
+                        break;
+                    case 2:
+                        ret = f.call(this, arguments[0], arguments[1]);
+                        break;
+
+                    case 3:
+                        ret = f.call(this, arguments[0], arguments[1], arguments[2]);
+                        break;
+                    default:
+                        ret = f.apply(this, arguments);
+                    }
+                    meta.superMeta = orig;
+                    return ret;
+                };
+                wrapper._f = f;
+                return wrapper;
+            } else {
+                f._f = f;
+                return f;
+            }
         }
 
         function defineMixinProps(child, proto) {
@@ -8152,7 +8394,22 @@ module.exports = require("./declare.js");
 
         function declare(sup, proto) {
             function declared() {
-                this.constructor.apply(this, arguments);
+                switch (arguments.length) {
+                case 0:
+                    this.constructor.call(this);
+                    break;
+                case 1:
+                    this.constructor.call(this, arguments[0]);
+                    break;
+                case 2:
+                    this.constructor.call(this, arguments[0], arguments[1]);
+                    break;
+                case 3:
+                    this.constructor.call(this, arguments[0], arguments[1], arguments[2]);
+                    break;
+                default:
+                    this.constructor.apply(this, arguments);
+                }
             }
 
             __declare(declared, sup, proto);
@@ -8197,7 +8454,7 @@ module.exports = require("./declare.js");
         if ("undefined" !== typeof module && module.exports) {
             module.exports = createDeclared();
         }
-    } else if ("function" === typeof define) {
+    } else if ("function" === typeof define && define.amd) {
         define(createDeclared);
     } else {
         this.declare = createDeclared();
@@ -8207,7 +8464,7 @@ module.exports = require("./declare.js");
 
 
 
-},{}],29:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 (function(){(function () {
     "use strict";
     /*global extender is, dateExtended*/
@@ -8290,7 +8547,7 @@ module.exports = require("./declare.js");
             module.exports = defineExtended(require("extender"));
 
         }
-    } else if ("function" === typeof define) {
+    } else if ("function" === typeof define && define.amd) {
         define(["extender"], function (extender) {
             return defineExtended(extender);
         });
@@ -8307,40 +8564,36 @@ module.exports = require("./declare.js");
 
 
 })()
-},{"extender":47}],45:[function(require,module,exports){
+},{"extender":50}],48:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     declare = extd.declare,
     merge = extd.merge,
-    union = extd.union;
+    union = extd.union,
+    pSlice = Array.prototype.slice;
 
 var Match = declare({
     instance: {
         constructor: function (assertable) {
-            assertable = assertable || {};
-            this.variables = [];
-            this.facts = [];
-            this.factIds = [];
-            this.factHash = assertable.factHash || {};
-            this.recency = [];
-            this.constraints = [];
             this.isMatch = true;
-            this.hashCode = "";
             if (assertable instanceof this._static) {
                 this.isMatch = assertable.isMatch;
-                this.facts = this.facts.concat(assertable.facts);
-                this.factIds = this.factIds.concat(assertable.factIds);
+                this.facts = pSlice.call(assertable.facts);
+                this.factIds = pSlice.call(assertable.factIds);
                 this.hashCode = this.factIds.join(":");
-                this.factHash = merge(this.factHash, assertable.factHash);
-                this.recency = union(this.recency, assertable.recency);
+                this.factHash = merge({}, assertable.factHash);
+                this.recency = pSlice.call(assertable.recency);
+            } else if (assertable) {
+                this.facts = [assertable];
+                this.factIds = [assertable.id];
+                this.recency = [assertable.recency];
+                this.hashCode = assertable.id + "";
+                this.factHash = assertable.factHash || {};
             } else {
-                var fact = assertable;
-                if (fact) {
-                    this.facts.push(fact);
-                    this.factIds.push(fact.id);
-                    this.recency.push(fact.recency);
-                    this.hashCode += this.factIds.join(":");
-                }
+                this.facts = [];
+                this.factIds = [];
+                this.factHash = {};
+                this.hashCode = "";
             }
         },
 
@@ -8354,7 +8607,6 @@ var Match = declare({
             ret.recency = union(this.recency, mr.recency);
             return ret;
         }
-
     }
 });
 
@@ -8393,7 +8645,7 @@ var Context = declare({
 
 
 
-},{"./extended":8}],42:[function(require,module,exports){
+},{"./extended":8}],45:[function(require,module,exports){
 "use strict";
 var Node = require("./node");
 
@@ -8413,7 +8665,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./node":43}],43:[function(require,module,exports){
+},{"./node":46}],46:[function(require,module,exports){
 var extd = require("../extended"),
     forEach = extd.forEach,
     indexOf = extd.indexOf,
@@ -8488,8 +8740,8 @@ declare({
 
         __propagate: function (method, context, outNodes) {
             outNodes = outNodes || this.nodes;
-            var entrySet = this.__entrySet, i = entrySet.length - 1, entry, outNode, paths, continuingPaths;
-            for (; i >= 0; i--) {
+            var entrySet = this.__entrySet, i = entrySet.length, entry, outNode, paths, continuingPaths;
+            while (--i > -1) {
                 entry = entrySet[i];
                 outNode = entry.key;
                 paths = entry.value;
@@ -8539,25 +8791,33 @@ declare({
 
 }).as(module);
 
-},{"../extended":8,"../context":45}],44:[function(require,module,exports){
+},{"../extended":8,"../context":48}],47:[function(require,module,exports){
 var Node = require("./node");
 Node.extend({
 
     instance: {
 
+        constraint: null,
+        __lc: null,
+        __rc: null,
+        __varLength: 0,
+
         constructor: function () {
             this._super(arguments);
             this.__fh = {};
-            this.__lc = this.__rc = null;
             this.__variables = [];
-            this.__varLength = 0;
         },
 
         setLeftContext: function (lc) {
             this.__lc = lc;
             var match = lc.match;
-            var newFh = match.factHash, fh = this.__fh, prop, vars = this.__variables;
-            for (var i = 0, l = this.__varLength; i < l; i++) {
+            var newFh = match.factHash,
+                fh = this.__fh,
+                prop,
+                vars = this.__variables,
+                i = -1,
+                l = this.__varLength;
+            while (++i < l) {
                 prop = vars[i];
                 fh[prop] = newFh[prop];
             }
@@ -8590,7 +8850,7 @@ Node.extend({
         },
 
         addConstraint: function (constraint) {
-            if (!this.constraint) {
+            if (this.constraint === null) {
                 this.constraint = constraint;
             } else {
                 this.constraint = this.constraint.merge(constraint);
@@ -8600,22 +8860,22 @@ Node.extend({
         },
 
         equal: function (constraint) {
-            if (this.constraint) {
+            if (this.constraint !== null) {
                 return this.constraint.equal(constraint.constraint);
             }
         },
 
         isMatch: function () {
-            var constraint = this.constraint;
-            if (constraint) {
-                return constraint.assert(this.__fh);
+            var constraint = this.constraint, ret = true;
+            if (constraint !== null) {
+                ret = constraint.assert(this.__fh);
             }
-            return true;
+            return ret;
         },
 
         match: function () {
             var ret = {isMatch: false}, constraint = this.constraint;
-            if (!constraint) {
+            if (constraint === null) {
                 ret = this.__lc.match.merge(this.__rc.match);
             } else {
                 var rightContext = this.__rc, fh = this.__fh;
@@ -8629,7 +8889,7 @@ Node.extend({
     }
 
 }).as(module);
-},{"./node":43}],41:[function(require,module,exports){
+},{"./node":46}],44:[function(require,module,exports){
 "use strict";
 
 var tokens = require("./tokens.js"),
@@ -8669,7 +8929,7 @@ exports.parse = function (src) {
 };
 
 
-},{"./tokens.js":48,"./util.js":49,"../../extended":8}],49:[function(require,module,exports){
+},{"./tokens.js":51,"./util.js":52,"../../extended":8}],52:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -8753,19 +9013,12 @@ exports.parse = function (src) {
 
 
 })();
-},{}],30:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 (function(){(function () {
     "use strict";
     /*global define*/
 
-    var arraySlice = Array.prototype.slice;
-
-    function argsToArray(args, slice) {
-        slice = slice || 0;
-        return arraySlice.call(args, slice);
-    }
-
-    function defineArray(extended, is) {
+    function defineArray(extended, is, args) {
 
         var isString = is.isString,
             isArray = Array.isArray || is.isArray,
@@ -8782,7 +9035,8 @@ exports.parse = function (src) {
             arrayReduceRight = arrayProto.reduceRight,
             arrayFilter = arrayProto.filter,
             arrayEvery = arrayProto.every,
-            arraySome = arrayProto.some;
+            arraySome = arrayProto.some,
+            argsToArray = args.argsToArray;
 
 
         function cross(num, cros) {
@@ -8806,13 +9060,12 @@ exports.parse = function (src) {
 
 
         function intersection(a, b) {
-            var ret = [], aOne;
-            if (a && b && a.length && b.length) {
-                for (var i = 0, l = a.length; i < l; i++) {
-                    aOne = a[i];
-                    if (indexOf(b, aOne) !== -1) {
-                        ret.push(aOne);
-                    }
+            var ret = [], aOne, i = -1, l;
+            l = a.length;
+            while (++i < l) {
+                aOne = a[i];
+                if (indexOf(b, aOne) !== -1) {
+                    ret.push(aOne);
                 }
             }
             return ret;
@@ -8868,33 +9121,11 @@ exports.parse = function (src) {
         })();
 
         function indexOf(arr, searchElement, from) {
-            if (arr && arrayIndexOf && arrayIndexOf === arr.indexOf) {
-                return arr.indexOf(searchElement, from);
-            }
-            if (!isArray(arr)) {
-                throw new TypeError();
-            }
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            if (len === 0) {
-                return -1;
-            }
-            var n = 0;
-            if (arguments.length > 2) {
-                n = Number(arguments[2]);
-                if (n !== n) { // shortcut for verifying if it's NaN
-                    n = 0;
-                } else if (n !== 0 && n !== Infinity && n !== -Infinity) {
-                    n = (n > 0 || -1) * floor(abs(n));
-                }
-            }
-            if (n >= len) {
-                return -1;
-            }
-            var k = n >= 0 ? n : mathMax(len - abs(n), 0);
-            for (; k < len; k++) {
-                if (k in t && t[k] === searchElement) {
-                    return k;
+            var index = (from || 0) - 1,
+                length = arr.length;
+            while (++index < length) {
+                if (arr[index] === searchElement) {
+                    return index;
                 }
             }
             return -1;
@@ -9160,12 +9391,13 @@ exports.parse = function (src) {
         }
 
         function removeDuplicates(arr) {
-            var ret = [];
-            if (isArray(arr)) {
-                for (var i = 0, l = arr.length; i < l; i++) {
+            var ret = [], i = -1, l, retLength = 0;
+            if (arr) {
+                l = arr.length;
+                while (++i < l) {
                     var item = arr[i];
                     if (indexOf(ret, item) === -1) {
-                        ret.push(item);
+                        ret[retLength++] = item;
                     }
                 }
             }
@@ -9293,17 +9525,18 @@ exports.parse = function (src) {
         }
 
         function intersect() {
-            var collect = [], sets;
-            var args = argsToArray(arguments);
-            if (args.length > 1) {
+            var collect = [], sets, i = -1 , l;
+            if (arguments.length > 1) {
                 //assume we are intersections all the lists in the array
-                sets = args;
+                sets = argsToArray(arguments);
             } else {
-                sets = args[0];
+                sets = arguments[0];
             }
             if (isArray(sets)) {
-                collect = sets.shift();
-                for (var i = 0, l = sets.length; i < l; i++) {
+                collect = sets[0];
+                i = 0;
+                l = sets.length;
+                while (++i < l) {
                     collect = intersection(collect, sets[i]);
                 }
             }
@@ -9432,14 +9665,14 @@ exports.parse = function (src) {
 
     if ("undefined" !== typeof exports) {
         if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineArray(require("extended"), require("is-extended"));
+            module.exports = defineArray(require("extended"), require("is-extended"), require("arguments-extended"));
         }
-    } else if ("function" === typeof define) {
-        define(["extended", "is-extended"], function (extended, is) {
-            return defineArray(extended, is);
+    } else if ("function" === typeof define && define.amd) {
+        define(["extended", "is-extended", "arguments-extended"], function (extended, is, args) {
+            return defineArray(extended, is, args);
         });
     } else {
-        this.arrayExtended = defineArray(this.extended, this.isExtended);
+        this.arrayExtended = defineArray(this.extended, this.isExtended, this.argumentsExtended);
     }
 
 }).call(this);
@@ -9451,7 +9684,226 @@ exports.parse = function (src) {
 
 
 })()
-},{"extended":29,"is-extended":36}],31:[function(require,module,exports){
+},{"extended":32,"is-extended":39,"arguments-extended":53}],34:[function(require,module,exports){
+(function(){(function () {
+    "use strict";
+    /*global extended isExtended*/
+
+    function defineObject(extended, is, arr) {
+
+        var deepEqual = is.deepEqual,
+            isString = is.isString,
+            isHash = is.isHash,
+            difference = arr.difference,
+            hasOwn = Object.prototype.hasOwnProperty,
+            isFunction = is.isFunction;
+
+        function _merge(target, source) {
+            var name, s;
+            for (name in source) {
+                if (hasOwn.call(source, name)) {
+                    s = source[name];
+                    if (!(name in target) || (target[name] !== s)) {
+                        target[name] = s;
+                    }
+                }
+            }
+            return target;
+        }
+
+        function _deepMerge(target, source) {
+            var name, s, t;
+            for (name in source) {
+                if (hasOwn.call(source, name)) {
+                    s = source[name];
+                    t = target[name];
+                    if (!deepEqual(t, s)) {
+                        if (isHash(t) && isHash(s)) {
+                            target[name] = _deepMerge(t, s);
+                        } else if (isHash(s)) {
+                            target[name] = _deepMerge({}, s);
+                        } else {
+                            target[name] = s;
+                        }
+                    }
+                }
+            }
+            return target;
+        }
+
+
+        function merge(obj) {
+            if (!obj) {
+                obj = {};
+            }
+            for (var i = 1, l = arguments.length; i < l; i++) {
+                _merge(obj, arguments[i]);
+            }
+            return obj; // Object
+        }
+
+        function deepMerge(obj) {
+            if (!obj) {
+                obj = {};
+            }
+            for (var i = 1, l = arguments.length; i < l; i++) {
+                _deepMerge(obj, arguments[i]);
+            }
+            return obj; // Object
+        }
+
+
+        function extend(parent, child) {
+            var proto = parent.prototype || parent;
+            merge(proto, child);
+            return parent;
+        }
+
+        function forEach(hash, iterator, scope) {
+            if (!isHash(hash) || !isFunction(iterator)) {
+                throw new TypeError();
+            }
+            var objKeys = keys(hash), key;
+            for (var i = 0, len = objKeys.length; i < len; ++i) {
+                key = objKeys[i];
+                iterator.call(scope || hash, hash[key], key, hash);
+            }
+            return hash;
+        }
+
+        function filter(hash, iterator, scope) {
+            if (!isHash(hash) || !isFunction(iterator)) {
+                throw new TypeError();
+            }
+            var objKeys = keys(hash), key, value, ret = {};
+            for (var i = 0, len = objKeys.length; i < len; ++i) {
+                key = objKeys[i];
+                value = hash[key];
+                if (iterator.call(scope || hash, value, key, hash)) {
+                    ret[key] = value;
+                }
+            }
+            return ret;
+        }
+
+        function values(hash) {
+            if (!isHash(hash)) {
+                throw new TypeError();
+            }
+            var objKeys = keys(hash), ret = [];
+            for (var i = 0, len = objKeys.length; i < len; ++i) {
+                ret.push(hash[objKeys[i]]);
+            }
+            return ret;
+        }
+
+
+        function keys(hash) {
+            if (!isHash(hash)) {
+                throw new TypeError();
+            }
+            var ret = [];
+            for (var i in hash) {
+                if (hasOwn.call(hash, i)) {
+                    ret.push(i);
+                }
+            }
+            return ret;
+        }
+
+        function invert(hash) {
+            if (!isHash(hash)) {
+                throw new TypeError();
+            }
+            var objKeys = keys(hash), key, ret = {};
+            for (var i = 0, len = objKeys.length; i < len; ++i) {
+                key = objKeys[i];
+                ret[hash[key]] = key;
+            }
+            return ret;
+        }
+
+        function toArray(hash) {
+            if (!isHash(hash)) {
+                throw new TypeError();
+            }
+            var objKeys = keys(hash), key, ret = [];
+            for (var i = 0, len = objKeys.length; i < len; ++i) {
+                key = objKeys[i];
+                ret.push([key, hash[key]]);
+            }
+            return ret;
+        }
+
+        function omit(hash, omitted) {
+            if (!isHash(hash)) {
+                throw new TypeError();
+            }
+            if (isString(omitted)) {
+                omitted = [omitted];
+            }
+            var objKeys = difference(keys(hash), omitted), key, ret = {};
+            for (var i = 0, len = objKeys.length; i < len; ++i) {
+                key = objKeys[i];
+                ret[key] = hash[key];
+            }
+            return ret;
+        }
+
+        var hash = {
+            forEach: forEach,
+            filter: filter,
+            invert: invert,
+            values: values,
+            toArray: toArray,
+            keys: keys,
+            omit: omit
+        };
+
+
+        var obj = {
+            extend: extend,
+            merge: merge,
+            deepMerge: deepMerge,
+            omit: omit
+        };
+
+        var ret = extended.define(is.isObject, obj).define(isHash, hash).define(is.isFunction, {extend: extend}).expose({hash: hash}).expose(obj);
+        var orig = ret.extend;
+        ret.extend = function __extend() {
+            if (arguments.length === 1) {
+                return orig.extend.apply(ret, arguments);
+            } else {
+                extend.apply(null, arguments);
+            }
+        };
+        return ret;
+
+    }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            module.exports = defineObject(require("extended"), require("is-extended"), require("array-extended"));
+
+        }
+    } else if ("function" === typeof define && define.amd) {
+        define(["extended", "is-extended", "array-extended"], function (extended, is, array) {
+            return defineObject(extended, is, array);
+        });
+    } else {
+        this.objectExtended = defineObject(this.extended, this.isExtended, this.arrayExtended);
+    }
+
+}).call(this);
+
+
+
+
+
+
+
+})()
+},{"is-extended":39,"extended":32,"array-extended":33}],35:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -10383,7 +10835,7 @@ exports.parse = function (src) {
             module.exports = defineDate(require("extended"), require("is-extended"), require("array-extended"));
 
         }
-    } else if ("function" === typeof define) {
+    } else if ("function" === typeof define && define.amd) {
         define(["extended", "is-extended", "array-extended"], function (extended, is, arr) {
             return defineDate(extended, is, arr);
         });
@@ -10399,226 +10851,7 @@ exports.parse = function (src) {
 
 
 
-},{"extended":29,"is-extended":36,"array-extended":30}],32:[function(require,module,exports){
-(function(){(function () {
-    "use strict";
-    /*global extended isExtended*/
-
-    function defineObject(extended, is, arr) {
-
-        var deepEqual = is.deepEqual,
-            isString = is.isString,
-            isHash = is.isHash,
-            difference = arr.difference,
-            hasOwn = Object.prototype.hasOwnProperty,
-            isFunction = is.isFunction;
-
-        function _merge(target, source) {
-            var name, s;
-            for (name in source) {
-                if (hasOwn.call(source, name)) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function _deepMerge(target, source) {
-            var name, s, t;
-            for (name in source) {
-                if (hasOwn.call(source, name)) {
-                    s = source[name];
-                    t = target[name];
-                    if (!deepEqual(t, s)) {
-                        if (isHash(t) && isHash(s)) {
-                            target[name] = _deepMerge(t, s);
-                        } else if (isHash(s)) {
-                            target[name] = _deepMerge({}, s);
-                        } else {
-                            target[name] = s;
-                        }
-                    }
-                }
-            }
-            return target;
-        }
-
-
-        function merge(obj) {
-            if (!obj) {
-                obj = {};
-            }
-            for (var i = 1, l = arguments.length; i < l; i++) {
-                _merge(obj, arguments[i]);
-            }
-            return obj; // Object
-        }
-
-        function deepMerge(obj) {
-            if (!obj) {
-                obj = {};
-            }
-            for (var i = 1, l = arguments.length; i < l; i++) {
-                _deepMerge(obj, arguments[i]);
-            }
-            return obj; // Object
-        }
-
-
-        function extend(parent, child) {
-            var proto = parent.prototype || parent;
-            merge(proto, child);
-            return parent;
-        }
-
-        function forEach(hash, iterator, scope) {
-            if (!isHash(hash) || !isFunction(iterator)) {
-                throw new TypeError();
-            }
-            var objKeys = keys(hash), key;
-            for (var i = 0, len = objKeys.length; i < len; ++i) {
-                key = objKeys[i];
-                iterator.call(scope || hash, hash[key], key, hash);
-            }
-            return hash;
-        }
-
-        function filter(hash, iterator, scope) {
-            if (!isHash(hash) || !isFunction(iterator)) {
-                throw new TypeError();
-            }
-            var objKeys = keys(hash), key, value, ret = {};
-            for (var i = 0, len = objKeys.length; i < len; ++i) {
-                key = objKeys[i];
-                value = hash[key];
-                if (iterator.call(scope || hash, value, key, hash)) {
-                    ret[key] = value;
-                }
-            }
-            return ret;
-        }
-
-        function values(hash) {
-            if (!isHash(hash)) {
-                throw new TypeError();
-            }
-            var objKeys = keys(hash), ret = [];
-            for (var i = 0, len = objKeys.length; i < len; ++i) {
-                ret.push(hash[objKeys[i]]);
-            }
-            return ret;
-        }
-
-
-        function keys(hash) {
-            if (!isHash(hash)) {
-                throw new TypeError();
-            }
-            var ret = [];
-            for (var i in hash) {
-                if (hasOwn.call(hash, i)) {
-                    ret.push(i);
-                }
-            }
-            return ret;
-        }
-
-        function invert(hash) {
-            if (!isHash(hash)) {
-                throw new TypeError();
-            }
-            var objKeys = keys(hash), key, ret = {};
-            for (var i = 0, len = objKeys.length; i < len; ++i) {
-                key = objKeys[i];
-                ret[hash[key]] = key;
-            }
-            return ret;
-        }
-
-        function toArray(hash) {
-            if (!isHash(hash)) {
-                throw new TypeError();
-            }
-            var objKeys = keys(hash), key, ret = [];
-            for (var i = 0, len = objKeys.length; i < len; ++i) {
-                key = objKeys[i];
-                ret.push([key, hash[key]]);
-            }
-            return ret;
-        }
-
-        function omit(hash, omitted) {
-            if (!isHash(hash)) {
-                throw new TypeError();
-            }
-            if (isString(omitted)) {
-                omitted = [omitted];
-            }
-            var objKeys = difference(keys(hash), omitted), key, ret = {};
-            for (var i = 0, len = objKeys.length; i < len; ++i) {
-                key = objKeys[i];
-                ret[key] = hash[key];
-            }
-            return ret;
-        }
-
-        var hash = {
-            forEach: forEach,
-            filter: filter,
-            invert: invert,
-            values: values,
-            toArray: toArray,
-            keys: keys,
-            omit: omit
-        };
-
-
-        var obj = {
-            extend: extend,
-            merge: merge,
-            deepMerge: deepMerge,
-            omit: omit
-        };
-
-        var ret = extended.define(is.isObject, obj).define(isHash, hash).define(is.isFunction, {extend: extend}).expose({hash: hash}).expose(obj);
-        var orig = ret.extend;
-        ret.extend = function __extend() {
-            if (arguments.length === 1) {
-                return orig.extend.apply(ret, arguments);
-            } else {
-                extend.apply(null, arguments);
-            }
-        };
-        return ret;
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineObject(require("extended"), require("is-extended"), require("array-extended"));
-
-        }
-    } else if ("function" === typeof define) {
-        define(["extended", "is-extended", "array-extended"], function (extended, is, array) {
-            return defineObject(extended, is, array);
-        });
-    } else {
-        this.objectExtended = defineObject(this.extended, this.isExtended, this.arrayExtended);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-})()
-},{"array-extended":50,"extended":29,"is-extended":36}],33:[function(require,module,exports){
+},{"extended":32,"is-extended":39,"array-extended":33}],36:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -11249,7 +11482,7 @@ exports.parse = function (src) {
             module.exports = defineString(require("extended"), require("is-extended"), require("date-extended"), require("array-extended"));
 
         }
-    } else if ("function" === typeof define) {
+    } else if ("function" === typeof define && define.amd) {
         define(["extended", "is-extended", "date-extended", "array-extended"], function (extended, is, date, arr) {
             return defineString(extended, is, date, arr);
         });
@@ -11265,21 +11498,13 @@ exports.parse = function (src) {
 
 
 
-},{"extended":29,"is-extended":36,"date-extended":31,"array-extended":30}],34:[function(require,module,exports){
+},{"extended":32,"is-extended":39,"date-extended":35,"array-extended":33}],37:[function(require,module,exports){
 (function(process){(function () {
     "use strict";
     /*global setImmediate, MessageChannel*/
 
 
-    var arraySlice = Array.prototype.slice;
-
-    function argsToArray(args, slice) {
-        slice = slice || 0;
-        return arraySlice.call(args, slice);
-    }
-
-
-    function definePromise(declare, extended, array, is, fn) {
+    function definePromise(declare, extended, array, is, fn, args) {
 
         var forEach = array.forEach,
             isUndefinedOrNull = is.isUndefinedOrNull,
@@ -11287,7 +11512,8 @@ exports.parse = function (src) {
             isFunction = is.isFunction,
             isBoolean = is.isBoolean,
             bind = fn.bind,
-            bindIgnore = fn.bindIgnore;
+            bindIgnore = fn.bindIgnore,
+            argsToArray = args.argsToArray;
 
         function createHandler(fn, promise) {
             return function _handler() {
@@ -11311,7 +11537,9 @@ exports.parse = function (src) {
             }
         } else if (typeof process !== "undefined") {
             // node
-            nextTick = process.nextTick;
+            nextTick = function (cb) {
+                process.nextTick(cb);
+            };
         } else if (typeof MessageChannel !== "undefined") {
             // modern browsers
             // http://www.nonblocking.io/2011/06/windownexttick.html
@@ -11757,14 +11985,14 @@ exports.parse = function (src) {
 
     if ("undefined" !== typeof exports) {
         if ("undefined" !== typeof module && module.exports) {
-            module.exports = definePromise(require("declare.js"), require("extended"), require("array-extended"), require("is-extended"), require("function-extended"));
+            module.exports = definePromise(require("declare.js"), require("extended"), require("array-extended"), require("is-extended"), require("function-extended"), require("arguments-extended"));
         }
-    } else if ("function" === typeof define) {
-        define(["declare", "extended", "array-extended", "is-extended", "function-extended"], function (declare, extended, array, is, fn) {
-            return definePromise(declare, extended, array, is, fn);
+    } else if ("function" === typeof define && define.amd) {
+        define(["declare", "extended", "array-extended", "is-extended", "function-extended", "arguments-extended"], function (declare, extended, array, is, fn, args) {
+            return definePromise(declare, extended, array, is, fn, args);
         });
     } else {
-        this.promiseExtended = definePromise(this.declare, this.extended, this.arrayExtended, this.isExtended, this.functionExtended);
+        this.promiseExtended = definePromise(this.declare, this.extended, this.arrayExtended, this.isExtended, this.functionExtended, this.argumentsExtended);
     }
 
 }).call(this);
@@ -11776,22 +12004,17 @@ exports.parse = function (src) {
 
 
 })(require("__browserify_process"))
-},{"declare.js":38,"extended":29,"array-extended":30,"is-extended":36,"function-extended":35,"__browserify_process":5}],35:[function(require,module,exports){
+},{"declare.js":41,"extended":32,"array-extended":33,"is-extended":39,"function-extended":38,"arguments-extended":53,"__browserify_process":5}],38:[function(require,module,exports){
 (function () {
     "use strict";
 
-    function defineFunction(extended, is) {
+    function defineFunction(extended, is, args) {
 
         var isArray = is.isArray,
             isObject = is.isObject,
             isString = is.isString,
             isFunction = is.isFunction,
-            arraySlice = Array.prototype.slice;
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
+            argsToArray = args.argsToArray;
 
         function hitch(scope, method, args) {
             args = argsToArray(arguments, 2);
@@ -12001,15 +12224,15 @@ exports.parse = function (src) {
 
     if ("undefined" !== typeof exports) {
         if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineFunction(require("extended"), require("is-extended"));
+            module.exports = defineFunction(require("extended"), require("is-extended"), require("arguments-extended"));
 
         }
-    } else if ("function" === typeof define) {
-        define(["extended", "is-extended"], function (extended, is) {
-            return defineFunction(extended, is);
+    } else if ("function" === typeof define && define.amd) {
+        define(["extended", "is-extended", "arguments-extended"], function (extended, is, args) {
+            return defineFunction(extended, is, args);
         });
     } else {
-        this.functionExtended = defineFunction(this.extended, this.isExtended);
+        this.functionExtended = defineFunction(this.extended, this.isExtended, this.argumentsExtended);
     }
 
 }).call(this);
@@ -12020,7 +12243,7 @@ exports.parse = function (src) {
 
 
 
-},{"extended":29,"is-extended":36}],36:[function(require,module,exports){
+},{"extended":32,"is-extended":39,"arguments-extended":53}],39:[function(require,module,exports){
 (function(Buffer){(function () {
     "use strict";
 
@@ -12032,8 +12255,13 @@ exports.parse = function (src) {
         var toStr = Object.prototype.toString;
 
         function argsToArray(args, slice) {
+            var i = -1, j = 0, l = args.length, ret = [];
             slice = slice || 0;
-            return pSlice.call(args, slice);
+            i += slice;
+            while (++i < l) {
+                ret[j++] = args[i];
+            }
+            return ret;
         }
 
         function keys(obj) {
@@ -12506,7 +12734,7 @@ exports.parse = function (src) {
             module.exports = defineIsa(require("extended"));
 
         }
-    } else if ("function" === typeof define) {
+    } else if ("function" === typeof define && define.amd) {
         define(["extended"], function (extended) {
             return defineIsa(extended);
         });
@@ -12518,7 +12746,7 @@ exports.parse = function (src) {
 
 
 })(require("__browserify_buffer").Buffer)
-},{"extended":29,"__browserify_buffer":19}],37:[function(require,module,exports){
+},{"extended":32,"__browserify_buffer":28}],40:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -12783,7 +13011,7 @@ exports.parse = function (src) {
 
 
 
-},{"extended":29,"declare.js":38,"is-extended":36,"array-extended":30}],39:[function(require,module,exports){
+},{"extended":32,"declare.js":41,"is-extended":39,"array-extended":33}],42:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -13690,9 +13918,9 @@ exports.parse = function (src) {
 
 
 
-},{"extended":29,"declare.js":38,"is-extended":36,"array-extended":30,"string-extended":33}],47:[function(require,module,exports){
+},{"extended":32,"declare.js":41,"is-extended":39,"array-extended":33,"string-extended":36}],50:[function(require,module,exports){
 module.exports = require("./extender.js");
-},{"./extender.js":51}],48:[function(require,module,exports){
+},{"./extender.js":54}],51:[function(require,module,exports){
 (function(){"use strict";
 
 var utils = require("./util.js");
@@ -13962,703 +14190,52 @@ module.exports = {
 
 
 })()
-},{"./util.js":49}],50:[function(require,module,exports){
+},{"./util.js":52}],53:[function(require,module,exports){
 (function () {
     "use strict";
 
-    var arraySlice = Array.prototype.slice;
+    function defineArgumentsExtended(extended, is) {
 
-    function argsToArray(args, slice) {
-        slice = slice || 0;
-        return arraySlice.call(args, slice);
-    }
+        var pSlice = Array.prototype.slice,
+            isArguments = is.isArguments;
 
-    function defineArray(extended, is) {
-
-        var isString = is.isString,
-            isArray = Array.isArray || is.isArray,
-            isDate = is.isDate,
-            floor = Math.floor,
-            abs = Math.abs,
-            mathMax = Math.max,
-            mathMin = Math.min,
-            arrayProto = Array.prototype,
-            arrayIndexOf = arrayProto.indexOf,
-            arrayForEach = arrayProto.forEach,
-            arrayMap = arrayProto.map,
-            arrayReduce = arrayProto.reduce,
-            arrayReduceRight = arrayProto.reduceRight,
-            arrayFilter = arrayProto.filter,
-            arrayEvery = arrayProto.every,
-            arraySome = arrayProto.some;
-
-
-        function cross(num, cros) {
-            return reduceRight(cros, function (a, b) {
-                if (!isArray(b)) {
-                    b = [b];
-                }
-                b.unshift(num);
-                a.unshift(b);
-                return a;
-            }, []);
-        }
-
-        function permute(num, cross, length) {
-            var ret = [];
-            for (var i = 0; i < cross.length; i++) {
-                ret.push([num].concat(rotate(cross, i)).slice(0, length));
+        function argsToArray(args, slice) {
+            var i = -1, j = 0, l = args.length, ret = [];
+            slice = slice || 0;
+            i += slice;
+            while (++i < l) {
+                ret[j++] = args[i];
             }
             return ret;
         }
 
 
-        function intersection(a, b) {
-            var ret = [], aOne;
-            if (a && b && a.length && b.length) {
-                for (var i = 0, l = a.length; i < l; i++) {
-                    aOne = a[i];
-                    if (indexOf(b, aOne) !== -1) {
-                        ret.push(aOne);
-                    }
-                }
-            }
-            return ret;
-        }
-
-
-        var _sort = (function () {
-
-            var isAll = function (arr, test) {
-                return every(arr, test);
-            };
-
-            var defaultCmp = function (a, b) {
-                return a - b;
-            };
-
-            var dateSort = function (a, b) {
-                return a.getTime() - b.getTime();
-            };
-
-            return function _sort(arr, property) {
-                var ret = [];
-                if (isArray(arr)) {
-                    ret = arr.slice();
-                    if (property) {
-                        if (typeof property === "function") {
-                            ret.sort(property);
-                        } else {
-                            ret.sort(function (a, b) {
-                                var aProp = a[property], bProp = b[property];
-                                if (isString(aProp) && isString(bProp)) {
-                                    return aProp > bProp ? 1 : aProp < bProp ? -1 : 0;
-                                } else if (isDate(aProp) && isDate(bProp)) {
-                                    return aProp.getTime() - bProp.getTime();
-                                } else {
-                                    return aProp - bProp;
-                                }
-                            });
-                        }
-                    } else {
-                        if (isAll(ret, isString)) {
-                            ret.sort();
-                        } else if (isAll(ret, isDate)) {
-                            ret.sort(dateSort);
-                        } else {
-                            ret.sort(defaultCmp);
-                        }
-                    }
-                }
-                return ret;
-            };
-
-        })();
-
-        function indexOf(arr, searchElement, from) {
-            if (arr && arrayIndexOf && arrayIndexOf === arr.indexOf) {
-                return arr.indexOf(searchElement, from);
-            }
-            if (!isArray(arr)) {
-                throw new TypeError();
-            }
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            if (len === 0) {
-                return -1;
-            }
-            var n = 0;
-            if (arguments.length > 2) {
-                n = Number(arguments[2]);
-                if (n !== n) { // shortcut for verifying if it's NaN
-                    n = 0;
-                } else if (n !== 0 && n !== Infinity && n !== -Infinity) {
-                    n = (n > 0 || -1) * floor(abs(n));
-                }
-            }
-            if (n >= len) {
-                return -1;
-            }
-            var k = n >= 0 ? n : mathMax(len - abs(n), 0);
-            for (; k < len; k++) {
-                if (k in t && t[k] === searchElement) {
-                    return k;
-                }
-            }
-            return -1;
-        }
-
-        function lastIndexOf(arr, searchElement, from) {
-            if (!isArray(arr)) {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            if (len === 0) {
-                return -1;
-            }
-
-            var n = len;
-            if (arguments.length > 2) {
-                n = Number(arguments[2]);
-                if (n !== n) {
-                    n = 0;
-                } else if (n !== 0 && n !== (1 / 0) && n !== -(1 / 0)) {
-                    n = (n > 0 || -1) * floor(abs(n));
-                }
-            }
-
-            var k = n >= 0 ? mathMin(n, len - 1) : len - abs(n);
-
-            for (; k >= 0; k--) {
-                if (k in t && t[k] === searchElement) {
-                    return k;
-                }
-            }
-            return -1;
-        }
-
-        function filter(arr, iterator, scope) {
-            if (arr && arrayFilter && arrayFilter === arr.filter) {
-                return arr.filter(iterator, scope);
-            }
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            var res = [];
-            for (var i = 0; i < len; i++) {
-                if (i in t) {
-                    var val = t[i]; // in case fun mutates this
-                    if (iterator.call(scope, val, i, t)) {
-                        res.push(val);
-                    }
-                }
-            }
-            return res;
-        }
-
-        function forEach(arr, iterator, scope) {
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-            if (arr && arrayForEach && arrayForEach === arr.forEach) {
-                arr.forEach(iterator, scope);
-                return arr;
-            }
-            for (var i = 0, len = arr.length; i < len; ++i) {
-                iterator.call(scope || arr, arr[i], i, arr);
-            }
-
-            return arr;
-        }
-
-        function every(arr, iterator, scope) {
-            if (arr && arrayEvery && arrayEvery === arr.every) {
-                return arr.every(iterator, scope);
-            }
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            for (var i = 0; i < len; i++) {
-                if (i in t && !iterator.call(scope, t[i], i, t)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        function some(arr, iterator, scope) {
-            if (arr && arraySome && arraySome === arr.some) {
-                return arr.some(iterator, scope);
-            }
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            for (var i = 0; i < len; i++) {
-                if (i in t && iterator.call(scope, t[i], i, t)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        function map(arr, iterator, scope) {
-            if (arr && arrayMap && arrayMap === arr.map) {
-                return arr.map(iterator, scope);
-            }
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            var res = [];
-            for (var i = 0; i < len; i++) {
-                if (i in t) {
-                    res.push(iterator.call(scope, t[i], i, t));
-                }
-            }
-            return res;
-        }
-
-        function reduce(arr, accumulator, curr) {
-            var initial = arguments.length > 2;
-            if (arr && arrayReduce && arrayReduce === arr.reduce) {
-                return initial ? arr.reduce(accumulator, curr) : arr.reduce(accumulator);
-            }
-            if (!isArray(arr) || typeof accumulator !== "function") {
-                throw new TypeError();
-            }
-            var i = 0, l = arr.length >> 0;
-            if (arguments.length < 3) {
-                if (l === 0) {
-                    throw new TypeError("Array length is 0 and no second argument");
-                }
-                curr = arr[0];
-                i = 1; // start accumulating at the second element
-            } else {
-                curr = arguments[2];
-            }
-            while (i < l) {
-                if (i in arr) {
-                    curr = accumulator.call(undefined, curr, arr[i], i, arr);
-                }
-                ++i;
-            }
-            return curr;
-        }
-
-        function reduceRight(arr, accumulator, curr) {
-            var initial = arguments.length > 2;
-            if (arr && arrayReduceRight && arrayReduceRight === arr.reduceRight) {
-                return initial ? arr.reduceRight(accumulator, curr) : arr.reduceRight(accumulator);
-            }
-            if (!isArray(arr) || typeof accumulator !== "function") {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-
-            // no value to return if no initial value, empty array
-            if (len === 0 && arguments.length === 2) {
-                throw new TypeError();
-            }
-
-            var k = len - 1;
-            if (arguments.length >= 3) {
-                curr = arguments[2];
-            } else {
-                do {
-                    if (k in arr) {
-                        curr = arr[k--];
-                        break;
-                    }
-                }
-                while (true);
-            }
-            while (k >= 0) {
-                if (k in t) {
-                    curr = accumulator.call(undefined, curr, t[k], k, t);
-                }
-                k--;
-            }
-            return curr;
-        }
-
-
-        function toArray(o) {
-            var ret = [];
-            if (o !== null) {
-                var args = argsToArray(arguments);
-                if (args.length === 1) {
-                    if (isArray(o)) {
-                        ret = o;
-                    } else if (is.isHash(o)) {
-                        for (var i in o) {
-                            if (o.hasOwnProperty(i)) {
-                                ret.push([i, o[i]]);
-                            }
-                        }
-                    } else {
-                        ret.push(o);
-                    }
-                } else {
-                    forEach(args, function (a) {
-                        ret = ret.concat(toArray(a));
-                    });
-                }
-            }
-            return ret;
-        }
-
-        function sum(array) {
-            array = array || [];
-            if (array.length) {
-                return reduce(array, function (a, b) {
-                    return a + b;
-                });
-            } else {
-                return 0;
-            }
-        }
-
-        function avg(arr) {
-            arr = arr || [];
-            if (arr.length) {
-                var total = sum(arr);
-                if (is.isNumber(total)) {
-                    return  total / arr.length;
-                } else {
-                    throw new Error("Cannot average an array of non numbers.");
-                }
-            } else {
-                return 0;
-            }
-        }
-
-        function sort(arr, cmp) {
-            return _sort(arr, cmp);
-        }
-
-        function min(arr, cmp) {
-            return _sort(arr, cmp)[0];
-        }
-
-        function max(arr, cmp) {
-            return _sort(arr, cmp)[arr.length - 1];
-        }
-
-        function difference(arr1) {
-            var ret = arr1, args = flatten(argsToArray(arguments, 1));
-            if (isArray(arr1)) {
-                ret = filter(arr1, function (a) {
-                    return indexOf(args, a) === -1;
-                });
-            }
-            return ret;
-        }
-
-        function removeDuplicates(arr) {
-            var ret = [];
-            if (isArray(arr)) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    var item = arr[i];
-                    if (indexOf(ret, item) === -1) {
-                        ret.push(item);
-                    }
-                }
-            }
-            return ret;
-        }
-
-
-        function unique(arr) {
-            return removeDuplicates(arr);
-        }
-
-
-        function rotate(arr, numberOfTimes) {
-            var ret = arr.slice();
-            if (typeof numberOfTimes !== "number") {
-                numberOfTimes = 1;
-            }
-            if (numberOfTimes && isArray(arr)) {
-                if (numberOfTimes > 0) {
-                    ret.push(ret.shift());
-                    numberOfTimes--;
-                } else {
-                    ret.unshift(ret.pop());
-                    numberOfTimes++;
-                }
-                return rotate(ret, numberOfTimes);
-            } else {
-                return ret;
-            }
-        }
-
-        function permutations(arr, length) {
-            var ret = [];
-            if (isArray(arr)) {
-                var copy = arr.slice(0);
-                if (typeof length !== "number") {
-                    length = arr.length;
-                }
-                if (!length) {
-                    ret = [
-                        []
-                    ];
-                } else if (length <= arr.length) {
-                    ret = reduce(arr, function (a, b, i) {
-                        var ret;
-                        if (length > 1) {
-                            ret = permute(b, rotate(copy, i).slice(1), length);
-                        } else {
-                            ret = [
-                                [b]
-                            ];
-                        }
-                        return a.concat(ret);
-                    }, []);
-                }
-            }
-            return ret;
-        }
-
-        function zip() {
-            var ret = [];
-            var arrs = argsToArray(arguments);
-            if (arrs.length > 1) {
-                var arr1 = arrs.shift();
-                if (isArray(arr1)) {
-                    ret = reduce(arr1, function (a, b, i) {
-                        var curr = [b];
-                        for (var j = 0; j < arrs.length; j++) {
-                            var currArr = arrs[j];
-                            if (isArray(currArr) && !is.isUndefined(currArr[i])) {
-                                curr.push(currArr[i]);
-                            } else {
-                                curr.push(null);
-                            }
-                        }
-                        a.push(curr);
-                        return a;
-                    }, []);
-                }
-            }
-            return ret;
-        }
-
-        function transpose(arr) {
-            var ret = [];
-            if (isArray(arr) && arr.length) {
-                var last;
-                forEach(arr, function (a) {
-                    if (isArray(a) && (!last || a.length === last.length)) {
-                        forEach(a, function (b, i) {
-                            if (!ret[i]) {
-                                ret[i] = [];
-                            }
-                            ret[i].push(b);
-                        });
-                        last = a;
-                    }
-                });
-            }
-            return ret;
-        }
-
-        function valuesAt(arr, indexes) {
-            var ret = [];
-            indexes = argsToArray(arguments);
-            arr = indexes.shift();
-            if (isArray(arr) && indexes.length) {
-                for (var i = 0, l = indexes.length; i < l; i++) {
-                    ret.push(arr[indexes[i]] || null);
-                }
-            }
-            return ret;
-        }
-
-        function union() {
-            var ret = [];
-            var arrs = argsToArray(arguments);
-            if (arrs.length > 1) {
-                for (var i = 0, l = arrs.length; i < l; i++) {
-                    ret = ret.concat(arrs[i]);
-                }
-                ret = removeDuplicates(ret);
-            }
-            return ret;
-        }
-
-        function intersect() {
-            var collect = [], sets;
-            var args = argsToArray(arguments);
-            if (args.length > 1) {
-                //assume we are intersections all the lists in the array
-                sets = args;
-            } else {
-                sets = args[0];
-            }
-            if (isArray(sets)) {
-                var collect = sets.shift();
-                for (var i = 0, l = sets.length; i < l; i++) {
-                    collect = intersection(collect, sets[i]);
-                }
-            }
-            return removeDuplicates(collect);
-        }
-
-        function powerSet(arr) {
-            var ret = [];
-            if (isArray(arr) && arr.length) {
-                ret = reduce(arr, function (a, b) {
-                    var ret = map(a, function (c) {
-                        return c.concat(b);
-                    });
-                    return a.concat(ret);
-                }, [
-                    []
-                ]);
-            }
-            return ret;
-        }
-
-        function cartesian(a, b) {
-            var ret = [];
-            if (isArray(a) && isArray(b) && a.length && b.length) {
-                ret = cross(a[0], b).concat(cartesian(a.slice(1), b));
-            }
-            return ret;
-        }
-
-        function compact(arr) {
-            var ret = [];
-            if (isArray(arr) && arr.length) {
-                ret = filter(arr, function (item) {
-                    return !is.isUndefinedOrNull(item);
-                });
-            }
-            return ret;
-        }
-
-        function multiply(arr, times) {
-            times = is.isNumber(times) ? times : 1;
-            if (!times) {
-                //make sure times is greater than zero if it is zero then dont multiply it
-                times = 1;
-            }
-            arr = toArray(arr || []);
-            var ret = [], i = 0;
-            while (++i <= times) {
-                ret = ret.concat(arr);
-            }
-            return ret;
-        }
-
-        function flatten(arr) {
-            var set;
-            var args = argsToArray(arguments);
-            if (args.length > 1) {
-                //assume we are intersections all the lists in the array
-                set = args;
-            } else {
-                set = toArray(arr);
-            }
-            return reduce(set, function (a, b) {
-                return a.concat(b);
-            }, []);
-        }
-
-        function pluck(arr, prop) {
-            prop = prop.split(".");
-            var result = arr.slice(0);
-            forEach(prop, function (prop) {
-                var exec = prop.match(/(\w+)\(\)$/);
-                result = map(result, function (item) {
-                    return exec ? item[exec[1]]() : item[prop];
-                });
+        return extended
+            .define(isArguments, {
+                toArray: argsToArray
+            })
+            .expose({
+                argsToArray: argsToArray
             });
-            return result;
-        }
-
-        function invoke(arr, func, args) {
-            args = argsToArray(arguments, 2);
-            return map(arr, function (item) {
-                var exec = isString(func) ? item[func] : func;
-                return exec.apply(item, args);
-            });
-        }
-
-
-        var array = {
-            toArray: toArray,
-            sum: sum,
-            avg: avg,
-            sort: sort,
-            min: min,
-            max: max,
-            difference: difference,
-            removeDuplicates: removeDuplicates,
-            unique: unique,
-            rotate: rotate,
-            permutations: permutations,
-            zip: zip,
-            transpose: transpose,
-            valuesAt: valuesAt,
-            union: union,
-            intersect: intersect,
-            powerSet: powerSet,
-            cartesian: cartesian,
-            compact: compact,
-            multiply: multiply,
-            flatten: flatten,
-            pluck: pluck,
-            invoke: invoke,
-            forEach: forEach,
-            map: map,
-            filter: filter,
-            reduce: reduce,
-            reduceRight: reduceRight,
-            some: some,
-            every: every,
-            indexOf: indexOf,
-            lastIndexOf: lastIndexOf
-        };
-
-        return extended.define(isArray, array).expose(array);
     }
 
     if ("undefined" !== typeof exports) {
         if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineArray(require("extended"), require("is-extended"));
+            module.exports = defineArgumentsExtended(require("extended"), require("is-extended"));
+
         }
-    } else if ("function" === typeof define) {
-        define(["require"], function (require) {
-            return defineArray(require("extended"), require("is-extended"));
+    } else if ("function" === typeof define && define.amd) {
+        define(["extended", "is-extended"], function (extended, is) {
+            return defineArgumentsExtended(extended, is);
         });
     } else {
-        this.arrayExtended = defineArray(this.extended, this.isExtended);
+        this.argumentsExtended = defineArgumentsExtended(this.extended, this.isExtended);
     }
 
 }).call(this);
 
 
-
-
-
-
-
-},{"extended":29,"is-extended":36}],51:[function(require,module,exports){
+},{"extended":32,"is-extended":39}],54:[function(require,module,exports){
 (function () {
     /*jshint strict:false*/
 
@@ -15190,7 +14767,7 @@ module.exports = {
             module.exports = defineExtender(require("declare.js"));
 
         }
-    } else if ("function" === typeof define) {
+    } else if ("function" === typeof define && define.amd) {
         define(["declare"], function (declare) {
             return defineExtender(declare);
         });
@@ -15199,5 +14776,5 @@ module.exports = {
     }
 
 }).call(this);
-},{"declare.js":38}]},{},[1])
+},{"declare.js":41}]},{},[1])
 ;

@@ -7,7 +7,17 @@ var nools = require(".."),
     path = require("path"),
     template = fs.readFileSync(path.join(__dirname, "assets", "compile_wrapper.tmpl"), "utf8"),
     str = require("string-extended"),
+    uglifyjs = require("uglify-js"),
     program = require('commander');
+
+function uglify(source) {
+    try {
+        return uglifyjs.minify(source, {fromString: true, mangle: false, output: {beautify: true}}).code;
+    } catch (e) {
+        console.error(e.message);
+        console.error(e.stack);
+    }
+}
 
 program
     .version('0.0.1');
@@ -24,9 +34,11 @@ program.command("compile")
         var noolsLocation = program["nools_location"] || "nools";
         files.forEach(function (file) {
             var name = program.name || path.basename(file, path.extname(file));
-            console.log(str.format(template, { source: JSON.stringify(nools.parse(path.resolve(process.cwd(), file))), name: name, noolsLocation: noolsLocation}).replace(/\s+/g, " "));
+            console.log(str.format(template, { source: uglify(nools.transpile(path.resolve(process.cwd(), file), {name: name})), noolsLocation: noolsLocation}).replace(/\s+/g, " "));
         });
     });
+
+//return uglifyjs.minify(ret.join(""), {fromString: true, mangle: false, output: {beautify: true}}).code;
 
 program.parse(process.argv);
 

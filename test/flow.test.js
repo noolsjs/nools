@@ -150,14 +150,16 @@ it.describe("Flow", function (it) {
             });
 
             it.should("call when a string that does not equal 'hello'", function () {
-                flow.getSession("world").match();
-                assert.equal(called, 1);
+                return flow.getSession("world").match().then(function () {
+                    assert.equal(called, 1);
+                });
             });
 
             it.should(" not call when a string that does equal 'hello'", function () {
                 called = 0;
-                flow.getSession("hello").match();
-                assert.equal(called, 0);
+                flow.getSession("hello").match().then(function () {
+                    assert.equal(called, 0);
+                });
             });
 
             it.should(" not call when a string that does equal 'hello' and one that does not", function () {
