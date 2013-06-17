@@ -1,0 +1,174 @@
+body {
+    font-size: 12px;
+    line-height: 24px;
+    font-weight: bold;
+    font-family: 'Londrina Shadow', cursive;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+#editor {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+#fibonacci div.inline {
+    height: 100%;
+    margin: 10px;
+}
+
+#manners {
+    width: 50%;
+    padding: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    -webkit-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+
+}
+
+#manners #results_container {
+    overflow: auto;
+    height: 400px;
+    width: 95%;
+    background: #dfdfdf;
+    color: #09C;
+    font-family: Tahoma, Geneva, sans-serif;
+    padding: 10px;
+    border-radius: 10px;
+}
+
+.container > header {
+    text-align: center;
+    text-align: center;
+    height: 100px;
+}
+
+.container {
+    overflow: hidden;
+}
+
+.controls {
+    position: absolute;
+    top: 25px;
+    left: 25px;
+    background-color: white;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    -webkit-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+}
+
+.middle {
+    position: static;
+    width: auto;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+hr {
+    margin: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    -webkit-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+}
+
+input[type="submit"], input[type="button"] {
+    width: 100px;
+    right: 20px;
+    bottom: 20px;
+    background: #09C;
+    color: #fff;
+    font-family: Tahoma, Geneva, sans-serif;
+    height: 30px;
+    -webkit-border-radius: 15px;
+    -moz-border-radius: 15px;
+    border-radius: 15px;
+    border: 1px solid #999;
+    margin: 10px;
+}
+
+#grid {
+
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    -webkit-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    -webkit-border-radius: 10px;
+    -moz-border-radius: 10px;
+    border-radius: 10px;
+    padding: 3px;
+    overflow: hidden;
+
+}
+
+.detail {
+    font-size: 14pt;
+    background-color: white;
+    display: table-cell;
+    border: 1px solid #cbcbcb;
+    content: " ", -webkit-box-shadow : 0 px 0 px 8 px rgba ( 0, 0, 0, 0.2 );
+    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
+    position: absolute;
+    bottom: 5px;
+}
+
+.row {
+    display: table-row;
+}
+
+.col {
+    width: 20px;
+    height: 20px;
+    display: table-cell;
+    border: 1px solid #cbcbcb;
+    content: " ", -webkit-box-shadow : 0 px 0 px 8 px rgba ( 0, 0, 0, 0.2 );
+    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
+}
+
+.col.live {
+    background-color: black;
+}
+
+.col.dead {
+    background-color: white;
+}
+
+.inline {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.large {
+    font-size: 50px;
+}
+
+.right {
+    float: right;
+}
+
+.errors {
+    color: #f90008;
+}
+
+input[type="text"] {
+    margin-top: 30px;
+    margin-bottom: 20px;
+    width: 100%;
+    display: block;
+    border: 1px solid #999;
+    height: 20px;
+    font-size: 20px;
+    -webkit-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3);
+    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.3);
+}

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link type="text/css" rel="stylesheet" href="assets/conways.css">
+    <link href='http://fonts.googleapis.com/css?family=Londrina+Shadow' rel='stylesheet' type='text/css'>
+    <title>Fibonacci</title>
+</head>
+<body>
+
+<div id="fibonacci" class="middle">
+
+    <h1>Fibonacci</h1>
+
+    <form id="fibonacci_form" action="#">
+        <div class="inline">
+            <input type="text" id="val"/>
+        </div>
+        <div class="inline">
+            <div class="large"><span>=</span></div>
+        </div>
+        <div class="inline large" id="results_container">
+        </div>
+    </form>
+</div>
+
+<script type="text/javascript" src="//code.jquery.com/jquery-1.10.1.min.js"></script>
+<script type="text/javascript" src="./src/common.js"></script>
+<script type="text/javascript" src="../../nools.js"></script>
+<script type="text/javascript">
+    (function () {
+
+        var outputDiv = document.getElementById("output"), statsListener = stats();
+
+
+        var Fibonacci = function (sequence, value) {
+            this.sequence = sequence;
+            this.value = value || -1;
+        };
+
+        var Result = function (result) {
+            this.result = result || -1;
+        };
+
+
+        var flow = nools.flow("Fibonacci Flow", function (flow) {
+
+            flow.rule("Recurse", [
+                ["not", Fibonacci, "f", "f.sequence == 1"],
+                [Fibonacci, "f1", "f1.sequence != 1"]
+            ], function (facts) {
+                var f2 = new Fibonacci(facts.f1.sequence - 1);
+                this.assert(f2);
+            });
+
+            flow.rule("Bootstrap", [
+                Fibonacci, "f", "f.value == -1 && (f.sequence == 1 || f.sequence == 2)"
+            ], function (facts) {
+                var f = facts.f;
+                f.value = 1;
+                this.modify(f);
+            });
+
+            flow.rule("Calculate", [
+                [Fibonacci, "f1", "f1.value != -1", {sequence: "s1"}],
+                [Fibonacci, "f2", "f2.value != -1 && f2.sequence == s1 + 1", {sequence: "s2"}],
+                [Fibonacci, "f3", "f3.value == -1 && f3.sequence == s2 + 1"],
+                [Result, "r"]
+            ], function (facts) {
+                var f3 = facts.f3, f1 = facts.f1, f2 = facts.f2;
+                var v = f3.value = f1.value + facts.f2.value;
+                this.emit("result", v);
+                facts.r.result = v;
+                this.modify(f3);
+                this.retract(f1);
+            });
+        });
+
+        function calculate(num) {
+            var result = new Result();
+            statsListener.listen(flow.getSession(new Fibonacci(num), result))
+                    .on("result", function (res) {
+                        resultsContainer.text(result.result);
+                    })
+                    .match().then(function () {
+                        resultsContainer.text(result.result);
+                    });
+        }
+
+
+        var resultsContainer = $("#results_container"), valInput = $("#val");
+        $("#fibonacci_form").on('submit', function () {
+            var num = parseInt(valInput.val(), 10);
+            resultsContainer.text("Calculating...");
+            if (!isNaN(num)) {
+                if (num > 2 && num < 1477) {
+                    calculate(num);
+                } else if (num <= 2) {
+                    resultsContainer.text("1");
+                } else if (num >= 1477) {
+                    resultsContainer.text("I cant count that high!");
+                }
+            } else {
+                resultsContainer.text("Seriously?");
+            }
+            return false;
+        });
+
+        valInput.val(10);
+        calculate(10);
+
+    }());
+</script>
+
+</body>
+</html>

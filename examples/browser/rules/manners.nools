@@ -1,0 +1,181 @@
+//Define our models
+//can be retrieved in JS by calling by:
+//var Chosen = flow.getDefined("chosen");
+//var chosen = new Chosen({id : 1, guestName : "bob", hobby : "my hobby"});
+define Chosen {
+    id : null,
+    guestName : null,
+    hobby : null,
+    toString:function () {
+        return ["[Chosen : id=", this.id, " name=", this.guestName, " hobby=", this.hobby, "]"].join(" ");
+    }
+}
+
+define Context {
+    state : "start",
+    toString:function () {
+        return ["[Context state =", this.stringValue, "]"].join("");
+    }
+}
+
+define Count {
+    value : 0,
+    toString:function () {
+        return ["[Count value=", this.value, "]"].join("");
+    }
+}
+
+define Guest {
+    name : "",
+    sex :  "",
+    hobby : "",
+    toString:function () {
+        return ["[Guest name=", this.name, ", sex=", this.sex, ", hobbies=", this.hobby, "]"].join("");
+    }
+}
+
+define LastSeat {
+    seat : null,
+    toString:function () {
+        return ["[LastSeat seat=", this.seat, "]"].join("");
+    }
+}
+
+define Path {
+    id : null,
+    seat : null,
+    guestName : null,
+    toString:function () {
+        return ["[Path id=", this.id, " name=", this.guestName, " seat=", this.seat, "]"].join("");
+    }
+}
+
+
+define Seating {
+    id : null,
+    pid : null,
+    path : null,
+    leftSeat : null,
+    leftGuestName : null,
+    rightSeat : null,
+    rightGuestName : null,
+    toString:function () {
+        return ["[Seating id=", this.id, " pid=", this.pid, " pathDone=", this.path, " leftSeat=", this.leftSeat,
+            " leftGuestName=", this.leftGuestName, " rightSeat=", this.rightSeat, " rightGuestName=", this.rightGuestName, "]"].join("")
+    }
+}
+
+rule assignFirstSeat {
+        when {
+            c : Context  c.state == 'start';
+            g : Guest;
+            count : Count;
+        }
+        then {
+            var leftGuestName = g.name;
+            var seating = new Seating({
+                    id : count.value,
+                    pid : 0,
+                    path : true,
+                    leftSeat : 1,
+                    leftGuestName : leftGuestName,
+                    rightSeat : 1,
+                    rightGuestName : leftGuestName
+            });
+            assert(seating);
+            var path = new Path({id : count.value, seat : 1, guestName : leftGuestName});
+            assert(path);
+            modify(count, function(){
+                this.value++
+            });
+            emit('assign', {seating: seating, path: path});
+            modify(c, function(){
+                this.state = 'assign';
+            });
+        }
+}
+
+
+rule findSeating {
+        when {
+            c : Context c.state == 'assign';
+            s : Seating s.path == true {id : sid, rightGuestName : seatingRightGuestName, rightSeat : rightSeat};
+            g : Guest g.name == seatingRightGuestName {sex : rightGuestSex, hobby : rightGuestHobby};
+            lg : Guest lg.sex != rightGuestSex && lg.hobby == rightGuestHobby {name : leftGuestName};
+            count : Count {value : countValue};
+            not(p : Path p.id == sid && p.guestName == leftGuestName);
+            not(chosen : Chosen chosen.id == sid && chosen.guestName == leftGuestName && chosen.hobby == rightGuestHobby);
+        }
+        then {
+            assert(new Seating({
+                        id : countValue,
+                        pid : sid,
+                        path : false,
+                        leftSeat : s.rightSeat,
+                        leftGuestName : seatingRightGuestName,
+                        rightSeat : rightSeat + 1,
+                        rightGuestName : leftGuestName
+            }));
+            var path = new Path({id : countValue, seat : rightSeat + 1, guestName : leftGuestName});
+            assert(path);
+            assert(new Chosen({id : sid, guestName : leftGuestName, hobby : rightGuestHobby}));
+            modify(count, function(){this.value++;});
+            modify(c, function(){this.state = 'make'});
+        }
+}
+
+rule makePath {
+        when {
+            c : Context c.state == 'make';
+            s : Seating s.path == false {id : sid, pid : seatingPid};
+            p : Path p.id == seatingPid {guestName : pathGuestName, seat : pathSeat};
+            not( p2 : Path p2.id == sid && p2.guestName == pathGuestName);
+        }
+        then {
+            assert(new Path({id : sid, seat : pathSeat, guestName : pathGuestName}));
+        }
+}
+
+rule pathDone {
+        when {
+            c : Context c.state == 'make';
+            s : Seating s.path == false;
+        }
+        then {
+            modify(s, function(){
+                this.path = true;
+            });
+            modify(c, function(){
+                    this.state = 'check';
+            });
+            emit('pathDone', {seating: s});
+        }
+}
+
+rule areWeDone {
+        when {
+            c : Context c.state == 'check';
+            ls : LastSeat {seat : lastSeat};
+            s : Seating s.rightSeat == lastSeat;
+        }
+        then {
+            modify(c, function(){this.state = 'print';})
+        }
+}
+
+rule continue {
+        when {
+            c : Context c.state == 'check';
+        }
+        then {
+            modify(c, function(){this.state = 'assign'});
+        }
+}
+
+rule allDone {
+      when {
+        c : Context c.state == 'print';
+      }
+      then {
+      }
+}

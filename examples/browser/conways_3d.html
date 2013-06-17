@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Conways 3d</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <link type="text/css" rel="stylesheet" href="assets/conways.css">
+    <link type="text/css" rel="stylesheet" href="//code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css">
+    <link href='http://fonts.googleapis.com/css?family=Londrina+Shadow' rel='stylesheet' type='text/css'>
+</head>
+<body>
+<div class="controls">
+    <h1>Conways Game Of Life 3D</h1>
+
+
+    <input type="button" id="run" value="Run!"/>
+    <input type="button" id="stop" value="Stop"/>
+    <input type="button" id="clear" value="Clear"/>
+    <input type="button" id="reset" value="Reset"/>
+    <input type="button" id="edit" value="Edit Rules"/>
+
+    <div>
+        <label for="patterns">Patterns</label>
+        <select id="patterns"></select>
+        <label for="patterns">Dimensions</label>
+        <input type="number" id="dimensions"/>
+        <span id="fact-count"/>
+    </div>
+
+</div>
+<div class="container"></div>
+<div id="editor-dialog">
+    <div id="editor"></div>
+</div>
+
+<script type="text/javascript" src="//code.jquery.com/jquery-1.10.1.min.js"></script>
+<script type="text/javascript" src="//code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/three.js/r58/three.min.js"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/0.2.0/ace.js"></script>
+<script type="text/javascript" src="assets/declare.js"></script>
+<script type="text/javascript" src="assets/extender.js"></script>
+<script type="text/javascript" src="assets/extended.js"></script>
+<script type="text/javascript" src="assets/is-extended.js"></script>
+<script type="text/javascript" src="assets/arguments-extended.js"></script>
+<script type="text/javascript" src="assets/function-extended.js"></script>
+<script type="text/javascript" src="assets/orbit_controls.js"></script>
+<script type="text/javascript" src="../../nools.js"></script>
+<script type="text/javascript" src="src/common.js"></script>
+<script type="text/javascript" src="src/cell.js"></script>
+<script type="text/javascript" src="src/patterns3d.js"></script>
+<script type="text/javascript" src="src/conway_3d.js"></script>
+<script type="text/javascript">
+
+    $(document).ready(function () {
+        $.ajax({
+            url: "./rules/conways3d.nools"
+        }).then(function (res) {
+                    var flowStr, editor, flow, factCountDom = $("#fact-count"), dim = 15;
+
+                    flowStr = res;
+                    flow = nools.compile(res, {name: "conways3d", define: {Cell: Cell}, scope: { loop: loop}});
+                    var conways3d = conways(".container", dim, flow);
+                    var $select = $("#patterns");
+                    $select.append($('<option/>', {
+                        value: "none",
+                        text: ""
+                    }));
+                    factCountDom.text("Total Cells: " + (dim * dim * dim));
+                    for (var i in patterns) {
+                        if (i !== "none") {
+                            $select.append($('<option/>', {
+                                value: i,
+                                text: i
+                            }));
+                        }
+                    }
+                    $select.on("change", function () {
+                        conways3d.set("pattern", $(this).val());
+                    });
+                    $select.val("border").trigger("change");
+                    $("#run").on("click", conways3d.run);
+                    $("#edit").on("click", function () {
+                        $("#editor-dialog").dialog("open");
+                        return false;
+                    });
+                    $("#stop").on("click", conways3d.stop);
+                    $("#clear").on("click", conways3d.clear);
+                    $("#reset").on("click", conways3d.reset);
+
+                    $("#dimensions").on("change", function () {
+                        var dim = parseInt($(this).val(), 10);
+                        if (!isNaN(dim)) {
+                            factCountDom.text("Total Cells: " + (dim * dim * dim));
+                            conways3d.set("dimensions", dim);
+                        }
+                    });
+
+                    $("#editor-dialog").dialog({
+                        autoOpen: false,
+                        modal: true,
+                        width: window.innerWidth * 0.9,
+                        height: window.innerHeight * 0.9,
+                        open: function () {
+                            (editor = ace.edit("editor").getSession()).setValue(flowStr);
+                        },
+                        buttons: {
+                            "Save": function () {
+                                $(this).dialog("close");
+                                nools.deleteFlow("conways3d");
+                                conways3d.set("flow", nools.compile((flowStr = editor.getValue()), {name: "conways3d", define: {Cell: Cell}, scope: { loop: loop}}));
+                            },
+                            Cancel: function () {
+                                $(this).dialog("close");
+                            }
+                        }
+                    });
+                });
+    });
+
+
+</script>
+</body>
+</html>
