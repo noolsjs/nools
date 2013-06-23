@@ -1,3 +1,7 @@
+#v0.1.6 / 2012-06-17
+
+* Fixed issue with the use of next in async actions
+
 #v0.1.5 / 2012-06-17
 
 * More Examples
