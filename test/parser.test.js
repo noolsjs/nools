@@ -3,7 +3,7 @@ var it = require("it"),
     parser = require("../lib/parser"),
     assert = require("assert");
 
-it.describe("A Parser",function (it) {
+it.describe("A Parser", function (it) {
     it.should("parse valid string expressions", function () {
         assert.deepEqual(parser.parseConstraint("a == 'a'"), [
             ['a', null, 'identifier'],
@@ -193,7 +193,7 @@ it.describe("A Parser",function (it) {
             "and"
         ]);
 
-    })
+    });
 
     it.should("parse valid string expressions with property access", function () {
 
@@ -664,6 +664,70 @@ it.describe("A Parser",function (it) {
             ],
             "or"
         ]);
+
+        assert.deepEqual(parser.parseConstraint('a.name eq "bob" or a.age gte 10'), [
+            [
+                [
+                    ["a", null, "identifier"],
+                    ["name", null, "identifier"],
+                    "prop"
+                ],
+                ["bob", null, "string"],
+                "eq"
+            ],
+            [
+                [
+                    ["a", null, "identifier"],
+                    ["age", null, "identifier"],
+                    "prop"
+                ],
+                [10, null, "number"],
+                "gte"
+            ],
+            "or"
+        ]);
+
+        var props = [
+            "in",
+            "notIn",
+            "from",
+            "eq",
+            "EQ",
+            "neq",
+            "NEQ",
+            "lte",
+            "LTE",
+            "lt",
+            "LT",
+            "gt",
+            "GT",
+            "gte",
+            "GTE",
+            "like",
+            "LIKE",
+            "notLike",
+            "NOT_LIKE",
+            "and",
+            "AND",
+            "or",
+            "OR",
+            "null",
+            "true",
+            "false"
+        ];
+        for (var i = 0, l = props.length; i < l; i++) {
+            assert.deepEqual(parser.parseConstraint('a.name.' + props[i] + '("bob")'), [
+                [
+                    ["a", null, "identifier"],
+                    ["name", null, "identifier"],
+                    "prop"
+                ],
+                [props[i], ["bob", null, "string"], "function"],
+                "prop"
+            ]);
+        }
+
+
     });
 
     it.should("handle operator associativity properly", function () {
@@ -856,6 +920,6 @@ it.describe("A Parser",function (it) {
         ]);
     });
 
-}).as(module);
+});
 
 

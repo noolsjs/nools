@@ -1,0 +1,137 @@
+//create new classes;
+//All classes will use default constructor where you pass in
+//an object with key value pairs of the value defined in the define object
+//i.e new Patient({name : "bob", fever : "high", spots : false, rash : true, soreThroat : false, innoculated : true});
+define Patient {
+    name : null,
+    fever : null,
+    spots : null,
+    rash : null,
+    soreThroat : null,
+    innoculated : null
+}
+
+define Diagnosis {
+    name : null,
+    diagnosis : null
+}
+
+define Treatment {
+    name : null,
+    treatment : null
+}
+
+
+rule Measels {
+    when {
+        p : Patient p.fever == 'high' && p.spots == true && p.innoculated == true {name : n};
+        not(d : Diagnosis d.name == n && d.diagnosis == 'allergy');
+    }
+    then {
+        var d = new Diagnosis({name : n, diagnosis : "measles"});
+        emit("diagnosis", d);
+        assert(d);
+    }
+}
+
+rule Allergy1 {
+    when {
+        p : Patient p.spots == true {name : n};
+        not(d : Diagnosis d.name == n && d.diagnosis == 'measles');
+    }
+    then {
+        var d = new Diagnosis({name : n, diagnosis : "allergy"});
+        emit("diagnosis", d);
+        assert(d);
+    }
+}
+
+rule Allergy2 {
+    when {
+        p : Patient p.rash == true {name : n};
+    }
+    then {
+        var d = new Diagnosis({name : n, diagnosis : "allergy"});
+        emit("diagnosis", d);
+        assert(d);
+    }
+}
+
+rule Flu {
+    when {
+        p : Patient p.soreThroat == true && p.fever in ['mild', 'high'] {name : n};
+    }
+    then {
+        var d = new Diagnosis({name : n, diagnosis : "flu"});
+        emit("diagnosis", d);
+        assert(d);
+    }
+}
+
+rule Cold {
+    when {
+        p : Patient p.fever in ['mild', 'high'] {name : n};
+        not(d : Diagnosis d.name == n && d.diagnosis == 'flu');
+    }
+    then {
+        var d = new Diagnosis({name : n, diagnosis : "cold"});
+        emit("diagnosis", d);
+        assert(d);
+    }
+}
+
+rule Healthy {
+    when {
+        p: Patient {name : n};
+        not(d : Diagnosis d.name == n);
+    }
+    then {
+        var d = new Diagnosis({name : n, diagnosis : "healthy"});
+        emit("diagnosis", d);
+        assert(d);
+    }
+}
+
+rule Nothing {
+    when {
+        d : Diagnosis d.diagnosis == 'healthy' {name : n};
+    }
+    then {
+        var t = new Treatment({name : n, treatment : "nothing"});
+        emit("treatment", t);
+        assert(t);
+    }
+}
+
+rule Penicillin {
+    when {
+        d : Diagnosis d.diagnosis == 'measles' {name : n};
+    }
+    then {
+        var t = new Treatment({name : n, treatment : "Penicillin"});
+        emit("treatment", t);
+        assert(t);
+    }
+}
+
+rule AllergyPills {
+    when {
+        d : Diagnosis d.diagnosis == 'allergy' {name : n};
+    }
+    then {
+        var t = new Treatment({name : n, treatment : "Allergy Shot"});
+        emit("treatment", t);
+        assert(t);
+    }
+}
+
+rule BedRest {
+    when {
+        d : Diagnosis d.diagnosis in ['flu', 'cold'] {name : n};
+    }
+    then {
+        var t = new Treatment({name : n, treatment : "Bed Rest"});
+        emit("treatment", t);
+        assert(t);
+    }
+}

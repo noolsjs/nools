@@ -26,6 +26,7 @@
 </div>
 
 <script type="text/javascript" src="//code.jquery.com/jquery-1.10.1.min.js"></script>
+<script type="text/javascript" src="./assets/bignumber.js"></script>
 <script type="text/javascript" src="./src/common.js"></script>
 <script type="text/javascript" src="../../nools.js"></script>
 <script type="text/javascript">
@@ -33,43 +34,45 @@
 
         var outputDiv = document.getElementById("output"), statsListener = stats();
 
+        BigNumber.prototype.nequals = function (num) {
+            return !this.equals(num);
+        }
 
         var Fibonacci = function (sequence, value) {
             this.sequence = sequence;
-            this.value = value || -1;
+            this.value = value || new BigNumber(-1);
         };
 
         var Result = function (result) {
-            this.result = result || -1;
+            this.result = result || new BigNumber(-1);
         };
 
 
         var flow = nools.flow("Fibonacci Flow", function (flow) {
 
             flow.rule("Recurse", [
-                ["not", Fibonacci, "f", "f.sequence == 1"],
-                [Fibonacci, "f1", "f1.sequence != 1"]
+                ["not", Fibonacci, "f", "f.sequence.equals(1)"],
+                [Fibonacci, "f1", "f1.sequence.nequals(1)"]
             ], function (facts) {
-                var f2 = new Fibonacci(facts.f1.sequence - 1);
-                this.assert(f2);
+                this.assert(new Fibonacci(facts.f1.sequence.minus(1)));
             });
 
             flow.rule("Bootstrap", [
-                Fibonacci, "f", "f.value == -1 && (f.sequence == 1 || f.sequence == 2)"
+                Fibonacci, "f", "f.value.equals(-1) && (f.sequence.equals(1) || f.sequence.equals(2))"
             ], function (facts) {
                 var f = facts.f;
-                f.value = 1;
+                f.value = new BigNumber(1);
                 this.modify(f);
             });
 
             flow.rule("Calculate", [
-                [Fibonacci, "f1", "f1.value != -1", {sequence: "s1"}],
-                [Fibonacci, "f2", "f2.value != -1 && f2.sequence == s1 + 1", {sequence: "s2"}],
-                [Fibonacci, "f3", "f3.value == -1 && f3.sequence == s2 + 1"],
+                [Fibonacci, "f1", "f1.value.nequals(-1)", {sequence: "s1"}],
+                [Fibonacci, "f2", "f2.value.nequals(-1) && f2.sequence.equals(s1.plus(1))", {sequence: "s2"}],
+                [Fibonacci, "f3", "f3.value.equals(-1) && f3.sequence.equals(s2.plus(1))"],
                 [Result, "r"]
             ], function (facts) {
                 var f3 = facts.f3, f1 = facts.f1, f2 = facts.f2;
-                var v = f3.value = f1.value + facts.f2.value;
+                var v = f3.value = f1.value.plus(facts.f2.value);
                 this.emit("result", v);
                 facts.r.result = v;
                 this.modify(f3);
@@ -79,13 +82,11 @@
 
         function calculate(num) {
             var result = new Result();
-            statsListener.listen(flow.getSession(new Fibonacci(num), result))
+            statsListener.listen(flow.getSession(new Fibonacci(new BigNumber(num)), result))
                     .on("result", function (res) {
-                        resultsContainer.text(result.result);
+                        resultsContainer.text(res);
                     })
-                    .match().then(function () {
-                        resultsContainer.text(result.result);
-                    });
+                    .match();
         }
 
 
@@ -94,12 +95,10 @@
             var num = parseInt(valInput.val(), 10);
             resultsContainer.text("Calculating...");
             if (!isNaN(num)) {
-                if (num > 2 && num < 1477) {
+                if (num > 2) {
                     calculate(num);
                 } else if (num <= 2) {
                     resultsContainer.text("1");
-                } else if (num >= 1477) {
-                    resultsContainer.text("I cant count that high!");
                 }
             } else {
                 resultsContainer.text("Seriously?");

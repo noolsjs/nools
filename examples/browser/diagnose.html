@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link type="text/css" rel="stylesheet" href="assets/conways.css">
+    <link type="text/css" rel="stylesheet" href="//code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css">
+    <link href='http://fonts.googleapis.com/css?family=Londrina+Shadow' rel='stylesheet' type='text/css'>
+    <title>Diagnose Me</title>
+</head>
+<body>
+
+
+<div id="diagnose" class="middle">
+    <h1>Diagnose Me <input type="button" id="edit" value="Edit Rules"/></h1>
+
+
+    <form action="#">
+        <div class="errors"></div>
+        <label for="name">Patient Name</label>
+        <input type="text" id="name"/>
+        <label for="fever">Fever</label>
+        <select id="fever">
+            <option value="">None</option>
+            <option value="high">High</option>
+            <option value="mild">Mild</option>
+        </select>
+
+        <div>
+            <label for="spots">Spots</label>
+            <input type="checkbox" id="spots"/>
+        </div>
+        <div>
+            <label for="rash">Rash</label>
+            <input type="checkbox" id="rash"/>
+        </div>
+        <div>
+            <label for="sore_throat">Sore Throat</label>
+            <input type="checkbox" id="sore_throat"/>
+        </div>
+        <div>
+            <label for="innoculated">Innoculated</label>
+            <input type="checkbox" id="innoculated"/>
+        </div>
+        <input type="submit" value="Diagnose"/>
+    </form>
+    <hr/>
+    <h2>Diagnoses</h2>
+
+    <div id="results_container"></div>
+
+</div>
+
+<div id="editor-dialog">
+    <div id="editor"></div>
+</div>
+
+<script type="text/javascript" src="//code.jquery.com/jquery-1.10.1.min.js"></script>
+<script type="text/javascript" src="//code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/0.2.0/ace.js"></script>
+<script type="text/javascript" src="../../nools.js"></script>
+<script type="text/javascript" src="./src/common.js"></script>
+<script type="text/javascript" src="./src/guests.js"></script>
+<script type="text/javascript">
+
+    $(document).ready(function () {
+        $.ajax({
+            url: "./rules/diagnosis.nools"
+        }).then(function (res) {
+
+                    var resultsContainer = $("#results_container"),
+                            statsListener = stats(),
+                            flowStr = res,
+                            flow = nools.compile(res, {name: "diagnosis"}),
+                            Patient = flow.getDefined("patient");
+
+                    function clear() {
+                        $("#fever").val("");
+                        $("#spots").attr("checked", false);
+                        $("#rash").attr("checked", false);
+                        $("#sore_throat").attr("checked", false);
+                        $("#innoculated").attr("checked", false);
+                        $("#name").val("");
+                    }
+
+                    function createPatient() {
+                        return new Patient({
+                            name: $("#name").val(),
+                            fever: $("#fever").val(),
+                            spots: $("#spots").is(":checked"),
+                            rash: $("#rash").is(":checked"),
+                            soreThroat: $("#sore_throat").is(":checked"),
+                            innoculated: $("#innoculated").is(":checked")
+                        })
+
+
+                    }
+
+                    function run() {
+                        var d, t;
+                        statsListener.listen(flow.getSession(createPatient()))
+                                .on("diagnosis", function (diagnosis) {
+                                    d = diagnosis;
+                                })
+                                .on("treatment", function (treatment) {
+                                    t = treatment;
+                                })
+                                .match().then(function () {
+                                    if (t && d) {
+                                        resultsContainer.append($("<div/>", {
+                                            text: d.name + "'s diagnosis is " + d.diagnosis + " we recommend " + t.treatment
+                                        }))
+                                    }
+                                });
+                    }
+
+                    clear();
+
+                    $("form").on("submit", function () {
+                        if ($("#name").val()) {
+                            $(".errors").empty();
+                            run();
+                        } else {
+                            $(".errors").append("<div>Patient Name Required</div>");
+                        }
+                        return false;
+                    });
+
+                    $("#edit").on("click", function () {
+                        $("#editor-dialog").dialog("open");
+                        return false;
+                    });
+
+                    $("#editor-dialog").dialog({
+                        autoOpen: false,
+                        modal: true,
+                        width: window.innerWidth * 0.9,
+                        height: window.innerHeight * 0.9,
+                        open: function () {
+                            (editor = ace.edit("editor").getSession()).setValue(flowStr);
+                        },
+                        buttons: {
+                            "Save": function () {
+                                $(this).dialog("close");
+                                nools.deleteFlow("diagnosis");
+                                stop();
+                                flow = nools.compile((flowStr = editor.getValue()), {name: "diagnosis"});
+                            },
+                            Cancel: function () {
+                                $(this).dialog("close");
+                            }
+                        }
+                    });
+
+                });
+    })
+    ;
+</script>
+
+</body>
+</html>
