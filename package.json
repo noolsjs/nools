@@ -1,7 +1,7 @@
 {
   "name": "nools",
   "description": "A rules engine for node",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "bin": {
     "nools": "./bin/nools"
   },
@@ -40,7 +40,7 @@
     "grunt-it": "~0.3.0",
     "grunt-contrib-uglify": "~0.2.0",
     "grunt-contrib-jshint": "~0.5.3",
-    "grunt-browserify": "~1.0.2",
+    "grunt-browserify": "1.0.2",
     "uglify-js": "~2.3.6"
   },
   "testling": {

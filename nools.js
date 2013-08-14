@@ -3,6 +3,17 @@
     "use strict";
     var nools = require("../");
 
+    if (typeof Object.getPrototypeOf !== "function") {
+        Object.getPrototypeOf = "".__proto__ === String.prototype
+            ? function (object) {
+            return object.__proto__;
+        }
+            : function (object) {
+            // May break if the constructor has been tampered with
+            return object.constructor.prototype;
+        };
+    }
+
     if ("function" === typeof this.define && this.define.amd) {
         define([], function () {
             return nools;
@@ -1531,7 +1542,7 @@ declare({
 
 
 
-},{"../pattern.js":11,"../extended":8,"../constraint":17,"./aliasNode":19,"./equalityNode":20,"./joinNode":21,"./notNode":22,"./leftAdapterNode":23,"./rightAdapterNode":24,"./terminalNode":25,"./typeNode":26,"./propertyNode":27}],28:[function(require,module,exports){
+},{"../pattern.js":11,"../extended":8,"../constraint":17,"./aliasNode":19,"./equalityNode":20,"./joinNode":21,"./notNode":22,"./leftAdapterNode":23,"./rightAdapterNode":24,"./typeNode":25,"./terminalNode":26,"./propertyNode":27}],28:[function(require,module,exports){
 require=(function(e,t,n,r){function i(r){if(!n[r]){if(!t[r]){if(e)return e(r);throw new Error("Cannot find module '"+r+"'")}var s=n[r]={exports:{}};t[r][0](function(e){var n=t[r][1][e];return i(n?n:e)},s,s.exports)}return n[r].exports}for(var s=0;s<r.length;s++)i(r[s]);return i})(typeof require!=="undefined"&&require,{1:[function(require,module,exports){
 exports.readIEEE754 = function(buffer, offset, isBE, mLen, nBytes) {
   var e, m,
@@ -5603,7 +5614,7 @@ module.exports = require("extended")()
     .register("LinkedList", require("./linkedList"));
 
 
-},{"./linkedList":31,"extended":32,"array-extended":33,"date-extended":34,"object-extended":35,"string-extended":36,"promise-extended":37,"function-extended":38,"is-extended":39,"ht":40,"leafy":41,"declare.js":42}],10:[function(require,module,exports){
+},{"./linkedList":31,"extended":32,"date-extended":33,"array-extended":34,"object-extended":35,"string-extended":36,"promise-extended":37,"function-extended":38,"is-extended":39,"ht":40,"declare.js":41,"leafy":42}],10:[function(require,module,exports){
 "use strict";
 var declare = require("declare.js");
 
@@ -5669,7 +5680,7 @@ declare({
 }).as(exports, "WorkingMemory");
 
 
-},{"declare.js":42}],16:[function(require,module,exports){
+},{"declare.js":41}],16:[function(require,module,exports){
 "use strict";
 
 var extd = require("./extended"),
@@ -5838,6 +5849,7 @@ var lang = {
                 rule2 === "neq" ||
                 rule2 === "in" ||
                 rule2 === "notIn" ||
+                rule2 === "prop" ||
                 rule2 === "function") {
             if (some(this.getIdentifiers(rule), function (i) {
                 return i !== alias && !(i in definedFuncs) && !(i in scope);
@@ -6630,6 +6642,46 @@ Node.extend({
     }
 }).as(module);
 },{"./node":46}],25:[function(require,module,exports){
+var AlphaNode = require("./alphaNode"),
+    Context = require("../context");
+
+AlphaNode.extend({
+    instance: {
+
+        assert: function (fact) {
+            if (this.constraint.assert(fact.object)) {
+                this.__propagate("assert", fact);
+            }
+        },
+
+        retract: function (fact) {
+            if (this.constraint.assert(fact.object)) {
+                this.propagateRetract(fact);
+            }
+        },
+
+        toString: function () {
+            return "TypeNode" + this.__count;
+        },
+
+        dispose: function () {
+            var es = this.__entrySet, i = es.length - 1;
+            for (; i >= 0; i--) {
+                var e = es[i], outNode = e.key, paths = e.value;
+                outNode.dispose({paths: paths});
+            }
+        },
+
+        __propagate: function (method, fact) {
+            var es = this.__entrySet, i = es.length - 1;
+            for (; i >= 0; i--) {
+                var e = es[i], outNode = e.key, paths = e.value;
+                outNode[method](new Context(fact, paths));
+            }
+        }
+    }
+}).as(module);
+},{"./alphaNode":45,"../context":48}],26:[function(require,module,exports){
 var Node = require("./node"),
     extd = require("../extended"),
     bind = extd.bind,
@@ -6708,47 +6760,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./node":46,"../extended":8}],26:[function(require,module,exports){
-var AlphaNode = require("./alphaNode"),
-    Context = require("../context");
-
-AlphaNode.extend({
-    instance: {
-
-        assert: function (fact) {
-            if (this.constraint.assert(fact.object)) {
-                this.__propagate("assert", fact);
-            }
-        },
-
-        retract: function (fact) {
-            if (this.constraint.assert(fact.object)) {
-                this.propagateRetract(fact);
-            }
-        },
-
-        toString: function () {
-            return "TypeNode" + this.__count;
-        },
-
-        dispose: function () {
-            var es = this.__entrySet, i = es.length - 1;
-            for (; i >= 0; i--) {
-                var e = es[i], outNode = e.key, paths = e.value;
-                outNode.dispose({paths: paths});
-            }
-        },
-
-        __propagate: function (method, fact) {
-            var es = this.__entrySet, i = es.length - 1;
-            for (; i >= 0; i--) {
-                var e = es[i], outNode = e.key, paths = e.value;
-                outNode[method](new Context(fact, paths));
-            }
-        }
-    }
-}).as(module);
-},{"./alphaNode":45,"../context":48}],27:[function(require,module,exports){
+},{"./node":46,"../extended":8}],27:[function(require,module,exports){
 var AlphaNode = require("./alphaNode"),
     Context = require("../context"),
     extd = require("../extended");
@@ -6841,14 +6853,87 @@ var createDefined = (function () {
 exports.createFunction = createFunction;
 exports.createDefined = createDefined;
 },{"../extended":8}],43:[function(require,module,exports){
-(function(process){/* parser generated by jison 0.4.2 */
+(function(process){/* parser generated by jison 0.4.6 */
+/*
+  Returns a Parser object of the following structure:
+
+  Parser: {
+    yy: {}
+  }
+
+  Parser.prototype: {
+    yy: {},
+    trace: function(),
+    symbols_: {associative list: name ==> number},
+    terminals_: {associative list: number ==> name},
+    productions_: [...],
+    performAction: function anonymous(yytext, yyleng, yylineno, yy, yystate, $$, _$),
+    table: [...],
+    defaultActions: {...},
+    parseError: function(str, hash),
+    parse: function(input),
+
+    lexer: {
+        EOF: 1,
+        parseError: function(str, hash),
+        setInput: function(input),
+        input: function(),
+        unput: function(str),
+        more: function(),
+        less: function(n),
+        pastInput: function(),
+        upcomingInput: function(),
+        showPosition: function(),
+        test_match: function(regex_match_array, rule_index),
+        next: function(),
+        lex: function(),
+        begin: function(condition),
+        popState: function(),
+        _currentRules: function(),
+        topState: function(),
+        pushState: function(condition),
+
+        options: {
+            ranges: boolean           (optional: true ==> token location info will include a .range[] member)
+            flex: boolean             (optional: true ==> flex-like lexing behaviour where the rules are tested exhaustively to find the longest match)
+            backtrack_lexer: boolean  (optional: true ==> lexer regexes are tested in order and for each matching regex the action code is invoked; the lexer terminates the scan when a token is returned by the action code)
+        },
+
+        performAction: function(yy, yy_, $avoiding_name_collisions, YY_START),
+        rules: [...],
+        conditions: {associative list: name ==> set},
+    }
+  }
+
+
+  token location info (@$, _$, etc.): {
+    first_line: n,
+    last_line: n,
+    first_column: n,
+    last_column: n,
+    range: [start_number, end_number]       (where the numbers are indexes into the input string, regular zero-based)
+  }
+
+
+  the parseError function receives a 'hash' object with these members for lexer and parser errors: {
+    text:        (matched text)
+    token:       (the produced terminal token, if any)
+    line:        (yylineno)
+  }
+  while parser (grammar) errors will also provide these members, i.e. parser errors deliver a superset of attributes: {
+    loc:         (yylloc)
+    expected:    (string describing the set of expected tokens)
+    recoverable: (boolean: TRUE when the parser has a error recovery rule available for this particular error)
+  }
+*/
 var parser = (function(){
 var parser = {trace: function trace() { },
 yy: {},
 symbols_: {"error":2,"expressions":3,"EXPRESSION":4,"EOF":5,"UNARY_EXPRESSION":6,"LITERAL_EXPRESSION":7,"-":8,"MULTIPLICATIVE_EXPRESSION":9,"*":10,"/":11,"%":12,"ADDITIVE_EXPRESSION":13,"+":14,"EXPONENT_EXPRESSION":15,"^":16,"RELATIONAL_EXPRESSION":17,"<":18,">":19,"<=":20,">=":21,"EQUALITY_EXPRESSION":22,"==":23,"!=":24,"=~":25,"!=~":26,"IN_EXPRESSION":27,"in":28,"ARRAY_EXPRESSION":29,"notIn":30,"OBJECT_EXPRESSION":31,"AND_EXPRESSION":32,"&&":33,"OR_EXPRESSION":34,"||":35,"ARGUMENT_LIST":36,",":37,"FUNCTION":38,"IDENTIFIER":39,"(":40,")":41,"IDENTIFIER_EXPRESSION":42,".":43,"STRING_EXPRESSION":44,"STRING":45,"NUMBER_EXPRESSION":46,"NUMBER":47,"REGEXP_EXPRESSION":48,"REGEXP":49,"BOOLEAN_EXPRESSION":50,"BOOLEAN":51,"NULL_EXPRESSION":52,"NULL":53,"[":54,"]":55,"$accept":0,"$end":1},
 terminals_: {2:"error",5:"EOF",8:"-",10:"*",11:"/",12:"%",14:"+",16:"^",18:"<",19:">",20:"<=",21:">=",23:"==",24:"!=",25:"=~",26:"!=~",28:"in",30:"notIn",33:"&&",35:"||",37:",",39:"IDENTIFIER",40:"(",41:")",43:".",45:"STRING",47:"NUMBER",49:"REGEXP",51:"BOOLEAN",53:"NULL",54:"[",55:"]"},
 productions_: [0,[3,2],[6,1],[6,2],[9,1],[9,3],[9,3],[9,3],[13,1],[13,3],[13,3],[15,1],[15,3],[17,1],[17,3],[17,3],[17,3],[17,3],[22,1],[22,3],[22,3],[22,3],[22,3],[27,1],[27,3],[27,3],[27,3],[27,3],[32,1],[32,3],[34,1],[34,3],[36,1],[36,3],[38,3],[38,4],[31,1],[31,3],[31,3],[42,1],[44,1],[46,1],[48,1],[50,1],[52,1],[29,2],[29,3],[7,1],[7,1],[7,1],[7,1],[7,1],[7,1],[7,1],[7,1],[7,3],[4,1]],
-performAction: function anonymous(yytext,yyleng,yylineno,yy,yystate,$$,_$) {
+performAction: function anonymous(yytext, yyleng, yylineno, yy, yystate /* action[1] */, $$ /* vstack */, _$ /* lstack */) {
+/* this == yyval */
 
 var $0 = $$.length - 1;
 switch (yystate) {
@@ -6908,13 +6993,13 @@ case 38:this.$ = [$$[$0-2],$$[$0], 'prop'];
 break;
 case 39:this.$ = [String(yytext), null, 'identifier'];
 break;
-case 40:this.$ = [String(yytext.replace(/^'|'$/g, '')), null, 'string'];
+case 40:this.$ = [String(yytext.replace(/^['|"]|['|"]$/g, '')), null, 'string'];
 break;
 case 41:this.$ = [Number(yytext), null, 'number'];
 break;
 case 42:this.$ = [RegExp(yytext.replace(/^\/|\/$/g, '')), null, 'regexp'];
 break;
-case 43:this.$ = [yytext == 'true', null, 'boolean'];
+case 43:this.$ = [yytext.replace(/^\s+/, '') == 'true', null, 'boolean'];
 break;
 case 44:this.$ = [null, null, 'null'];
 break;
@@ -6929,21 +7014,29 @@ break;
 table: [{3:1,4:2,6:29,7:7,8:[1,30],9:28,13:27,15:18,17:8,22:6,27:5,29:15,31:16,32:4,34:3,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{1:[3]},{5:[1,31]},{5:[2,56],35:[1,32],41:[2,56]},{5:[2,30],33:[1,33],35:[2,30],41:[2,30]},{5:[2,28],33:[2,28],35:[2,28],41:[2,28]},{5:[2,23],23:[1,34],24:[1,35],25:[1,36],26:[1,37],33:[2,23],35:[2,23],41:[2,23]},{5:[2,2],8:[2,2],10:[2,2],11:[2,2],12:[2,2],14:[2,2],16:[2,2],18:[2,2],19:[2,2],20:[2,2],21:[2,2],23:[2,2],24:[2,2],25:[2,2],26:[2,2],28:[1,38],30:[1,39],33:[2,2],35:[2,2],41:[2,2]},{5:[2,18],18:[1,40],19:[1,41],20:[1,42],21:[1,43],23:[2,18],24:[2,18],25:[2,18],26:[2,18],33:[2,18],35:[2,18],41:[2,18]},{5:[2,47],8:[2,47],10:[2,47],11:[2,47],12:[2,47],14:[2,47],16:[2,47],18:[2,47],19:[2,47],20:[2,47],21:[2,47],23:[2,47],24:[2,47],25:[2,47],26:[2,47],28:[2,47],30:[2,47],33:[2,47],35:[2,47],37:[2,47],41:[2,47],55:[2,47]},{5:[2,48],8:[2,48],10:[2,48],11:[2,48],12:[2,48],14:[2,48],16:[2,48],18:[2,48],19:[2,48],20:[2,48],21:[2,48],23:[2,48],24:[2,48],25:[2,48],26:[2,48],28:[2,48],30:[2,48],33:[2,48],35:[2,48],37:[2,48],41:[2,48],55:[2,48]},{5:[2,49],8:[2,49],10:[2,49],11:[2,49],12:[2,49],14:[2,49],16:[2,49],18:[2,49],19:[2,49],20:[2,49],21:[2,49],23:[2,49],24:[2,49],25:[2,49],26:[2,49],28:[2,49],30:[2,49],33:[2,49],35:[2,49],37:[2,49],41:[2,49],55:[2,49]},{5:[2,50],8:[2,50],10:[2,50],11:[2,50],12:[2,50],14:[2,50],16:[2,50],18:[2,50],19:[2,50],20:[2,50],21:[2,50],23:[2,50],24:[2,50],25:[2,50],26:[2,50],28:[2,50],30:[2,50],33:[2,50],35:[2,50],37:[2,50],41:[2,50],55:[2,50]},{5:[2,51],8:[2,51],10:[2,51],11:[2,51],12:[2,51],14:[2,51],16:[2,51],18:[2,51],19:[2,51],20:[2,51],21:[2,51],23:[2,51],24:[2,51],25:[2,51],26:[2,51],28:[2,51],30:[2,51],33:[2,51],35:[2,51],37:[2,51],41:[2,51],55:[2,51]},{5:[2,52],8:[2,52],10:[2,52],11:[2,52],12:[2,52],14:[2,52],16:[2,52],18:[2,52],19:[2,52],20:[2,52],21:[2,52],23:[2,52],24:[2,52],25:[2,52],26:[2,52],28:[2,52],30:[2,52],33:[2,52],35:[2,52],37:[2,52],41:[2,52],55:[2,52]},{5:[2,53],8:[2,53],10:[2,53],11:[2,53],12:[2,53],14:[2,53],16:[2,53],18:[2,53],19:[2,53],20:[2,53],21:[2,53],23:[2,53],24:[2,53],25:[2,53],26:[2,53],28:[2,53],30:[2,53],33:[2,53],35:[2,53],37:[2,53],41:[2,53],55:[2,53]},{5:[2,54],8:[2,54],10:[2,54],11:[2,54],12:[2,54],14:[2,54],16:[2,54],18:[2,54],19:[2,54],20:[2,54],21:[2,54],23:[2,54],24:[2,54],25:[2,54],26:[2,54],28:[2,54],30:[2,54],33:[2,54],35:[2,54],37:[2,54],41:[2,54],43:[1,44],55:[2,54]},{4:45,6:29,7:7,8:[1,30],9:28,13:27,15:18,17:8,22:6,27:5,29:15,31:16,32:4,34:3,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{5:[2,13],16:[1,46],18:[2,13],19:[2,13],20:[2,13],21:[2,13],23:[2,13],24:[2,13],25:[2,13],26:[2,13],33:[2,13],35:[2,13],41:[2,13]},{5:[2,40],8:[2,40],10:[2,40],11:[2,40],12:[2,40],14:[2,40],16:[2,40],18:[2,40],19:[2,40],20:[2,40],21:[2,40],23:[2,40],24:[2,40],25:[2,40],26:[2,40],28:[2,40],30:[2,40],33:[2,40],35:[2,40],37:[2,40],41:[2,40],55:[2,40]},{5:[2,41],8:[2,41],10:[2,41],11:[2,41],12:[2,41],14:[2,41],16:[2,41],18:[2,41],19:[2,41],20:[2,41],21:[2,41],23:[2,41],24:[2,41],25:[2,41],26:[2,41],28:[2,41],30:[2,41],33:[2,41],35:[2,41],37:[2,41],41:[2,41],55:[2,41]},{5:[2,42],8:[2,42],10:[2,42],11:[2,42],12:[2,42],14:[2,42],16:[2,42],18:[2,42],19:[2,42],20:[2,42],21:[2,42],23:[2,42],24:[2,42],25:[2,42],26:[2,42],28:[2,42],30:[2,42],33:[2,42],35:[2,42],37:[2,42],41:[2,42],55:[2,42]},{5:[2,43],8:[2,43],10:[2,43],11:[2,43],12:[2,43],14:[2,43],16:[2,43],18:[2,43],19:[2,43],20:[2,43],21:[2,43],23:[2,43],24:[2,43],25:[2,43],26:[2,43],28:[2,43],30:[2,43],33:[2,43],35:[2,43],37:[2,43],41:[2,43],55:[2,43]},{5:[2,44],8:[2,44],10:[2,44],11:[2,44],12:[2,44],14:[2,44],16:[2,44],18:[2,44],19:[2,44],20:[2,44],21:[2,44],23:[2,44],24:[2,44],25:[2,44],26:[2,44],28:[2,44],30:[2,44],33:[2,44],35:[2,44],37:[2,44],41:[2,44],55:[2,44]},{5:[2,39],8:[2,39],10:[2,39],11:[2,39],12:[2,39],14:[2,39],16:[2,39],18:[2,39],19:[2,39],20:[2,39],21:[2,39],23:[2,39],24:[2,39],25:[2,39],26:[2,39],28:[2,39],30:[2,39],33:[2,39],35:[2,39],37:[2,39],40:[1,47],41:[2,39],43:[2,39],55:[2,39]},{7:50,29:15,31:16,36:49,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25],55:[1,48]},{5:[2,36],8:[2,36],10:[2,36],11:[2,36],12:[2,36],14:[2,36],16:[2,36],18:[2,36],19:[2,36],20:[2,36],21:[2,36],23:[2,36],24:[2,36],25:[2,36],26:[2,36],28:[2,36],30:[2,36],33:[2,36],35:[2,36],37:[2,36],41:[2,36],43:[2,36],55:[2,36]},{5:[2,11],8:[1,52],14:[1,51],16:[2,11],18:[2,11],19:[2,11],20:[2,11],21:[2,11],23:[2,11],24:[2,11],25:[2,11],26:[2,11],33:[2,11],35:[2,11],41:[2,11]},{5:[2,8],8:[2,8],10:[1,53],11:[1,54],12:[1,55],14:[2,8],16:[2,8],18:[2,8],19:[2,8],20:[2,8],21:[2,8],23:[2,8],24:[2,8],25:[2,8],26:[2,8],33:[2,8],35:[2,8],41:[2,8]},{5:[2,4],8:[2,4],10:[2,4],11:[2,4],12:[2,4],14:[2,4],16:[2,4],18:[2,4],19:[2,4],20:[2,4],21:[2,4],23:[2,4],24:[2,4],25:[2,4],26:[2,4],33:[2,4],35:[2,4],41:[2,4]},{6:56,7:57,8:[1,30],29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{1:[2,1]},{6:29,7:7,8:[1,30],9:28,13:27,15:18,17:8,22:6,27:5,29:15,31:16,32:58,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{6:29,7:7,8:[1,30],9:28,13:27,15:18,17:8,22:6,27:59,29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{6:29,7:57,8:[1,30],9:28,13:27,15:18,17:60,29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{6:29,7:57,8:[1,30],9:28,13:27,15:18,17:61,29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{6:29,7:57,8:[1,30],9:28,13:27,15:18,17:62,29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{6:29,7:57,8:[1,30],9:28,13:27,15:18,17:63,29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{29:64,31:65,39:[1,66],42:26,54:[1,25]},{29:67,31:68,39:[1,66],42:26,54:[1,25]},{6:29,7:57,8:[1,30],9:28,13:27,15:69,29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{6:29,7:57,8:[1,30],9:28,13:27,15:70,29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{6:29,7:57,8:[1,30],9:28,13:27,15:71,29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{6:29,7:57,8:[1,30],9:28,13:27,15:72,29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{38:74,39:[1,24],42:73},{41:[1,75]},{6:29,7:57,8:[1,30],9:28,13:76,29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{7:50,29:15,31:16,36:78,38:14,39:[1,24],40:[1,17],41:[1,77],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{5:[2,45],8:[2,45],10:[2,45],11:[2,45],12:[2,45],14:[2,45],16:[2,45],18:[2,45],19:[2,45],20:[2,45],21:[2,45],23:[2,45],24:[2,45],25:[2,45],26:[2,45],28:[2,45],30:[2,45],33:[2,45],35:[2,45],37:[2,45],41:[2,45],55:[2,45]},{37:[1,80],55:[1,79]},{37:[2,32],41:[2,32],55:[2,32]},{6:29,7:57,8:[1,30],9:81,29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{6:29,7:57,8:[1,30],9:82,29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{6:83,7:57,8:[1,30],29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{6:84,7:57,8:[1,30],29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{6:85,7:57,8:[1,30],29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{5:[2,3],8:[2,3],10:[2,3],11:[2,3],12:[2,3],14:[2,3],16:[2,3],18:[2,3],19:[2,3],20:[2,3],21:[2,3],23:[2,3],24:[2,3],25:[2,3],26:[2,3],33:[2,3],35:[2,3],41:[2,3]},{5:[2,2],8:[2,2],10:[2,2],11:[2,2],12:[2,2],14:[2,2],16:[2,2],18:[2,2],19:[2,2],20:[2,2],21:[2,2],23:[2,2],24:[2,2],25:[2,2],26:[2,2],33:[2,2],35:[2,2],41:[2,2]},{5:[2,31],33:[1,33],35:[2,31],41:[2,31]},{5:[2,29],33:[2,29],35:[2,29],41:[2,29]},{5:[2,19],18:[1,40],19:[1,41],20:[1,42],21:[1,43],23:[2,19],24:[2,19],25:[2,19],26:[2,19],33:[2,19],35:[2,19],41:[2,19]},{5:[2,20],18:[1,40],19:[1,41],20:[1,42],21:[1,43],23:[2,20],24:[2,20],25:[2,20],26:[2,20],33:[2,20],35:[2,20],41:[2,20]},{5:[2,21],18:[1,40],19:[1,41],20:[1,42],21:[1,43],23:[2,21],24:[2,21],25:[2,21],26:[2,21],33:[2,21],35:[2,21],41:[2,21]},{5:[2,22],18:[1,40],19:[1,41],20:[1,42],21:[1,43],23:[2,22],24:[2,22],25:[2,22],26:[2,22],33:[2,22],35:[2,22],41:[2,22]},{5:[2,24],33:[2,24],35:[2,24],41:[2,24]},{5:[2,26],33:[2,26],35:[2,26],41:[2,26],43:[1,44]},{5:[2,39],33:[2,39],35:[2,39],41:[2,39],43:[2,39]},{5:[2,25],33:[2,25],35:[2,25],41:[2,25]},{5:[2,27],33:[2,27],35:[2,27],41:[2,27],43:[1,44]},{5:[2,14],16:[1,46],18:[2,14],19:[2,14],20:[2,14],21:[2,14],23:[2,14],24:[2,14],25:[2,14],26:[2,14],33:[2,14],35:[2,14],41:[2,14]},{5:[2,15],16:[1,46],18:[2,15],19:[2,15],20:[2,15],21:[2,15],23:[2,15],24:[2,15],25:[2,15],26:[2,15],33:[2,15],35:[2,15],41:[2,15]},{5:[2,16],16:[1,46],18:[2,16],19:[2,16],20:[2,16],21:[2,16],23:[2,16],24:[2,16],25:[2,16],26:[2,16],33:[2,16],35:[2,16],41:[2,16]},{5:[2,17],16:[1,46],18:[2,17],19:[2,17],20:[2,17],21:[2,17],23:[2,17],24:[2,17],25:[2,17],26:[2,17],33:[2,17],35:[2,17],41:[2,17]},{5:[2,37],8:[2,37],10:[2,37],11:[2,37],12:[2,37],14:[2,37],16:[2,37],18:[2,37],19:[2,37],20:[2,37],21:[2,37],23:[2,37],24:[2,37],25:[2,37],26:[2,37],28:[2,37],30:[2,37],33:[2,37],35:[2,37],37:[2,37],41:[2,37],43:[2,37],55:[2,37]},{5:[2,38],8:[2,38],10:[2,38],11:[2,38],12:[2,38],14:[2,38],16:[2,38],18:[2,38],19:[2,38],20:[2,38],21:[2,38],23:[2,38],24:[2,38],25:[2,38],26:[2,38],28:[2,38],30:[2,38],33:[2,38],35:[2,38],37:[2,38],41:[2,38],43:[2,38],55:[2,38]},{5:[2,55],8:[2,55],10:[2,55],11:[2,55],12:[2,55],14:[2,55],16:[2,55],18:[2,55],19:[2,55],20:[2,55],21:[2,55],23:[2,55],24:[2,55],25:[2,55],26:[2,55],28:[2,55],30:[2,55],33:[2,55],35:[2,55],37:[2,55],41:[2,55],55:[2,55]},{5:[2,12],8:[1,52],14:[1,51],16:[2,12],18:[2,12],19:[2,12],20:[2,12],21:[2,12],23:[2,12],24:[2,12],25:[2,12],26:[2,12],33:[2,12],35:[2,12],41:[2,12]},{5:[2,34],8:[2,34],10:[2,34],11:[2,34],12:[2,34],14:[2,34],16:[2,34],18:[2,34],19:[2,34],20:[2,34],21:[2,34],23:[2,34],24:[2,34],25:[2,34],26:[2,34],28:[2,34],30:[2,34],33:[2,34],35:[2,34],37:[2,34],41:[2,34],43:[2,34],55:[2,34]},{37:[1,80],41:[1,86]},{5:[2,46],8:[2,46],10:[2,46],11:[2,46],12:[2,46],14:[2,46],16:[2,46],18:[2,46],19:[2,46],20:[2,46],21:[2,46],23:[2,46],24:[2,46],25:[2,46],26:[2,46],28:[2,46],30:[2,46],33:[2,46],35:[2,46],37:[2,46],41:[2,46],55:[2,46]},{7:87,29:15,31:16,38:14,39:[1,24],40:[1,17],42:26,44:9,45:[1,19],46:10,47:[1,20],48:11,49:[1,21],50:12,51:[1,22],52:13,53:[1,23],54:[1,25]},{5:[2,9],8:[2,9],10:[1,53],11:[1,54],12:[1,55],14:[2,9],16:[2,9],18:[2,9],19:[2,9],20:[2,9],21:[2,9],23:[2,9],24:[2,9],25:[2,9],26:[2,9],33:[2,9],35:[2,9],41:[2,9]},{5:[2,10],8:[2,10],10:[1,53],11:[1,54],12:[1,55],14:[2,10],16:[2,10],18:[2,10],19:[2,10],20:[2,10],21:[2,10],23:[2,10],24:[2,10],25:[2,10],26:[2,10],33:[2,10],35:[2,10],41:[2,10]},{5:[2,5],8:[2,5],10:[2,5],11:[2,5],12:[2,5],14:[2,5],16:[2,5],18:[2,5],19:[2,5],20:[2,5],21:[2,5],23:[2,5],24:[2,5],25:[2,5],26:[2,5],33:[2,5],35:[2,5],41:[2,5]},{5:[2,6],8:[2,6],10:[2,6],11:[2,6],12:[2,6],14:[2,6],16:[2,6],18:[2,6],19:[2,6],20:[2,6],21:[2,6],23:[2,6],24:[2,6],25:[2,6],26:[2,6],33:[2,6],35:[2,6],41:[2,6]},{5:[2,7],8:[2,7],10:[2,7],11:[2,7],12:[2,7],14:[2,7],16:[2,7],18:[2,7],19:[2,7],20:[2,7],21:[2,7],23:[2,7],24:[2,7],25:[2,7],26:[2,7],33:[2,7],35:[2,7],41:[2,7]},{5:[2,35],8:[2,35],10:[2,35],11:[2,35],12:[2,35],14:[2,35],16:[2,35],18:[2,35],19:[2,35],20:[2,35],21:[2,35],23:[2,35],24:[2,35],25:[2,35],26:[2,35],28:[2,35],30:[2,35],33:[2,35],35:[2,35],37:[2,35],41:[2,35],43:[2,35],55:[2,35]},{37:[2,33],41:[2,33],55:[2,33]}],
 defaultActions: {31:[2,1]},
 parseError: function parseError(str, hash) {
-    throw new Error(str);
+    if (hash.recoverable) {
+        this.trace(str);
+    } else {
+        throw new Error(str);
+    }
 },
 parse: function parse(input) {
-    var self = this, stack = [0], vstack = [null], lstack = [], table = this.table, yytext = "", yylineno = 0, yyleng = 0, recovering = 0, TERROR = 2, EOF = 1;
+    var self = this, stack = [0], vstack = [null], lstack = [], table = this.table, yytext = '', yylineno = 0, yyleng = 0, recovering = 0, TERROR = 2, EOF = 1;
     this.lexer.setInput(input);
     this.lexer.yy = this.yy;
     this.yy.lexer = this.lexer;
     this.yy.parser = this;
-    if (typeof this.lexer.yylloc == "undefined")
+    if (typeof this.lexer.yylloc == 'undefined') {
         this.lexer.yylloc = {};
+    }
     var yyloc = this.lexer.yylloc;
     lstack.push(yyloc);
     var ranges = this.lexer.options && this.lexer.options.ranges;
-    if (typeof this.yy.parseError === "function")
+    if (typeof this.yy.parseError === 'function') {
         this.parseError = this.yy.parseError;
+    } else {
+        this.parseError = Object.getPrototypeOf(this).parseError;
+    }
     function popStack(n) {
         stack.length = stack.length - 2 * n;
         vstack.length = vstack.length - n;
@@ -6951,8 +7044,8 @@ parse: function parse(input) {
     }
     function lex() {
         var token;
-        token = self.lexer.lex() || 1;
-        if (typeof token !== "number") {
+        token = self.lexer.lex() || EOF;
+        if (typeof token !== 'number') {
             token = self.symbols_[token] || token;
         }
         return token;
@@ -6963,29 +7056,34 @@ parse: function parse(input) {
         if (this.defaultActions[state]) {
             action = this.defaultActions[state];
         } else {
-            if (symbol === null || typeof symbol == "undefined") {
+            if (symbol === null || typeof symbol == 'undefined') {
                 symbol = lex();
             }
             action = table[state] && table[state][symbol];
         }
-        if (typeof action === "undefined" || !action.length || !action[0]) {
-            var errStr = "";
-            if (!recovering) {
+                    if (typeof action === 'undefined' || !action.length || !action[0]) {
+                var errStr = '';
                 expected = [];
-                for (p in table[state])
-                    if (this.terminals_[p] && p > 2) {
-                        expected.push("'" + this.terminals_[p] + "'");
+                for (p in table[state]) {
+                    if (this.terminals_[p] && p > TERROR) {
+                        expected.push('\'' + this.terminals_[p] + '\'');
                     }
-                if (this.lexer.showPosition) {
-                    errStr = "Parse error on line " + (yylineno + 1) + ":\n" + this.lexer.showPosition() + "\nExpecting " + expected.join(", ") + ", got '" + (this.terminals_[symbol] || symbol) + "'";
-                } else {
-                    errStr = "Parse error on line " + (yylineno + 1) + ": Unexpected " + (symbol == 1?"end of input":"'" + (this.terminals_[symbol] || symbol) + "'");
                 }
-                this.parseError(errStr, {text: this.lexer.match, token: this.terminals_[symbol] || symbol, line: this.lexer.yylineno, loc: yyloc, expected: expected});
+                if (this.lexer.showPosition) {
+                    errStr = 'Parse error on line ' + (yylineno + 1) + ':\n' + this.lexer.showPosition() + '\nExpecting ' + expected.join(', ') + ', got \'' + (this.terminals_[symbol] || symbol) + '\'';
+                } else {
+                    errStr = 'Parse error on line ' + (yylineno + 1) + ': Unexpected ' + (symbol == EOF ? 'end of input' : '\'' + (this.terminals_[symbol] || symbol) + '\'');
+                }
+                this.parseError(errStr, {
+                    text: this.lexer.match,
+                    token: this.terminals_[symbol] || symbol,
+                    line: this.lexer.yylineno,
+                    loc: yyloc,
+                    expected: expected
+                });
             }
-        }
         if (action[0] instanceof Array && action.length > 1) {
-            throw new Error("Parse Error: multiple actions possible at state: " + state + ", token: " + symbol);
+            throw new Error('Parse Error: multiple actions possible at state: ' + state + ', token: ' + symbol);
         }
         switch (action[0]) {
         case 1:
@@ -6999,8 +7097,9 @@ parse: function parse(input) {
                 yytext = this.lexer.yytext;
                 yylineno = this.lexer.yylineno;
                 yyloc = this.lexer.yylloc;
-                if (recovering > 0)
+                if (recovering > 0) {
                     recovering--;
+                }
             } else {
                 symbol = preErrorSymbol;
                 preErrorSymbol = null;
@@ -7009,12 +7108,20 @@ parse: function parse(input) {
         case 2:
             len = this.productions_[action[1]][1];
             yyval.$ = vstack[vstack.length - len];
-            yyval._$ = {first_line: lstack[lstack.length - (len || 1)].first_line, last_line: lstack[lstack.length - 1].last_line, first_column: lstack[lstack.length - (len || 1)].first_column, last_column: lstack[lstack.length - 1].last_column};
+            yyval._$ = {
+                first_line: lstack[lstack.length - (len || 1)].first_line,
+                last_line: lstack[lstack.length - 1].last_line,
+                first_column: lstack[lstack.length - (len || 1)].first_column,
+                last_column: lstack[lstack.length - 1].last_column
+            };
             if (ranges) {
-                yyval._$.range = [lstack[lstack.length - (len || 1)].range[0], lstack[lstack.length - 1].range[1]];
+                yyval._$.range = [
+                    lstack[lstack.length - (len || 1)].range[0],
+                    lstack[lstack.length - 1].range[1]
+                ];
             }
             r = this.performAction.call(yyval, yytext, yyleng, yylineno, this.yy, action[1], vstack, lstack);
-            if (typeof r !== "undefined") {
+            if (typeof r !== 'undefined') {
                 return r;
             }
             if (len) {
@@ -7033,12 +7140,13 @@ parse: function parse(input) {
         }
     }
     return true;
-}
-};
-undefined/* generated by jison-lex 0.1.0 */
+}};
+undefined/* generated by jison-lex 0.2.1 */
 var lexer = (function(){
 var lexer = {
+
 EOF:1,
+
 parseError:function parseError(str, hash) {
         if (this.yy.parser) {
             this.yy.parser.parseError(str, hash);
@@ -7046,17 +7154,28 @@ parseError:function parseError(str, hash) {
             throw new Error(str);
         }
     },
+
+// resets the lexer, sets new input
 setInput:function (input) {
         this._input = input;
-        this._more = this._less = this.done = false;
+        this._more = this._backtrack = this.done = false;
         this.yylineno = this.yyleng = 0;
         this.yytext = this.matched = this.match = '';
         this.conditionStack = ['INITIAL'];
-        this.yylloc = {first_line:1,first_column:0,last_line:1,last_column:0};
-        if (this.options.ranges) this.yylloc.range = [0,0];
+        this.yylloc = {
+            first_line: 1,
+            first_column: 0,
+            last_line: 1,
+            last_column: 0
+        };
+        if (this.options.ranges) {
+            this.yylloc.range = [0,0];
+        }
         this.offset = 0;
         return this;
     },
+
+// consumes and returns one char from the input
 input:function () {
         var ch = this._input[0];
         this.yytext += ch;
@@ -7071,138 +7190,279 @@ input:function () {
         } else {
             this.yylloc.last_column++;
         }
-        if (this.options.ranges) this.yylloc.range[1]++;
+        if (this.options.ranges) {
+            this.yylloc.range[1]++;
+        }
 
         this._input = this._input.slice(1);
         return ch;
     },
+
+// unshifts one char (or a string) into the input
 unput:function (ch) {
         var len = ch.length;
         var lines = ch.split(/(?:\r\n?|\n)/g);
 
         this._input = ch + this._input;
-        this.yytext = this.yytext.substr(0, this.yytext.length-len-1);
+        this.yytext = this.yytext.substr(0, this.yytext.length - len - 1);
         //this.yyleng -= len;
         this.offset -= len;
         var oldLines = this.match.split(/(?:\r\n?|\n)/g);
-        this.match = this.match.substr(0, this.match.length-1);
-        this.matched = this.matched.substr(0, this.matched.length-1);
+        this.match = this.match.substr(0, this.match.length - 1);
+        this.matched = this.matched.substr(0, this.matched.length - 1);
 
-        if (lines.length-1) this.yylineno -= lines.length-1;
+        if (lines.length - 1) {
+            this.yylineno -= lines.length - 1;
+        }
         var r = this.yylloc.range;
 
-        this.yylloc = {first_line: this.yylloc.first_line,
-          last_line: this.yylineno+1,
-          first_column: this.yylloc.first_column,
-          last_column: lines ?
-              (lines.length === oldLines.length ? this.yylloc.first_column : 0) + oldLines[oldLines.length - lines.length].length - lines[0].length:
+        this.yylloc = {
+            first_line: this.yylloc.first_line,
+            last_line: this.yylineno + 1,
+            first_column: this.yylloc.first_column,
+            last_column: lines ?
+                (lines.length === oldLines.length ? this.yylloc.first_column : 0)
+                 + oldLines[oldLines.length - lines.length].length - lines[0].length :
               this.yylloc.first_column - len
-          };
+        };
 
         if (this.options.ranges) {
             this.yylloc.range = [r[0], r[0] + this.yyleng - len];
         }
+        this.yyleng = this.yytext.length;
         return this;
     },
+
+// When called from action, caches matched text and appends it on next action
 more:function () {
         this._more = true;
         return this;
     },
+
+// When called from action, signals the lexer that this rule fails to match the input, so the next matching rule (regex) should be tested instead.
+reject:function () {
+        if (this.options.backtrack_lexer) {
+            this._backtrack = true;
+        } else {
+            return this.parseError('Lexical error on line ' + (this.yylineno + 1) + '. You can only invoke reject() in the lexer when the lexer is of the backtracking persuasion (options.backtrack_lexer = true).\n' + this.showPosition(), {
+                text: "",
+                token: null,
+                line: this.yylineno
+            });
+
+        }
+        return this;
+    },
+
+// retain first n characters of the match
 less:function (n) {
         this.unput(this.match.slice(n));
     },
+
+// displays already matched input, i.e. for error messages
 pastInput:function () {
         var past = this.matched.substr(0, this.matched.length - this.match.length);
         return (past.length > 20 ? '...':'') + past.substr(-20).replace(/\n/g, "");
     },
+
+// displays upcoming input, i.e. for error messages
 upcomingInput:function () {
         var next = this.match;
         if (next.length < 20) {
             next += this._input.substr(0, 20-next.length);
         }
-        return (next.substr(0,20)+(next.length > 20 ? '...':'')).replace(/\n/g, "");
+        return (next.substr(0,20) + (next.length > 20 ? '...' : '')).replace(/\n/g, "");
     },
+
+// displays the character position where the lexing error occurred, i.e. for error messages
 showPosition:function () {
         var pre = this.pastInput();
         var c = new Array(pre.length + 1).join("-");
-        return pre + this.upcomingInput() + "\n" + c+"^";
+        return pre + this.upcomingInput() + "\n" + c + "^";
     },
+
+// test the lexed token: return FALSE when not a match, otherwise return token
+test_match:function (match, indexed_rule) {
+        var token,
+            lines,
+            backup;
+
+        if (this.options.backtrack_lexer) {
+            // save context
+            backup = {
+                yylineno: this.yylineno,
+                yylloc: {
+                    first_line: this.yylloc.first_line,
+                    last_line: this.last_line,
+                    first_column: this.yylloc.first_column,
+                    last_column: this.yylloc.last_column
+                },
+                yytext: this.yytext,
+                match: this.match,
+                matches: this.matches,
+                matched: this.matched,
+                yyleng: this.yyleng,
+                offset: this.offset,
+                _more: this._more,
+                _input: this._input,
+                yy: this.yy,
+                conditionStack: this.conditionStack.slice(0),
+                done: this.done
+            };
+            if (this.options.ranges) {
+                backup.yylloc.range = this.yylloc.range.slice(0);
+            }
+        }
+
+        lines = match[0].match(/(?:\r\n?|\n).*/g);
+        if (lines) {
+            this.yylineno += lines.length;
+        }
+        this.yylloc = {
+            first_line: this.yylloc.last_line,
+            last_line: this.yylineno + 1,
+            first_column: this.yylloc.last_column,
+            last_column: lines ?
+                         lines[lines.length - 1].length - lines[lines.length - 1].match(/\r?\n?/)[0].length :
+                         this.yylloc.last_column + match[0].length
+        };
+        this.yytext += match[0];
+        this.match += match[0];
+        this.matches = match;
+        this.yyleng = this.yytext.length;
+        if (this.options.ranges) {
+            this.yylloc.range = [this.offset, this.offset += this.yyleng];
+        }
+        this._more = false;
+        this._backtrack = false;
+        this._input = this._input.slice(match[0].length);
+        this.matched += match[0];
+        token = this.performAction.call(this, this.yy, this, indexed_rule, this.conditionStack[this.conditionStack.length - 1]);
+        if (this.done && this._input) {
+            this.done = false;
+        }
+        if (token) {
+            return token;
+        } else if (this._backtrack) {
+            // recover context
+            for (var k in backup) {
+                this[k] = backup[k];
+            }
+            return false; // rule action called reject() implying the next rule should be tested instead.
+        }
+        return false;
+    },
+
+// return next match in input
 next:function () {
         if (this.done) {
             return this.EOF;
         }
-        if (!this._input) this.done = true;
+        if (!this._input) {
+            this.done = true;
+        }
 
         var token,
             match,
             tempMatch,
-            index,
-            col,
-            lines;
+            index;
         if (!this._more) {
             this.yytext = '';
             this.match = '';
         }
         var rules = this._currentRules();
-        for (var i=0;i < rules.length; i++) {
+        for (var i = 0; i < rules.length; i++) {
             tempMatch = this._input.match(this.rules[rules[i]]);
             if (tempMatch && (!match || tempMatch[0].length > match[0].length)) {
                 match = tempMatch;
                 index = i;
-                if (!this.options.flex) break;
+                if (this.options.backtrack_lexer) {
+                    token = this.test_match(tempMatch, rules[i]);
+                    if (token !== false) {
+                        return token;
+                    } else if (this._backtrack) {
+                        match = false;
+                        continue; // rule action called reject() implying a rule MISmatch.
+                    } else {
+                        // else: this is a lexer rule which consumes input without producing a token (e.g. whitespace)
+                        return false;
+                    }
+                } else if (!this.options.flex) {
+                    break;
+                }
             }
         }
         if (match) {
-            lines = match[0].match(/(?:\r\n?|\n).*/g);
-            if (lines) this.yylineno += lines.length;
-            this.yylloc = {first_line: this.yylloc.last_line,
-                           last_line: this.yylineno+1,
-                           first_column: this.yylloc.last_column,
-                           last_column: lines ? lines[lines.length-1].length-lines[lines.length-1].match(/\r?\n?/)[0].length : this.yylloc.last_column + match[0].length};
-            this.yytext += match[0];
-            this.match += match[0];
-            this.matches = match;
-            this.yyleng = this.yytext.length;
-            if (this.options.ranges) {
-                this.yylloc.range = [this.offset, this.offset += this.yyleng];
+            token = this.test_match(match, rules[index]);
+            if (token !== false) {
+                return token;
             }
-            this._more = false;
-            this._input = this._input.slice(match[0].length);
-            this.matched += match[0];
-            token = this.performAction.call(this, this.yy, this, rules[index],this.conditionStack[this.conditionStack.length-1]);
-            if (this.done && this._input) this.done = false;
-            if (token) return token;
-            else return;
+            // else: this is a lexer rule which consumes input without producing a token (e.g. whitespace)
+            return false;
         }
         if (this._input === "") {
             return this.EOF;
         } else {
-            return this.parseError('Lexical error on line '+(this.yylineno+1)+'. Unrecognized text.\n'+this.showPosition(),
-                    {text: "", token: null, line: this.yylineno});
+            return this.parseError('Lexical error on line ' + (this.yylineno + 1) + '. Unrecognized text.\n' + this.showPosition(), {
+                text: "",
+                token: null,
+                line: this.yylineno
+            });
         }
     },
+
+// return next match that has a token
 lex:function lex() {
         var r = this.next();
-        if (typeof r !== 'undefined') {
+        if (r) {
             return r;
         } else {
             return this.lex();
         }
     },
+
+// activates a new lexer condition state (pushes the new lexer condition state onto the condition stack)
 begin:function begin(condition) {
         this.conditionStack.push(condition);
     },
+
+// pop the previously active lexer condition state off the condition stack
 popState:function popState() {
-        return this.conditionStack.pop();
+        var n = this.conditionStack.length - 1;
+        if (n > 0) {
+            return this.conditionStack.pop();
+        } else {
+            return this.conditionStack[0];
+        }
     },
+
+// produce the lexer rule set which is active for the currently active lexer condition state
 _currentRules:function _currentRules() {
-        return this.conditions[this.conditionStack[this.conditionStack.length-1]].rules;
+        if (this.conditionStack.length && this.conditionStack[this.conditionStack.length - 1]) {
+            return this.conditions[this.conditionStack[this.conditionStack.length - 1]].rules;
+        } else {
+            return this.conditions["INITIAL"].rules;
+        }
     },
-topState:function () {
-        return this.conditionStack[this.conditionStack.length-2];
+
+// return the currently active lexer condition state; when an index argument is provided it produces the N-th previous condition state, if available
+topState:function topState(n) {
+        n = this.conditionStack.length - 1 - Math.abs(n || 0);
+        if (n >= 0) {
+            return this.conditionStack[n];
+        } else {
+            return "INITIAL";
+        }
     },
-pushState:function begin(condition) {
+
+// alias for begin(condition)
+pushState:function pushState(condition) {
         this.begin(condition);
+    },
+
+// return the number of states currently on the stack
+stateStackSize:function stateStackSize() {
+        return this.conditionStack.length;
     },
 options: {},
 performAction: function anonymous(yy,yy_,$avoiding_name_collisions,YY_START) {
@@ -7215,101 +7475,108 @@ case 1:return 30;
 break;
 case 2:return 'from';
 break;
-case 3:/* skip whitespace */
+case 3:return 23;
 break;
-case 4:return 47;
+case 4:return 24;
 break;
-case 5:return 53;
+case 5:return 20;
 break;
-case 6:return 23;
+case 6:return 18;
 break;
-case 7:return 24;
+case 7:return 21;
 break;
-case 8:return 20;
+case 8:return 19;
 break;
-case 9:return 18;
+case 9:return 25;
 break;
-case 10:return 21;
+case 10:return 26;
 break;
-case 11:return 19;
+case 11:return 33;
 break;
-case 12:return 25;
+case 12:return 35;
 break;
-case 13:return 26;
+case 13:return 53;
 break;
-case 14:return 33;
+case 14:return 51;
 break;
-case 15:return 35;
+case 15:/* skip whitespace */
 break;
-case 16:return 51;
+case 16:return 47;
 break;
 case 17:return 45;
 break;
-case 18:return 39;
+case 18:return 45;
 break;
-case 19:return 49;
+case 19:return 39;
 break;
-case 20:return 43;
+case 20:return 49;
 break;
-case 21:return 10;
+case 21:return 43;
 break;
-case 22:return 11;
+case 22:return 10;
 break;
-case 23:return 12;
+case 23:return 11;
 break;
-case 24:return 37;
+case 24:return 12;
 break;
-case 25:return 8;
+case 25:return 37;
 break;
-case 26:return 25;
+case 26:return 8;
 break;
-case 27:return 26;
+case 27:return 25;
 break;
-case 28:return 23;
+case 28:return 26;
 break;
 case 29:return 23;
 break;
-case 30:return 24;
+case 30:return 23;
 break;
 case 31:return 24;
 break;
-case 32:return 20;
+case 32:return 24;
 break;
-case 33:return 21;
+case 33:return 20;
 break;
-case 34:return 19;
+case 34:return 21;
 break;
-case 35:return 18;
+case 35:return 19;
 break;
-case 36:return 33;
+case 36:return 18;
 break;
-case 37:return 35;
+case 37:return 33;
 break;
-case 38:return 14;
+case 38:return 35;
 break;
-case 39:return 16;
+case 39:return 14;
 break;
-case 40:return 40;
+case 40:return 16;
 break;
-case 41:return 55;
+case 41:return 40;
 break;
-case 42:return 54;
+case 42:return 55;
 break;
-case 43:return 41;
+case 43:return 54;
 break;
-case 44:return 5;
+case 44:return 41;
+break;
+case 45:return 5;
 break;
 }
 },
-rules: [/^(?:\s+in\b)/,/^(?:\s+notIn\b)/,/^(?:\s+from\b)/,/^(?:\s+)/,/^(?:[0-9]+(?:\.[0-9]+)?\b)/,/^(?:null\b)/,/^(?:(eq|EQ))/,/^(?:(neq|NEQ))/,/^(?:(lte|LTE))/,/^(?:(lt|LT))/,/^(?:(gte|GTE))/,/^(?:(gt|GT))/,/^(?:(like|LIKE))/,/^(?:(notLike|NOT_LIKE))/,/^(?:(and|AND))/,/^(?:(or|OR))/,/^(?:(true|false))/,/^(?:'[^']*')/,/^(?:\$?[a-zA-Z0-9]+)/,/^(?:\/(.*)\/)/,/^(?:\.)/,/^(?:\*)/,/^(?:\/)/,/^(?:\%)/,/^(?:,)/,/^(?:-)/,/^(?:=~)/,/^(?:!=~)/,/^(?:==)/,/^(?:===)/,/^(?:!=)/,/^(?:!==)/,/^(?:<=)/,/^(?:>=)/,/^(?:>)/,/^(?:<)/,/^(?:&&)/,/^(?:\|\|)/,/^(?:\+)/,/^(?:\^)/,/^(?:\()/,/^(?:\])/,/^(?:\[)/,/^(?:\))/,/^(?:$)/],
-conditions: {"INITIAL":{"rules":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44],"inclusive":true}}
+rules: [/^(?:\s+in\b)/,/^(?:\s+notIn\b)/,/^(?:\s+from\b)/,/^(?:\s+(eq|EQ)\b)/,/^(?:\s+(neq|NEQ)\b)/,/^(?:\s+(lte|LTE)\b)/,/^(?:\s+(lt|LT)\b)/,/^(?:\s+(gte|GTE)\b)/,/^(?:\s+(gt|GT)\b)/,/^(?:\s+(like|LIKE)\b)/,/^(?:\s+(notLike|NOT_LIKE)\b)/,/^(?:\s+(and|AND)\b)/,/^(?:\s+(or|OR)\b)/,/^(?:\s+null\b)/,/^(?:\s+(true|false)\b)/,/^(?:\s+)/,/^(?:-?[0-9]+(?:\.[0-9]+)?\b)/,/^(?:'[^']*')/,/^(?:"[^"]*")/,/^(?:([a-zA-Z_$][0-9a-zA-Z_$]*))/,/^(?:\/(.*)\/)/,/^(?:\.)/,/^(?:\*)/,/^(?:\/)/,/^(?:\%)/,/^(?:,)/,/^(?:-)/,/^(?:=~)/,/^(?:!=~)/,/^(?:==)/,/^(?:===)/,/^(?:!=)/,/^(?:!==)/,/^(?:<=)/,/^(?:>=)/,/^(?:>)/,/^(?:<)/,/^(?:&&)/,/^(?:\|\|)/,/^(?:\+)/,/^(?:\^)/,/^(?:\()/,/^(?:\])/,/^(?:\[)/,/^(?:\))/,/^(?:$)/],
+conditions: {"INITIAL":{"rules":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45],"inclusive":true}}
 };
 return lexer;
 })();
 parser.lexer = lexer;
-function Parser () { this.yy = {}; }Parser.prototype = parser;parser.Parser = Parser;
+function Parser () {
+  this.yy = {};
+}
+Parser.prototype = parser;parser.Parser = Parser;
 return new Parser;
 })();
+
+
 if (typeof require !== 'undefined' && typeof exports !== 'undefined') {
 exports.parser = parser;
 exports.Parser = parser.Parser;
@@ -7480,7 +7747,7 @@ exports.transpile = function (flowObj, options) {
 
 
 })(require("__browserify_buffer").Buffer)
-},{"../extended":8,"../constraintMatcher":16,"../parser":18,"__browserify_buffer":28}],42:[function(require,module,exports){
+},{"../extended":8,"../constraintMatcher":16,"../parser":18,"__browserify_buffer":28}],41:[function(require,module,exports){
 module.exports = require("./declare.js");
 },{"./declare.js":49}],31:[function(require,module,exports){
 var declare = require("declare.js");
@@ -7537,7 +7804,7 @@ declare({
 
 }).as(module);
 
-},{"declare.js":42}],49:[function(require,module,exports){
+},{"declare.js":41}],49:[function(require,module,exports){
 (function () {
 
     /**
@@ -9014,677 +9281,6 @@ exports.parse = function (src) {
 
 })();
 },{}],33:[function(require,module,exports){
-(function(){(function () {
-    "use strict";
-    /*global define*/
-
-    function defineArray(extended, is, args) {
-
-        var isString = is.isString,
-            isArray = Array.isArray || is.isArray,
-            isDate = is.isDate,
-            floor = Math.floor,
-            abs = Math.abs,
-            mathMax = Math.max,
-            mathMin = Math.min,
-            arrayProto = Array.prototype,
-            arrayIndexOf = arrayProto.indexOf,
-            arrayForEach = arrayProto.forEach,
-            arrayMap = arrayProto.map,
-            arrayReduce = arrayProto.reduce,
-            arrayReduceRight = arrayProto.reduceRight,
-            arrayFilter = arrayProto.filter,
-            arrayEvery = arrayProto.every,
-            arraySome = arrayProto.some,
-            argsToArray = args.argsToArray;
-
-
-        function cross(num, cros) {
-            return reduceRight(cros, function (a, b) {
-                if (!isArray(b)) {
-                    b = [b];
-                }
-                b.unshift(num);
-                a.unshift(b);
-                return a;
-            }, []);
-        }
-
-        function permute(num, cross, length) {
-            var ret = [];
-            for (var i = 0; i < cross.length; i++) {
-                ret.push([num].concat(rotate(cross, i)).slice(0, length));
-            }
-            return ret;
-        }
-
-
-        function intersection(a, b) {
-            var ret = [], aOne, i = -1, l;
-            l = a.length;
-            while (++i < l) {
-                aOne = a[i];
-                if (indexOf(b, aOne) !== -1) {
-                    ret.push(aOne);
-                }
-            }
-            return ret;
-        }
-
-
-        var _sort = (function () {
-
-            var isAll = function (arr, test) {
-                return every(arr, test);
-            };
-
-            var defaultCmp = function (a, b) {
-                return a - b;
-            };
-
-            var dateSort = function (a, b) {
-                return a.getTime() - b.getTime();
-            };
-
-            return function _sort(arr, property) {
-                var ret = [];
-                if (isArray(arr)) {
-                    ret = arr.slice();
-                    if (property) {
-                        if (typeof property === "function") {
-                            ret.sort(property);
-                        } else {
-                            ret.sort(function (a, b) {
-                                var aProp = a[property], bProp = b[property];
-                                if (isString(aProp) && isString(bProp)) {
-                                    return aProp > bProp ? 1 : aProp < bProp ? -1 : 0;
-                                } else if (isDate(aProp) && isDate(bProp)) {
-                                    return aProp.getTime() - bProp.getTime();
-                                } else {
-                                    return aProp - bProp;
-                                }
-                            });
-                        }
-                    } else {
-                        if (isAll(ret, isString)) {
-                            ret.sort();
-                        } else if (isAll(ret, isDate)) {
-                            ret.sort(dateSort);
-                        } else {
-                            ret.sort(defaultCmp);
-                        }
-                    }
-                }
-                return ret;
-            };
-
-        })();
-
-        function indexOf(arr, searchElement, from) {
-            var index = (from || 0) - 1,
-                length = arr.length;
-            while (++index < length) {
-                if (arr[index] === searchElement) {
-                    return index;
-                }
-            }
-            return -1;
-        }
-
-        function lastIndexOf(arr, searchElement, from) {
-            if (!isArray(arr)) {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            if (len === 0) {
-                return -1;
-            }
-
-            var n = len;
-            if (arguments.length > 2) {
-                n = Number(arguments[2]);
-                if (n !== n) {
-                    n = 0;
-                } else if (n !== 0 && n !== (1 / 0) && n !== -(1 / 0)) {
-                    n = (n > 0 || -1) * floor(abs(n));
-                }
-            }
-
-            var k = n >= 0 ? mathMin(n, len - 1) : len - abs(n);
-
-            for (; k >= 0; k--) {
-                if (k in t && t[k] === searchElement) {
-                    return k;
-                }
-            }
-            return -1;
-        }
-
-        function filter(arr, iterator, scope) {
-            if (arr && arrayFilter && arrayFilter === arr.filter) {
-                return arr.filter(iterator, scope);
-            }
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            var res = [];
-            for (var i = 0; i < len; i++) {
-                if (i in t) {
-                    var val = t[i]; // in case fun mutates this
-                    if (iterator.call(scope, val, i, t)) {
-                        res.push(val);
-                    }
-                }
-            }
-            return res;
-        }
-
-        function forEach(arr, iterator, scope) {
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-            if (arr && arrayForEach && arrayForEach === arr.forEach) {
-                arr.forEach(iterator, scope);
-                return arr;
-            }
-            for (var i = 0, len = arr.length; i < len; ++i) {
-                iterator.call(scope || arr, arr[i], i, arr);
-            }
-
-            return arr;
-        }
-
-        function every(arr, iterator, scope) {
-            if (arr && arrayEvery && arrayEvery === arr.every) {
-                return arr.every(iterator, scope);
-            }
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            for (var i = 0; i < len; i++) {
-                if (i in t && !iterator.call(scope, t[i], i, t)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        function some(arr, iterator, scope) {
-            if (arr && arraySome && arraySome === arr.some) {
-                return arr.some(iterator, scope);
-            }
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            for (var i = 0; i < len; i++) {
-                if (i in t && iterator.call(scope, t[i], i, t)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        function map(arr, iterator, scope) {
-            if (arr && arrayMap && arrayMap === arr.map) {
-                return arr.map(iterator, scope);
-            }
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            var res = [];
-            for (var i = 0; i < len; i++) {
-                if (i in t) {
-                    res.push(iterator.call(scope, t[i], i, t));
-                }
-            }
-            return res;
-        }
-
-        function reduce(arr, accumulator, curr) {
-            var initial = arguments.length > 2;
-            if (arr && arrayReduce && arrayReduce === arr.reduce) {
-                return initial ? arr.reduce(accumulator, curr) : arr.reduce(accumulator);
-            }
-            if (!isArray(arr) || typeof accumulator !== "function") {
-                throw new TypeError();
-            }
-            var i = 0, l = arr.length >> 0;
-            if (arguments.length < 3) {
-                if (l === 0) {
-                    throw new TypeError("Array length is 0 and no second argument");
-                }
-                curr = arr[0];
-                i = 1; // start accumulating at the second element
-            } else {
-                curr = arguments[2];
-            }
-            while (i < l) {
-                if (i in arr) {
-                    curr = accumulator.call(undefined, curr, arr[i], i, arr);
-                }
-                ++i;
-            }
-            return curr;
-        }
-
-        function reduceRight(arr, accumulator, curr) {
-            var initial = arguments.length > 2;
-            if (arr && arrayReduceRight && arrayReduceRight === arr.reduceRight) {
-                return initial ? arr.reduceRight(accumulator, curr) : arr.reduceRight(accumulator);
-            }
-            if (!isArray(arr) || typeof accumulator !== "function") {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-
-            // no value to return if no initial value, empty array
-            if (len === 0 && arguments.length === 2) {
-                throw new TypeError();
-            }
-
-            var k = len - 1;
-            if (arguments.length >= 3) {
-                curr = arguments[2];
-            } else {
-                do {
-                    if (k in arr) {
-                        curr = arr[k--];
-                        break;
-                    }
-                }
-                while (true);
-            }
-            while (k >= 0) {
-                if (k in t) {
-                    curr = accumulator.call(undefined, curr, t[k], k, t);
-                }
-                k--;
-            }
-            return curr;
-        }
-
-
-        function toArray(o) {
-            var ret = [];
-            if (o !== null) {
-                var args = argsToArray(arguments);
-                if (args.length === 1) {
-                    if (isArray(o)) {
-                        ret = o;
-                    } else if (is.isHash(o)) {
-                        for (var i in o) {
-                            if (o.hasOwnProperty(i)) {
-                                ret.push([i, o[i]]);
-                            }
-                        }
-                    } else {
-                        ret.push(o);
-                    }
-                } else {
-                    forEach(args, function (a) {
-                        ret = ret.concat(toArray(a));
-                    });
-                }
-            }
-            return ret;
-        }
-
-        function sum(array) {
-            array = array || [];
-            if (array.length) {
-                return reduce(array, function (a, b) {
-                    return a + b;
-                });
-            } else {
-                return 0;
-            }
-        }
-
-        function avg(arr) {
-            arr = arr || [];
-            if (arr.length) {
-                var total = sum(arr);
-                if (is.isNumber(total)) {
-                    return  total / arr.length;
-                } else {
-                    throw new Error("Cannot average an array of non numbers.");
-                }
-            } else {
-                return 0;
-            }
-        }
-
-        function sort(arr, cmp) {
-            return _sort(arr, cmp);
-        }
-
-        function min(arr, cmp) {
-            return _sort(arr, cmp)[0];
-        }
-
-        function max(arr, cmp) {
-            return _sort(arr, cmp)[arr.length - 1];
-        }
-
-        function difference(arr1) {
-            var ret = arr1, args = flatten(argsToArray(arguments, 1));
-            if (isArray(arr1)) {
-                ret = filter(arr1, function (a) {
-                    return indexOf(args, a) === -1;
-                });
-            }
-            return ret;
-        }
-
-        function removeDuplicates(arr) {
-            var ret = [], i = -1, l, retLength = 0;
-            if (arr) {
-                l = arr.length;
-                while (++i < l) {
-                    var item = arr[i];
-                    if (indexOf(ret, item) === -1) {
-                        ret[retLength++] = item;
-                    }
-                }
-            }
-            return ret;
-        }
-
-
-        function unique(arr) {
-            return removeDuplicates(arr);
-        }
-
-
-        function rotate(arr, numberOfTimes) {
-            var ret = arr.slice();
-            if (typeof numberOfTimes !== "number") {
-                numberOfTimes = 1;
-            }
-            if (numberOfTimes && isArray(arr)) {
-                if (numberOfTimes > 0) {
-                    ret.push(ret.shift());
-                    numberOfTimes--;
-                } else {
-                    ret.unshift(ret.pop());
-                    numberOfTimes++;
-                }
-                return rotate(ret, numberOfTimes);
-            } else {
-                return ret;
-            }
-        }
-
-        function permutations(arr, length) {
-            var ret = [];
-            if (isArray(arr)) {
-                var copy = arr.slice(0);
-                if (typeof length !== "number") {
-                    length = arr.length;
-                }
-                if (!length) {
-                    ret = [
-                        []
-                    ];
-                } else if (length <= arr.length) {
-                    ret = reduce(arr, function (a, b, i) {
-                        var ret;
-                        if (length > 1) {
-                            ret = permute(b, rotate(copy, i).slice(1), length);
-                        } else {
-                            ret = [
-                                [b]
-                            ];
-                        }
-                        return a.concat(ret);
-                    }, []);
-                }
-            }
-            return ret;
-        }
-
-        function zip() {
-            var ret = [];
-            var arrs = argsToArray(arguments);
-            if (arrs.length > 1) {
-                var arr1 = arrs.shift();
-                if (isArray(arr1)) {
-                    ret = reduce(arr1, function (a, b, i) {
-                        var curr = [b];
-                        for (var j = 0; j < arrs.length; j++) {
-                            var currArr = arrs[j];
-                            if (isArray(currArr) && !is.isUndefined(currArr[i])) {
-                                curr.push(currArr[i]);
-                            } else {
-                                curr.push(null);
-                            }
-                        }
-                        a.push(curr);
-                        return a;
-                    }, []);
-                }
-            }
-            return ret;
-        }
-
-        function transpose(arr) {
-            var ret = [];
-            if (isArray(arr) && arr.length) {
-                var last;
-                forEach(arr, function (a) {
-                    if (isArray(a) && (!last || a.length === last.length)) {
-                        forEach(a, function (b, i) {
-                            if (!ret[i]) {
-                                ret[i] = [];
-                            }
-                            ret[i].push(b);
-                        });
-                        last = a;
-                    }
-                });
-            }
-            return ret;
-        }
-
-        function valuesAt(arr, indexes) {
-            var ret = [];
-            indexes = argsToArray(arguments);
-            arr = indexes.shift();
-            if (isArray(arr) && indexes.length) {
-                for (var i = 0, l = indexes.length; i < l; i++) {
-                    ret.push(arr[indexes[i]] || null);
-                }
-            }
-            return ret;
-        }
-
-        function union() {
-            var ret = [];
-            var arrs = argsToArray(arguments);
-            if (arrs.length > 1) {
-                for (var i = 0, l = arrs.length; i < l; i++) {
-                    ret = ret.concat(arrs[i]);
-                }
-                ret = removeDuplicates(ret);
-            }
-            return ret;
-        }
-
-        function intersect() {
-            var collect = [], sets, i = -1 , l;
-            if (arguments.length > 1) {
-                //assume we are intersections all the lists in the array
-                sets = argsToArray(arguments);
-            } else {
-                sets = arguments[0];
-            }
-            if (isArray(sets)) {
-                collect = sets[0];
-                i = 0;
-                l = sets.length;
-                while (++i < l) {
-                    collect = intersection(collect, sets[i]);
-                }
-            }
-            return removeDuplicates(collect);
-        }
-
-        function powerSet(arr) {
-            var ret = [];
-            if (isArray(arr) && arr.length) {
-                ret = reduce(arr, function (a, b) {
-                    var ret = map(a, function (c) {
-                        return c.concat(b);
-                    });
-                    return a.concat(ret);
-                }, [
-                    []
-                ]);
-            }
-            return ret;
-        }
-
-        function cartesian(a, b) {
-            var ret = [];
-            if (isArray(a) && isArray(b) && a.length && b.length) {
-                ret = cross(a[0], b).concat(cartesian(a.slice(1), b));
-            }
-            return ret;
-        }
-
-        function compact(arr) {
-            var ret = [];
-            if (isArray(arr) && arr.length) {
-                ret = filter(arr, function (item) {
-                    return !is.isUndefinedOrNull(item);
-                });
-            }
-            return ret;
-        }
-
-        function multiply(arr, times) {
-            times = is.isNumber(times) ? times : 1;
-            if (!times) {
-                //make sure times is greater than zero if it is zero then dont multiply it
-                times = 1;
-            }
-            arr = toArray(arr || []);
-            var ret = [], i = 0;
-            while (++i <= times) {
-                ret = ret.concat(arr);
-            }
-            return ret;
-        }
-
-        function flatten(arr) {
-            var set;
-            var args = argsToArray(arguments);
-            if (args.length > 1) {
-                //assume we are intersections all the lists in the array
-                set = args;
-            } else {
-                set = toArray(arr);
-            }
-            return reduce(set, function (a, b) {
-                return a.concat(b);
-            }, []);
-        }
-
-        function pluck(arr, prop) {
-            prop = prop.split(".");
-            var result = arr.slice(0);
-            forEach(prop, function (prop) {
-                var exec = prop.match(/(\w+)\(\)$/);
-                result = map(result, function (item) {
-                    return exec ? item[exec[1]]() : item[prop];
-                });
-            });
-            return result;
-        }
-
-        function invoke(arr, func, args) {
-            args = argsToArray(arguments, 2);
-            return map(arr, function (item) {
-                var exec = isString(func) ? item[func] : func;
-                return exec.apply(item, args);
-            });
-        }
-
-
-        var array = {
-            toArray: toArray,
-            sum: sum,
-            avg: avg,
-            sort: sort,
-            min: min,
-            max: max,
-            difference: difference,
-            removeDuplicates: removeDuplicates,
-            unique: unique,
-            rotate: rotate,
-            permutations: permutations,
-            zip: zip,
-            transpose: transpose,
-            valuesAt: valuesAt,
-            union: union,
-            intersect: intersect,
-            powerSet: powerSet,
-            cartesian: cartesian,
-            compact: compact,
-            multiply: multiply,
-            flatten: flatten,
-            pluck: pluck,
-            invoke: invoke,
-            forEach: forEach,
-            map: map,
-            filter: filter,
-            reduce: reduce,
-            reduceRight: reduceRight,
-            some: some,
-            every: every,
-            indexOf: indexOf,
-            lastIndexOf: lastIndexOf
-        };
-
-        return extended.define(isArray, array).expose(array);
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineArray(require("extended"), require("is-extended"), require("arguments-extended"));
-        }
-    } else if ("function" === typeof define && define.amd) {
-        define(["extended", "is-extended", "arguments-extended"], function (extended, is, args) {
-            return defineArray(extended, is, args);
-        });
-    } else {
-        this.arrayExtended = defineArray(this.extended, this.isExtended, this.argumentsExtended);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-})()
-},{"is-extended":39,"extended":32,"arguments-extended":53}],34:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -10632,7 +10228,678 @@ exports.parse = function (src) {
 
 
 
-},{"extended":32,"is-extended":39,"array-extended":33}],35:[function(require,module,exports){
+},{"extended":32,"is-extended":39,"array-extended":34}],34:[function(require,module,exports){
+(function(){(function () {
+    "use strict";
+    /*global define*/
+
+    function defineArray(extended, is, args) {
+
+        var isString = is.isString,
+            isArray = Array.isArray || is.isArray,
+            isDate = is.isDate,
+            floor = Math.floor,
+            abs = Math.abs,
+            mathMax = Math.max,
+            mathMin = Math.min,
+            arrayProto = Array.prototype,
+            arrayIndexOf = arrayProto.indexOf,
+            arrayForEach = arrayProto.forEach,
+            arrayMap = arrayProto.map,
+            arrayReduce = arrayProto.reduce,
+            arrayReduceRight = arrayProto.reduceRight,
+            arrayFilter = arrayProto.filter,
+            arrayEvery = arrayProto.every,
+            arraySome = arrayProto.some,
+            argsToArray = args.argsToArray;
+
+
+        function cross(num, cros) {
+            return reduceRight(cros, function (a, b) {
+                if (!isArray(b)) {
+                    b = [b];
+                }
+                b.unshift(num);
+                a.unshift(b);
+                return a;
+            }, []);
+        }
+
+        function permute(num, cross, length) {
+            var ret = [];
+            for (var i = 0; i < cross.length; i++) {
+                ret.push([num].concat(rotate(cross, i)).slice(0, length));
+            }
+            return ret;
+        }
+
+
+        function intersection(a, b) {
+            var ret = [], aOne, i = -1, l;
+            l = a.length;
+            while (++i < l) {
+                aOne = a[i];
+                if (indexOf(b, aOne) !== -1) {
+                    ret.push(aOne);
+                }
+            }
+            return ret;
+        }
+
+
+        var _sort = (function () {
+
+            var isAll = function (arr, test) {
+                return every(arr, test);
+            };
+
+            var defaultCmp = function (a, b) {
+                return a - b;
+            };
+
+            var dateSort = function (a, b) {
+                return a.getTime() - b.getTime();
+            };
+
+            return function _sort(arr, property) {
+                var ret = [];
+                if (isArray(arr)) {
+                    ret = arr.slice();
+                    if (property) {
+                        if (typeof property === "function") {
+                            ret.sort(property);
+                        } else {
+                            ret.sort(function (a, b) {
+                                var aProp = a[property], bProp = b[property];
+                                if (isString(aProp) && isString(bProp)) {
+                                    return aProp > bProp ? 1 : aProp < bProp ? -1 : 0;
+                                } else if (isDate(aProp) && isDate(bProp)) {
+                                    return aProp.getTime() - bProp.getTime();
+                                } else {
+                                    return aProp - bProp;
+                                }
+                            });
+                        }
+                    } else {
+                        if (isAll(ret, isString)) {
+                            ret.sort();
+                        } else if (isAll(ret, isDate)) {
+                            ret.sort(dateSort);
+                        } else {
+                            ret.sort(defaultCmp);
+                        }
+                    }
+                }
+                return ret;
+            };
+
+        })();
+
+        function indexOf(arr, searchElement, from) {
+            var index = (from || 0) - 1,
+                length = arr.length;
+            while (++index < length) {
+                if (arr[index] === searchElement) {
+                    return index;
+                }
+            }
+            return -1;
+        }
+
+        function lastIndexOf(arr, searchElement, from) {
+            if (!isArray(arr)) {
+                throw new TypeError();
+            }
+
+            var t = Object(arr);
+            var len = t.length >>> 0;
+            if (len === 0) {
+                return -1;
+            }
+
+            var n = len;
+            if (arguments.length > 2) {
+                n = Number(arguments[2]);
+                if (n !== n) {
+                    n = 0;
+                } else if (n !== 0 && n !== (1 / 0) && n !== -(1 / 0)) {
+                    n = (n > 0 || -1) * floor(abs(n));
+                }
+            }
+
+            var k = n >= 0 ? mathMin(n, len - 1) : len - abs(n);
+
+            for (; k >= 0; k--) {
+                if (k in t && t[k] === searchElement) {
+                    return k;
+                }
+            }
+            return -1;
+        }
+
+        function filter(arr, iterator, scope) {
+            if (arr && arrayFilter && arrayFilter === arr.filter) {
+                return arr.filter(iterator, scope);
+            }
+            if (!isArray(arr) || typeof iterator !== "function") {
+                throw new TypeError();
+            }
+
+            var t = Object(arr);
+            var len = t.length >>> 0;
+            var res = [];
+            for (var i = 0; i < len; i++) {
+                if (i in t) {
+                    var val = t[i]; // in case fun mutates this
+                    if (iterator.call(scope, val, i, t)) {
+                        res.push(val);
+                    }
+                }
+            }
+            return res;
+        }
+
+        function forEach(arr, iterator, scope) {
+            if (!isArray(arr) || typeof iterator !== "function") {
+                throw new TypeError();
+            }
+            if (arr && arrayForEach && arrayForEach === arr.forEach) {
+                arr.forEach(iterator, scope);
+                return arr;
+            }
+            for (var i = 0, len = arr.length; i < len; ++i) {
+                iterator.call(scope || arr, arr[i], i, arr);
+            }
+
+            return arr;
+        }
+
+        function every(arr, iterator, scope) {
+            if (arr && arrayEvery && arrayEvery === arr.every) {
+                return arr.every(iterator, scope);
+            }
+            if (!isArray(arr) || typeof iterator !== "function") {
+                throw new TypeError();
+            }
+            var t = Object(arr);
+            var len = t.length >>> 0;
+            for (var i = 0; i < len; i++) {
+                if (i in t && !iterator.call(scope, t[i], i, t)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function some(arr, iterator, scope) {
+            if (arr && arraySome && arraySome === arr.some) {
+                return arr.some(iterator, scope);
+            }
+            if (!isArray(arr) || typeof iterator !== "function") {
+                throw new TypeError();
+            }
+            var t = Object(arr);
+            var len = t.length >>> 0;
+            for (var i = 0; i < len; i++) {
+                if (i in t && iterator.call(scope, t[i], i, t)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function map(arr, iterator, scope) {
+            if (arr && arrayMap && arrayMap === arr.map) {
+                return arr.map(iterator, scope);
+            }
+            if (!isArray(arr) || typeof iterator !== "function") {
+                throw new TypeError();
+            }
+
+            var t = Object(arr);
+            var len = t.length >>> 0;
+            var res = [];
+            for (var i = 0; i < len; i++) {
+                if (i in t) {
+                    res.push(iterator.call(scope, t[i], i, t));
+                }
+            }
+            return res;
+        }
+
+        function reduce(arr, accumulator, curr) {
+            var initial = arguments.length > 2;
+            if (arr && arrayReduce && arrayReduce === arr.reduce) {
+                return initial ? arr.reduce(accumulator, curr) : arr.reduce(accumulator);
+            }
+            if (!isArray(arr) || typeof accumulator !== "function") {
+                throw new TypeError();
+            }
+            var i = 0, l = arr.length >> 0;
+            if (arguments.length < 3) {
+                if (l === 0) {
+                    throw new TypeError("Array length is 0 and no second argument");
+                }
+                curr = arr[0];
+                i = 1; // start accumulating at the second element
+            } else {
+                curr = arguments[2];
+            }
+            while (i < l) {
+                if (i in arr) {
+                    curr = accumulator.call(undefined, curr, arr[i], i, arr);
+                }
+                ++i;
+            }
+            return curr;
+        }
+
+        function reduceRight(arr, accumulator, curr) {
+            var initial = arguments.length > 2;
+            if (arr && arrayReduceRight && arrayReduceRight === arr.reduceRight) {
+                return initial ? arr.reduceRight(accumulator, curr) : arr.reduceRight(accumulator);
+            }
+            if (!isArray(arr) || typeof accumulator !== "function") {
+                throw new TypeError();
+            }
+
+            var t = Object(arr);
+            var len = t.length >>> 0;
+
+            // no value to return if no initial value, empty array
+            if (len === 0 && arguments.length === 2) {
+                throw new TypeError();
+            }
+
+            var k = len - 1;
+            if (arguments.length >= 3) {
+                curr = arguments[2];
+            } else {
+                do {
+                    if (k in arr) {
+                        curr = arr[k--];
+                        break;
+                    }
+                }
+                while (true);
+            }
+            while (k >= 0) {
+                if (k in t) {
+                    curr = accumulator.call(undefined, curr, t[k], k, t);
+                }
+                k--;
+            }
+            return curr;
+        }
+
+
+        function toArray(o) {
+            var ret = [];
+            if (o !== null) {
+                var args = argsToArray(arguments);
+                if (args.length === 1) {
+                    if (isArray(o)) {
+                        ret = o;
+                    } else if (is.isHash(o)) {
+                        for (var i in o) {
+                            if (o.hasOwnProperty(i)) {
+                                ret.push([i, o[i]]);
+                            }
+                        }
+                    } else {
+                        ret.push(o);
+                    }
+                } else {
+                    forEach(args, function (a) {
+                        ret = ret.concat(toArray(a));
+                    });
+                }
+            }
+            return ret;
+        }
+
+        function sum(array) {
+            array = array || [];
+            if (array.length) {
+                return reduce(array, function (a, b) {
+                    return a + b;
+                });
+            } else {
+                return 0;
+            }
+        }
+
+        function avg(arr) {
+            arr = arr || [];
+            if (arr.length) {
+                var total = sum(arr);
+                if (is.isNumber(total)) {
+                    return  total / arr.length;
+                } else {
+                    throw new Error("Cannot average an array of non numbers.");
+                }
+            } else {
+                return 0;
+            }
+        }
+
+        function sort(arr, cmp) {
+            return _sort(arr, cmp);
+        }
+
+        function min(arr, cmp) {
+            return _sort(arr, cmp)[0];
+        }
+
+        function max(arr, cmp) {
+            return _sort(arr, cmp)[arr.length - 1];
+        }
+
+        function difference(arr1) {
+            var ret = arr1, args = flatten(argsToArray(arguments, 1));
+            if (isArray(arr1)) {
+                ret = filter(arr1, function (a) {
+                    return indexOf(args, a) === -1;
+                });
+            }
+            return ret;
+        }
+
+        function removeDuplicates(arr) {
+            var ret = [], i = -1, l, retLength = 0;
+            if (arr) {
+                l = arr.length;
+                while (++i < l) {
+                    var item = arr[i];
+                    if (indexOf(ret, item) === -1) {
+                        ret[retLength++] = item;
+                    }
+                }
+            }
+            return ret;
+        }
+
+
+        function unique(arr) {
+            return removeDuplicates(arr);
+        }
+
+
+        function rotate(arr, numberOfTimes) {
+            var ret = arr.slice();
+            if (typeof numberOfTimes !== "number") {
+                numberOfTimes = 1;
+            }
+            if (numberOfTimes && isArray(arr)) {
+                if (numberOfTimes > 0) {
+                    ret.push(ret.shift());
+                    numberOfTimes--;
+                } else {
+                    ret.unshift(ret.pop());
+                    numberOfTimes++;
+                }
+                return rotate(ret, numberOfTimes);
+            } else {
+                return ret;
+            }
+        }
+
+        function permutations(arr, length) {
+            var ret = [];
+            if (isArray(arr)) {
+                var copy = arr.slice(0);
+                if (typeof length !== "number") {
+                    length = arr.length;
+                }
+                if (!length) {
+                    ret = [
+                        []
+                    ];
+                } else if (length <= arr.length) {
+                    ret = reduce(arr, function (a, b, i) {
+                        var ret;
+                        if (length > 1) {
+                            ret = permute(b, rotate(copy, i).slice(1), length);
+                        } else {
+                            ret = [
+                                [b]
+                            ];
+                        }
+                        return a.concat(ret);
+                    }, []);
+                }
+            }
+            return ret;
+        }
+
+        function zip() {
+            var ret = [];
+            var arrs = argsToArray(arguments);
+            if (arrs.length > 1) {
+                var arr1 = arrs.shift();
+                if (isArray(arr1)) {
+                    ret = reduce(arr1, function (a, b, i) {
+                        var curr = [b];
+                        for (var j = 0; j < arrs.length; j++) {
+                            var currArr = arrs[j];
+                            if (isArray(currArr) && !is.isUndefined(currArr[i])) {
+                                curr.push(currArr[i]);
+                            } else {
+                                curr.push(null);
+                            }
+                        }
+                        a.push(curr);
+                        return a;
+                    }, []);
+                }
+            }
+            return ret;
+        }
+
+        function transpose(arr) {
+            var ret = [];
+            if (isArray(arr) && arr.length) {
+                var last;
+                forEach(arr, function (a) {
+                    if (isArray(a) && (!last || a.length === last.length)) {
+                        forEach(a, function (b, i) {
+                            if (!ret[i]) {
+                                ret[i] = [];
+                            }
+                            ret[i].push(b);
+                        });
+                        last = a;
+                    }
+                });
+            }
+            return ret;
+        }
+
+        function valuesAt(arr, indexes) {
+            var ret = [];
+            indexes = argsToArray(arguments);
+            arr = indexes.shift();
+            if (isArray(arr) && indexes.length) {
+                for (var i = 0, l = indexes.length; i < l; i++) {
+                    ret.push(arr[indexes[i]] || null);
+                }
+            }
+            return ret;
+        }
+
+        function union() {
+            var ret = [];
+            var arrs = argsToArray(arguments);
+            if (arrs.length > 1) {
+                for (var i = 0, l = arrs.length; i < l; i++) {
+                    ret = ret.concat(arrs[i]);
+                }
+                ret = removeDuplicates(ret);
+            }
+            return ret;
+        }
+
+        function intersect() {
+            var collect = [], sets, i = -1 , l;
+            if (arguments.length > 1) {
+                //assume we are intersections all the lists in the array
+                sets = argsToArray(arguments);
+            } else {
+                sets = arguments[0];
+            }
+            if (isArray(sets)) {
+                collect = sets[0];
+                i = 0;
+                l = sets.length;
+                while (++i < l) {
+                    collect = intersection(collect, sets[i]);
+                }
+            }
+            return removeDuplicates(collect);
+        }
+
+        function powerSet(arr) {
+            var ret = [];
+            if (isArray(arr) && arr.length) {
+                ret = reduce(arr, function (a, b) {
+                    var ret = map(a, function (c) {
+                        return c.concat(b);
+                    });
+                    return a.concat(ret);
+                }, [
+                    []
+                ]);
+            }
+            return ret;
+        }
+
+        function cartesian(a, b) {
+            var ret = [];
+            if (isArray(a) && isArray(b) && a.length && b.length) {
+                ret = cross(a[0], b).concat(cartesian(a.slice(1), b));
+            }
+            return ret;
+        }
+
+        function compact(arr) {
+            var ret = [];
+            if (isArray(arr) && arr.length) {
+                ret = filter(arr, function (item) {
+                    return !is.isUndefinedOrNull(item);
+                });
+            }
+            return ret;
+        }
+
+        function multiply(arr, times) {
+            times = is.isNumber(times) ? times : 1;
+            if (!times) {
+                //make sure times is greater than zero if it is zero then dont multiply it
+                times = 1;
+            }
+            arr = toArray(arr || []);
+            var ret = [], i = 0;
+            while (++i <= times) {
+                ret = ret.concat(arr);
+            }
+            return ret;
+        }
+
+        function flatten(arr) {
+            var set;
+            var args = argsToArray(arguments);
+            if (args.length > 1) {
+                //assume we are intersections all the lists in the array
+                set = args;
+            } else {
+                set = toArray(arr);
+            }
+            return reduce(set, function (a, b) {
+                return a.concat(b);
+            }, []);
+        }
+
+        function pluck(arr, prop) {
+            prop = prop.split(".");
+            var result = arr.slice(0);
+            forEach(prop, function (prop) {
+                var exec = prop.match(/(\w+)\(\)$/);
+                result = map(result, function (item) {
+                    return exec ? item[exec[1]]() : item[prop];
+                });
+            });
+            return result;
+        }
+
+        function invoke(arr, func, args) {
+            args = argsToArray(arguments, 2);
+            return map(arr, function (item) {
+                var exec = isString(func) ? item[func] : func;
+                return exec.apply(item, args);
+            });
+        }
+
+
+        var array = {
+            toArray: toArray,
+            sum: sum,
+            avg: avg,
+            sort: sort,
+            min: min,
+            max: max,
+            difference: difference,
+            removeDuplicates: removeDuplicates,
+            unique: unique,
+            rotate: rotate,
+            permutations: permutations,
+            zip: zip,
+            transpose: transpose,
+            valuesAt: valuesAt,
+            union: union,
+            intersect: intersect,
+            powerSet: powerSet,
+            cartesian: cartesian,
+            compact: compact,
+            multiply: multiply,
+            flatten: flatten,
+            pluck: pluck,
+            invoke: invoke,
+            forEach: forEach,
+            map: map,
+            filter: filter,
+            reduce: reduce,
+            reduceRight: reduceRight,
+            some: some,
+            every: every,
+            indexOf: indexOf,
+            lastIndexOf: lastIndexOf
+        };
+
+        return extended.define(isArray, array).expose(array);
+    }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            module.exports = defineArray(require("extended"), require("is-extended"), require("arguments-extended"));
+        }
+    } else if ("function" === typeof define && define.amd) {
+        define(["extended", "is-extended", "arguments-extended"], function (extended, is, args) {
+            return defineArray(extended, is, args);
+        });
+    } else {
+        this.arrayExtended = defineArray(this.extended, this.isExtended, this.argumentsExtended);
+    }
+
+}).call(this);
+
+
+
+
+
+
+
+})()
+},{"extended":32,"is-extended":39,"arguments-extended":53}],35:[function(require,module,exports){
 (function(){(function () {
     "use strict";
     /*global extended isExtended*/
@@ -10851,7 +11118,7 @@ exports.parse = function (src) {
 
 
 })()
-},{"extended":32,"is-extended":39,"array-extended":33}],36:[function(require,module,exports){
+},{"extended":32,"is-extended":39,"array-extended":34}],36:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -11498,7 +11765,7 @@ exports.parse = function (src) {
 
 
 
-},{"extended":32,"is-extended":39,"date-extended":34,"array-extended":33}],37:[function(require,module,exports){
+},{"extended":32,"is-extended":39,"date-extended":33,"array-extended":34}],37:[function(require,module,exports){
 (function(process){(function () {
     "use strict";
     /*global setImmediate, MessageChannel*/
@@ -12004,7 +12271,7 @@ exports.parse = function (src) {
 
 
 })(require("__browserify_process"))
-},{"declare.js":42,"extended":32,"array-extended":33,"function-extended":38,"is-extended":39,"arguments-extended":53,"__browserify_process":5}],38:[function(require,module,exports){
+},{"extended":32,"declare.js":41,"array-extended":34,"is-extended":39,"function-extended":38,"arguments-extended":53,"__browserify_process":5}],38:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -13011,7 +13278,7 @@ exports.parse = function (src) {
 
 
 
-},{"extended":32,"declare.js":42,"is-extended":39,"array-extended":33}],41:[function(require,module,exports){
+},{"extended":32,"declare.js":41,"is-extended":39,"array-extended":34}],42:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -13918,7 +14185,7 @@ exports.parse = function (src) {
 
 
 
-},{"extended":32,"declare.js":42,"is-extended":39,"array-extended":33,"string-extended":36}],50:[function(require,module,exports){
+},{"extended":32,"declare.js":41,"is-extended":39,"array-extended":34,"string-extended":36}],50:[function(require,module,exports){
 module.exports = require("./extender.js");
 },{"./extender.js":54}],51:[function(require,module,exports){
 (function(){"use strict";
@@ -14776,5 +15043,5 @@ module.exports = {
     }
 
 }).call(this);
-},{"declare.js":42}]},{},[1])
+},{"declare.js":41}]},{},[1])
 ;
