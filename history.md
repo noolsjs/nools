@@ -1,8 +1,15 @@
+#0.1.7 / 2013-06-25
+
+* Fixed constraint parser to not evaluate functions that have the same name as operators as operators.
+* Fixed the `getMatcher` to properly return an equality expression for constraints that do not have an explicit equality
+* Added new diganosis example
+* Changed Fibonacci example to support larger number
+
 #v0.1.6 / 2012-06-17
 
 * Fixed issue with the use of next in async actions
 
-#v0.1.5 / 2012-06-17
+#v0.1.5 / 2013-06-17
 
 * More Examples
 * Changed nools compile to transpile to Javascript!
@@ -11,7 +18,7 @@
   * Manners Benchmark (32): Before ~10s, Now ~4sec
   * WaltzDB: Before ~30sec, Now ~15sec
 
-#v0.1.4 / 2012-05-25
+#v0.1.4 / 2013-05-25
 
 * Added new agenda-group (#29)
 * More documentation
@@ -21,15 +28,15 @@
   * Scope
 * Cleaned up agenda and made more modular
 
-#v0.1.3 / 2012-05-24
+#v0.1.3 / 2013-05-24
 
 * Fixed memory leak with FactHashes for the agendas
 
-#v0.1.2 / 2012-05-24
+#v0.1.2 / 2013-05-24
 
 * Removed unneeded calls to `.then` to address performance degredation (#30)
 
-#v0.1.1 / 2012-05-23
+#v0.1.1 / 2013-05-23
 
 * Updated grunt
 * Fixed nextTick issues for node v0.10 #32
