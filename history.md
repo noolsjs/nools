@@ -1,3 +1,7 @@
+#0.1.8 / 2013-08-14
+
+* Fixed scoping issue where scoped variables defined in compile were not available to defined classes or functions.
+
 #0.1.7 / 2013-06-25
 
 * Fixed constraint parser to not evaluate functions that have the same name as operators as operators.
