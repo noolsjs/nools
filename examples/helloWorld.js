@@ -19,6 +19,9 @@
         this.rule("Goodbye", [Message, "m", "m.message =~ /.*goodbye$/"], function (facts) {
             console.log(facts.m.message);
         });
+        this.rule("Goodbye2", [Number, "k", "(k != 0 || !(k == 5 || k == 2) && (k == 7 && k == 4))"], function (facts) {
+            console.log(facts.m.message);
+        });
     });
 
     var session = flow.getSession();
