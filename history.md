@@ -2,6 +2,7 @@
 
 * Fixed issues where notNode was not retracting all contexts when a fact was retracted
 * Fixed issue [50](https://github.com/C2FO/nools/issues/50) in compiling rule with or condition
+* Fixed issue [53](https://github.com/C2FO/nools/issues/53) in constraints with hash refrences.
 
 # 0.1.8 / 2013-08-14
 
