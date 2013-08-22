@@ -165,6 +165,39 @@ it.describe("nools dsl parser", function (it) {
                 ],
                 "scope": []
             });
+
+            parsed = noolsParser.parse("rule TestRule {when {c : Clazz c.name eq 'Test' { test : test };} then {console.log(test);}}");
+            assert.deepEqual(parsed, {
+                define: [],
+                rules: [
+                    {
+                        name: "TestRule",
+                        constraints: [
+                            ["Clazz", "c", "c.name eq 'Test'", {test: "test"}]
+                        ],
+                        action: "console.log(test);",
+                        options: {}
+                    }
+                ],
+                "scope": []
+            });
+
+
+            parsed = noolsParser.parse("rule TestRule {when {$c : Clazz $c.name eq 'Test' { $test : test };} then {console.log($test);}}");
+            assert.deepEqual(parsed, {
+                define: [],
+                rules: [
+                    {
+                        name: "TestRule",
+                        constraints: [
+                            ["Clazz", "$c", "$c.name eq 'Test'", {$test: "test"}]
+                        ],
+                        action: "console.log($test);",
+                        options: {}
+                    }
+                ],
+                "scope": []
+            });
         });
 
         it.should("throw an error for invalid rule blocks", function () {
@@ -656,5 +689,3 @@ it.describe("nools dsl parser", function (it) {
 
     });
 });
-
-

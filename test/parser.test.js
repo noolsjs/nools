@@ -920,6 +920,30 @@ it.describe("A Parser", function (it) {
         ]);
     });
 
+    it.should("parse truthy statements", function () {
+        assert.deepEqual(parser.parseConstraint("a && !b"), [
+            ["a", null, "identifier"],
+            [
+                ["b", null, "identifier"],
+                null,
+                "logicalNot"
+            ],
+            "and"
+        ]);
+
+        assert.deepEqual(parser.parseConstraint("!(a && b)"), [
+            [
+                [
+                    ["a", null, "identifier"],
+                    ["b", null, "identifier"],
+                    "and"
+                ],
+                null,
+                "composite"
+            ],
+            null,
+            "logicalNot"
+        ]);
+    });
+
 });
-
-

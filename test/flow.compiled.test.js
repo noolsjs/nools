@@ -47,8 +47,9 @@ it.describe("Flow compiled",function (it) {
 
 
         it.should("call when a string equals 'hello'", function () {
-            flow.getSession("world", called).match().then(function () {
+            return flow.getSession("world", called).match().then(function () {
                 assert.equal(called.called, 1);
+                assert.equal(called.s, "world");
             });
         });
 
