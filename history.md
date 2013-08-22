@@ -1,19 +1,23 @@
-#0.1.8 / 2013-08-14
+# 0.1.9
+
+* Fixed issues where notNode was not retracting all contexts when a fact was retracted
+
+# 0.1.8 / 2013-08-14
 
 * Fixed scoping issue where scoped variables defined in compile were not available to defined classes or functions.
 
-#0.1.7 / 2013-06-25
+# 0.1.7 / 2013-06-25
 
 * Fixed constraint parser to not evaluate functions that have the same name as operators as operators.
 * Fixed the `getMatcher` to properly return an equality expression for constraints that do not have an explicit equality
 * Added new diganosis example
 * Changed Fibonacci example to support larger number
 
-#v0.1.6 / 2012-06-17
+# v0.1.6 / 2012-06-17
 
 * Fixed issue with the use of next in async actions
 
-#v0.1.5 / 2013-06-17
+# v0.1.5 / 2013-06-17
 
 * More Examples
 * Changed nools compile to transpile to Javascript!
@@ -22,7 +26,7 @@
   * Manners Benchmark (32): Before ~10s, Now ~4sec
   * WaltzDB: Before ~30sec, Now ~15sec
 
-#v0.1.4 / 2013-05-25
+# v0.1.4 / 2013-05-25
 
 * Added new agenda-group (#29)
 * More documentation
@@ -32,15 +36,15 @@
   * Scope
 * Cleaned up agenda and made more modular
 
-#v0.1.3 / 2013-05-24
+# v0.1.3 / 2013-05-24
 
 * Fixed memory leak with FactHashes for the agendas
 
-#v0.1.2 / 2013-05-24
+# v0.1.2 / 2013-05-24
 
 * Removed unneeded calls to `.then` to address performance degredation (#30)
 
-#v0.1.1 / 2013-05-23
+# v0.1.1 / 2013-05-23
 
 * Updated grunt
 * Fixed nextTick issues for node v0.10 #32
@@ -52,7 +56,7 @@
 * Rebuilt nools.js and nools.min.js
 * Added more tests for new globals feature
 
-#0.1.0 / 2013-02-27
+# 0.1.0 / 2013-02-27
 
 * Browser support!
 * Support for compiling nools dsl from string source or path
@@ -71,18 +75,18 @@
 * More Examples (requirejs, browser, conways game of life)
 * More tests and better coverage on or and not nodes.
 
-#0.0.5 / 2012-09-10
+# 0.0.5 / 2012-09-10
 * Fix for issue [#13](https://github.com/C2FO/nools/issues/13) where identifiers were not gathered in property chains that contained functions.
 
-#0.0.4 / 2012-09-10
+# 0.0.4 / 2012-09-10
 * Added travis CI
 
-#0.0.3 / 2012-09-06
+# 0.0.3 / 2012-09-06
 * Updates for repo rename
 * code clean up
 
 
-#0.0.2 / 2012-05-22
+# 0.0.2 / 2012-05-22
 * Increased performance
   * Manners benchmark 800%
 * Added Parser for nools DSL
