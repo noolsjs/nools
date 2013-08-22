@@ -41,8 +41,16 @@ it.describe("Flow dsl", function (it) {
             called = new Count();
 
         it.should("call when a string equals 'hello'", function () {
-            flow.getSession("world", called).match().then(function () {
+            return flow.getSession("world", called).match().then(function () {
                 assert.equal(called.called, 1);
+                assert.equal(called.s, "world");
+                called.called = 0;
+                called.s = null;
+                return flow.getSession("worldd", called).match().then(function () {
+                    assert.equal(called.called, 0);
+                    assert.isNull(called.s);
+                });
+
             });
         });
 
@@ -150,7 +158,7 @@ it.describe("Flow dsl", function (it) {
         });
     });
 
-    it.describe("comments in dsl", function () {
+    it.describe("comments in dsl", function (it) {
 
         var flow = nools.compile(__dirname + "/rules/comments.nools");
 

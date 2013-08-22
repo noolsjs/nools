@@ -14,5 +14,6 @@ rule hello {
     }
     then {
         count.called++;
+        count.s = s;
     }
 }
