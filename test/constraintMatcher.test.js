@@ -2,7 +2,7 @@
 var it = require("it"),
     assert = require("assert"), parser = require("../lib/parser"), constraintMatcher = require("../lib/constraintMatcher");
 
-it.describe("constraint matcher",function (it) {
+it.describe("constraint matcher", function (it) {
 
     it.describe("#match", function (it) {
         it.should("check equality", function () {
@@ -95,7 +95,6 @@ it.describe("constraint matcher",function (it) {
 
 
         });
-
 
         it.should("check notLike operator", function () {
 
@@ -286,6 +285,23 @@ it.describe("constraint matcher",function (it) {
             }));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("deepEqual(a, b)"))({a: [1], b: new Date()}));
         });
+
+        it.should("check truthy statements", function () {
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a"))({a: "a"}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a"))({a: 10}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a"))({a: true}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("!a"))({a: false}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a && b"))({a: true, b: true}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("!(a && b)"))({a: false, b: false}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("!(a || b)"))({a: false, b: false}));
+
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("!a"))({a: "b"}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("!a == 10"))({a: 11}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("!a == 10"))({a: "10"}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("!a"))({a: true}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a"))({a: false}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("!(a && b)"))({a: true, b: true}));
+        });
     });
 
     it.describe("#toConstraints", function (it) {
@@ -322,6 +338,16 @@ it.describe("constraint matcher",function (it) {
             assert.equal(atoms[0].type, "equality");
             assert.equal(atoms[1].type, "equality");
             assert.equal(atoms[2].type, "reference");
+
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("a.name == 'bob' && !a.flag && b == 1"), {alias: "a"});
+            assert.lengthOf(atoms, 3);
+            assert.equal(atoms[0].type, "equality");
+            assert.equal(atoms[1].type, "equality");
+            assert.equal(atoms[2].type, "reference");
+
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("!(a.bool && a.bool2)"), {alias: "a"});
+            assert.lengthOf(atoms, 1);
+            assert.equal(atoms[0].type, "equality");
         });
 
         it.should("create correct pattern depending on scope", function () {
@@ -447,4 +473,4 @@ it.describe("constraint matcher",function (it) {
         });
     });
 
-}).as(module);
+});
