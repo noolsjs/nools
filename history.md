@@ -1,6 +1,7 @@
 # 0.1.9
 
 * Fixed issues where notNode was not retracting all contexts when a fact was retracted
+* Fixed issue [50](https://github.com/C2FO/nools/issues/50) in compiling rule with or condition
 
 # 0.1.8 / 2013-08-14
 
