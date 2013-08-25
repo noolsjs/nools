@@ -39,7 +39,7 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
    
 
 The [examples](https://github.com/C2FO/nools/tree/master/examples) and [tests](https://github.com/C2FO/nools/tree/master/test) are a
-great place to get started.
+great place to get started. You can ask your questions on the [Nools Google group](https://groups.google.com/forum/#!forum/nools).
 
 <a name="flow"></a>
 ## Defining a flow
