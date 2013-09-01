@@ -12,7 +12,11 @@ var nools = require(".."),
 
 function uglify(source) {
     try {
+      if (program.no_minification) {
+        return source;
+      } else {
         return uglifyjs.minify(source, {fromString: true, mangle: false, output: {beautify: true}}).code;
+      }
     } catch (e) {
         console.error(e.message);
         console.error(e.stack);
@@ -28,6 +32,7 @@ program.command("compile")
     .description("compile nools dsl")
     .option("-n --name [value]", "name of the flow to compile, defaults to the name of the file less the extension")
     .option("-l --nools_location [value]", "location to look for nools when requiring it")
+    .option("-u --no_minification", "Do not minify the generated script")
     .action(function () {
         var files = Array.prototype.slice.call(arguments);
         var program = files.pop();
