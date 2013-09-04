@@ -1,0 +1,14 @@
+import("./import1.nools");
+rule orRule {
+    when {
+        or(
+            s : String s == 'hello',
+            s : String s == 'world'
+        );
+        count : Count;
+    }
+    then {
+        count.called++;
+        count.s = s;
+    }
+}

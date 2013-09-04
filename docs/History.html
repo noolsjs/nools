@@ -178,6 +178,17 @@
 
 
 
+<h1>0.1.10</h1>
+<ul>
+<li>Added ability to <code>import</code> other nools files to create composible rules files <a href="https://github.com/C2FO/nools/issues/58">#58</a></li>
+<li>When using <code>global</code> to require other files you can now require other files relative to the nools file</li>
+<li>Added uglify-js as a dependency instead of devDependency</li>
+<li>Fixed issue <a href="https://github.com/C2FO/nools/issues/61">#61</a> where transpile would not properly escape <code>&quot;</code> character.</li>
+<li>Fixed issue <a href="https://github.com/C2FO/nools/issues/66">#66</a> and <a href="https://github.com/C2FO/nools/issues/67">#67</a> where regular expression matching was too greedy.</li>
+<li>Fixed issue <a href="https://github.com/C2FO/nools/issues/62">#62</a> where constraints with a <code>&quot;</code> character would produce invalid javascript when <code>transpiling</code>.</li>
+<li>Fixed issue <a href="https://github.com/C2FO/nools/issues/69">#69</a> where rules names with a <code>&#39;</code> character in a rule would produce invalid javascript when <code>transpiling</code>.
+*</li>
+</ul>
 <h1>0.1.9</h1>
 <ul>
 <li>Fixed issues where notNode was not retracting all contexts when a fact was retracted</li>

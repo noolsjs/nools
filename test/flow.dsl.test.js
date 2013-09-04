@@ -148,6 +148,7 @@ it.describe("Flow dsl", function (it) {
                     assert.equal(globals.TRUE, true);
                     assert.equal(globals.NUM, 1.23);
                     assert.isDate(globals.DATE);
+                    assert.deepEqual(globals.globalNools, {hello: "world"});
                     next();
                 } catch (e) {
                     next(e);

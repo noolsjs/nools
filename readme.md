@@ -33,6 +33,7 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
       * [Constraints](#constraints)
       * [Actions](#action)
       * [Globals](#globals)
+      * [Import](#import)
    * [Browser Support](#browser-support)
    * [Fibonacci](#fib)
       
@@ -1015,6 +1016,73 @@ rule "A Rule" {
     }
 }
 ```
+
+<a name="import"></a>
+
+### Importing
+
+The `import` statement allows you to import other `nools` files into the current one. This can be used to split up logical flows into small reusable groups of rules.
+
+Define our common model to be used across our flows.
+
+```
+//define.nools
+define Count{
+    constructor: function(){
+        this.called = 0;
+    }
+}
+```
+
+Create a rules file which imports the `define.nools` to define our `Count` model.
+
+```
+//orRule.nools
+
+//import define.nools
+import("./define.nools");
+rule orRule {
+    when {
+        or(
+            s : String s == 'hello',
+            s : String s == 'world'
+        );
+        count : Count;
+    }
+    then {
+        count.called++;
+        count.s = s;
+    }
+}
+```
+
+Same as `orRule.nools` import our `define.nools`
+
+```
+//notRule.nools
+import("./defines.nools");
+rule notRule {
+    when {
+        not(s : String s == 'hello');
+        count : Count
+    }
+    then {
+        count.called++;
+    }
+}
+```
+
+Now we can use `orRule.nools` and `notRule.nools` to compose a new flow that contains `define.nools`, `orRule.nools` and `notRule.nools`.
+
+
+**Note** `nools` will handle duplicate imports, in this case `define.nools` will only be imported once.
+
+```
+//import
+import("./orRules.nools");
+import("./notRules.nools");
+```
+
 
 ## Emitting custom events.
 
