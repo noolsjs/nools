@@ -7,7 +7,7 @@
 * Fixed issue [#66](https://github.com/C2FO/nools/issues/66) and [#67](https://github.com/C2FO/nools/issues/67) where regular expression matching was too greedy.
 * Fixed issue [#62](https://github.com/C2FO/nools/issues/62) where constraints with a `"` character would produce invalid javascript when `transpiling`.
 * Fixed issue [#69](https://github.com/C2FO/nools/issues/69) where rules names with a `'` character in a rule would produce invalid javascript when `transpiling`.
-*
+* Added option to beautify generated code
 
 # 0.1.9
 
