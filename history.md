@@ -1,3 +1,6 @@
+# 0.1.11
+* Fixed issue [#73](https://github.com/C2FO/nools/issues/73) where requires in dsl would treat a file with a `.` character as a path instead of a module.
+
 # 0.1.10
 
 * Added ability to `import` other nools files to create composible rules files [#58](https://github.com/C2FO/nools/issues/58)
