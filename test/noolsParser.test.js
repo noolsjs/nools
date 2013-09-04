@@ -68,10 +68,16 @@ it.describe("nools dsl parser", function (it) {
 
     it.describe("global", function (it) {
 
-        it.should("parse a function call statement", function () {
+        it.should("parse a require call statement", function () {
             var parsed = noolsParser.parse("global util = require('util');");
             assert.equal(parsed.scope[0].name, 'util');
             assert.equal(parsed.scope[0].body, "require('util')");
+        });
+
+        it.should("parse a require with a '.' character that is not a relative path", function () {
+            var parsed = noolsParser.parse("global util = require('socket.io');");
+            assert.equal(parsed.scope[0].name, 'util');
+            assert.equal(parsed.scope[0].body, "require('socket.io')");
         });
 
         it.should("resolve relative require paths", function () {

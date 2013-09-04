@@ -3958,7 +3958,7 @@ exports.resolve = function (from, to) {
     if (path.extname(from) !== '') {
         from = path.dirname(from);
     }
-    if (to.replace(/[\/|\/|\.]/, "") === to) {
+    if (to.split(path.sep).length === 1) {
         return to;
     }
     return path.resolve(from, to);
