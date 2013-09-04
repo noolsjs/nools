@@ -209,13 +209,14 @@
 <li><a href="#constraints">Constraints</a></li>
 <li><a href="#action">Actions</a></li>
 <li><a href="#globals">Globals</a></li>
+<li><a href="#import">Import</a></li>
 </ul>
 </li>
 <li><a href="#browser-support">Browser Support</a></li>
 <li><a href="#fib">Fibonacci</a></li>
 </ul>
 <p>The <a href="https://github.com/C2FO/nools/tree/master/examples">examples</a> and <a href="https://github.com/C2FO/nools/tree/master/test">tests</a> are a
-great place to get started.</p>
+great place to get started. You can ask your questions on the <a href="https://groups.google.com/forum/#!forum/nools">Nools Google group</a>.</p>
 <p><a name="flow"></a></p>
 <h2>Defining a flow</h2>
 <p>When using nools you define a <strong>flow</strong> which acts as a container for rules that can later be used to get
@@ -977,6 +978,51 @@ rule &quot;A Rule&quot; {
         util.log(&quot;HELLO WORLD&quot;);
     }
 }</code></pre>
+<p><a name="import"></a></p>
+<h3>Importing</h3>
+<p>The <code>import</code> statement allows you to import other <code>nools</code> files into the current one. This can be used to split up logical flows into small reusable groups of rules.</p>
+<p>Define our common model to be used across our flows.</p>
+<pre class='prettyprint linenums lang-js'><code>//define.nools
+define Count{
+    constructor: function(){
+        this.called = 0;
+    }
+}</code></pre>
+<p>Create a rules file which imports the <code>define.nools</code> to define our <code>Count</code> model.</p>
+<pre class='prettyprint linenums lang-js'><code>//orRule.nools
+
+//import define.nools
+import(&quot;./define.nools&quot;);
+rule orRule {
+    when {
+        or(
+            s : String s == &#39;hello&#39;,
+            s : String s == &#39;world&#39;
+        );
+        count : Count;
+    }
+    then {
+        count.called++;
+        count.s = s;
+    }
+}</code></pre>
+<p>Same as <code>orRule.nools</code> import our <code>define.nools</code></p>
+<pre class='prettyprint linenums lang-js'><code>//notRule.nools
+import(&quot;./defines.nools&quot;);
+rule notRule {
+    when {
+        not(s : String s == &#39;hello&#39;);
+        count : Count
+    }
+    then {
+        count.called++;
+    }
+}</code></pre>
+<p>Now we can use <code>orRule.nools</code> and <code>notRule.nools</code> to compose a new flow that contains <code>define.nools</code>, <code>orRule.nools</code> and <code>notRule.nools</code>.</p>
+<p><strong>Note</strong> <code>nools</code> will handle duplicate imports, in this case <code>define.nools</code> will only be imported once.</p>
+<pre class='prettyprint linenums lang-js'><code>//import
+import(&quot;./orRules.nools&quot;);
+import(&quot;./notRules.nools&quot;);</code></pre>
 <h2>Emitting custom events.</h2>
 <p>You may also emit events from your rule actions using the sessions emit function.</p>
 <pre class='prettyprint linenums lang-js'><code>then {
