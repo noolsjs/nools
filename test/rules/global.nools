@@ -1,4 +1,5 @@
 global assert = require('assert');
+global globalNools = require('./global.js');
 global PI = Math.PI;
 global SOME_STRING = 'some string';
 global TRUE = true;
@@ -12,6 +13,7 @@ rule EmitGlobals {
     then {
         emit("globals", {
             assert: assert,
+            globalNools: globalNools,
             PI: PI,
             SOME_STRING: SOME_STRING,
             NUM: NUM,

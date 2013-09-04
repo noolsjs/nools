@@ -1,4 +1,4 @@
-;(function(e,t,n){function i(n,s){if(!t[n]){if(!e[n]){var o=typeof require=="function"&&require;if(!s&&o)return o(n,!0);if(r)return r(n,!0);throw new Error("Cannot find module '"+n+"'")}var u=t[n]={exports:{}};e[n][0].call(u.exports,function(t){var r=e[n][1][t];return i(r?r:t)},u,u.exports)}return t[n].exports}var r=typeof require=="function"&&require;for(var s=0;s<n.length;s++)i(n[s]);return i})({1:[function(require,module,exports){
+;(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 (function () {
     "use strict";
     var nools = require("../");
@@ -25,865 +25,7 @@
 
 },{"../":2}],2:[function(require,module,exports){
 module.exports = exports = require("./lib");
-},{"./lib":3}],4:[function(require,module,exports){
-// nothing to see here... no file methods for the browser
-
-},{}],5:[function(require,module,exports){
-// shim for using process in browser
-
-var process = module.exports = {};
-
-process.nextTick = (function () {
-    var canSetImmediate = typeof window !== 'undefined'
-    && window.setImmediate;
-    var canPost = typeof window !== 'undefined'
-    && window.postMessage && window.addEventListener
-    ;
-
-    if (canSetImmediate) {
-        return function (f) { return window.setImmediate(f) };
-    }
-
-    if (canPost) {
-        var queue = [];
-        window.addEventListener('message', function (ev) {
-            if (ev.source === window && ev.data === 'process-tick') {
-                ev.stopPropagation();
-                if (queue.length > 0) {
-                    var fn = queue.shift();
-                    fn();
-                }
-            }
-        }, true);
-
-        return function nextTick(fn) {
-            queue.push(fn);
-            window.postMessage('process-tick', '*');
-        };
-    }
-
-    return function nextTick(fn) {
-        setTimeout(fn, 0);
-    };
-})();
-
-process.title = 'browser';
-process.browser = true;
-process.env = {};
-process.argv = [];
-
-process.binding = function (name) {
-    throw new Error('process.binding is not supported');
-}
-
-// TODO(shtylman)
-process.cwd = function () { return '/' };
-process.chdir = function (dir) {
-    throw new Error('process.chdir is not supported');
-};
-
-},{}],6:[function(require,module,exports){
-(function(process){function filter (xs, fn) {
-    var res = [];
-    for (var i = 0; i < xs.length; i++) {
-        if (fn(xs[i], i, xs)) res.push(xs[i]);
-    }
-    return res;
-}
-
-// resolves . and .. elements in a path array with directory names there
-// must be no slashes, empty elements, or device names (c:\) in the array
-// (so also no leading and trailing slashes - it does not distinguish
-// relative and absolute paths)
-function normalizeArray(parts, allowAboveRoot) {
-  // if the path tries to go above the root, `up` ends up > 0
-  var up = 0;
-  for (var i = parts.length; i >= 0; i--) {
-    var last = parts[i];
-    if (last == '.') {
-      parts.splice(i, 1);
-    } else if (last === '..') {
-      parts.splice(i, 1);
-      up++;
-    } else if (up) {
-      parts.splice(i, 1);
-      up--;
-    }
-  }
-
-  // if the path is allowed to go above the root, restore leading ..s
-  if (allowAboveRoot) {
-    for (; up--; up) {
-      parts.unshift('..');
-    }
-  }
-
-  return parts;
-}
-
-// Regex to split a filename into [*, dir, basename, ext]
-// posix version
-var splitPathRe = /^(.+\/(?!$)|\/)?((?:.+?)?(\.[^.]*)?)$/;
-
-// path.resolve([from ...], to)
-// posix version
-exports.resolve = function() {
-var resolvedPath = '',
-    resolvedAbsolute = false;
-
-for (var i = arguments.length; i >= -1 && !resolvedAbsolute; i--) {
-  var path = (i >= 0)
-      ? arguments[i]
-      : process.cwd();
-
-  // Skip empty and invalid entries
-  if (typeof path !== 'string' || !path) {
-    continue;
-  }
-
-  resolvedPath = path + '/' + resolvedPath;
-  resolvedAbsolute = path.charAt(0) === '/';
-}
-
-// At this point the path should be resolved to a full absolute path, but
-// handle relative paths to be safe (might happen when process.cwd() fails)
-
-// Normalize the path
-resolvedPath = normalizeArray(filter(resolvedPath.split('/'), function(p) {
-    return !!p;
-  }), !resolvedAbsolute).join('/');
-
-  return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
-};
-
-// path.normalize(path)
-// posix version
-exports.normalize = function(path) {
-var isAbsolute = path.charAt(0) === '/',
-    trailingSlash = path.slice(-1) === '/';
-
-// Normalize the path
-path = normalizeArray(filter(path.split('/'), function(p) {
-    return !!p;
-  }), !isAbsolute).join('/');
-
-  if (!path && !isAbsolute) {
-    path = '.';
-  }
-  if (path && trailingSlash) {
-    path += '/';
-  }
-  
-  return (isAbsolute ? '/' : '') + path;
-};
-
-
-// posix version
-exports.join = function() {
-  var paths = Array.prototype.slice.call(arguments, 0);
-  return exports.normalize(filter(paths, function(p, index) {
-    return p && typeof p === 'string';
-  }).join('/'));
-};
-
-
-exports.dirname = function(path) {
-  var dir = splitPathRe.exec(path)[1] || '';
-  var isWindows = false;
-  if (!dir) {
-    // No dirname
-    return '.';
-  } else if (dir.length === 1 ||
-      (isWindows && dir.length <= 3 && dir.charAt(1) === ':')) {
-    // It is just a slash or a drive letter with a slash
-    return dir;
-  } else {
-    // It is a full dirname, strip trailing slash
-    return dir.substring(0, dir.length - 1);
-  }
-};
-
-
-exports.basename = function(path, ext) {
-  var f = splitPathRe.exec(path)[2] || '';
-  // TODO: make this comparison case-insensitive on windows?
-  if (ext && f.substr(-1 * ext.length) === ext) {
-    f = f.substr(0, f.length - ext.length);
-  }
-  return f;
-};
-
-
-exports.extname = function(path) {
-  return splitPathRe.exec(path)[3] || '';
-};
-
-exports.relative = function(from, to) {
-  from = exports.resolve(from).substr(1);
-  to = exports.resolve(to).substr(1);
-
-  function trim(arr) {
-    var start = 0;
-    for (; start < arr.length; start++) {
-      if (arr[start] !== '') break;
-    }
-
-    var end = arr.length - 1;
-    for (; end >= 0; end--) {
-      if (arr[end] !== '') break;
-    }
-
-    if (start > end) return [];
-    return arr.slice(start, end - start + 1);
-  }
-
-  var fromParts = trim(from.split('/'));
-  var toParts = trim(to.split('/'));
-
-  var length = Math.min(fromParts.length, toParts.length);
-  var samePartsLength = length;
-  for (var i = 0; i < length; i++) {
-    if (fromParts[i] !== toParts[i]) {
-      samePartsLength = i;
-      break;
-    }
-  }
-
-  var outputParts = [];
-  for (var i = samePartsLength; i < fromParts.length; i++) {
-    outputParts.push('..');
-  }
-
-  outputParts = outputParts.concat(toParts.slice(samePartsLength));
-
-  return outputParts.join('/');
-};
-
-})(require("__browserify_process"))
-},{"__browserify_process":5}],7:[function(require,module,exports){
-(function(process){if (!process.EventEmitter) process.EventEmitter = function () {};
-
-var EventEmitter = exports.EventEmitter = process.EventEmitter;
-var isArray = typeof Array.isArray === 'function'
-    ? Array.isArray
-    : function (xs) {
-        return Object.prototype.toString.call(xs) === '[object Array]'
-    }
-;
-function indexOf (xs, x) {
-    if (xs.indexOf) return xs.indexOf(x);
-    for (var i = 0; i < xs.length; i++) {
-        if (x === xs[i]) return i;
-    }
-    return -1;
-}
-
-// By default EventEmitters will print a warning if more than
-// 10 listeners are added to it. This is a useful default which
-// helps finding memory leaks.
-//
-// Obviously not all Emitters should be limited to 10. This function allows
-// that to be increased. Set to zero for unlimited.
-var defaultMaxListeners = 10;
-EventEmitter.prototype.setMaxListeners = function(n) {
-  if (!this._events) this._events = {};
-  this._events.maxListeners = n;
-};
-
-
-EventEmitter.prototype.emit = function(type) {
-  // If there is no 'error' event listener then throw.
-  if (type === 'error') {
-    if (!this._events || !this._events.error ||
-        (isArray(this._events.error) && !this._events.error.length))
-    {
-      if (arguments[1] instanceof Error) {
-        throw arguments[1]; // Unhandled 'error' event
-      } else {
-        throw new Error("Uncaught, unspecified 'error' event.");
-      }
-      return false;
-    }
-  }
-
-  if (!this._events) return false;
-  var handler = this._events[type];
-  if (!handler) return false;
-
-  if (typeof handler == 'function') {
-    switch (arguments.length) {
-      // fast cases
-      case 1:
-        handler.call(this);
-        break;
-      case 2:
-        handler.call(this, arguments[1]);
-        break;
-      case 3:
-        handler.call(this, arguments[1], arguments[2]);
-        break;
-      // slower
-      default:
-        var args = Array.prototype.slice.call(arguments, 1);
-        handler.apply(this, args);
-    }
-    return true;
-
-  } else if (isArray(handler)) {
-    var args = Array.prototype.slice.call(arguments, 1);
-
-    var listeners = handler.slice();
-    for (var i = 0, l = listeners.length; i < l; i++) {
-      listeners[i].apply(this, args);
-    }
-    return true;
-
-  } else {
-    return false;
-  }
-};
-
-// EventEmitter is defined in src/node_events.cc
-// EventEmitter.prototype.emit() is also defined there.
-EventEmitter.prototype.addListener = function(type, listener) {
-  if ('function' !== typeof listener) {
-    throw new Error('addListener only takes instances of Function');
-  }
-
-  if (!this._events) this._events = {};
-
-  // To avoid recursion in the case that type == "newListeners"! Before
-  // adding it to the listeners, first emit "newListeners".
-  this.emit('newListener', type, listener);
-
-  if (!this._events[type]) {
-    // Optimize the case of one listener. Don't need the extra array object.
-    this._events[type] = listener;
-  } else if (isArray(this._events[type])) {
-
-    // Check for listener leak
-    if (!this._events[type].warned) {
-      var m;
-      if (this._events.maxListeners !== undefined) {
-        m = this._events.maxListeners;
-      } else {
-        m = defaultMaxListeners;
-      }
-
-      if (m && m > 0 && this._events[type].length > m) {
-        this._events[type].warned = true;
-        console.error('(node) warning: possible EventEmitter memory ' +
-                      'leak detected. %d listeners added. ' +
-                      'Use emitter.setMaxListeners() to increase limit.',
-                      this._events[type].length);
-        console.trace();
-      }
-    }
-
-    // If we've already got an array, just append.
-    this._events[type].push(listener);
-  } else {
-    // Adding the second element, need to change to array.
-    this._events[type] = [this._events[type], listener];
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.on = EventEmitter.prototype.addListener;
-
-EventEmitter.prototype.once = function(type, listener) {
-  var self = this;
-  self.on(type, function g() {
-    self.removeListener(type, g);
-    listener.apply(this, arguments);
-  });
-
-  return this;
-};
-
-EventEmitter.prototype.removeListener = function(type, listener) {
-  if ('function' !== typeof listener) {
-    throw new Error('removeListener only takes instances of Function');
-  }
-
-  // does not use listeners(), so no side effect of creating _events[type]
-  if (!this._events || !this._events[type]) return this;
-
-  var list = this._events[type];
-
-  if (isArray(list)) {
-    var i = indexOf(list, listener);
-    if (i < 0) return this;
-    list.splice(i, 1);
-    if (list.length == 0)
-      delete this._events[type];
-  } else if (this._events[type] === listener) {
-    delete this._events[type];
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.removeAllListeners = function(type) {
-  if (arguments.length === 0) {
-    this._events = {};
-    return this;
-  }
-
-  // does not use listeners(), so no side effect of creating _events[type]
-  if (type && this._events && this._events[type]) this._events[type] = null;
-  return this;
-};
-
-EventEmitter.prototype.listeners = function(type) {
-  if (!this._events) this._events = {};
-  if (!this._events[type]) this._events[type] = [];
-  if (!isArray(this._events[type])) {
-    this._events[type] = [this._events[type]];
-  }
-  return this._events[type];
-};
-
-})(require("__browserify_process"))
-},{"__browserify_process":5}],3:[function(require,module,exports){
-/**
- *
- * @projectName nools
- * @github https://github.com/C2FO/nools
- * @includeDoc [Examples] ../docs-md/examples.md
- * @includeDoc [Change Log] ../History.md
- * @header [../readme.md]
- */
-
-
-
-
-"use strict";
-var extd = require("./extended"),
-    fs = require("fs"),
-    path = require("path"),
-    bind = extd.bind,
-    forEach = extd.forEach,
-    declare = extd.declare,
-    Promise = extd.Promise,
-    nodes = require("./nodes"),
-    EventEmitter = require("events").EventEmitter,
-    rule = require("./rule"),
-    wm = require("./workingMemory"),
-    WorkingMemory = wm.WorkingMemory,
-    InitialFact = require("./pattern").InitialFact,
-    compile = require("./compile"),
-    nextTick = require("./nextTick"),
-    AgendaTree = require("./agenda");
-
-var nools = {};
-
-
-var Flow = declare(EventEmitter, {
-
-    instance: {
-
-        name: null,
-
-        constructor: function (name) {
-            this.env = null;
-            this.name = name;
-            this.__rules = {};
-            this.__wmAltered = false;
-            this.workingMemory = new WorkingMemory();
-            this.agenda = new AgendaTree(this);
-            this.agenda.on("fire", bind(this, "emit", "fire"));
-            this.agenda.on("focused", bind(this, "emit", "focused"));
-            this.rootNode = new nodes.RootNode(this.workingMemory, this.agenda);
-        },
-
-        focus: function (focused) {
-            this.agenda.setFocus(focused);
-            return this;
-        },
-
-        halt: function () {
-            this.__halted = true;
-            return this;
-        },
-
-        dispose: function () {
-            this.workingMemory.dispose();
-            this.agenda.dispose();
-            this.rootNode.dispose();
-        },
-
-        assert: function (fact) {
-            this.__wmAltered = true;
-            this.rootNode.assertFact(this.workingMemory.assertFact(fact));
-            this.emit("assert", fact);
-            return fact;
-        },
-
-        // This method is called to remove an existing fact from working memory
-        retract: function (fact) {
-            //fact = this.workingMemory.getFact(fact);
-            this.__wmAltered = true;
-            this.rootNode.retractFact(this.workingMemory.retractFact(fact));
-            this.emit("retract", fact);
-            return fact;
-        },
-
-        // This method is called to alter an existing fact.  It is essentially a
-        // retract followed by an assert.
-        modify: function (fact, cb) {
-            //fact = this.workingMemory.getFact(fact);
-            this.__wmAltered = true;
-            this.rootNode.retractFact(this.workingMemory.retractFact(fact));
-            if ("function" === typeof cb) {
-                cb.call(fact, fact);
-            }
-            this.emit("modify", fact);
-            this.rootNode.assertFact(this.workingMemory.assertFact(fact));
-            return fact;
-        },
-
-        print: function () {
-            this.rootNode.print();
-        },
-
-        containsRule: function (name) {
-            return this.rootNode.containsRule(name);
-        },
-
-        rule: function (rule) {
-            this.rootNode.assertRule(rule);
-        },
-
-        __loop: function (looper, cb) {
-            var ret = new Promise(), rootNode = this.rootNode;
-            if (rootNode) {
-                rootNode.resetCounter();
-                (function fire() {
-                    nextTick(function () {
-                        looper(ret, fire);
-                    });
-                })();
-            } else {
-                ret.callback();
-            }
-            ret.classic(cb);
-            return ret;
-        },
-
-        __callNext: function () {
-            var rootNode = this.rootNode;
-            var next = this.agenda.fireNext();
-            if (extd.isPromiseLike(next)) {
-                var self = this;
-                return next.addCallback(function () {
-                    if (self.__wmAltered) {
-                        rootNode.incrementCounter();
-                        self.__wmAltered = false;
-                    }
-                });
-            } else {
-                if (this.__wmAltered) {
-                    rootNode.incrementCounter();
-                    this.__wmAltered = false;
-                }
-                return next;
-            }
-        },
-
-
-        matchUntilHalt: function (cb) {
-            this.__halted = false;
-            var self = this;
-            return this.__loop(function (ret, fire) {
-                if (!self.__halted) {
-                    var next = self.__callNext();
-                    if (extd.isBoolean(next)) {
-                        fire();
-                    } else {
-                        next.addCallback(fire).addErrback(ret.errback);
-                    }
-                } else {
-                    ret.callback();
-                }
-            }, cb);
-        },
-
-        match: function (cb) {
-            var self = this;
-            return this.__loop(function (ret, fire) {
-                var next = self.__callNext();
-                if (extd.isBoolean(next)) {
-                    next ? fire() : ret.callback();
-                } else {
-                    next.addCallback(function (fired) {
-                        return fired ? fire() : ret.callback();
-                    }).addErrback(ret.errback);
-                }
-            }, cb);
-        }
-
-    }
-});
-
-var flows = {};
-var FlowContainer = declare({
-
-    instance: {
-
-        constructor: function (name, cb) {
-            this.name = name;
-            this.cb = cb;
-            this.__rules = [];
-            this.__defined = {};
-            if (cb) {
-                cb.call(this, this);
-            }
-            if (!flows.hasOwnProperty(name)) {
-                flows[name] = this;
-            } else {
-                throw new Error("Flow with " + name + " already defined");
-            }
-        },
-
-        getDefined: function (name) {
-            var ret = this.__defined[name.toLowerCase()];
-            if (!ret) {
-                throw new Error(name + " flow class is not defined");
-            }
-            return ret;
-        },
-
-        addDefined: function (name, cls) {
-            //normalize
-            this.__defined[name.toLowerCase()] = cls;
-            return cls;
-        },
-
-        rule: function () {
-            this.__rules = this.__rules.concat(rule.createRule.apply(rule, arguments));
-            return this;
-        },
-
-        getSession: function () {
-            var flow = new Flow(this.name);
-            forEach(this.__rules, function (rule) {
-                flow.rule(rule);
-            });
-            flow.assert(new InitialFact());
-            for (var i = 0, l = arguments.length; i < l; i++) {
-                flow.assert(arguments[i]);
-            }
-            return flow;
-        },
-
-        containsRule: function (name) {
-            return extd.some(this.__rules, function (rule) {
-                return rule.name === name;
-            });
-        }
-
-    }
-
-}).as(nools, "Flow");
-
-function isNoolsFile(file) {
-    return (/\.nools$/).test(file);
-}
-
-function parse(source) {
-    var ret;
-    if (isNoolsFile(source)) {
-        ret = compile.parse(fs.readFileSync(source, "utf8"));
-    } else {
-        ret = compile.parse(source);
-    }
-    return ret;
-}
-
-nools.getFlow = function (name) {
-    return flows[name];
-};
-
-nools.deleteFlow = function (name) {
-    if (extd.instanceOf(name, FlowContainer)) {
-        name = name.name;
-    }
-    delete flows[name];
-    return nools;
-};
-
-
-nools.flow = function (name, cb) {
-    return new FlowContainer(name, cb);
-};
-
-nools.compile = function (file, options, cb) {
-    if (extd.isFunction(options)) {
-        cb = options;
-        options = {};
-    } else {
-        options = options || {};
-        cb = null;
-    }
-    if (extd.isString(file)) {
-        options.name = options.name || (isNoolsFile(file) ? path.basename(file, path.extname(file)) : null);
-        file = parse(file);
-    }
-    if (!options.name) {
-        throw new Error("Name required when compiling nools source");
-    }
-    return  compile.compile(file, options, cb, FlowContainer);
-};
-
-nools.transpile = function (file, options) {
-    options = options || {};
-    if (extd.isString(file)) {
-        options.name = options.name || (isNoolsFile(file) ? path.basename(file, path.extname(file)) : null);
-        file = parse(file);
-    }
-    return compile.transpile(file, options);
-};
-
-nools.parse = parse;
-
-module.exports = nools;
-},{"fs":4,"path":6,"events":7,"./extended":8,"./rule":9,"./workingMemory":10,"./pattern":11,"./nextTick":12,"./agenda":13,"./nodes":14,"./compile":15}],11:[function(require,module,exports){
-(function () {
-    "use strict";
-    var extd = require("./extended"),
-        merge = extd.merge,
-        forEach = extd.forEach,
-        declare = extd.declare,
-        constraintMatcher = require("./constraintMatcher"),
-        constraint = require("./constraint");
-
-
-    var Pattern = declare({});
-
-    var ObjectPattern = Pattern.extend({
-        instance: {
-            constructor: function (type, alias, conditions, store, options) {
-                options = options || {};
-                this.type = type;
-                this.alias = alias;
-                this.conditions = conditions;
-                this.pattern = options.pattern;
-                this.constraints = [new constraint.ObjectConstraint(type)];
-                var constrnts = constraintMatcher.toConstraints(conditions, merge({alias: alias}, options));
-                if (constrnts.length) {
-                    this.constraints = this.constraints.concat(constrnts);
-                } else {
-                    var cnstrnt = new constraint.TrueConstraint();
-                    this.constraints.push(cnstrnt);
-                }
-                if (store && !extd.isEmpty(store)) {
-                    var atm = new constraint.HashConstraint(store);
-                    this.constraints.push(atm);
-                }
-                forEach(this.constraints, function (constraint) {
-                    constraint.set("alias", alias);
-                });
-            },
-
-            hasConstraint: function (type) {
-                return extd.some(this.constraints, function (c) {
-                    return c instanceof type;
-                });
-            },
-
-            hashCode: function () {
-                return [this.type, this.alias, extd.format("%j", this.conditions)].join(":");
-            },
-
-            toString: function () {
-                return extd.format("%j", this.constraints);
-            }
-        }
-    }).as(exports, "ObjectPattern");
-
-    ObjectPattern.extend().as(exports, "NotPattern");
-
-    Pattern.extend({
-
-        instance: {
-            constructor: function (left, right) {
-                this.leftPattern = left;
-                this.rightPattern = right;
-            },
-
-            hashCode: function () {
-                return [this.leftPattern.hashCode(), this.rightPattern.hashCode()].join(":");
-            },
-
-            getters: {
-                constraints: function () {
-                    return this.leftPattern.constraints.concat(this.rightPattern.constraints);
-                }
-            }
-        }
-
-    }).as(exports, "CompositePattern");
-
-
-    var InitialFact = declare({}).as(exports, "InitialFact");
-
-    ObjectPattern.extend({
-        instance: {
-            constructor: function () {
-                this._super([InitialFact, "i", [], {}]);
-            },
-
-            assert: function () {
-                return true;
-            }
-        }
-    }).as(exports, "InitialFactPattern");
-
-})();
-
-
-},{"./extended":8,"./constraintMatcher":16,"./constraint":17}],12:[function(require,module,exports){
-(function(process){/*global setImmediate, window, MessageChannel*/
-var extd = require("./extended");
-var nextTick;
-if (typeof setImmediate === "function") {
-    // In IE10, or use https://github.com/NobleJS/setImmediate
-    if (typeof window !== "undefined") {
-        nextTick = extd.bind(window, setImmediate);
-    } else {
-        nextTick = setImmediate;
-    }
-} else if (typeof process !== "undefined") {
-    // node
-    nextTick = process.nextTick;
-} else if (typeof MessageChannel !== "undefined") {
-    // modern browsers
-    // http://www.nonblocking.io/2011/06/windownexttick.html
-    var channel = new MessageChannel();
-    // linked list of tasks (single, with head node)
-    var head = {}, tail = head;
-    channel.port1.onmessage = function () {
-        head = head.next;
-        var task = head.task;
-        delete head.task;
-        task();
-    };
-    nextTick = function (task) {
-        tail = tail.next = {task: task};
-        channel.port2.postMessage(0);
-    };
-} else {
-    // old browsers
-    nextTick = function (task) {
-        setTimeout(task, 0);
-    };
-}
-
-module.exports = nextTick;
-})(require("__browserify_process"))
-},{"./extended":8,"__browserify_process":5}],13:[function(require,module,exports){
+},{"./lib":11}],3:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     indexOf = extd.indexOf,
@@ -1136,194 +278,1515 @@ module.exports = declare(EventEmitter, {
     }
 
 });
-},{"events":7,"./extended":8}],9:[function(require,module,exports){
+},{"./extended":10,"events":44}],4:[function(require,module,exports){
+/*jshint evil:true*/
 "use strict";
-var extd = require("./extended"),
-    isArray = extd.isArray,
-    Promise = extd.Promise,
-    declare = extd.declare,
-    parser = require("./parser"),
-    pattern = require("./pattern"),
-    ObjectPattern = pattern.ObjectPattern,
-    NotPattern = pattern.NotPattern,
-    CompositePattern = pattern.CompositePattern;
+var extd = require("../extended"),
+    forEach = extd.forEach,
+    isString = extd.isString;
 
-var getParamTypeSwitch = extd
-    .switcher()
-    .isEq("string", function () {
-        return String;
-    })
-    .isEq("date", function () {
-        return Date;
-    })
-    .isEq("array", function () {
-        return Array;
-    })
-    .isEq("boolean", function () {
-        return Boolean;
-    })
-    .isEq("regexp", function () {
-        return RegExp;
-    })
-    .isEq("number", function () {
-        return Number;
-    })
-    .isEq("object", function () {
-        return Object;
-    })
-    .isEq("hash", function () {
-        return Object;
-    })
-    .def(function (param) {
-        throw new TypeError("invalid param type " + param);
-    })
-    .switcher();
+exports.modifiers = ["assert", "modify", "retract", "emit", "halt", "focus"];
 
+var createFunction = function (body, defined, scope, scopeNames, definedNames) {
+    var declares = [];
+    forEach(definedNames, function (i) {
+        if (body.indexOf(i) !== -1) {
+            declares.push("var " + i + "= defined." + i + ";");
+        }
+    });
 
-var getParamType = extd
-    .switcher()
-    .isString(function (param) {
-        return getParamTypeSwitch(param.toLowerCase());
-    })
-    .isFunction(function (func) {
-        return func;
-    })
-    .deepEqual([], function () {
-        return Array;
-    })
-    .def(function (param) {
-        throw  new Error("invalid param type " + param);
-    })
-    .switcher();
+    forEach(scopeNames, function (i) {
+        if (body.indexOf(i) !== -1) {
+            declares.push("var " + i + "= scope." + i + ";");
+        }
+    });
+    body = ["((function(){", declares.join(""), "\n\treturn ", body, "\n})())"].join("");
+    try {
+        return eval(body);
+    } catch (e) {
+        throw new Error("Invalid action : " + body + "\n" + e.message);
+    }
+};
 
-var parsePattern = extd
-    .switcher()
-    .containsAt("or", 0, function (condition) {
-        condition.shift();
-        return extd(condition).map(function (cond) {
-            cond.scope = condition.scope;
-            return parsePattern(cond);
-        }).flatten().value();
-    })
-    .contains("not", 0, function (condition) {
-        condition.shift();
-        return [
-            new NotPattern(
-                getParamType(condition[0]),
-                condition[1] || "m",
-                parser.parseConstraint(condition[2] || "true"),
-                condition[3] || {},
-                {scope: condition.scope, pattern: condition[2]}
-            )
-        ];
-    })
-    .def(function (condition) {
-        return [
-            new ObjectPattern(
-                getParamType(condition[0]),
-                condition[1] || "m",
-                parser.parseConstraint(condition[2] || "true"),
-                condition[3] || {},
-                {scope: condition.scope, pattern: condition[2]}
-            )
-        ];
-    }).switcher();
+var createDefined = (function () {
 
-
-var Rule = declare({
-    instance: {
-        constructor: function (name, options, pattern, cb) {
-            this.name = name;
-            this.pattern = pattern;
-            this.cb = cb;
-            if (options.agendaGroup) {
-                this.agendaGroup = options.agendaGroup;
-                this.autoFocus = extd.isBoolean(options.autoFocus) ? options.autoFocus : false;
+    var _createDefined = function (options) {
+        options = isString(options) ? new Function("return " + options + ";")() : options;
+        var ret = options.hasOwnProperty("constructor") && "function" === typeof options.constructor ? options.constructor : function (opts) {
+            opts = opts || {};
+            for (var i in opts) {
+                if (i in options) {
+                    this[i] = opts[i];
+                }
             }
-            this.priority = options.priority || options.salience || 0;
+        };
+        var proto = ret.prototype;
+        for (var i in options) {
+            proto[i] = options[i];
+        }
+        return ret;
+
+    };
+
+    return function (options) {
+        return _createDefined(options.properties);
+    };
+})();
+
+exports.createFunction = createFunction;
+exports.createDefined = createDefined;
+},{"../extended":10}],5:[function(require,module,exports){
+var Buffer=require("__browserify_Buffer").Buffer;/*jshint evil:true*/
+"use strict";
+var extd = require("../extended"),
+    parser = require("../parser"),
+    constraintMatcher = require("../constraintMatcher.js"),
+    indexOf = extd.indexOf,
+    forEach = extd.forEach,
+    removeDuplicates = extd.removeDuplicates,
+    map = extd.map,
+    obj = extd.hash,
+    keys = obj.keys,
+    merge = extd.merge,
+    rules = require("../rule"),
+    common = require("./common"),
+    createDefined = common.createDefined,
+    createFunction = common.createFunction;
+
+
+/**
+ * @private
+ * Parses an action from a rule definition
+ * @param {String} action the body of the action to execute
+ * @param {Array} identifiers array of identifiers collected
+ * @param {Object} defined an object of defined
+ * @param scope
+ * @return {Object}
+ */
+var parseAction = function (action, identifiers, defined, scope) {
+    var declares = [];
+    forEach(identifiers, function (i) {
+        if (action.indexOf(i) !== -1) {
+            declares.push("var " + i + "= facts." + i + ";");
+        }
+    });
+    extd(defined).keys().forEach(function (i) {
+        if (action.indexOf(i) !== -1) {
+            declares.push("var " + i + "= defined." + i + ";");
+        }
+    });
+
+    extd(scope).keys().forEach(function (i) {
+        if (action.indexOf(i) !== -1) {
+            declares.push("var " + i + "= scope." + i + ";");
+        }
+    });
+    var params = ["facts", 'flow'];
+    if (/next\(.*\)/.test(action)) {
+        params.push("next");
+    }
+    action = "with(flow){" + declares.join("") + action + "}";
+    try {
+        return new Function("defined, scope", "return " + new Function(params.join(","), action).toString())(defined, scope);
+    } catch (e) {
+        throw new Error("Invalid action : " + action + "\n" + e.message);
+    }
+};
+
+var createRuleFromObject = (function () {
+    var __resolveRule = function (rule, identifiers, conditions, defined, name) {
+        var condition = [], definedClass = rule[0], alias = rule[1], constraint = rule[2], refs = rule[3];
+        if (extd.isHash(constraint)) {
+            refs = constraint;
+            constraint = null;
+        }
+        if (definedClass && !!(definedClass = defined[definedClass])) {
+            condition.push(definedClass);
+        } else {
+            throw new Error("Invalid class " + rule[0] + " for rule " + name);
+        }
+        condition.push(alias, constraint, refs);
+        conditions.push(condition);
+        identifiers.push(alias);
+        if (constraint) {
+            forEach(constraintMatcher.getIdentifiers(parser.parseConstraint(constraint)), function (i) {
+                identifiers.push(i);
+            });
+        }
+        if (extd.isObject(refs)) {
+            for (var j in refs) {
+                var ident = refs[j];
+                if (indexOf(identifiers, ident) === -1) {
+                    identifiers.push(ident);
+                }
+            }
+        }
+
+    };
+    return function (obj, defined, scope) {
+        var name = obj.name;
+        if (extd.isEmpty(obj)) {
+            throw new Error("Rule is empty");
+        }
+        var options = obj.options || {};
+        options.scope = scope;
+        var constraints = obj.constraints || [], l = constraints.length;
+        if (!l) {
+            constraints = ["true"];
+        }
+        var action = obj.action;
+        if (extd.isUndefined(action)) {
+            throw new Error("No action was defined for rule " + name);
+        }
+        var conditions = [], identifiers = [];
+        extd(constraints).forEach(function (rule) {
+
+            if (rule.length) {
+                var r0 = rule[0];
+                if (r0 === "not") {
+                    var temp = [];
+                    rule.shift();
+                    __resolveRule(rule, identifiers, temp, defined, name);
+                    var cond = temp[0];
+                    cond.unshift(r0);
+                    conditions.push(cond);
+                } else if (r0 === "or") {
+                    var conds = [r0];
+                    rule.shift();
+                    forEach(rule, function (cond) {
+                        __resolveRule(cond, identifiers, conds, defined, name);
+                    });
+                    conditions.push(conds);
+                } else {
+                    __resolveRule(rule, identifiers, conditions, defined, name);
+                    identifiers = removeDuplicates(identifiers);
+                }
+            }
+
+        });
+        return rules.createRule(name, options, conditions, parseAction(action, identifiers, defined, scope));
+    };
+})();
+
+exports.parse = function (src, file) {
+    //parse flow from file
+    return parser.parseRuleSet(src, file);
+
+};
+exports.compile = function (flowObj, options, cb, Container) {
+    if (extd.isFunction(options)) {
+        cb = options;
+        options = {};
+    } else {
+        options = options || {};
+        cb = null;
+    }
+    var name = flowObj.name || options.name;
+    //if !name throw an error
+    if (!name) {
+        throw new Error("Name must be present in JSON or options");
+    }
+    var flow = new Container(name);
+    var defined = merge({Array: Array, String: String, Number: Number, Boolean: Boolean, RegExp: RegExp, Date: Date, Object: Object}, options.define || {});
+    if (typeof Buffer !== "undefined") {
+        defined.Buffer = Buffer;
+    }
+    var scope = merge({console: console}, options.scope);
+    //add any defined classes in the parsed flowObj to defined
+    forEach(flowObj.define, function (d) {
+        defined[d.name] = createDefined(d);
+    });
+
+    //expose any defined classes to the flow.
+    extd(defined).forEach(function (cls, name) {
+        flow.addDefined(name, cls);
+    });
+
+    var scopeNames = extd(flowObj.scope).pluck("name").union(extd(scope).keys().value()).value();
+    var definedNames = map(keys(defined), function (s) {
+        return s;
+    });
+    forEach(flowObj.scope, function (s) {
+        scope[s.name] = createFunction(s.body, defined, scope, scopeNames, definedNames);
+    });
+    var rules = flowObj.rules;
+    if (rules.length) {
+        forEach(rules, function (rule) {
+            flow.__rules = flow.__rules.concat(createRuleFromObject(rule, defined, scope));
+        });
+    }
+    if (cb) {
+        cb.call(flow, flow);
+    }
+    return flow;
+};
+
+exports.transpile = require("./transpile").transpile;
+
+
+
+
+},{"../constraintMatcher.js":8,"../extended":10,"../parser":28,"../rule":33,"./common":4,"./transpile":6,"__browserify_Buffer":47}],6:[function(require,module,exports){
+var Buffer=require("__browserify_Buffer").Buffer;var extd = require("../extended"),
+    forEach = extd.forEach,
+    indexOf = extd.indexOf,
+    merge = extd.merge,
+    isString = extd.isString,
+    constraintMatcher = require("../constraintMatcher"),
+    parser = require("../parser");
+
+function definedToJs(options) {
+    /*jshint evil:true*/
+    options = isString(options) ? new Function("return " + options + ";")() : options;
+    var ret = ["(function(){"], value;
+
+    if (options.hasOwnProperty("constructor") && "function" === typeof options.constructor) {
+        ret.push("var Defined = " + options.constructor.toString() + ";");
+    } else {
+        ret.push("var Defined = function(opts){ for(var i in opts){if(opts.hasOwnProperty(i)){this[i] = opts[i];}}};");
+    }
+    ret.push("var proto = Defined.prototype;");
+    for (var key in options) {
+        if (options.hasOwnProperty(key)) {
+            value = options[key];
+            ret.push("proto." + key + " = " + (extd.isFunction(value) ? value.toString() : extd.format("%j", value)) + ";");
+        }
+    }
+    ret.push("return Defined;");
+    ret.push("}())");
+    return ret.join("");
+
+}
+
+function actionToJs(action, identifiers, defined, scope) {
+    var declares = [];
+    forEach(identifiers, function (i) {
+        if (action.indexOf(i) !== -1) {
+            declares.push("var " + i + "= facts." + i + ";");
+        }
+    });
+    extd(defined).keys().forEach(function (i) {
+        if (action.indexOf(i) !== -1) {
+            declares.push("var " + i + "= defined." + i + ";");
+        }
+    });
+
+    extd(scope).keys().forEach(function (i) {
+        if (action.indexOf(i) !== -1) {
+            declares.push("var " + i + "= scope." + i + ";");
+        }
+    });
+    var params = ["facts", 'flow'];
+    if (/next\(.*\)/.test(action)) {
+        params.push("next");
+    }
+    action = declares.join("") + action;
+    try {
+        return ["function(", params.join(","), "){with(flow){", action, "}}"].join("");
+    } catch (e) {
+        throw new Error("Invalid action : " + action + "\n" + e.message);
+    }
+}
+
+function constraintsToJs(constraint, identifiers) {
+    constraint = constraint.slice(0);
+    var ret = [];
+    if (constraint[0] === "or") {
+        ret.push('["' + constraint.shift() + '"');
+        ret.push(extd.map(constraint,function (c) {
+            return constraintsToJs(c, identifiers);
+        }).join(",") + "]");
+        return ret;
+    } else if (constraint[0] === "not") {
+        ret.push('"', constraint.shift(), '", ');
+    }
+    identifiers.push(constraint[1]);
+    ret.push(constraint[0], ', "' + constraint[1].replace(/"/g, "\\\"") + '"');
+    constraint.splice(0, 2);
+    if (constraint.length) {
+        //constraint
+        var c = constraint.shift();
+        if (extd.isString(c)) {
+            ret.push(',"' + c.replace(/"/g, "\\\""), '"');
+            forEach(constraintMatcher.getIdentifiers(parser.parseConstraint(c)), function (i) {
+                identifiers.push(i);
+            });
+        } else {
+            ret.push(',"true"');
+            constraint.unshift(c);
+        }
+    }
+    if (constraint.length) {
+        //ret of options
+        var refs = constraint.shift();
+        extd(refs).values().forEach(function (ident) {
+            if (indexOf(identifiers, ident) === -1) {
+                identifiers.push(ident);
+            }
+        });
+        ret.push(',' + extd.format('%j', [refs]));
+    }
+    return '[' + ret.join("") + ']';
+}
+
+exports.transpile = function (flowObj, options) {
+    options = options || {};
+    var ret = [];
+    ret.push("(function(){");
+    ret.push("return function(options){");
+    ret.push("options = options || {};");
+    ret.push("var bind = function(scope, fn){return function(){return fn.apply(scope, arguments);};}, defined = options.defined || {}, scope = options.scope || {};");
+    var defined = merge({Array: Array, String: String, Number: Number, Boolean: Boolean, RegExp: RegExp, Date: Date, Object: Object}, options.define || {});
+    if (typeof Buffer !== "undefined") {
+        defined.Buffer = Buffer;
+    }
+    var scope = merge({console: console}, options.scope);
+    ret.push(["return nools.flow('", options.name, "', function(){"].join(""));
+    //add any defined classes in the parsed flowObj to defined
+    ret.push(extd(flowObj.define || []).map(function (defined) {
+        var name = defined.name;
+        defined[name] = {};
+        return ["var", name, "= defined." + name, "= this.addDefined('" + name + "',", definedToJs(defined.properties) + ");"].join(" ");
+    }).value().join("\n"));
+    ret.push(extd(flowObj.scope || []).map(function (s) {
+        var name = s.name;
+        scope[name] = {};
+        return ["var", name, "= scope." + name, "= ", s.body, ";"].join(" ");
+    }).value().join("\n"));
+    ret.push("scope.console = console;\n");
+
+
+    ret.push(extd(flowObj.rules || []).map(function (rule) {
+        var identifiers = [], ret = ["this.rule('", rule.name.replace(/'/g, "\\'"), "'"], options = extd.merge(rule.options || {}, {scope: "scope"});
+        ret.push(",", extd.format("%j", [options]).replace(/(:"scope")/, ":scope"));
+        if (rule.constraints && !extd.isEmpty(rule.constraints)) {
+            ret.push(", [");
+            ret.push(extd(rule.constraints).map(function (c) {
+                return constraintsToJs(c, identifiers);
+            }).value().join(","));
+            ret.push("]");
+        }
+        ret.push(",", actionToJs(rule.action, identifiers, defined, scope));
+        ret.push(");");
+        return ret.join("");
+    }).value().join(""));
+    ret.push("});");
+    ret.push("};");
+    ret.push("}());");
+    return ret.join("");
+};
+
+
+
+},{"../constraintMatcher":8,"../extended":10,"../parser":28,"__browserify_Buffer":47}],7:[function(require,module,exports){
+"use strict";
+
+var extd = require("./extended"),
+    merge = extd.merge,
+    instanceOf = extd.instanceOf,
+    filter = extd.filter,
+    declare = extd.declare,
+    constraintMatcher;
+
+var Constraint = declare({
+
+    instance: {
+        constructor: function (type, constraint) {
+            if (!constraintMatcher) {
+                constraintMatcher = require("./constraintMatcher");
+            }
+            this.type = type;
+            this.constraint = constraint;
+        },
+        "assert": function () {
+            throw new Error("not implemented");
         },
 
-        fire: function (flow, match) {
-            var ret = new Promise(), cb = this.cb;
-            try {
-                if (cb.length === 3) {
-                    cb.call(flow, match.factHash, flow, ret.resolve);
-                } else {
-                    ret = cb.call(flow, match.factHash, flow);
-                }
-            } catch (e) {
-                ret.errback(e);
+        equal: function (constraint) {
+            return instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias") && extd.deepEqual(this.constraint, constraint.constraint);
+        },
+
+        getters: {
+            variables: function () {
+                return [this.get("alias")];
             }
+        }
+
+
+    }
+});
+
+Constraint.extend({
+    instance: {
+        constructor: function (type) {
+            this._super(["object", type]);
+        },
+
+        "assert": function (param) {
+            return param instanceof this.constraint || param.constructor === this.constraint;
+        },
+
+        equal: function (constraint) {
+            return instanceOf(constraint, this._static) && this.constraint === constraint.constraint;
+        }
+    }
+}).as(exports, "ObjectConstraint");
+
+Constraint.extend({
+
+    instance: {
+        constructor: function (constraint, options) {
+            this._super(["equality", constraint]);
+            options = options || {};
+            this.pattern = options.pattern;
+            this._matcher = constraintMatcher.getMatcher(constraint, options.scope || {});
+        },
+
+        "assert": function (values) {
+            return this._matcher(values);
+        }
+    }
+}).as(exports, "EqualityConstraint");
+
+Constraint.extend({
+
+    instance: {
+        constructor: function () {
+            this._super(["equality", [true]]);
+        },
+
+        equal: function (constraint) {
+            return instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias");
+        },
+
+
+        "assert": function () {
+            return true;
+        }
+    }
+}).as(exports, "TrueConstraint");
+
+Constraint.extend({
+
+    instance: {
+        constructor: function (constraint, options) {
+            this.cache = {};
+            this._super(["reference", constraint]);
+            options = options || {};
+            this.values = [];
+            this.pattern = options.pattern;
+            this._options = options;
+            this._matcher = constraintMatcher.getMatcher(constraint, options.scope || {});
+        },
+
+        "assert": function (values) {
+            try {
+                return this._matcher(values);
+            } catch (e) {
+                throw new Error("Error with evaluating pattern " + this.pattern + " " + e.message);
+            }
+
+        },
+
+        merge: function (that) {
+            var ret = this;
+            if (that instanceof this._static) {
+                ret = new this._static([this.constraint, that.constraint, "and"], merge({}, this._options, this._options));
+                ret._alias = this._alias || that._alias;
+                ret.vars = this.vars.concat(that.vars);
+            }
+            return ret;
+        },
+
+        equal: function (constraint) {
+            return instanceOf(constraint, this._static) && extd.deepEqual(this.constraint, constraint.constraint);
+        },
+
+
+        getters: {
+            variables: function () {
+                return this.vars;
+            },
+
+            alias: function () {
+                return this._alias;
+            }
+        },
+
+        setters: {
+            alias: function (alias) {
+                this._alias = alias;
+                this.vars = filter(constraintMatcher.getIdentifiers(this.constraint), function (v) {
+                    return v !== alias;
+                });
+            }
+        }
+    }
+
+}).as(exports, "ReferenceConstraint");
+
+
+Constraint.extend({
+    instance: {
+        constructor: function (hash) {
+            this._super(["hash", hash]);
+        },
+
+        equal: function (constraint) {
+            return extd.instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias") && extd.deepEqual(this.constraint, constraint.constraint);
+        },
+
+        "assert": function () {
+            return true;
+        },
+
+        getters: {
+            variables: function () {
+                return this.constraint;
+            }
+        }
+
+    }
+}).as(exports, "HashConstraint");
+
+
+
+
+},{"./constraintMatcher":8,"./extended":10}],8:[function(require,module,exports){
+"use strict";
+
+var extd = require("./extended"),
+    isArray = extd.isArray,
+    forEach = extd.forEach,
+    some = extd.some,
+    map = extd.map,
+    indexOf = extd.indexOf,
+    isNumber = extd.isNumber,
+    removeDups = extd.removeDuplicates,
+    atoms = require("./constraint");
+
+var definedFuncs = {
+    indexOf: extd.indexOf,
+    now: function () {
+        return new Date();
+    },
+
+    Date: function (y, m, d, h, min, s, ms) {
+        var date = new Date();
+        if (isNumber(y)) {
+            date.setYear(y);
+        }
+        if (isNumber(m)) {
+            date.setMonth(m);
+        }
+        if (isNumber(d)) {
+            date.setDate(d);
+        }
+        if (isNumber(h)) {
+            date.setHours(h);
+        }
+        if (isNumber(min)) {
+            date.setMinutes(min);
+        }
+        if (isNumber(s)) {
+            date.setSeconds(s);
+        }
+        if (isNumber(ms)) {
+            date.setMilliseconds(ms);
+        }
+        return date;
+    },
+
+    lengthOf: function (arr, length) {
+        return arr.length === length;
+    },
+
+    isTrue: function (val) {
+        return val === true;
+    },
+
+    isFalse: function (val) {
+        return val === false;
+    },
+
+    isNotNull: function (actual) {
+        return actual !== null;
+    },
+
+    dateCmp: function (dt1, dt2) {
+        return extd.compare(dt1, dt2);
+    }
+
+};
+
+forEach(["years", "days", "months", "hours", "minutes", "seconds"], function (k) {
+    definedFuncs[k + "FromNow"] = extd[k + "FromNow"];
+    definedFuncs[k + "Ago"] = extd[k + "Ago"];
+});
+
+
+forEach(["isArray", "isNumber", "isHash", "isObject", "isDate", "isBoolean", "isString", "isRegExp", "isNull", "isEmpty",
+    "isUndefined", "isDefined", "isUndefinedOrNull", "isPromiseLike", "isFunction", "deepEqual"], function (k) {
+    var m = extd[k];
+    definedFuncs[k] = function () {
+        return m.apply(extd, arguments);
+    };
+});
+
+
+var lang = {
+
+    equal: function (c1, c2) {
+        var ret = false;
+        if (c1 === c2) {
+            ret = true;
+        } else {
+            if (c1[2] === c2[2]) {
+                if (indexOf(["string", "number", "boolean", "regexp", "identifier", "null"], c1[2]) !== -1) {
+                    ret = c1[0] === c2[0];
+                } else if (c1[2] === "unary" || c1[2] === "logicalNot") {
+                    ret = this.equal(c1[0], c2[0]);
+                } else {
+                    ret = this.equal(c1[0], c2[0]) && this.equal(c1[1], c2[1]);
+                }
+            }
+        }
+        return ret;
+    },
+
+    getIdentifiers: function (rule) {
+        var ret = [];
+        var rule2 = rule[2];
+
+        if (rule2 === "identifier") {
+            //its an identifier so stop
+            return [rule[0]];
+        } else if (rule2 === "function") {
+            ret = ret.concat(this.getIdentifiers(rule[0])).concat(this.getIdentifiers(rule[1]));
+        } else if (rule2 !== "string" &&
+            rule2 !== "number" &&
+            rule2 !== "boolean" &&
+            rule2 !== "regexp" &&
+            rule2 !== "unary" &&
+            rule2 !== "unary") {
+            //its an expression so keep going
+            if (rule2 === "prop") {
+                ret = ret.concat(this.getIdentifiers(rule[0]));
+                if (rule[1]) {
+                    var propChain = rule[1];
+                    //go through the member variables and collect any identifiers that may be in functions
+                    while (isArray(propChain)) {
+                        if (propChain[2] === "function") {
+                            ret = ret.concat(this.getIdentifiers(propChain[1]));
+                            break;
+                        } else {
+                            propChain = propChain[1];
+                        }
+                    }
+                }
+
+            } else {
+                if (rule[0]) {
+                    ret = ret.concat(this.getIdentifiers(rule[0]));
+                }
+                if (rule[1]) {
+                    ret = ret.concat(this.getIdentifiers(rule[1]));
+                }
+            }
+        }
+        //remove dups and return
+        return removeDups(ret);
+    },
+
+    toConstraints: function (rule, options) {
+        var ret = [],
+            alias = options.alias,
+            scope = options.scope || {};
+
+        var rule2 = rule[2];
+
+
+        if (rule2 === "and") {
+            ret = ret.concat(this.toConstraints(rule[0], options)).concat(this.toConstraints(rule[1], options));
+        } else if (
+            rule2 === "composite" ||
+                rule2 === "or" ||
+                rule2 === "lt" ||
+                rule2 === "gt" ||
+                rule2 === "lte" ||
+                rule2 === "gte" ||
+                rule2 === "like" ||
+                rule2 === "notLike" ||
+                rule2 === "eq" ||
+                rule2 === "neq" ||
+                rule2 === "in" ||
+                rule2 === "notIn" ||
+                rule2 === "prop" ||
+                rule2 === "propLookup" ||
+                rule2 === "function" ||
+                rule2 === "logicalNot") {
+            if (some(this.getIdentifiers(rule), function (i) {
+                return i !== alias && !(i in definedFuncs) && !(i in scope);
+            })) {
+                ret.push(new atoms.ReferenceConstraint(rule, options));
+            } else {
+                ret.push(new atoms.EqualityConstraint(rule, options));
+            }
+        }
+        return ret;
+    },
+
+
+    parse: function (rule) {
+        return this[rule[2]](rule[0], rule[1]);
+    },
+
+    composite: function (lhs) {
+        return this.parse(lhs);
+    },
+
+    and: function (lhs, rhs) {
+        return ["(", this.parse(lhs), "&&", this.parse(rhs), ")"].join(" ");
+    },
+
+    or: function (lhs, rhs) {
+        return ["(", this.parse(lhs), "||", this.parse(rhs), ")"].join(" ");
+    },
+
+    prop: function (name, prop) {
+        if (prop[2] === "function") {
+            return [this.parse(name), this.parse(prop)].join(".");
+        } else {
+            return [this.parse(name), "['", this.parse(prop), "']"].join("");
+        }
+    },
+
+    propLookup: function (name, prop) {
+        if (prop[2] === "function") {
+            return [this.parse(name), this.parse(prop)].join(".");
+        } else {
+            return [this.parse(name), "[", this.parse(prop), "]"].join("");
+        }
+    },
+
+    unary: function (lhs) {
+        return -1 * this.parse(lhs);
+    },
+
+    plus: function (lhs, rhs) {
+        return [this.parse(lhs), "+", this.parse(rhs)].join(" ");
+    },
+    minus: function (lhs, rhs) {
+        return [this.parse(lhs), "-", this.parse(rhs)].join(" ");
+    },
+
+    mult: function (lhs, rhs) {
+        return [this.parse(lhs), "*", this.parse(rhs)].join(" ");
+    },
+
+    div: function (lhs, rhs) {
+        return [this.parse(lhs), "/", this.parse(rhs)].join(" ");
+    },
+
+    mod: function (lhs, rhs) {
+        return [this.parse(lhs), "%", this.parse(rhs)].join(" ");
+    },
+
+    lt: function (lhs, rhs) {
+        return [this.parse(lhs), "<", this.parse(rhs)].join(" ");
+    },
+    gt: function (lhs, rhs) {
+        return [this.parse(lhs), ">", this.parse(rhs)].join(" ");
+    },
+    lte: function (lhs, rhs) {
+        return [this.parse(lhs), "<=", this.parse(rhs)].join(" ");
+    },
+    gte: function (lhs, rhs) {
+        return [this.parse(lhs), ">=", this.parse(rhs)].join(" ");
+    },
+    like: function (lhs, rhs) {
+        return [this.parse(rhs), ".test(", this.parse(lhs), ")"].join("");
+    },
+    notLike: function (lhs, rhs) {
+        return ["!", this.parse(rhs), ".test(", this.parse(lhs), ")"].join("");
+    },
+    eq: function (lhs, rhs) {
+        return [this.parse(lhs), "===", this.parse(rhs)].join(" ");
+    },
+    neq: function (lhs, rhs) {
+        return [this.parse(lhs), "!==", this.parse(rhs)].join(" ");
+    },
+
+    "in": function (lhs, rhs) {
+        return ["(indexOf(", this.parse(rhs), ",", this.parse(lhs), ")) != -1"].join("");
+    },
+
+    "notIn": function (lhs, rhs) {
+        return ["(indexOf(", this.parse(rhs), ",", this.parse(lhs), ")) == -1"].join("");
+    },
+
+    "arguments": function (lhs, rhs) {
+        var ret = [];
+        if (lhs) {
+            ret.push(this.parse(lhs));
+        }
+        if (rhs) {
+            ret.push(this.parse(rhs));
+        }
+        return ret.join(",");
+    },
+
+    "array": function (lhs) {
+        var args = [];
+        if (lhs) {
+            args = this.parse(lhs);
+            if (isArray(args)) {
+                return args;
+            } else {
+                return ["[", args, "]"].join("");
+            }
+        }
+        return ["[", args.join(","), "]"].join("");
+    },
+
+    "function": function (lhs, rhs) {
+        var args = this.parse(rhs);
+        return [this.parse(lhs), "(", args, ")"].join("");
+    },
+
+    "string": function (lhs) {
+        return "'" + lhs + "'";
+    },
+
+    "number": function (lhs) {
+        return lhs;
+    },
+
+    "boolean": function (lhs) {
+        return lhs;
+    },
+
+    regexp: function (lhs) {
+        return lhs;
+    },
+
+    identifier: function (lhs) {
+        return lhs;
+    },
+
+    "null": function () {
+        return "null";
+    },
+
+    logicalNot: function (lhs) {
+        return ["!(", this.parse(lhs), ")"].join("");
+    }
+};
+
+var toJs = exports.toJs = function (rule, scope) {
+    /*jshint evil:true*/
+    var js = lang.parse(rule);
+    scope = scope || {};
+    var vars = lang.getIdentifiers(rule);
+    var body = "var indexOf = definedFuncs.indexOf;" + map(vars,function (v) {
+        var ret = ["var ", v, " = "];
+        if (definedFuncs.hasOwnProperty(v)) {
+            ret.push("definedFuncs['", v, "']");
+        } else if (scope.hasOwnProperty(v)) {
+            ret.push("scope['", v, "']");
+        } else {
+            ret.push("'", v, "' in fact ? fact['", v, "'] : hash['", v, "']");
+        }
+        ret.push(";");
+        return ret.join("");
+    }).join("") + " return !!(" + js + ");";
+    var f = new Function("fact, hash, definedFuncs, scope", body);
+    return function (fact, hash) {
+        return f(fact, hash, definedFuncs, scope);
+    };
+};
+
+exports.getMatcher = function (rule, scope) {
+    return toJs(rule, scope);
+};
+
+exports.toConstraints = function (constraint, options) {
+    //constraint.split("&&")
+    return lang.toConstraints(constraint, options);
+};
+
+exports.equal = function (c1, c2) {
+    return lang.equal(c1, c2);
+};
+
+exports.getIdentifiers = function (constraint) {
+    return lang.getIdentifiers(constraint);
+};
+
+
+
+},{"./constraint":7,"./extended":10}],9:[function(require,module,exports){
+"use strict";
+var extd = require("./extended"),
+    declare = extd.declare,
+    merge = extd.merge,
+    union = extd.union,
+    pSlice = Array.prototype.slice;
+
+var Match = declare({
+    instance: {
+        constructor: function (assertable) {
+            this.isMatch = true;
+            if (assertable instanceof this._static) {
+                this.isMatch = assertable.isMatch;
+                this.facts = pSlice.call(assertable.facts);
+                this.factIds = pSlice.call(assertable.factIds);
+                this.hashCode = this.factIds.join(":");
+                this.factHash = merge({}, assertable.factHash);
+                this.recency = pSlice.call(assertable.recency);
+            } else if (assertable) {
+                this.facts = [assertable];
+                this.factIds = [assertable.id];
+                this.recency = [assertable.recency];
+                this.hashCode = assertable.id + "";
+                this.factHash = assertable.factHash || {};
+            } else {
+                this.facts = [];
+                this.factIds = [];
+                this.factHash = {};
+                this.hashCode = "";
+            }
+        },
+
+        merge: function (mr) {
+            var ret = new this._static();
+            ret.isMatch = mr.isMatch;
+            ret.facts = this.facts.concat(mr.facts);
+            ret.factIds = this.factIds.concat(mr.factIds);
+            ret.hashCode = ret.factIds.join(":");
+            ret.factHash = merge({}, this.factHash, mr.factHash);
+            ret.recency = union(this.recency, mr.recency);
             return ret;
         }
     }
 });
 
-function createRule(name, options, conditions, cb) {
-    if (extd.isArray(options)) {
-        cb = conditions;
-        conditions = options;
-    } else {
-        options = options || {};
-    }
-    var isRules = extd.every(conditions, function (cond) {
-        return isArray(cond);
-    });
-    if (isRules && conditions.length === 1) {
-        conditions = conditions[0];
-        isRules = false;
-    }
-    var rules = [];
-    var scope = options.scope || {};
-    conditions.scope = scope;
-    if (isRules) {
-        var _mergePatterns = function (patt, i) {
-            if (!patterns[i]) {
-                patterns[i] = i === 0 ? [] : patterns[i - 1].slice();
-                //remove dup
-                if (i !== 0) {
-                    patterns[i].pop();
-                }
-                patterns[i].push(patt);
-            } else {
-                extd(patterns).forEach(function (p) {
-                    p.push(patt);
-                });
-            }
+var Context = declare({
+    instance: {
+        match: null,
+        factHash: null,
+        fact: null,
+        hashCode: null,
+        paths: null,
 
-        };
-        var l = conditions.length, patterns = [], condition;
-        for (var i = 0; i < l; i++) {
-            condition = conditions[i];
-            condition.scope = scope;
-            extd.forEach(parsePattern(condition), _mergePatterns);
+        constructor: function (fact, paths, mr) {
+            this.fact = fact;
+            this.paths = paths || null;
+            var match = this.match = mr || new Match(fact);
+            this.factHash = match.factHash;
+            this.hashCode = match.hashCode;
+            this.factIds = match.factIds;
+        },
 
+        "set": function (key, value) {
+            this.factHash[key] = value;
+            return this;
+        },
+
+        isMatch: function (isMatch) {
+            this.match.isMatch = isMatch;
+            return this;
+        },
+
+        clone: function (fact, paths, match) {
+            return new Context(fact || this.fact, paths || this.path, match || this.match);
         }
-        rules = extd.map(patterns, function (patterns) {
-            var compPat = null;
-            for (var i = 0; i < patterns.length; i++) {
-                if (compPat === null) {
-                    compPat = new CompositePattern(patterns[i++], patterns[i]);
-                } else {
-                    compPat = new CompositePattern(compPat, patterns[i]);
-                }
-            }
-            return new Rule(name, options, compPat, cb);
-        });
-    } else {
-        rules = extd.map(parsePattern(conditions), function (cond) {
-            return new Rule(name, options, cond, cb);
-        });
     }
-    return rules;
+}).as(module);
+
+
+
+},{"./extended":10}],10:[function(require,module,exports){
+module.exports = require("extended")()
+    .register(require("array-extended"))
+    .register(require("date-extended"))
+    .register(require("object-extended"))
+    .register(require("string-extended"))
+    .register(require("promise-extended"))
+    .register(require("function-extended"))
+    .register(require("is-extended"))
+    .register("HashTable", require("ht"))
+    .register("declare", require("declare.js"))
+    .register(require("leafy"))
+    .register("LinkedList", require("./linkedList"));
+
+
+},{"./linkedList":12,"array-extended":36,"date-extended":37,"declare.js":39,"extended":40,"function-extended":43,"ht":49,"is-extended":50,"leafy":51,"object-extended":52,"promise-extended":53,"string-extended":54}],11:[function(require,module,exports){
+/**
+ *
+ * @projectName nools
+ * @github https://github.com/C2FO/nools
+ * @includeDoc [Examples] ../docs-md/examples.md
+ * @includeDoc [Change Log] ../History.md
+ * @header [../readme.md]
+ */
+
+
+
+
+"use strict";
+var extd = require("./extended"),
+    fs = require("fs"),
+    path = require("path"),
+    bind = extd.bind,
+    forEach = extd.forEach,
+    declare = extd.declare,
+    Promise = extd.Promise,
+    nodes = require("./nodes"),
+    EventEmitter = require("events").EventEmitter,
+    rule = require("./rule"),
+    wm = require("./workingMemory"),
+    WorkingMemory = wm.WorkingMemory,
+    InitialFact = require("./pattern").InitialFact,
+    compile = require("./compile"),
+    nextTick = require("./nextTick"),
+    AgendaTree = require("./agenda");
+
+var nools = {};
+
+
+var Flow = declare(EventEmitter, {
+
+    instance: {
+
+        name: null,
+
+        constructor: function (name) {
+            this.env = null;
+            this.name = name;
+            this.__rules = {};
+            this.__wmAltered = false;
+            this.workingMemory = new WorkingMemory();
+            this.agenda = new AgendaTree(this);
+            this.agenda.on("fire", bind(this, "emit", "fire"));
+            this.agenda.on("focused", bind(this, "emit", "focused"));
+            this.rootNode = new nodes.RootNode(this.workingMemory, this.agenda);
+        },
+
+        focus: function (focused) {
+            this.agenda.setFocus(focused);
+            return this;
+        },
+
+        halt: function () {
+            this.__halted = true;
+            return this;
+        },
+
+        dispose: function () {
+            this.workingMemory.dispose();
+            this.agenda.dispose();
+            this.rootNode.dispose();
+        },
+
+        assert: function (fact) {
+            this.__wmAltered = true;
+            this.rootNode.assertFact(this.workingMemory.assertFact(fact));
+            this.emit("assert", fact);
+            return fact;
+        },
+
+        // This method is called to remove an existing fact from working memory
+        retract: function (fact) {
+            //fact = this.workingMemory.getFact(fact);
+            this.__wmAltered = true;
+            this.rootNode.retractFact(this.workingMemory.retractFact(fact));
+            this.emit("retract", fact);
+            return fact;
+        },
+
+        // This method is called to alter an existing fact.  It is essentially a
+        // retract followed by an assert.
+        modify: function (fact, cb) {
+            //fact = this.workingMemory.getFact(fact);
+            this.__wmAltered = true;
+            this.rootNode.retractFact(this.workingMemory.retractFact(fact));
+            if ("function" === typeof cb) {
+                cb.call(fact, fact);
+            }
+            this.emit("modify", fact);
+            this.rootNode.assertFact(this.workingMemory.assertFact(fact));
+            return fact;
+        },
+
+        print: function () {
+            this.rootNode.print();
+        },
+
+        containsRule: function (name) {
+            return this.rootNode.containsRule(name);
+        },
+
+        rule: function (rule) {
+            this.rootNode.assertRule(rule);
+        },
+
+        __loop: function (looper, cb) {
+            var ret = new Promise(), rootNode = this.rootNode;
+            if (rootNode) {
+                rootNode.resetCounter();
+                (function fire() {
+                    nextTick(function () {
+                        looper(ret, fire);
+                    });
+                })();
+            } else {
+                ret.callback();
+            }
+            ret.classic(cb);
+            return ret;
+        },
+
+        __callNext: function () {
+            var rootNode = this.rootNode;
+            var next = this.agenda.fireNext();
+            if (extd.isPromiseLike(next)) {
+                var self = this;
+                return next.addCallback(function () {
+                    if (self.__wmAltered) {
+                        rootNode.incrementCounter();
+                        self.__wmAltered = false;
+                    }
+                });
+            } else {
+                if (this.__wmAltered) {
+                    rootNode.incrementCounter();
+                    this.__wmAltered = false;
+                }
+                return next;
+            }
+        },
+
+
+        matchUntilHalt: function (cb) {
+            this.__halted = false;
+            var self = this;
+            return this.__loop(function (ret, fire) {
+                if (!self.__halted) {
+                    var next = self.__callNext();
+                    if (extd.isBoolean(next)) {
+                        fire();
+                    } else {
+                        next.addCallback(fire).addErrback(ret.errback);
+                    }
+                } else {
+                    ret.callback();
+                }
+            }, cb);
+        },
+
+        match: function (cb) {
+            var self = this;
+            return this.__loop(function (ret, fire) {
+                var next = self.__callNext();
+                if (extd.isBoolean(next)) {
+                    next ? fire() : ret.callback();
+                } else {
+                    next.addCallback(function (fired) {
+                        return fired ? fire() : ret.callback();
+                    }).addErrback(ret.errback);
+                }
+            }, cb);
+        }
+
+    }
+});
+
+var flows = {};
+var FlowContainer = declare({
+
+    instance: {
+
+        constructor: function (name, cb) {
+            this.name = name;
+            this.cb = cb;
+            this.__rules = [];
+            this.__defined = {};
+            if (cb) {
+                cb.call(this, this);
+            }
+            if (!flows.hasOwnProperty(name)) {
+                flows[name] = this;
+            } else {
+                throw new Error("Flow with " + name + " already defined");
+            }
+        },
+
+        getDefined: function (name) {
+            var ret = this.__defined[name.toLowerCase()];
+            if (!ret) {
+                throw new Error(name + " flow class is not defined");
+            }
+            return ret;
+        },
+
+        addDefined: function (name, cls) {
+            //normalize
+            this.__defined[name.toLowerCase()] = cls;
+            return cls;
+        },
+
+        rule: function () {
+            this.__rules = this.__rules.concat(rule.createRule.apply(rule, arguments));
+            return this;
+        },
+
+        getSession: function () {
+            var flow = new Flow(this.name);
+            forEach(this.__rules, function (rule) {
+                flow.rule(rule);
+            });
+            flow.assert(new InitialFact());
+            for (var i = 0, l = arguments.length; i < l; i++) {
+                flow.assert(arguments[i]);
+            }
+            return flow;
+        },
+
+        containsRule: function (name) {
+            return extd.some(this.__rules, function (rule) {
+                return rule.name === name;
+            });
+        }
+
+    }
+
+}).as(nools, "Flow");
+
+function isNoolsFile(file) {
+    return (/\.nools$/).test(file);
 }
 
-exports.createRule = createRule;
+function parse(source) {
+    var ret;
+    if (isNoolsFile(source)) {
+        ret = compile.parse(fs.readFileSync(source, "utf8"), source);
+    } else {
+        ret = compile.parse(source);
+    }
+    return ret;
+}
+
+nools.getFlow = function (name) {
+    return flows[name];
+};
+
+nools.deleteFlow = function (name) {
+    if (extd.instanceOf(name, FlowContainer)) {
+        name = name.name;
+    }
+    delete flows[name];
+    return nools;
+};
 
 
+nools.flow = function (name, cb) {
+    return new FlowContainer(name, cb);
+};
 
+nools.compile = function (file, options, cb) {
+    if (extd.isFunction(options)) {
+        cb = options;
+        options = {};
+    } else {
+        options = options || {};
+        cb = null;
+    }
+    if (extd.isString(file)) {
+        options.name = options.name || (isNoolsFile(file) ? path.basename(file, path.extname(file)) : null);
+        file = parse(file);
+    }
+    if (!options.name) {
+        throw new Error("Name required when compiling nools source");
+    }
+    return  compile.compile(file, options, cb, FlowContainer);
+};
 
-},{"./extended":8,"./pattern":11,"./parser":18}],14:[function(require,module,exports){
+nools.transpile = function (file, options) {
+    options = options || {};
+    if (extd.isString(file)) {
+        options.name = options.name || (isNoolsFile(file) ? path.basename(file, path.extname(file)) : null);
+        file = parse(file);
+    }
+    return compile.transpile(file, options);
+};
+
+nools.parse = parse;
+
+module.exports = nools;
+},{"./agenda":3,"./compile":5,"./extended":10,"./nextTick":13,"./nodes":17,"./pattern":32,"./rule":33,"./workingMemory":34,"events":44,"fs":45,"path":46}],12:[function(require,module,exports){
+var declare = require("declare.js");
+declare({
+
+    instance: {
+        constructor: function () {
+            this.head = null;
+            this.tail = null;
+            this.length = null;
+        },
+
+        push: function (data) {
+            var tail = this.tail, head = this.head, node = {data: data, prev: tail, next: null};
+            if (tail) {
+                this.tail.next = node;
+            }
+            this.tail = node;
+            if (!head) {
+                this.head = node;
+            }
+            this.length++;
+            return node;
+        },
+
+        remove: function (node) {
+            if (node.prev) {
+                node.prev.next = node.next;
+            } else {
+                this.head = node.next;
+            }
+            if (node.next) {
+                node.next.prev = node.prev;
+            } else {
+                this.tail = node.prev;
+            }
+            node.data = node.prev = node.next = null;
+            this.length--;
+        },
+
+        forEach: function (cb) {
+            var head = {next: this.head};
+            while ((head = head.next)) {
+                cb(head.data);
+            }
+        },
+
+        clear: function () {
+            this.head = this.tail = null;
+            this.length = 0;
+        }
+
+    }
+
+}).as(module);
+
+},{"declare.js":39}],13:[function(require,module,exports){
+var process=require("__browserify_process");/*global setImmediate, window, MessageChannel*/
+var extd = require("./extended");
+var nextTick;
+if (typeof setImmediate === "function") {
+    // In IE10, or use https://github.com/NobleJS/setImmediate
+    if (typeof window !== "undefined") {
+        nextTick = extd.bind(window, setImmediate);
+    } else {
+        nextTick = setImmediate;
+    }
+} else if (typeof process !== "undefined") {
+    // node
+    nextTick = process.nextTick;
+} else if (typeof MessageChannel !== "undefined") {
+    // modern browsers
+    // http://www.nonblocking.io/2011/06/windownexttick.html
+    var channel = new MessageChannel();
+    // linked list of tasks (single, with head node)
+    var head = {}, tail = head;
+    channel.port1.onmessage = function () {
+        head = head.next;
+        var task = head.task;
+        delete head.task;
+        task();
+    };
+    nextTick = function (task) {
+        tail = tail.next = {task: task};
+        channel.port2.postMessage(0);
+    };
+} else {
+    // old browsers
+    nextTick = function (task) {
+        setTimeout(task, 0);
+    };
+}
+
+module.exports = nextTick;
+},{"./extended":10,"__browserify_process":48}],14:[function(require,module,exports){
+var AlphaNode = require("./alphaNode");
+
+AlphaNode.extend({
+    instance: {
+
+        constructor: function () {
+            this._super(arguments);
+            this.alias = this.constraint.get("alias");
+        },
+
+        toString: function () {
+            return "AliasNode" + this.__count;
+        },
+
+        assert: function (context) {
+            return this.__propagate("assert", context.set(this.alias, context.fact.object));
+        },
+
+        retract: function (assertable) {
+            this.propagateRetract(assertable.fact);
+        },
+
+        equal: function (other) {
+            return other instanceof this._static && this.alias === other.alias;
+        }
+    }
+}).as(module);
+},{"./alphaNode":15}],15:[function(require,module,exports){
+"use strict";
+var Node = require("./node");
+
+Node.extend({
+    instance: {
+        constructor: function (constraint) {
+            this._super([]);
+            this.constraint = constraint;
+        },
+
+        toString: function () {
+            return "AlphaNode " + this.__count;
+        },
+
+        equal: function (constraint) {
+            return this.constraint.equal(constraint.constraint);
+        }
+    }
+}).as(module);
+},{"./node":21}],16:[function(require,module,exports){
+var AlphaNode = require("./alphaNode");
+
+AlphaNode.extend({
+    instance: {
+
+        constructor: function () {
+            this._super(arguments);
+        },
+
+        assert: function (context) {
+            if (this.constraint.assert(context.factHash)) {
+                this.__propagate("assert", context);
+            }
+        },
+
+        toString: function () {
+            return "EqualityNode" + this.__count;
+        }
+    }
+}).as(module);
+},{"./alphaNode":15}],17:[function(require,module,exports){
 "use strict";
 var extd = require("../extended"),
     forEach = extd.forEach,
@@ -1542,95 +2005,6188 @@ declare({
 
 
 
-},{"../pattern.js":11,"../extended":8,"../constraint":17,"./aliasNode":19,"./equalityNode":20,"./joinNode":21,"./notNode":22,"./leftAdapterNode":23,"./rightAdapterNode":24,"./typeNode":25,"./terminalNode":26,"./propertyNode":27}],28:[function(require,module,exports){
+},{"../constraint":7,"../extended":10,"../pattern.js":32,"./aliasNode":14,"./equalityNode":16,"./joinNode":18,"./leftAdapterNode":20,"./notNode":22,"./propertyNode":23,"./rightAdapterNode":24,"./terminalNode":25,"./typeNode":26}],18:[function(require,module,exports){
+var extd = require("../extended"),
+    values = extd.hash.values,
+    indexOf = extd.indexOf,
+    Node = require("./node"),
+    JoinReferenceNode = require("./joinReferenceNode");
+
+Node.extend({
+
+    instance: {
+        constructor: function () {
+            this._super([]);
+            this.constraint = new JoinReferenceNode();
+            this.leftMemory = {};
+            this.rightMemory = {};
+            this.leftTuples = [];
+            this.rightTuples = [];
+        },
+
+        dispose: function () {
+            this.leftMemory = {};
+            this.rightMemory = {};
+        },
+
+        disposeLeft: function (fact) {
+            this.leftMemory = {};
+            this.propagateDispose(fact);
+        },
+
+        disposeRight: function (fact) {
+            this.rightMemory = {};
+            this.propagateDispose(fact);
+        },
+
+        hashCode: function () {
+            return  "JoinNode " + this.__count;
+        },
+
+        toString: function () {
+            return "JoinNode " + this.__count;
+        },
+
+        retractResolve: function (match) {
+            var es = values(this.leftMemory), j = es.length, leftTuples = this.leftTuples;
+            while (--j > -1) {
+                var contexts = es[j], i = contexts.length, context;
+                while (--i > -1) {
+                    context = contexts[i];
+                    if (this.resolve(context.match, match)) {
+                        leftTuples.splice(indexOf(leftTuples, context), 1);
+                        contexts.splice(i, 1);
+                        break;
+                    }
+                }
+            }
+            this._propagateRetractResolve(match);
+        },
+
+        retractLeft: function (fact) {
+            var contexts = this.leftMemory[fact.id], tuples = this.leftTuples, i, l;
+            if (contexts) {
+                i = -1;
+                l = contexts.length;
+                while (++i < l) {
+                    tuples.splice(indexOf(tuples, contexts[i]), 1);
+                }
+                delete this.leftMemory[fact.id];
+            } else {
+                var tuple;
+                for (i = 0; i < tuples.length; i++) {
+                    tuple = tuples[i];
+                    if (indexOf(tuple.factIds, fact.id) !== -1) {
+                        tuples.splice(i, 1);
+                    }
+                }
+            }
+            this.propagateRetract(fact);
+        },
+
+        retractRight: function (fact) {
+            var context = this.rightMemory[fact.id], tuples = this.rightTuples;
+            if (context) {
+                tuples.splice(indexOf(tuples, context), 1);
+                delete this.rightMemory[fact.id];
+            } else {
+                var tuple;
+                for (var i = 0; i < tuples.length; i++) {
+                    tuple = tuples[i];
+                    if (indexOf(tuple.factIds, fact.id) !== -1) {
+                        tuples.splice(i, 1);
+                    }
+                }
+            }
+            this.propagateRetract(fact);
+        },
+
+        assertLeft: function (context) {
+            this.__addToLeftMemory(context);
+            var rm = this.rightTuples, i = -1, l = rm.length, thisConstraint = this.constraint, mr;
+            thisConstraint.setLeftContext(context);
+            while (++i < l) {
+                if ((mr = thisConstraint.setRightContext(rm[i]).match()).isMatch) {
+                    this.__propagate("assert", context.clone(null, null, mr));
+                }
+            }
+            thisConstraint.clearContexts();
+        },
+
+        assertRight: function (context) {
+            var fact = context.fact;
+            this.rightMemory[fact.id] = context;
+            this.rightTuples.push(context);
+            var fl = this.leftTuples, i = -1, l = fl.length, thisConstraint = this.constraint, mr;
+            thisConstraint.setRightContext(context);
+            while (++i < l) {
+                if ((mr = thisConstraint.setLeftContext(fl[i]).match()).isMatch) {
+                    this.__propagate("assert", context.clone(null, null, mr));
+                }
+            }
+            thisConstraint.clearContexts();
+        },
+
+        _propagateRetractResolve: function (context) {
+            this.__propagate("retractResolve", context);
+        },
+
+        __addToLeftMemory: function (context) {
+            var o = context.fact;
+            var lm = this.leftMemory[o.id];
+            if (!lm) {
+                lm = [];
+                this.leftMemory[o.id] = lm;
+            }
+            this.leftTuples.push(context);
+            lm.push(context);
+            return this;
+        }
+    }
+
+}).as(module);
+},{"../extended":10,"./joinReferenceNode":19,"./node":21}],19:[function(require,module,exports){
+var Node = require("./node");
+Node.extend({
+
+    instance: {
+
+        constraint: null,
+        __lc: null,
+        __rc: null,
+        __varLength: 0,
+
+        constructor: function () {
+            this._super(arguments);
+            this.__fh = {};
+            this.__variables = [];
+        },
+
+        setLeftContext: function (lc) {
+            this.__lc = lc;
+            var match = lc.match;
+            var newFh = match.factHash,
+                fh = this.__fh,
+                prop,
+                vars = this.__variables,
+                i = -1,
+                l = this.__varLength;
+            while (++i < l) {
+                prop = vars[i];
+                fh[prop] = newFh[prop];
+            }
+            return this;
+        },
+
+        setRightContext: function (rc) {
+            this.__fh[this.__alias] = (this.__rc = rc).fact.object;
+            return this;
+        },
+
+        clearContexts: function () {
+            this.__fh = {};
+            this.__lc = null;
+            this.__rc = null;
+            return this;
+        },
+
+        clearRightContext: function () {
+            this.__rc = null;
+            this.__fh[this.__alias] = null;
+            return this;
+        },
+
+        clearLeftContext: function () {
+            this.__lc = null;
+            var fh = this.__fh = {}, rc = this.__rc;
+            fh[this.__alias] = rc ? rc.fact.object : null;
+            return this;
+        },
+
+        addConstraint: function (constraint) {
+            if (this.constraint === null) {
+                this.constraint = constraint;
+            } else {
+                this.constraint = this.constraint.merge(constraint);
+            }
+            this.__alias = this.constraint.get("alias");
+            this.__varLength = (this.__variables = this.__variables.concat(this.constraint.get("variables"))).length;
+        },
+
+        equal: function (constraint) {
+            if (this.constraint !== null) {
+                return this.constraint.equal(constraint.constraint);
+            }
+        },
+
+        isMatch: function () {
+            var constraint = this.constraint, ret = true;
+            if (constraint !== null) {
+                ret = constraint.assert(this.__fh);
+            }
+            return ret;
+        },
+
+        match: function () {
+            var ret = {isMatch: false}, constraint = this.constraint;
+            if (constraint === null) {
+                ret = this.__lc.match.merge(this.__rc.match);
+            } else {
+                var rightContext = this.__rc, fh = this.__fh;
+                if (constraint.assert(fh)) {
+                    ret = this.__lc.match.merge(rightContext.match);
+                }
+            }
+            return ret;
+        }
+
+    }
+
+}).as(module);
+},{"./node":21}],20:[function(require,module,exports){
+var Node = require("./node");
+
+Node.extend({
+    instance: {
+        propagateAssert: function (context) {
+            this.__propagate("assertLeft", context);
+        },
+
+        propagateRetract: function (context) {
+            this.__propagate("retractLeft", context);
+        },
+
+        propagateResolve: function (context) {
+            this.__propagate("retractResolve", context);
+        },
+
+        modify: function (context) {
+            this.__propagate("modifyLeft", context);
+        },
+
+        retractResolve: function (match) {
+            this.__propagate("retractResolve", match);
+        },
+
+        dispose: function (context) {
+            this.propagateDispose(context);
+        },
+
+        toString: function () {
+            return "LeftAdapterNode " + this.__count;
+        }
+    }
+
+}).as(module);
+},{"./node":21}],21:[function(require,module,exports){
+var extd = require("../extended"),
+    forEach = extd.forEach,
+    indexOf = extd.indexOf,
+    intersect = extd.intersect,
+    declare = extd.declare,
+    HashTable = extd.HashTable,
+    Context = require("../context");
+
+var count = 0;
+declare({
+    instance: {
+        constructor: function () {
+            this.nodes = new HashTable();
+            this.rules = [];
+            this.parentNodes = [];
+            this.__count = count++;
+            this.__entrySet = [];
+        },
+
+        addRule: function (rule) {
+            if (indexOf(this.rules, rule) === -1) {
+                this.rules.push(rule);
+            }
+            return this;
+        },
+
+        merge: function (that) {
+            that.nodes.forEach(function (entry) {
+                var patterns = entry.value, node = entry.key;
+                for (var i = 0, l = patterns.length; i < l; i++) {
+                    this.addOutNode(node, patterns[i]);
+                }
+                that.nodes.remove(node);
+            }, this);
+            var thatParentNodes = that.parentNodes;
+            for (var i = 0, l = that.parentNodes.l; i < l; i++) {
+                var parentNode = thatParentNodes[i];
+                this.addParentNode(parentNode);
+                parentNode.nodes.remove(that);
+            }
+            return this;
+        },
+
+        resolve: function (mr1, mr2) {
+            return mr1.hashCode === mr2.hashCode;
+        },
+
+        print: function (tab) {
+            console.log(tab + this.toString());
+            forEach(this.parentNodes, function (n) {
+                n.print("    " + tab);
+            });
+        },
+
+        addOutNode: function (outNode, pattern) {
+            if (!this.nodes.contains(outNode)) {
+                this.nodes.put(outNode, []);
+            }
+            this.nodes.get(outNode).push(pattern);
+            this.__entrySet = this.nodes.entrySet();
+        },
+
+        addParentNode: function (n) {
+            if (indexOf(this.parentNodes, n) === -1) {
+                this.parentNodes.push(n);
+            }
+        },
+
+        shareable: function () {
+            return false;
+        },
+
+        __propagate: function (method, context, outNodes) {
+            outNodes = outNodes || this.nodes;
+            var entrySet = this.__entrySet, i = entrySet.length, entry, outNode, paths, continuingPaths;
+            while (--i > -1) {
+                entry = entrySet[i];
+                outNode = entry.key;
+                paths = entry.value;
+                if (context.paths) {
+                    if ((continuingPaths = intersect(paths, context.paths)).length) {
+                        outNode[method](new Context(context.fact, continuingPaths, context.match));
+                    }
+                } else {
+                    outNode[method](context);
+                }
+            }
+        },
+
+        dispose: function (assertable) {
+            this.propagateDispose(assertable);
+        },
+
+        retract: function (assertable) {
+            this.propagateRetract(assertable);
+        },
+
+        propagateDispose: function (assertable, outNodes) {
+            outNodes = outNodes || this.nodes;
+            var entrySet = this.__entrySet, i = entrySet.length - 1;
+            for (; i >= 0; i--) {
+                var entry = entrySet[i], outNode = entry.key;
+                outNode.dispose(assertable);
+            }
+        },
+
+        propagateAssert: function (assertable, outNodes) {
+            this.__propagate("assert", assertable, outNodes || this.nodes);
+        },
+
+        propagateRetract: function (assertable, outNodes) {
+            this.__propagate("retract", assertable, outNodes || this.nodes);
+        },
+
+        assert: function (assertable) {
+            this.propagateAssert(assertable);
+        },
+
+        propagateModify: function (assertable, outNodes) {
+            this.__propagate("modify", assertable, outNodes || this.nodes);
+        }
+    }
+
+}).as(module);
+
+},{"../context":9,"../extended":10}],22:[function(require,module,exports){
+var JoinNode = require("./joinNode"),
+    Context = require("../context"),
+    extd = require("../extended"),
+    indexOf = extd.indexOf;
+
+JoinNode.extend({
+    instance: {
+
+        constructor: function () {
+            this._super(arguments);
+            this.leftTupleMemory = {};
+            this.allTuples = {};
+        },
+
+
+        toString: function () {
+            return "NotNode " + this.__count;
+        },
+
+
+        retractRight: function (fact) {
+            var rightMemory = this.rightMemory;
+            var rightContext = rightMemory[fact.id], thisConstraint = this.constraint;
+            delete rightMemory[fact.id];
+            if (rightContext) {
+                var index = indexOf(this.rightTuples, rightContext);
+                this.rightTuples.splice(index, 1);
+                var fl = rightContext.blocking, leftContext;
+                var rValues = this.rightTuples, k = rValues.length, rc, j;
+                while ((leftContext = fl.pop())) {
+                    leftContext.blocker = null;
+                    thisConstraint.setLeftContext(leftContext);
+                    for (j = index; j < k; j++) {
+                        rc = rValues[j];
+                        thisConstraint.setRightContext(rc);
+                        if (thisConstraint.isMatch()) {
+                            leftContext.blocker = rc;
+                            rc.blocking.push(leftContext);
+                            this.__addToLeftTupleMemory(leftContext);
+                            break;
+                        }
+                    }
+                    if (!leftContext.blocker) {
+                        this.__removeFromLeftTupleMemory(leftContext);
+                        this.__addToLeftMemory(leftContext).propagateAssert(new Context(leftContext.fact, null, leftContext.match));
+                    }
+                }
+                thisConstraint.clearContexts();
+            }
+        },
+
+
+        retractLeft: function (fact) {
+            var factId = fact.id, tuples = this.allTuples[fact.id] || [], context, blocking, blocker;
+            while (tuples.length) {
+                context = tuples.pop();
+                if (indexOf(context.factIds, factId) !== -1) {
+                    this.__removeFromAllTupleMemory(context);
+                    this.__removeFromLeftMemory(context);
+                    this.__removeFromLeftTupleMemory(context);
+                    if ((blocker = context.blocker)) {
+                        blocking = blocker.blocking;
+                        blocking.splice(indexOf(blocking, context), 1);
+                        context.blocker = null;
+                    }
+                }
+            }
+            delete this.leftMemory[factId];
+            delete this.leftTupleMemory[factId];
+            this.propagateRetract(fact);
+
+        },
+
+        assertLeft: function (context) {
+            var values = this.rightTuples, thisConstraint = this.constraint, i = -1, l = values.length, rc;
+            if (l !== 0) {
+                thisConstraint.setLeftContext(context);
+                while (++i < l) {
+                    if (thisConstraint.setRightContext(rc = values[i]).isMatch()) {
+                        context.blocker = rc;
+                        rc.blocking.push(context);
+                        this.__addToLeftTupleMemory(context);
+                        context = null;
+                        break;
+                    }
+                }
+            }
+            if (context) {
+                this.__addToLeftMemory(context).propagateAssert(new Context(context.fact, null, context.match));
+            }
+        },
+
+        assertRight: function (context) {
+            context.blocking = [];
+            this.rightTuples.push(context);
+            this.rightMemory[context.fact.id] = context;
+            var fl = this.leftTuples, i = fl.length, leftContext, thisConstraint = this.constraint;
+            thisConstraint.setRightContext(context);
+            while (--i > -1) {
+                leftContext = fl[i];
+                if (thisConstraint.setLeftContext(leftContext).isMatch()) {
+                    this._propagateRetractResolve(leftContext.match);
+                    //blocked so remove from memory
+                    this.__removeFromLeftMemory(leftContext);
+                    leftContext.blocker = context;
+                    context.blocking.push(leftContext);
+                    this.__addToLeftTupleMemory(leftContext);
+                }
+            }
+            thisConstraint.clearContexts();
+        },
+
+        __removeFromLeftMemory: function (context) {
+            var leftMemories = this.leftMemory[context.fact.id] || [], lc, tuples = this.leftTuples;
+            for (var i = 0, l = tuples.length; i < l; i++) {
+                lc = tuples[i];
+                if (lc === context) {
+                    tuples.splice(i, 1);
+                    leftMemories.splice(indexOf(leftMemories, lc), 1);
+                    break;
+                }
+            }
+            return this;
+        },
+
+        __removeFromLeftTupleMemory: function (context) {
+            var leftMemories = this.leftTupleMemory[context.fact.id] || [], lc;
+            for (var i = 0, l = leftMemories.length; i < l; i++) {
+                lc = leftMemories[i];
+                if (lc === context) {
+                    leftMemories.splice(i, 1);
+                    break;
+                }
+            }
+            return this;
+        },
+
+        __addToAllTupleMemory: function (context) {
+            var factIds = context.factIds, i = -1, l = factIds.length, factId, allTuples = this.allTuples, tuples;
+            while (++i < l) {
+                factId = factIds[i];
+                tuples = allTuples[factId] = (allTuples[factId] || []);
+                if (indexOf(tuples, context) === -1) {
+                    tuples.push(context);
+                }
+            }
+            return this;
+
+        },
+
+        __removeFromAllTupleMemory: function (context) {
+            var factIds = context.factIds, i = -1, l = factIds.length, factId, allTuples = this.allTuples, tuples, index;
+            while (++i < l) {
+                factId = factIds[i];
+                tuples = allTuples[factId];
+                index = indexOf(tuples, context);
+                if (index !== -1) {
+                    tuples.splice(i, 1);
+                }
+            }
+            return this;
+
+        },
+
+
+        __addToLeftMemory: function (context) {
+            this._super(arguments);
+            this.__addToAllTupleMemory(context);
+            return this;
+        },
+
+        __addToLeftTupleMemory: function (context) {
+            var o = context.fact;
+            var lm = this.leftTupleMemory[o.id];
+            if (!lm) {
+                lm = [];
+                this.leftTupleMemory[o.id] = lm;
+            }
+            lm.push(context);
+            this.__addToAllTupleMemory(context);
+            return this;
+        }
+    }
+}).as(module);
+},{"../context":9,"../extended":10,"./joinNode":18}],23:[function(require,module,exports){
+var AlphaNode = require("./alphaNode"),
+    Context = require("../context"),
+    extd = require("../extended");
+
+AlphaNode.extend({
+    instance: {
+
+        constructor: function () {
+            this._super(arguments);
+            this.alias = this.constraint.get("alias");
+            this.varLength = (this.variables = extd(this.constraint.get("variables")).toArray().value()).length;
+        },
+
+        assert: function (context) {
+            var c = new Context(context.fact, context.paths);
+            var variables = this.variables, o = context.fact.object, item;
+            c.set(this.alias, o);
+            for (var i = 0, l = this.varLength; i < l; i++) {
+                item = variables[i];
+                c.set(item[1], o[item[0]]);
+            }
+
+            this.__propagate("assert", c);
+
+        },
+
+        toString: function () {
+            return "PropertyNode" + this.__count;
+        }
+    }
+}).as(module);
+
+
+
+},{"../context":9,"../extended":10,"./alphaNode":15}],24:[function(require,module,exports){
+var Node = require("./node");
+
+Node.extend({
+    instance: {
+
+        retractResolve: function (match) {
+            this.__propagate("retractResolve", match);
+        },
+
+        dispose: function (context) {
+            this.propagateDispose(context);
+        },
+
+        propagateAssert: function (context) {
+            this.__propagate("assertRight", context);
+        },
+
+        propagateRetract: function (context) {
+            this.__propagate("retractRight", context);
+        },
+
+        propagateResolve: function (context) {
+            this.__propagate("retractResolve", context);
+        },
+
+        modify: function (context) {
+            this.__propagate("modifyRight", context);
+        },
+
+        toString: function () {
+            return "RightAdapterNode " + this.__count;
+        }
+    }
+}).as(module);
+},{"./node":21}],25:[function(require,module,exports){
+var Node = require("./node"),
+    extd = require("../extended"),
+    bind = extd.bind,
+    removeDuplicates = extd.removeDuplicates;
+
+Node.extend({
+    instance: {
+        constructor: function (bucket, index, rule, agenda) {
+            this._super([]);
+            this.resolve = bind(this, this.resolve);
+            this.rule = rule;
+            this.index = index;
+            this.name = this.rule.name;
+            this.agenda = agenda;
+            this.bucket = bucket;
+            agenda.register(this);
+        },
+
+        __assertModify: function (context) {
+            var match = context.match;
+            match.recency.sort(
+                function (a, b) {
+                    return a - b;
+                }).reverse();
+            match.facts = removeDuplicates(match.facts);
+            if (match.isMatch) {
+                var rule = this.rule, bucket = this.bucket;
+                this.agenda.insert(this, {
+                    rule: rule,
+                    index: this.index,
+                    name: rule.name,
+                    recency: bucket.recency++,
+                    match: match,
+                    counter: bucket.counter
+                });
+            }
+        },
+
+        assert: function (context) {
+            this.__assertModify(context);
+        },
+
+        modify: function (context) {
+            this.__assertModify(context);
+        },
+
+        retract: function (fact) {
+            this.agenda.removeByFact(this, fact);
+        },
+
+        retractRight: function (fact) {
+            this.agenda.removeByFact(this, fact);
+        },
+
+        retractLeft: function (fact) {
+            this.agenda.removeByFact(this, fact);
+        },
+
+        assertLeft: function (context) {
+            this.__assertModify(context);
+        },
+
+        assertRight: function (context) {
+            this.__assertModify(context);
+        },
+
+        retractResolve: function (match) {
+            var resolve = this.resolve;
+            this.agenda.retract(this, function (v) {
+                return resolve(v.match, match);
+            });
+        },
+
+        toString: function () {
+            return "TerminalNode " + this.rule.name;
+        }
+    }
+}).as(module);
+},{"../extended":10,"./node":21}],26:[function(require,module,exports){
+var AlphaNode = require("./alphaNode"),
+    Context = require("../context");
+
+AlphaNode.extend({
+    instance: {
+
+        assert: function (fact) {
+            if (this.constraint.assert(fact.object)) {
+                this.__propagate("assert", fact);
+            }
+        },
+
+        retract: function (fact) {
+            if (this.constraint.assert(fact.object)) {
+                this.propagateRetract(fact);
+            }
+        },
+
+        toString: function () {
+            return "TypeNode" + this.__count;
+        },
+
+        dispose: function () {
+            var es = this.__entrySet, i = es.length - 1;
+            for (; i >= 0; i--) {
+                var e = es[i], outNode = e.key, paths = e.value;
+                outNode.dispose({paths: paths});
+            }
+        },
+
+        __propagate: function (method, fact) {
+            var es = this.__entrySet, i = es.length - 1;
+            for (; i >= 0; i--) {
+                var e = es[i], outNode = e.key, paths = e.value;
+                outNode[method](new Context(fact, paths));
+            }
+        }
+    }
+}).as(module);
+},{"../context":9,"./alphaNode":15}],27:[function(require,module,exports){
+var process=require("__browserify_process");/* parser generated by jison 0.4.6 */
+/*
+  Returns a Parser object of the following structure:
+
+  Parser: {
+    yy: {}
+  }
+
+  Parser.prototype: {
+    yy: {},
+    trace: function(),
+    symbols_: {associative list: name ==> number},
+    terminals_: {associative list: number ==> name},
+    productions_: [...],
+    performAction: function anonymous(yytext, yyleng, yylineno, yy, yystate, $$, _$),
+    table: [...],
+    defaultActions: {...},
+    parseError: function(str, hash),
+    parse: function(input),
+
+    lexer: {
+        EOF: 1,
+        parseError: function(str, hash),
+        setInput: function(input),
+        input: function(),
+        unput: function(str),
+        more: function(),
+        less: function(n),
+        pastInput: function(),
+        upcomingInput: function(),
+        showPosition: function(),
+        test_match: function(regex_match_array, rule_index),
+        next: function(),
+        lex: function(),
+        begin: function(condition),
+        popState: function(),
+        _currentRules: function(),
+        topState: function(),
+        pushState: function(condition),
+
+        options: {
+            ranges: boolean           (optional: true ==> token location info will include a .range[] member)
+            flex: boolean             (optional: true ==> flex-like lexing behaviour where the rules are tested exhaustively to find the longest match)
+            backtrack_lexer: boolean  (optional: true ==> lexer regexes are tested in order and for each matching regex the action code is invoked; the lexer terminates the scan when a token is returned by the action code)
+        },
+
+        performAction: function(yy, yy_, $avoiding_name_collisions, YY_START),
+        rules: [...],
+        conditions: {associative list: name ==> set},
+    }
+  }
+
+
+  token location info (@$, _$, etc.): {
+    first_line: n,
+    last_line: n,
+    first_column: n,
+    last_column: n,
+    range: [start_number, end_number]       (where the numbers are indexes into the input string, regular zero-based)
+  }
+
+
+  the parseError function receives a 'hash' object with these members for lexer and parser errors: {
+    text:        (matched text)
+    token:       (the produced terminal token, if any)
+    line:        (yylineno)
+  }
+  while parser (grammar) errors will also provide these members, i.e. parser errors deliver a superset of attributes: {
+    loc:         (yylloc)
+    expected:    (string describing the set of expected tokens)
+    recoverable: (boolean: TRUE when the parser has a error recovery rule available for this particular error)
+  }
+*/
+var parser = (function(){
+var parser = {trace: function trace() { },
+yy: {},
+symbols_: {"error":2,"expressions":3,"EXPRESSION":4,"EOF":5,"UNARY_EXPRESSION":6,"LITERAL_EXPRESSION":7,"-":8,"!":9,"MULTIPLICATIVE_EXPRESSION":10,"*":11,"/":12,"%":13,"ADDITIVE_EXPRESSION":14,"+":15,"EXPONENT_EXPRESSION":16,"^":17,"RELATIONAL_EXPRESSION":18,"<":19,">":20,"<=":21,">=":22,"EQUALITY_EXPRESSION":23,"==":24,"!=":25,"=~":26,"!=~":27,"IN_EXPRESSION":28,"in":29,"ARRAY_EXPRESSION":30,"notIn":31,"OBJECT_EXPRESSION":32,"AND_EXPRESSION":33,"&&":34,"OR_EXPRESSION":35,"||":36,"ARGUMENT_LIST":37,",":38,"IDENTIFIER_EXPRESSION":39,"IDENTIFIER":40,".":41,"[":42,"STRING_EXPRESSION":43,"]":44,"(":45,")":46,"STRING":47,"NUMBER_EXPRESSION":48,"NUMBER":49,"REGEXP_EXPRESSION":50,"REGEXP":51,"BOOLEAN_EXPRESSION":52,"BOOLEAN":53,"NULL_EXPRESSION":54,"NULL":55,"$accept":0,"$end":1},
+terminals_: {2:"error",5:"EOF",8:"-",9:"!",11:"*",12:"/",13:"%",15:"+",17:"^",19:"<",20:">",21:"<=",22:">=",24:"==",25:"!=",26:"=~",27:"!=~",29:"in",31:"notIn",34:"&&",36:"||",38:",",40:"IDENTIFIER",41:".",42:"[",44:"]",45:"(",46:")",47:"STRING",49:"NUMBER",51:"REGEXP",53:"BOOLEAN",55:"NULL"},
+productions_: [0,[3,2],[6,1],[6,2],[6,2],[10,1],[10,3],[10,3],[10,3],[14,1],[14,3],[14,3],[16,1],[16,3],[18,1],[18,3],[18,3],[18,3],[18,3],[23,1],[23,3],[23,3],[23,3],[23,3],[28,1],[28,3],[28,3],[28,3],[28,3],[33,1],[33,3],[35,1],[35,3],[37,1],[37,3],[39,1],[32,1],[32,3],[32,4],[32,4],[32,3],[32,4],[43,1],[48,1],[50,1],[52,1],[54,1],[30,2],[30,3],[7,1],[7,1],[7,1],[7,1],[7,1],[7,1],[7,1],[7,3],[4,1]],
+performAction: function anonymous(yytext, yyleng, yylineno, yy, yystate /* action[1] */, $$ /* vstack */, _$ /* lstack */) {
+/* this == yyval */
+
+var $0 = $$.length - 1;
+switch (yystate) {
+case 1:return $$[$0-1];
+break;
+case 3:this.$ = [$$[$0], null, 'unary'];
+break;
+case 4:this.$ = [$$[$0], null, 'logicalNot'];
+break;
+case 6:this.$ = [$$[$0-2], $$[$0], 'mult'];
+break;
+case 7:this.$ = [$$[$0-2], $$[$0], 'div'];
+break;
+case 8:this.$ = [$$[$0-2], $$[$0], 'mod'];
+break;
+case 10:this.$ = [$$[$0-2], $$[$0], 'plus'];
+break;
+case 11:this.$ = [$$[$0-2], $$[$0], 'minus'];
+break;
+case 13:this.$ = [$$[$0-2], $$[$0], 'pow'];
+break;
+case 15:this.$ = [$$[$0-2], $$[$0], 'lt'];
+break;
+case 16:this.$ = [$$[$0-2], $$[$0], 'gt'];
+break;
+case 17:this.$ = [$$[$0-2], $$[$0], 'lte'];
+break;
+case 18:this.$ = [$$[$0-2], $$[$0], 'gte'];
+break;
+case 20:this.$ = [$$[$0-2], $$[$0], 'eq'];
+break;
+case 21:this.$ = [$$[$0-2], $$[$0], 'neq'];
+break;
+case 22:this.$ = [$$[$0-2], $$[$0], 'like'];
+break;
+case 23:this.$ = [$$[$0-2], $$[$0], 'notLike'];
+break;
+case 25:this.$ = [$$[$0-2], $$[$0], 'in'];
+break;
+case 26:this.$ = [$$[$0-2], $$[$0], 'notIn'];
+break;
+case 27:this.$ = [$$[$0-2], $$[$0], 'in'];
+break;
+case 28:this.$ = [$$[$0-2], $$[$0], 'notIn'];
+break;
+case 30:this.$ = [$$[$0-2], $$[$0], 'and'];
+break;
+case 32:this.$ = [$$[$0-2], $$[$0], 'or'];
+break;
+case 34:this.$ = [$$[$0-2], $$[$0], 'arguments']
+break;
+case 35:this.$ = [String(yytext), null, 'identifier'];
+break;
+case 37:this.$ = [$$[$0-2],$$[$0], 'prop'];
+break;
+case 38:this.$ = [$$[$0-3],$$[$0-1], 'propLookup'];
+break;
+case 39:this.$ = [$$[$0-3],$$[$0-1], 'propLookup'];
+break;
+case 40:this.$ = [$$[$0-2], [null, null, 'arguments'], 'function']
+break;
+case 41:this.$ = [$$[$0-3], $$[$0-1], 'function']
+break;
+case 42:this.$ = [String(yytext.replace(/^['|"]|['|"]$/g, '')), null, 'string'];
+break;
+case 43:this.$ = [Number(yytext), null, 'number'];
+break;
+case 44:this.$ = [yytext, null, 'regexp'];
+break;
+case 45:this.$ = [yytext.replace(/^\s+/, '') == 'true', null, 'boolean'];
+break;
+case 46:this.$ = [null, null, 'null'];
+break;
+case 47:this.$ = [null, null, 'array'];
+break;
+case 48:this.$ = [$$[$0-1], null, 'array'];
+break;
+case 56:this.$ = [$$[$0-1], null, 'composite']
+break;
+}
+},
+table: [{3:1,4:2,6:28,7:7,8:[1,29],9:[1,30],10:27,14:25,16:17,18:8,23:6,28:5,30:15,32:14,33:4,35:3,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{1:[3]},{5:[1,31]},{5:[2,57],36:[1,32],46:[2,57]},{5:[2,31],34:[1,33],36:[2,31],46:[2,31]},{5:[2,29],34:[2,29],36:[2,29],46:[2,29]},{5:[2,24],24:[1,34],25:[1,35],26:[1,36],27:[1,37],34:[2,24],36:[2,24],46:[2,24]},{5:[2,2],8:[2,2],11:[2,2],12:[2,2],13:[2,2],15:[2,2],17:[2,2],19:[2,2],20:[2,2],21:[2,2],22:[2,2],24:[2,2],25:[2,2],26:[2,2],27:[2,2],29:[1,38],31:[1,39],34:[2,2],36:[2,2],46:[2,2]},{5:[2,19],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,19],25:[2,19],26:[2,19],27:[2,19],34:[2,19],36:[2,19],46:[2,19]},{5:[2,49],8:[2,49],11:[2,49],12:[2,49],13:[2,49],15:[2,49],17:[2,49],19:[2,49],20:[2,49],21:[2,49],22:[2,49],24:[2,49],25:[2,49],26:[2,49],27:[2,49],29:[2,49],31:[2,49],34:[2,49],36:[2,49],38:[2,49],44:[2,49],46:[2,49]},{5:[2,50],8:[2,50],11:[2,50],12:[2,50],13:[2,50],15:[2,50],17:[2,50],19:[2,50],20:[2,50],21:[2,50],22:[2,50],24:[2,50],25:[2,50],26:[2,50],27:[2,50],29:[2,50],31:[2,50],34:[2,50],36:[2,50],38:[2,50],44:[2,50],46:[2,50]},{5:[2,51],8:[2,51],11:[2,51],12:[2,51],13:[2,51],15:[2,51],17:[2,51],19:[2,51],20:[2,51],21:[2,51],22:[2,51],24:[2,51],25:[2,51],26:[2,51],27:[2,51],29:[2,51],31:[2,51],34:[2,51],36:[2,51],38:[2,51],44:[2,51],46:[2,51]},{5:[2,52],8:[2,52],11:[2,52],12:[2,52],13:[2,52],15:[2,52],17:[2,52],19:[2,52],20:[2,52],21:[2,52],22:[2,52],24:[2,52],25:[2,52],26:[2,52],27:[2,52],29:[2,52],31:[2,52],34:[2,52],36:[2,52],38:[2,52],44:[2,52],46:[2,52]},{5:[2,53],8:[2,53],11:[2,53],12:[2,53],13:[2,53],15:[2,53],17:[2,53],19:[2,53],20:[2,53],21:[2,53],22:[2,53],24:[2,53],25:[2,53],26:[2,53],27:[2,53],29:[2,53],31:[2,53],34:[2,53],36:[2,53],38:[2,53],44:[2,53],46:[2,53]},{5:[2,54],8:[2,54],11:[2,54],12:[2,54],13:[2,54],15:[2,54],17:[2,54],19:[2,54],20:[2,54],21:[2,54],22:[2,54],24:[2,54],25:[2,54],26:[2,54],27:[2,54],29:[2,54],31:[2,54],34:[2,54],36:[2,54],38:[2,54],41:[1,44],42:[1,45],44:[2,54],45:[1,46],46:[2,54]},{5:[2,55],8:[2,55],11:[2,55],12:[2,55],13:[2,55],15:[2,55],17:[2,55],19:[2,55],20:[2,55],21:[2,55],22:[2,55],24:[2,55],25:[2,55],26:[2,55],27:[2,55],29:[2,55],31:[2,55],34:[2,55],36:[2,55],38:[2,55],44:[2,55],46:[2,55]},{4:47,6:28,7:7,8:[1,29],9:[1,30],10:27,14:25,16:17,18:8,23:6,28:5,30:15,32:14,33:4,35:3,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,14],17:[1,48],19:[2,14],20:[2,14],21:[2,14],22:[2,14],24:[2,14],25:[2,14],26:[2,14],27:[2,14],34:[2,14],36:[2,14],46:[2,14]},{5:[2,42],8:[2,42],11:[2,42],12:[2,42],13:[2,42],15:[2,42],17:[2,42],19:[2,42],20:[2,42],21:[2,42],22:[2,42],24:[2,42],25:[2,42],26:[2,42],27:[2,42],29:[2,42],31:[2,42],34:[2,42],36:[2,42],38:[2,42],44:[2,42],46:[2,42]},{5:[2,43],8:[2,43],11:[2,43],12:[2,43],13:[2,43],15:[2,43],17:[2,43],19:[2,43],20:[2,43],21:[2,43],22:[2,43],24:[2,43],25:[2,43],26:[2,43],27:[2,43],29:[2,43],31:[2,43],34:[2,43],36:[2,43],38:[2,43],44:[2,43],46:[2,43]},{5:[2,44],8:[2,44],11:[2,44],12:[2,44],13:[2,44],15:[2,44],17:[2,44],19:[2,44],20:[2,44],21:[2,44],22:[2,44],24:[2,44],25:[2,44],26:[2,44],27:[2,44],29:[2,44],31:[2,44],34:[2,44],36:[2,44],38:[2,44],44:[2,44],46:[2,44]},{5:[2,45],8:[2,45],11:[2,45],12:[2,45],13:[2,45],15:[2,45],17:[2,45],19:[2,45],20:[2,45],21:[2,45],22:[2,45],24:[2,45],25:[2,45],26:[2,45],27:[2,45],29:[2,45],31:[2,45],34:[2,45],36:[2,45],38:[2,45],44:[2,45],46:[2,45]},{5:[2,46],8:[2,46],11:[2,46],12:[2,46],13:[2,46],15:[2,46],17:[2,46],19:[2,46],20:[2,46],21:[2,46],22:[2,46],24:[2,46],25:[2,46],26:[2,46],27:[2,46],29:[2,46],31:[2,46],34:[2,46],36:[2,46],38:[2,46],44:[2,46],46:[2,46]},{5:[2,36],8:[2,36],11:[2,36],12:[2,36],13:[2,36],15:[2,36],17:[2,36],19:[2,36],20:[2,36],21:[2,36],22:[2,36],24:[2,36],25:[2,36],26:[2,36],27:[2,36],29:[2,36],31:[2,36],34:[2,36],36:[2,36],38:[2,36],41:[2,36],42:[2,36],44:[2,36],45:[2,36],46:[2,36]},{7:51,30:15,32:14,37:50,39:23,40:[1,26],42:[1,24],43:9,44:[1,49],45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,12],8:[1,53],15:[1,52],17:[2,12],19:[2,12],20:[2,12],21:[2,12],22:[2,12],24:[2,12],25:[2,12],26:[2,12],27:[2,12],34:[2,12],36:[2,12],46:[2,12]},{5:[2,35],8:[2,35],11:[2,35],12:[2,35],13:[2,35],15:[2,35],17:[2,35],19:[2,35],20:[2,35],21:[2,35],22:[2,35],24:[2,35],25:[2,35],26:[2,35],27:[2,35],29:[2,35],31:[2,35],34:[2,35],36:[2,35],38:[2,35],41:[2,35],42:[2,35],44:[2,35],45:[2,35],46:[2,35]},{5:[2,9],8:[2,9],11:[1,54],12:[1,55],13:[1,56],15:[2,9],17:[2,9],19:[2,9],20:[2,9],21:[2,9],22:[2,9],24:[2,9],25:[2,9],26:[2,9],27:[2,9],34:[2,9],36:[2,9],46:[2,9]},{5:[2,5],8:[2,5],11:[2,5],12:[2,5],13:[2,5],15:[2,5],17:[2,5],19:[2,5],20:[2,5],21:[2,5],22:[2,5],24:[2,5],25:[2,5],26:[2,5],27:[2,5],34:[2,5],36:[2,5],46:[2,5]},{6:57,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:59,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{1:[2,1]},{6:28,7:7,8:[1,29],9:[1,30],10:27,14:25,16:17,18:8,23:6,28:5,30:15,32:14,33:60,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:7,8:[1,29],9:[1,30],10:27,14:25,16:17,18:8,23:6,28:61,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:17,18:62,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:17,18:63,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:17,18:64,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:17,18:65,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{30:66,32:67,39:23,40:[1,26],42:[1,24]},{30:68,32:69,39:23,40:[1,26],42:[1,24]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:70,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:71,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:72,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:73,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{39:74,40:[1,26]},{32:76,39:23,40:[1,26],43:75,47:[1,18]},{7:51,30:15,32:14,37:78,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],46:[1,77],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{46:[1,79]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:80,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,47],8:[2,47],11:[2,47],12:[2,47],13:[2,47],15:[2,47],17:[2,47],19:[2,47],20:[2,47],21:[2,47],22:[2,47],24:[2,47],25:[2,47],26:[2,47],27:[2,47],29:[2,47],31:[2,47],34:[2,47],36:[2,47],38:[2,47],44:[2,47],46:[2,47]},{38:[1,82],44:[1,81]},{38:[2,33],44:[2,33],46:[2,33]},{6:28,7:58,8:[1,29],9:[1,30],10:83,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:84,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:85,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:86,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:87,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,3],8:[2,3],11:[2,3],12:[2,3],13:[2,3],15:[2,3],17:[2,3],19:[2,3],20:[2,3],21:[2,3],22:[2,3],24:[2,3],25:[2,3],26:[2,3],27:[2,3],34:[2,3],36:[2,3],46:[2,3]},{5:[2,2],8:[2,2],11:[2,2],12:[2,2],13:[2,2],15:[2,2],17:[2,2],19:[2,2],20:[2,2],21:[2,2],22:[2,2],24:[2,2],25:[2,2],26:[2,2],27:[2,2],34:[2,2],36:[2,2],46:[2,2]},{5:[2,4],8:[2,4],11:[2,4],12:[2,4],13:[2,4],15:[2,4],17:[2,4],19:[2,4],20:[2,4],21:[2,4],22:[2,4],24:[2,4],25:[2,4],26:[2,4],27:[2,4],34:[2,4],36:[2,4],46:[2,4]},{5:[2,32],34:[1,33],36:[2,32],46:[2,32]},{5:[2,30],34:[2,30],36:[2,30],46:[2,30]},{5:[2,20],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,20],25:[2,20],26:[2,20],27:[2,20],34:[2,20],36:[2,20],46:[2,20]},{5:[2,21],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,21],25:[2,21],26:[2,21],27:[2,21],34:[2,21],36:[2,21],46:[2,21]},{5:[2,22],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,22],25:[2,22],26:[2,22],27:[2,22],34:[2,22],36:[2,22],46:[2,22]},{5:[2,23],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,23],25:[2,23],26:[2,23],27:[2,23],34:[2,23],36:[2,23],46:[2,23]},{5:[2,25],34:[2,25],36:[2,25],46:[2,25]},{5:[2,27],34:[2,27],36:[2,27],41:[1,44],42:[1,45],45:[1,46],46:[2,27]},{5:[2,26],34:[2,26],36:[2,26],46:[2,26]},{5:[2,28],34:[2,28],36:[2,28],41:[1,44],42:[1,45],45:[1,46],46:[2,28]},{5:[2,15],17:[1,48],19:[2,15],20:[2,15],21:[2,15],22:[2,15],24:[2,15],25:[2,15],26:[2,15],27:[2,15],34:[2,15],36:[2,15],46:[2,15]},{5:[2,16],17:[1,48],19:[2,16],20:[2,16],21:[2,16],22:[2,16],24:[2,16],25:[2,16],26:[2,16],27:[2,16],34:[2,16],36:[2,16],46:[2,16]},{5:[2,17],17:[1,48],19:[2,17],20:[2,17],21:[2,17],22:[2,17],24:[2,17],25:[2,17],26:[2,17],27:[2,17],34:[2,17],36:[2,17],46:[2,17]},{5:[2,18],17:[1,48],19:[2,18],20:[2,18],21:[2,18],22:[2,18],24:[2,18],25:[2,18],26:[2,18],27:[2,18],34:[2,18],36:[2,18],46:[2,18]},{5:[2,37],8:[2,37],11:[2,37],12:[2,37],13:[2,37],15:[2,37],17:[2,37],19:[2,37],20:[2,37],21:[2,37],22:[2,37],24:[2,37],25:[2,37],26:[2,37],27:[2,37],29:[2,37],31:[2,37],34:[2,37],36:[2,37],38:[2,37],41:[2,37],42:[2,37],44:[2,37],45:[2,37],46:[2,37]},{44:[1,88]},{41:[1,44],42:[1,45],44:[1,89],45:[1,46]},{5:[2,40],8:[2,40],11:[2,40],12:[2,40],13:[2,40],15:[2,40],17:[2,40],19:[2,40],20:[2,40],21:[2,40],22:[2,40],24:[2,40],25:[2,40],26:[2,40],27:[2,40],29:[2,40],31:[2,40],34:[2,40],36:[2,40],38:[2,40],41:[2,40],42:[2,40],44:[2,40],45:[2,40],46:[2,40]},{38:[1,82],46:[1,90]},{5:[2,56],8:[2,56],11:[2,56],12:[2,56],13:[2,56],15:[2,56],17:[2,56],19:[2,56],20:[2,56],21:[2,56],22:[2,56],24:[2,56],25:[2,56],26:[2,56],27:[2,56],29:[2,56],31:[2,56],34:[2,56],36:[2,56],38:[2,56],44:[2,56],46:[2,56]},{5:[2,13],8:[1,53],15:[1,52],17:[2,13],19:[2,13],20:[2,13],21:[2,13],22:[2,13],24:[2,13],25:[2,13],26:[2,13],27:[2,13],34:[2,13],36:[2,13],46:[2,13]},{5:[2,48],8:[2,48],11:[2,48],12:[2,48],13:[2,48],15:[2,48],17:[2,48],19:[2,48],20:[2,48],21:[2,48],22:[2,48],24:[2,48],25:[2,48],26:[2,48],27:[2,48],29:[2,48],31:[2,48],34:[2,48],36:[2,48],38:[2,48],44:[2,48],46:[2,48]},{7:91,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,10],8:[2,10],11:[1,54],12:[1,55],13:[1,56],15:[2,10],17:[2,10],19:[2,10],20:[2,10],21:[2,10],22:[2,10],24:[2,10],25:[2,10],26:[2,10],27:[2,10],34:[2,10],36:[2,10],46:[2,10]},{5:[2,11],8:[2,11],11:[1,54],12:[1,55],13:[1,56],15:[2,11],17:[2,11],19:[2,11],20:[2,11],21:[2,11],22:[2,11],24:[2,11],25:[2,11],26:[2,11],27:[2,11],34:[2,11],36:[2,11],46:[2,11]},{5:[2,6],8:[2,6],11:[2,6],12:[2,6],13:[2,6],15:[2,6],17:[2,6],19:[2,6],20:[2,6],21:[2,6],22:[2,6],24:[2,6],25:[2,6],26:[2,6],27:[2,6],34:[2,6],36:[2,6],46:[2,6]},{5:[2,7],8:[2,7],11:[2,7],12:[2,7],13:[2,7],15:[2,7],17:[2,7],19:[2,7],20:[2,7],21:[2,7],22:[2,7],24:[2,7],25:[2,7],26:[2,7],27:[2,7],34:[2,7],36:[2,7],46:[2,7]},{5:[2,8],8:[2,8],11:[2,8],12:[2,8],13:[2,8],15:[2,8],17:[2,8],19:[2,8],20:[2,8],21:[2,8],22:[2,8],24:[2,8],25:[2,8],26:[2,8],27:[2,8],34:[2,8],36:[2,8],46:[2,8]},{5:[2,38],8:[2,38],11:[2,38],12:[2,38],13:[2,38],15:[2,38],17:[2,38],19:[2,38],20:[2,38],21:[2,38],22:[2,38],24:[2,38],25:[2,38],26:[2,38],27:[2,38],29:[2,38],31:[2,38],34:[2,38],36:[2,38],38:[2,38],41:[2,38],42:[2,38],44:[2,38],45:[2,38],46:[2,38]},{5:[2,39],8:[2,39],11:[2,39],12:[2,39],13:[2,39],15:[2,39],17:[2,39],19:[2,39],20:[2,39],21:[2,39],22:[2,39],24:[2,39],25:[2,39],26:[2,39],27:[2,39],29:[2,39],31:[2,39],34:[2,39],36:[2,39],38:[2,39],41:[2,39],42:[2,39],44:[2,39],45:[2,39],46:[2,39]},{5:[2,41],8:[2,41],11:[2,41],12:[2,41],13:[2,41],15:[2,41],17:[2,41],19:[2,41],20:[2,41],21:[2,41],22:[2,41],24:[2,41],25:[2,41],26:[2,41],27:[2,41],29:[2,41],31:[2,41],34:[2,41],36:[2,41],38:[2,41],41:[2,41],42:[2,41],44:[2,41],45:[2,41],46:[2,41]},{38:[2,34],44:[2,34],46:[2,34]}],
+defaultActions: {31:[2,1]},
+parseError: function parseError(str, hash) {
+    if (hash.recoverable) {
+        this.trace(str);
+    } else {
+        throw new Error(str);
+    }
+},
+parse: function parse(input) {
+    var self = this, stack = [0], vstack = [null], lstack = [], table = this.table, yytext = '', yylineno = 0, yyleng = 0, recovering = 0, TERROR = 2, EOF = 1;
+    this.lexer.setInput(input);
+    this.lexer.yy = this.yy;
+    this.yy.lexer = this.lexer;
+    this.yy.parser = this;
+    if (typeof this.lexer.yylloc == 'undefined') {
+        this.lexer.yylloc = {};
+    }
+    var yyloc = this.lexer.yylloc;
+    lstack.push(yyloc);
+    var ranges = this.lexer.options && this.lexer.options.ranges;
+    if (typeof this.yy.parseError === 'function') {
+        this.parseError = this.yy.parseError;
+    } else {
+        this.parseError = Object.getPrototypeOf(this).parseError;
+    }
+    function popStack(n) {
+        stack.length = stack.length - 2 * n;
+        vstack.length = vstack.length - n;
+        lstack.length = lstack.length - n;
+    }
+    function lex() {
+        var token;
+        token = self.lexer.lex() || EOF;
+        if (typeof token !== 'number') {
+            token = self.symbols_[token] || token;
+        }
+        return token;
+    }
+    var symbol, preErrorSymbol, state, action, a, r, yyval = {}, p, len, newState, expected;
+    while (true) {
+        state = stack[stack.length - 1];
+        if (this.defaultActions[state]) {
+            action = this.defaultActions[state];
+        } else {
+            if (symbol === null || typeof symbol == 'undefined') {
+                symbol = lex();
+            }
+            action = table[state] && table[state][symbol];
+        }
+                    if (typeof action === 'undefined' || !action.length || !action[0]) {
+                var errStr = '';
+                expected = [];
+                for (p in table[state]) {
+                    if (this.terminals_[p] && p > TERROR) {
+                        expected.push('\'' + this.terminals_[p] + '\'');
+                    }
+                }
+                if (this.lexer.showPosition) {
+                    errStr = 'Parse error on line ' + (yylineno + 1) + ':\n' + this.lexer.showPosition() + '\nExpecting ' + expected.join(', ') + ', got \'' + (this.terminals_[symbol] || symbol) + '\'';
+                } else {
+                    errStr = 'Parse error on line ' + (yylineno + 1) + ': Unexpected ' + (symbol == EOF ? 'end of input' : '\'' + (this.terminals_[symbol] || symbol) + '\'');
+                }
+                this.parseError(errStr, {
+                    text: this.lexer.match,
+                    token: this.terminals_[symbol] || symbol,
+                    line: this.lexer.yylineno,
+                    loc: yyloc,
+                    expected: expected
+                });
+            }
+        if (action[0] instanceof Array && action.length > 1) {
+            throw new Error('Parse Error: multiple actions possible at state: ' + state + ', token: ' + symbol);
+        }
+        switch (action[0]) {
+        case 1:
+            stack.push(symbol);
+            vstack.push(this.lexer.yytext);
+            lstack.push(this.lexer.yylloc);
+            stack.push(action[1]);
+            symbol = null;
+            if (!preErrorSymbol) {
+                yyleng = this.lexer.yyleng;
+                yytext = this.lexer.yytext;
+                yylineno = this.lexer.yylineno;
+                yyloc = this.lexer.yylloc;
+                if (recovering > 0) {
+                    recovering--;
+                }
+            } else {
+                symbol = preErrorSymbol;
+                preErrorSymbol = null;
+            }
+            break;
+        case 2:
+            len = this.productions_[action[1]][1];
+            yyval.$ = vstack[vstack.length - len];
+            yyval._$ = {
+                first_line: lstack[lstack.length - (len || 1)].first_line,
+                last_line: lstack[lstack.length - 1].last_line,
+                first_column: lstack[lstack.length - (len || 1)].first_column,
+                last_column: lstack[lstack.length - 1].last_column
+            };
+            if (ranges) {
+                yyval._$.range = [
+                    lstack[lstack.length - (len || 1)].range[0],
+                    lstack[lstack.length - 1].range[1]
+                ];
+            }
+            r = this.performAction.call(yyval, yytext, yyleng, yylineno, this.yy, action[1], vstack, lstack);
+            if (typeof r !== 'undefined') {
+                return r;
+            }
+            if (len) {
+                stack = stack.slice(0, -1 * len * 2);
+                vstack = vstack.slice(0, -1 * len);
+                lstack = lstack.slice(0, -1 * len);
+            }
+            stack.push(this.productions_[action[1]][0]);
+            vstack.push(yyval.$);
+            lstack.push(yyval._$);
+            newState = table[stack[stack.length - 2]][stack[stack.length - 1]];
+            stack.push(newState);
+            break;
+        case 3:
+            return true;
+        }
+    }
+    return true;
+}};
+undefined/* generated by jison-lex 0.2.1 */
+var lexer = (function(){
+var lexer = {
+
+EOF:1,
+
+parseError:function parseError(str, hash) {
+        if (this.yy.parser) {
+            this.yy.parser.parseError(str, hash);
+        } else {
+            throw new Error(str);
+        }
+    },
+
+// resets the lexer, sets new input
+setInput:function (input) {
+        this._input = input;
+        this._more = this._backtrack = this.done = false;
+        this.yylineno = this.yyleng = 0;
+        this.yytext = this.matched = this.match = '';
+        this.conditionStack = ['INITIAL'];
+        this.yylloc = {
+            first_line: 1,
+            first_column: 0,
+            last_line: 1,
+            last_column: 0
+        };
+        if (this.options.ranges) {
+            this.yylloc.range = [0,0];
+        }
+        this.offset = 0;
+        return this;
+    },
+
+// consumes and returns one char from the input
+input:function () {
+        var ch = this._input[0];
+        this.yytext += ch;
+        this.yyleng++;
+        this.offset++;
+        this.match += ch;
+        this.matched += ch;
+        var lines = ch.match(/(?:\r\n?|\n).*/g);
+        if (lines) {
+            this.yylineno++;
+            this.yylloc.last_line++;
+        } else {
+            this.yylloc.last_column++;
+        }
+        if (this.options.ranges) {
+            this.yylloc.range[1]++;
+        }
+
+        this._input = this._input.slice(1);
+        return ch;
+    },
+
+// unshifts one char (or a string) into the input
+unput:function (ch) {
+        var len = ch.length;
+        var lines = ch.split(/(?:\r\n?|\n)/g);
+
+        this._input = ch + this._input;
+        this.yytext = this.yytext.substr(0, this.yytext.length - len - 1);
+        //this.yyleng -= len;
+        this.offset -= len;
+        var oldLines = this.match.split(/(?:\r\n?|\n)/g);
+        this.match = this.match.substr(0, this.match.length - 1);
+        this.matched = this.matched.substr(0, this.matched.length - 1);
+
+        if (lines.length - 1) {
+            this.yylineno -= lines.length - 1;
+        }
+        var r = this.yylloc.range;
+
+        this.yylloc = {
+            first_line: this.yylloc.first_line,
+            last_line: this.yylineno + 1,
+            first_column: this.yylloc.first_column,
+            last_column: lines ?
+                (lines.length === oldLines.length ? this.yylloc.first_column : 0)
+                 + oldLines[oldLines.length - lines.length].length - lines[0].length :
+              this.yylloc.first_column - len
+        };
+
+        if (this.options.ranges) {
+            this.yylloc.range = [r[0], r[0] + this.yyleng - len];
+        }
+        this.yyleng = this.yytext.length;
+        return this;
+    },
+
+// When called from action, caches matched text and appends it on next action
+more:function () {
+        this._more = true;
+        return this;
+    },
+
+// When called from action, signals the lexer that this rule fails to match the input, so the next matching rule (regex) should be tested instead.
+reject:function () {
+        if (this.options.backtrack_lexer) {
+            this._backtrack = true;
+        } else {
+            return this.parseError('Lexical error on line ' + (this.yylineno + 1) + '. You can only invoke reject() in the lexer when the lexer is of the backtracking persuasion (options.backtrack_lexer = true).\n' + this.showPosition(), {
+                text: "",
+                token: null,
+                line: this.yylineno
+            });
+
+        }
+        return this;
+    },
+
+// retain first n characters of the match
+less:function (n) {
+        this.unput(this.match.slice(n));
+    },
+
+// displays already matched input, i.e. for error messages
+pastInput:function () {
+        var past = this.matched.substr(0, this.matched.length - this.match.length);
+        return (past.length > 20 ? '...':'') + past.substr(-20).replace(/\n/g, "");
+    },
+
+// displays upcoming input, i.e. for error messages
+upcomingInput:function () {
+        var next = this.match;
+        if (next.length < 20) {
+            next += this._input.substr(0, 20-next.length);
+        }
+        return (next.substr(0,20) + (next.length > 20 ? '...' : '')).replace(/\n/g, "");
+    },
+
+// displays the character position where the lexing error occurred, i.e. for error messages
+showPosition:function () {
+        var pre = this.pastInput();
+        var c = new Array(pre.length + 1).join("-");
+        return pre + this.upcomingInput() + "\n" + c + "^";
+    },
+
+// test the lexed token: return FALSE when not a match, otherwise return token
+test_match:function (match, indexed_rule) {
+        var token,
+            lines,
+            backup;
+
+        if (this.options.backtrack_lexer) {
+            // save context
+            backup = {
+                yylineno: this.yylineno,
+                yylloc: {
+                    first_line: this.yylloc.first_line,
+                    last_line: this.last_line,
+                    first_column: this.yylloc.first_column,
+                    last_column: this.yylloc.last_column
+                },
+                yytext: this.yytext,
+                match: this.match,
+                matches: this.matches,
+                matched: this.matched,
+                yyleng: this.yyleng,
+                offset: this.offset,
+                _more: this._more,
+                _input: this._input,
+                yy: this.yy,
+                conditionStack: this.conditionStack.slice(0),
+                done: this.done
+            };
+            if (this.options.ranges) {
+                backup.yylloc.range = this.yylloc.range.slice(0);
+            }
+        }
+
+        lines = match[0].match(/(?:\r\n?|\n).*/g);
+        if (lines) {
+            this.yylineno += lines.length;
+        }
+        this.yylloc = {
+            first_line: this.yylloc.last_line,
+            last_line: this.yylineno + 1,
+            first_column: this.yylloc.last_column,
+            last_column: lines ?
+                         lines[lines.length - 1].length - lines[lines.length - 1].match(/\r?\n?/)[0].length :
+                         this.yylloc.last_column + match[0].length
+        };
+        this.yytext += match[0];
+        this.match += match[0];
+        this.matches = match;
+        this.yyleng = this.yytext.length;
+        if (this.options.ranges) {
+            this.yylloc.range = [this.offset, this.offset += this.yyleng];
+        }
+        this._more = false;
+        this._backtrack = false;
+        this._input = this._input.slice(match[0].length);
+        this.matched += match[0];
+        token = this.performAction.call(this, this.yy, this, indexed_rule, this.conditionStack[this.conditionStack.length - 1]);
+        if (this.done && this._input) {
+            this.done = false;
+        }
+        if (token) {
+            return token;
+        } else if (this._backtrack) {
+            // recover context
+            for (var k in backup) {
+                this[k] = backup[k];
+            }
+            return false; // rule action called reject() implying the next rule should be tested instead.
+        }
+        return false;
+    },
+
+// return next match in input
+next:function () {
+        if (this.done) {
+            return this.EOF;
+        }
+        if (!this._input) {
+            this.done = true;
+        }
+
+        var token,
+            match,
+            tempMatch,
+            index;
+        if (!this._more) {
+            this.yytext = '';
+            this.match = '';
+        }
+        var rules = this._currentRules();
+        for (var i = 0; i < rules.length; i++) {
+            tempMatch = this._input.match(this.rules[rules[i]]);
+            if (tempMatch && (!match || tempMatch[0].length > match[0].length)) {
+                match = tempMatch;
+                index = i;
+                if (this.options.backtrack_lexer) {
+                    token = this.test_match(tempMatch, rules[i]);
+                    if (token !== false) {
+                        return token;
+                    } else if (this._backtrack) {
+                        match = false;
+                        continue; // rule action called reject() implying a rule MISmatch.
+                    } else {
+                        // else: this is a lexer rule which consumes input without producing a token (e.g. whitespace)
+                        return false;
+                    }
+                } else if (!this.options.flex) {
+                    break;
+                }
+            }
+        }
+        if (match) {
+            token = this.test_match(match, rules[index]);
+            if (token !== false) {
+                return token;
+            }
+            // else: this is a lexer rule which consumes input without producing a token (e.g. whitespace)
+            return false;
+        }
+        if (this._input === "") {
+            return this.EOF;
+        } else {
+            return this.parseError('Lexical error on line ' + (this.yylineno + 1) + '. Unrecognized text.\n' + this.showPosition(), {
+                text: "",
+                token: null,
+                line: this.yylineno
+            });
+        }
+    },
+
+// return next match that has a token
+lex:function lex() {
+        var r = this.next();
+        if (r) {
+            return r;
+        } else {
+            return this.lex();
+        }
+    },
+
+// activates a new lexer condition state (pushes the new lexer condition state onto the condition stack)
+begin:function begin(condition) {
+        this.conditionStack.push(condition);
+    },
+
+// pop the previously active lexer condition state off the condition stack
+popState:function popState() {
+        var n = this.conditionStack.length - 1;
+        if (n > 0) {
+            return this.conditionStack.pop();
+        } else {
+            return this.conditionStack[0];
+        }
+    },
+
+// produce the lexer rule set which is active for the currently active lexer condition state
+_currentRules:function _currentRules() {
+        if (this.conditionStack.length && this.conditionStack[this.conditionStack.length - 1]) {
+            return this.conditions[this.conditionStack[this.conditionStack.length - 1]].rules;
+        } else {
+            return this.conditions["INITIAL"].rules;
+        }
+    },
+
+// return the currently active lexer condition state; when an index argument is provided it produces the N-th previous condition state, if available
+topState:function topState(n) {
+        n = this.conditionStack.length - 1 - Math.abs(n || 0);
+        if (n >= 0) {
+            return this.conditionStack[n];
+        } else {
+            return "INITIAL";
+        }
+    },
+
+// alias for begin(condition)
+pushState:function pushState(condition) {
+        this.begin(condition);
+    },
+
+// return the number of states currently on the stack
+stateStackSize:function stateStackSize() {
+        return this.conditionStack.length;
+    },
+options: {},
+performAction: function anonymous(yy,yy_,$avoiding_name_collisions,YY_START) {
+
+var YYSTATE=YY_START;
+switch($avoiding_name_collisions) {
+case 0:return 29;
+break;
+case 1:return 31;
+break;
+case 2:return 'from';
+break;
+case 3:return 24;
+break;
+case 4:return 25;
+break;
+case 5:return 21;
+break;
+case 6:return 19;
+break;
+case 7:return 22;
+break;
+case 8:return 20;
+break;
+case 9:return 26;
+break;
+case 10:return 27;
+break;
+case 11:return 34;
+break;
+case 12:return 36;
+break;
+case 13:return 55;
+break;
+case 14:return 53;
+break;
+case 15:/* skip whitespace */
+break;
+case 16:return 49;
+break;
+case 17:return 47;
+break;
+case 18:return 47;
+break;
+case 19:return 40;
+break;
+case 20:return 51;
+break;
+case 21:return 41;
+break;
+case 22:return 11;
+break;
+case 23:return 12;
+break;
+case 24:return 13;
+break;
+case 25:return 38;
+break;
+case 26:return 8;
+break;
+case 27:return 26;
+break;
+case 28:return 27;
+break;
+case 29:return 24;
+break;
+case 30:return 24;
+break;
+case 31:return 25;
+break;
+case 32:return 25;
+break;
+case 33:return 21;
+break;
+case 34:return 22;
+break;
+case 35:return 20;
+break;
+case 36:return 19;
+break;
+case 37:return 34;
+break;
+case 38:return 36;
+break;
+case 39:return 15;
+break;
+case 40:return 17;
+break;
+case 41:return 45;
+break;
+case 42:return 44;
+break;
+case 43:return 42;
+break;
+case 44:return 46;
+break;
+case 45:return 9;
+break;
+case 46:return 5;
+break;
+}
+},
+rules: [/^(?:\s+in\b)/,/^(?:\s+notIn\b)/,/^(?:\s+from\b)/,/^(?:\s+(eq|EQ)\b)/,/^(?:\s+(neq|NEQ)\b)/,/^(?:\s+(lte|LTE)\b)/,/^(?:\s+(lt|LT)\b)/,/^(?:\s+(gte|GTE)\b)/,/^(?:\s+(gt|GT)\b)/,/^(?:\s+(like|LIKE)\b)/,/^(?:\s+(notLike|NOT_LIKE)\b)/,/^(?:\s+(and|AND)\b)/,/^(?:\s+(or|OR)\b)/,/^(?:\s+null\b)/,/^(?:\s+(true|false)\b)/,/^(?:\s+)/,/^(?:-?[0-9]+(?:\.[0-9]+)?\b)/,/^(?:'[^']*')/,/^(?:"[^"]*")/,/^(?:([a-zA-Z_$][0-9a-zA-Z_$]*))/,/^(?:^\/((?![\s=])[^[\/\n\\]*(?:(?:\\[\s\S]|\[[^\]\n\\]*(?:\\[\s\S][^\]\n\\]*)*])[^[\/\n\\]*)*\/[imgy]{0,4})(?!\w))/,/^(?:\.)/,/^(?:\*)/,/^(?:\/)/,/^(?:\%)/,/^(?:,)/,/^(?:-)/,/^(?:=~)/,/^(?:!=~)/,/^(?:==)/,/^(?:===)/,/^(?:!=)/,/^(?:!==)/,/^(?:<=)/,/^(?:>=)/,/^(?:>)/,/^(?:<)/,/^(?:&&)/,/^(?:\|\|)/,/^(?:\+)/,/^(?:\^)/,/^(?:\()/,/^(?:\])/,/^(?:\[)/,/^(?:\))/,/^(?:!)/,/^(?:$)/],
+conditions: {"INITIAL":{"rules":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46],"inclusive":true}}
+};
+return lexer;
+})();
+parser.lexer = lexer;
+function Parser () {
+  this.yy = {};
+}
+Parser.prototype = parser;parser.Parser = Parser;
+return new Parser;
+})();
+
+
+if (typeof require !== 'undefined' && typeof exports !== 'undefined') {
+exports.parser = parser;
+exports.Parser = parser.Parser;
+exports.parse = function () { return parser.parse.apply(parser, arguments); };
+exports.main = function commonjsMain(args) {
+    if (!args[1]) {
+        console.log('Usage: '+args[0]+' FILE');
+        process.exit(1);
+    }
+    var source = require('fs').readFileSync(require('path').normalize(args[1]), "utf8");
+    return exports.parser.parse(source);
+};
+if (typeof module !== 'undefined' && require.main === module) {
+  exports.main(process.argv.slice(1));
+}
+}
+},{"__browserify_process":48,"fs":45,"path":46}],28:[function(require,module,exports){
+(function () {
+    "use strict";
+    var constraintParser = require("./constraint/parser"),
+        noolParser = require("./nools/nool.parser");
+
+    exports.parseConstraint = function (expression) {
+        try {
+            return constraintParser.parse(expression);
+        } catch (e) {
+            throw new Error("Invalid expression '" + expression + "'");
+        }
+    };
+
+    exports.parseRuleSet = function (source, file) {
+        return noolParser.parse(source, file);
+    };
+})();
+},{"./constraint/parser":27,"./nools/nool.parser":29}],29:[function(require,module,exports){
+"use strict";
+
+var tokens = require("./tokens.js"),
+    extd = require("../../extended"),
+    keys = extd.hash.keys,
+    utils = require("./util.js");
+
+var parse = function (src, keywords, context) {
+    var orig = src;
+    src = src.replace(/\/\/(.*)[\n|\r|\r\n]/g, "").replace(/\n|\r|\r\n/g, " ");
+
+    var blockTypes = new RegExp("^(" + keys(keywords).join("|") + ")"), index;
+    while (src && (index = utils.findNextTokenIndex(src)) !== -1) {
+        src = src.substr(index);
+        var blockType = src.match(blockTypes);
+        if (blockType !== null) {
+            blockType = blockType[1];
+            if (blockType in keywords) {
+                try {
+                    src = keywords[blockType](src, context, parse).replace(/^\s*|\s*$/g, "");
+                } catch (e) {
+                    throw new Error("Invalid " + blockType + " definition \n" + e.message + "; \nstarting at : " + orig);
+                }
+            } else {
+                throw new Error("Unknown token" + blockType);
+            }
+        } else {
+            throw new Error("Error parsing " + src);
+        }
+    }
+};
+
+exports.parse = function (src, file) {
+    var context = {define: [], rules: [], scope: [], loaded: [], file: file};
+    parse(src, tokens, context);
+    return context;
+};
+
+
+},{"../../extended":10,"./tokens.js":30,"./util.js":31}],30:[function(require,module,exports){
+var process=require("__browserify_process");"use strict";
+
+var utils = require("./util.js"),
+    fs = require("fs"),
+    indexOf = require("../../extended").indexOf;
+
+var isWhiteSpace = function (str) {
+    return str.replace(/[\s|\n|\r|\t]/g, "").length === 0;
+};
+
+var ruleTokens = {
+
+    salience: (function () {
+        var salienceRegexp = /^(salience|priority)\s*:\s*(-?\d+)\s*[,;]?/;
+        return function (src, context) {
+            if (salienceRegexp.test(src)) {
+                var parts = src.match(salienceRegexp),
+                    priority = parseInt(parts[2], 10);
+                if (!isNaN(priority)) {
+                    context.options.priority = priority;
+                } else {
+                    throw new Error("Invalid salience/priority " + parts[2]);
+                }
+                return src.replace(parts[0], "");
+            } else {
+                throw new Error("invalid format");
+            }
+        };
+    })(),
+
+    agendaGroup: (function () {
+        var agendaGroupRegexp = /^(agenda-group|agendaGroup)\s*:\s*([a-zA-Z_$][0-9a-zA-Z_$]*|"[^"]*"|'[^']*')\s*[,;]?/;
+        return function (src, context) {
+            if (agendaGroupRegexp.test(src)) {
+                var parts = src.match(agendaGroupRegexp),
+                    agendaGroup = parts[2];
+                if (agendaGroup) {
+                    context.options.agendaGroup = agendaGroup.replace(/^["']|["']$/g, "");
+                } else {
+                    throw new Error("Invalid agenda-group " + parts[2]);
+                }
+                return src.replace(parts[0], "");
+            } else {
+                throw new Error("invalid format");
+            }
+        };
+    })(),
+
+    autoFocus: (function () {
+        var autoFocusRegexp = /^(auto-focus|autoFocus)\s*:\s*(true|false)\s*[,;]?/;
+        return function (src, context) {
+            if (autoFocusRegexp.test(src)) {
+                var parts = src.match(autoFocusRegexp),
+                    autoFocus = parts[2];
+                if (autoFocus) {
+                    context.options.autoFocus = autoFocus === "true" ? true : false;
+                } else {
+                    throw new Error("Invalid auto-focus " + parts[2]);
+                }
+                return src.replace(parts[0], "");
+            } else {
+                throw new Error("invalid format");
+            }
+        };
+    })(),
+
+    "agenda-group": function () {
+        return this.agendaGroup.apply(this, arguments);
+    },
+
+    "auto-focus": function () {
+        return this.autoFocus.apply(this, arguments);
+    },
+
+    priority: function () {
+        return this.salience.apply(this, arguments);
+    },
+
+    when: (function () {
+        /*jshint evil:true*/
+
+        var ruleRegExp = /^(\$?\w+) *: *(\w+)(.*)/;
+        var joinFunc = function (m, str) {
+            return "; " + str;
+        };
+        var constraintRegExp = /(\{ *(?:["']?\$?\w+["']?\s*:\s*["']?\$?\w+["']? *(?:, *["']?\$?\w+["']?\s*:\s*["']?\$?\w+["']?)*)+ *\})/;
+        var predicateExp = /^(\w+) *\((.*)\)$/m;
+        var parseRules = function (str) {
+            var rules = [];
+            var ruleLines = str.split(";"), l = ruleLines.length, ruleLine;
+            for (var i = 0; i < l && (ruleLine = ruleLines[i].replace(/^\s*|\s*$/g, "").replace(/\n/g, "")); i++) {
+                if (!isWhiteSpace(ruleLine)) {
+                    var rule = [];
+                    if (predicateExp.test(ruleLine)) {
+                        var m = ruleLine.match(predicateExp);
+                        var pred = m[1].replace(/^\s*|\s*$/g, "");
+                        rule.push(pred);
+                        ruleLine = m[2].replace(/^\s*|\s*$/g, "");
+                        if (pred === "or") {
+                            rule = rule.concat(parseRules(ruleLine.replace(/,\s*(\$?\w+\s*:)/, joinFunc)));
+                            rules.push(rule);
+                            continue;
+                        }
+
+                    }
+                    var parts = ruleLine.match(ruleRegExp);
+                    if (parts && parts.length) {
+                        rule.push(parts[2], parts[1]);
+                        var constraints = parts[3].replace(/^\s*|\s*$/g, "");
+                        var hashParts = constraints.match(constraintRegExp);
+                        if (hashParts) {
+                            var hash = hashParts[1], constraint = constraints.replace(hash, "");
+                            if (constraint) {
+                                rule.push(constraint.replace(/^\s*|\s*$/g, ""));
+                            }
+                            if (hash) {
+                                rule.push(eval("(" + hash.replace(/(\$?\w+)\s*:\s*(\$?\w+)/g, '"$1" : "$2"') + ")"));
+                            }
+                        } else if (constraints && !isWhiteSpace(constraints)) {
+                            rule.push(constraints);
+                        }
+                        rules.push(rule);
+                    } else {
+                        throw new Error("Invalid constraint " + ruleLine);
+                    }
+                }
+            }
+            return rules;
+        };
+
+        return function (orig, context) {
+            var src = orig.replace(/^when\s*/, "").replace(/^\s*|\s*$/g, "");
+            if (utils.findNextToken(src) === "{") {
+                var body = utils.getTokensBetween(src, "{", "}", true).join("");
+                src = src.replace(body, "");
+                context.constraints = parseRules(body.replace(/^\{\s*|\}\s*$/g, ""));
+                return src;
+            } else {
+                throw new Error("unexpected token : expected : '{' found : '" + utils.findNextToken(src) + "'");
+            }
+        };
+    })(),
+
+    then: (function () {
+        return function (orig, context) {
+            if (!context.action) {
+                var src = orig.replace(/^then\s*/, "").replace(/^\s*|\s*$/g, "");
+                if (utils.findNextToken(src) === "{") {
+                    var body = utils.getTokensBetween(src, "{", "}", true).join("");
+                    src = src.replace(body, "");
+                    if (!context.action) {
+                        context.action = body.replace(/^\{\s*|\}\s*$/g, "");
+                    }
+                    if (!isWhiteSpace(src)) {
+                        throw new Error("Error parsing then block " + orig);
+                    }
+                    return src;
+                } else {
+                    throw new Error("unexpected token : expected : '{' found : '" + utils.findNextToken(src) + "'");
+                }
+            } else {
+                throw new Error("action already defined for rule" + context.name);
+            }
+
+        };
+    })()
+};
+
+var topLevelTokens = {
+    "/": function (orig) {
+        if (orig.match(/^\/\*/)) {
+            // Block Comment parse
+            return orig.replace(/\/\*.*?\*\//, "");
+        } else {
+            return orig;
+        }
+    },
+
+    "define": function (orig, context) {
+        var src = orig.replace(/^define\s*/, "");
+        var name = src.match(/^([a-zA-Z_$][0-9a-zA-Z_$]*)/);
+        if (name) {
+            src = src.replace(name[0], "").replace(/^\s*|\s*$/g, "");
+            if (utils.findNextToken(src) === "{") {
+                name = name[1];
+                var body = utils.getTokensBetween(src, "{", "}", true).join("");
+                src = src.replace(body, "");
+                //should
+                context.define.push({name: name, properties: "(" + body + ")"});
+                return src;
+            } else {
+                throw new Error("unexpected token : expected : '{' found : '" + utils.findNextToken(src) + "'");
+            }
+        } else {
+            throw new Error("missing name");
+        }
+    },
+
+    "import": function (orig, context, parse) {
+        if (typeof window !== 'undefined') {
+            throw new Error("import cannot be used in a browser");
+        }
+        var src = orig.replace(/^import\s*/, "");
+        if (utils.findNextToken(src) === "(") {
+            var file = utils.getParamList(src);
+            src = src.replace(file, "").replace(/^\s*|\s*$/g, "");
+            utils.findNextToken(src) === ";" && (src = src.replace(/\s*;/, ""));
+            file = file.replace(/[\(|\)]/g, "").split(",");
+            if (file.length === 1) {
+                file = utils.resolve(context.file || process.cwd(), file[0].replace(/["|']/g, ""));
+                if (indexOf(context.loaded, file) === -1) {
+                    var origFile = context.file;
+                    context.file = file;
+                    parse(fs.readFileSync(file, "utf8"), topLevelTokens, context);
+                    context.loaded.push(file);
+                    context.file = origFile;
+                }
+                return src;
+            } else {
+                throw new Error("import accepts a single file");
+            }
+        } else {
+            throw new Error("unexpected token : expected : '(' found : '" + utils.findNextToken(src) + "'");
+        }
+
+    },
+
+    //define a global
+    "global": function (orig, context) {
+        var src = orig.replace(/^global\s*/, "");
+        var name = src.match(/^([a-zA-Z_$][0-9a-zA-Z_$]*\s*)/);
+        if (name) {
+            src = src.replace(name[0], "").replace(/^\s*|\s*$/g, "");
+            if (utils.findNextToken(src) === "=") {
+                name = name[1].replace(/^\s+|\s+$/g, '');
+                var fullbody = utils.getTokensBetween(src, "=", ";", true).join("");
+                var body = fullbody.substring(1, fullbody.length - 1);
+                body = body.replace(/^\s+|\s+$/g, '');
+                if (/^require\(/.test(body)) {
+                    var file = utils.getParamList(body.replace("require")).replace(/[\(|\)]/g, "").split(",");
+                    if (file.length === 1) {
+                        //handle relative require calls
+                        file = file[0].replace(/["|']/g, "");
+                        body = ["require('", utils.resolve(context.file || process.cwd(), file) , "')"].join("");
+                    }
+                }
+                context.scope.push({name: name, body: body});
+                src = src.replace(fullbody, "");
+                return src;
+            } else {
+                throw new Error("unexpected token : expected : '=' found : '" + utils.findNextToken(src) + "'");
+            }
+        } else {
+            throw new Error("missing name");
+        }
+    },
+
+    //define a function
+    "function": function (orig, context) {
+        var src = orig.replace(/^function\s*/, "");
+        //parse the function name
+        var name = src.match(/^([a-zA-Z_$][0-9a-zA-Z_$]*)\s*/);
+        if (name) {
+            src = src.replace(name[0], "");
+            if (utils.findNextToken(src) === "(") {
+                name = name[1];
+                var params = utils.getParamList(src);
+                src = src.replace(params, "").replace(/^\s*|\s*$/g, "");
+                if (utils.findNextToken(src) === "{") {
+                    var body = utils.getTokensBetween(src, "{", "}", true).join("");
+                    src = src.replace(body, "");
+                    //should
+                    context.scope.push({name: name, body: "function" + params + body});
+                    return src;
+                } else {
+                    throw new Error("unexpected token : expected : '{' found : '" + utils.findNextToken(src) + "'");
+                }
+            } else {
+                throw new Error("unexpected token : expected : '(' found : '" + utils.findNextToken(src) + "'");
+            }
+        } else {
+            throw new Error("missing name");
+        }
+    },
+
+    "rule": function (orig, context, parse) {
+        var src = orig.replace(/^rule\s*/, "");
+        var name = src.match(/^([a-zA-Z_$][0-9a-zA-Z_$]*|"[^"]*"|'[^']*')/);
+        if (name) {
+            src = src.replace(name[0], "").replace(/^\s*|\s*$/g, "");
+            if (utils.findNextToken(src) === "{") {
+                name = name[1].replace(/^["']|["']$/g, "");
+                var rule = {name: name, options: {}, constraints: null, action: null};
+                var body = utils.getTokensBetween(src, "{", "}", true).join("");
+                src = src.replace(body, "");
+                parse(body.replace(/^\{\s*|\}\s*$/g, ""), ruleTokens, rule);
+                context.rules.push(rule);
+                return src;
+            } else {
+                throw new Error("unexpected token : expected : '{' found : '" + utils.findNextToken(src) + "'");
+            }
+        } else {
+            throw new Error("missing name");
+        }
+
+    }
+};
+module.exports = topLevelTokens;
+
+
+},{"../../extended":10,"./util.js":31,"__browserify_process":48,"fs":45}],31:[function(require,module,exports){
+"use strict";
+
+var path = require("path");
+var WHITE_SPACE_REG = /[\s|\n|\r|\t]/;
+
+var TOKEN_INVERTS = {
+    "{": "}",
+    "}": "{",
+    "(": ")",
+    ")": "(",
+    "[": "]"
+};
+
+var getTokensBetween = exports.getTokensBetween = function (str, start, stop, includeStartEnd) {
+    var depth = 0, ret = [];
+    if (!start) {
+        start = TOKEN_INVERTS[stop];
+        depth = 1;
+    }
+    if (!stop) {
+        stop = TOKEN_INVERTS[start];
+    }
+    str = Object(str);
+    var startPushing = false, token, cursor = 0, found = false;
+    while ((token = str.charAt(cursor++))) {
+        if (token === start) {
+            depth++;
+            if (!startPushing) {
+                startPushing = true;
+                if (includeStartEnd) {
+                    ret.push(token);
+                }
+            } else {
+                ret.push(token);
+            }
+        } else if (token === stop && cursor) {
+            depth--;
+            if (depth === 0) {
+                if (includeStartEnd) {
+                    ret.push(token);
+                }
+                found = true;
+                break;
+            }
+            ret.push(token);
+        } else if (startPushing) {
+            ret.push(token);
+        }
+    }
+    if (!found) {
+        throw new Error("Unable to match " + start + " in " + str);
+    }
+    return ret;
+};
+
+exports.getParamList = function (str) {
+    return  getTokensBetween(str, "(", ")", true).join("");
+};
+
+exports.resolve = function (from, to) {
+    if (path.extname(from) !== '') {
+        from = path.dirname(from);
+    }
+    if (to.replace(/[\/|\/|\.]/, "") === to) {
+        return to;
+    }
+    return path.resolve(from, to);
+
+};
+
+var findNextTokenIndex = exports.findNextTokenIndex = function (str, startIndex, endIndex) {
+    startIndex = startIndex || 0;
+    endIndex = endIndex || str.length;
+    var ret = -1, l = str.length;
+    if (!endIndex || endIndex > l) {
+        endIndex = l;
+    }
+    for (; startIndex < endIndex; startIndex++) {
+        var c = str.charAt(startIndex);
+        if (!WHITE_SPACE_REG.test(c)) {
+            ret = startIndex;
+            break;
+        }
+    }
+    return ret;
+};
+
+exports.findNextToken = function (str, startIndex, endIndex) {
+    return str.charAt(findNextTokenIndex(str, startIndex, endIndex));
+};
+},{"path":46}],32:[function(require,module,exports){
+(function () {
+    "use strict";
+    var extd = require("./extended"),
+        merge = extd.merge,
+        forEach = extd.forEach,
+        declare = extd.declare,
+        constraintMatcher = require("./constraintMatcher"),
+        constraint = require("./constraint");
+
+
+    var Pattern = declare({});
+
+    var ObjectPattern = Pattern.extend({
+        instance: {
+            constructor: function (type, alias, conditions, store, options) {
+                options = options || {};
+                this.type = type;
+                this.alias = alias;
+                this.conditions = conditions;
+                this.pattern = options.pattern;
+                this.constraints = [new constraint.ObjectConstraint(type)];
+                var constrnts = constraintMatcher.toConstraints(conditions, merge({alias: alias}, options));
+                if (constrnts.length) {
+                    this.constraints = this.constraints.concat(constrnts);
+                } else {
+                    var cnstrnt = new constraint.TrueConstraint();
+                    this.constraints.push(cnstrnt);
+                }
+                if (store && !extd.isEmpty(store)) {
+                    var atm = new constraint.HashConstraint(store);
+                    this.constraints.push(atm);
+                }
+                forEach(this.constraints, function (constraint) {
+                    constraint.set("alias", alias);
+                });
+            },
+
+            hasConstraint: function (type) {
+                return extd.some(this.constraints, function (c) {
+                    return c instanceof type;
+                });
+            },
+
+            hashCode: function () {
+                return [this.type, this.alias, extd.format("%j", this.conditions)].join(":");
+            },
+
+            toString: function () {
+                return extd.format("%j", this.constraints);
+            }
+        }
+    }).as(exports, "ObjectPattern");
+
+    ObjectPattern.extend().as(exports, "NotPattern");
+
+    Pattern.extend({
+
+        instance: {
+            constructor: function (left, right) {
+                this.leftPattern = left;
+                this.rightPattern = right;
+            },
+
+            hashCode: function () {
+                return [this.leftPattern.hashCode(), this.rightPattern.hashCode()].join(":");
+            },
+
+            getters: {
+                constraints: function () {
+                    return this.leftPattern.constraints.concat(this.rightPattern.constraints);
+                }
+            }
+        }
+
+    }).as(exports, "CompositePattern");
+
+
+    var InitialFact = declare({}).as(exports, "InitialFact");
+
+    ObjectPattern.extend({
+        instance: {
+            constructor: function () {
+                this._super([InitialFact, "i", [], {}]);
+            },
+
+            assert: function () {
+                return true;
+            }
+        }
+    }).as(exports, "InitialFactPattern");
+
+})();
+
+
+},{"./constraint":7,"./constraintMatcher":8,"./extended":10}],33:[function(require,module,exports){
+"use strict";
+var extd = require("./extended"),
+    isArray = extd.isArray,
+    Promise = extd.Promise,
+    declare = extd.declare,
+    parser = require("./parser"),
+    pattern = require("./pattern"),
+    ObjectPattern = pattern.ObjectPattern,
+    NotPattern = pattern.NotPattern,
+    CompositePattern = pattern.CompositePattern;
+
+var getParamTypeSwitch = extd
+    .switcher()
+    .isEq("string", function () {
+        return String;
+    })
+    .isEq("date", function () {
+        return Date;
+    })
+    .isEq("array", function () {
+        return Array;
+    })
+    .isEq("boolean", function () {
+        return Boolean;
+    })
+    .isEq("regexp", function () {
+        return RegExp;
+    })
+    .isEq("number", function () {
+        return Number;
+    })
+    .isEq("object", function () {
+        return Object;
+    })
+    .isEq("hash", function () {
+        return Object;
+    })
+    .def(function (param) {
+        throw new TypeError("invalid param type " + param);
+    })
+    .switcher();
+
+
+var getParamType = extd
+    .switcher()
+    .isString(function (param) {
+        return getParamTypeSwitch(param.toLowerCase());
+    })
+    .isFunction(function (func) {
+        return func;
+    })
+    .deepEqual([], function () {
+        return Array;
+    })
+    .def(function (param) {
+        throw  new Error("invalid param type " + param);
+    })
+    .switcher();
+
+var parsePattern = extd
+    .switcher()
+    .containsAt("or", 0, function (condition) {
+        condition.shift();
+        return extd(condition).map(function (cond) {
+            cond.scope = condition.scope;
+            return parsePattern(cond);
+        }).flatten().value();
+    })
+    .contains("not", 0, function (condition) {
+        condition.shift();
+        return [
+            new NotPattern(
+                getParamType(condition[0]),
+                condition[1] || "m",
+                parser.parseConstraint(condition[2] || "true"),
+                condition[3] || {},
+                {scope: condition.scope, pattern: condition[2]}
+            )
+        ];
+    })
+    .def(function (condition) {
+        return [
+            new ObjectPattern(
+                getParamType(condition[0]),
+                condition[1] || "m",
+                parser.parseConstraint(condition[2] || "true"),
+                condition[3] || {},
+                {scope: condition.scope, pattern: condition[2]}
+            )
+        ];
+    }).switcher();
+
+
+var Rule = declare({
+    instance: {
+        constructor: function (name, options, pattern, cb) {
+            this.name = name;
+            this.pattern = pattern;
+            this.cb = cb;
+            if (options.agendaGroup) {
+                this.agendaGroup = options.agendaGroup;
+                this.autoFocus = extd.isBoolean(options.autoFocus) ? options.autoFocus : false;
+            }
+            this.priority = options.priority || options.salience || 0;
+        },
+
+        fire: function (flow, match) {
+            var ret = new Promise(), cb = this.cb;
+            try {
+                if (cb.length === 3) {
+                    cb.call(flow, match.factHash, flow, ret.resolve);
+                } else {
+                    ret = cb.call(flow, match.factHash, flow);
+                }
+            } catch (e) {
+                ret.errback(e);
+            }
+            return ret;
+        }
+    }
+});
+
+function createRule(name, options, conditions, cb) {
+    if (extd.isArray(options)) {
+        cb = conditions;
+        conditions = options;
+    } else {
+        options = options || {};
+    }
+    var isRules = extd.every(conditions, function (cond) {
+        return isArray(cond);
+    });
+    if (isRules && conditions.length === 1) {
+        conditions = conditions[0];
+        isRules = false;
+    }
+    var rules = [];
+    var scope = options.scope || {};
+    conditions.scope = scope;
+    if (isRules) {
+        var _mergePatterns = function (patt, i) {
+            if (!patterns[i]) {
+                patterns[i] = i === 0 ? [] : patterns[i - 1].slice();
+                //remove dup
+                if (i !== 0) {
+                    patterns[i].pop();
+                }
+                patterns[i].push(patt);
+            } else {
+                extd(patterns).forEach(function (p) {
+                    p.push(patt);
+                });
+            }
+
+        };
+        var l = conditions.length, patterns = [], condition;
+        for (var i = 0; i < l; i++) {
+            condition = conditions[i];
+            condition.scope = scope;
+            extd.forEach(parsePattern(condition), _mergePatterns);
+
+        }
+        rules = extd.map(patterns, function (patterns) {
+            var compPat = null;
+            for (var i = 0; i < patterns.length; i++) {
+                if (compPat === null) {
+                    compPat = new CompositePattern(patterns[i++], patterns[i]);
+                } else {
+                    compPat = new CompositePattern(compPat, patterns[i]);
+                }
+            }
+            return new Rule(name, options, compPat, cb);
+        });
+    } else {
+        rules = extd.map(parsePattern(conditions), function (cond) {
+            return new Rule(name, options, cond, cb);
+        });
+    }
+    return rules;
+}
+
+exports.createRule = createRule;
+
+
+
+
+},{"./extended":10,"./parser":28,"./pattern":32}],34:[function(require,module,exports){
+"use strict";
+var declare = require("declare.js");
+
+
+var id = 0;
+
+var Fact = declare({
+
+    instance: {
+        constructor: function (obj) {
+            this.object = obj;
+            this.recency = 0;
+            this.id = id++;
+        },
+
+        equals: function (fact) {
+            return fact === this.object;
+        },
+
+        hashCode: function () {
+            return this.id;
+        }
+    }
+
+});
+
+declare({
+
+    instance: {
+
+        constructor: function () {
+            this.recency = 0;
+            this.facts = [];
+        },
+
+        dispose: function () {
+            this.facts.length = 0;
+        },
+
+        assertFact: function (fact) {
+            fact = new Fact(fact);
+            fact.recency = this.recency++;
+            this.facts.push(fact);
+            return fact;
+        },
+
+        retractFact: function (fact) {
+            var facts = this.facts, l = facts.length, i = -1, existingFact;
+            while (++i < l) {
+                existingFact = facts[i];
+                if (existingFact.equals(fact)) {
+                    this.facts.splice(i, 1);
+                    return existingFact;
+                }
+            }
+            //if we made it here we did not find the fact
+            throw new Error("the fact to remove does not exist");
+
+
+        }
+    }
+
+}).as(exports, "WorkingMemory");
+
+
+},{"declare.js":39}],35:[function(require,module,exports){
+(function () {
+    "use strict";
+
+    function defineArgumentsExtended(extended, is) {
+
+        var pSlice = Array.prototype.slice,
+            isArguments = is.isArguments;
+
+        function argsToArray(args, slice) {
+            var i = -1, j = 0, l = args.length, ret = [];
+            slice = slice || 0;
+            i += slice;
+            while (++i < l) {
+                ret[j++] = args[i];
+            }
+            return ret;
+        }
+
+
+        return extended
+            .define(isArguments, {
+                toArray: argsToArray
+            })
+            .expose({
+                argsToArray: argsToArray
+            });
+    }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            module.exports = defineArgumentsExtended(require("extended"), require("is-extended"));
+
+        }
+    } else if ("function" === typeof define && define.amd) {
+        define(["extended", "is-extended"], function (extended, is) {
+            return defineArgumentsExtended(extended, is);
+        });
+    } else {
+        this.argumentsExtended = defineArgumentsExtended(this.extended, this.isExtended);
+    }
+
+}).call(this);
+
+
+},{"extended":40,"is-extended":50}],36:[function(require,module,exports){
+(function () {
+    "use strict";
+    /*global define*/
+
+    function defineArray(extended, is, args) {
+
+        var isString = is.isString,
+            isArray = Array.isArray || is.isArray,
+            isDate = is.isDate,
+            floor = Math.floor,
+            abs = Math.abs,
+            mathMax = Math.max,
+            mathMin = Math.min,
+            arrayProto = Array.prototype,
+            arrayIndexOf = arrayProto.indexOf,
+            arrayForEach = arrayProto.forEach,
+            arrayMap = arrayProto.map,
+            arrayReduce = arrayProto.reduce,
+            arrayReduceRight = arrayProto.reduceRight,
+            arrayFilter = arrayProto.filter,
+            arrayEvery = arrayProto.every,
+            arraySome = arrayProto.some,
+            argsToArray = args.argsToArray;
+
+
+        function cross(num, cros) {
+            return reduceRight(cros, function (a, b) {
+                if (!isArray(b)) {
+                    b = [b];
+                }
+                b.unshift(num);
+                a.unshift(b);
+                return a;
+            }, []);
+        }
+
+        function permute(num, cross, length) {
+            var ret = [];
+            for (var i = 0; i < cross.length; i++) {
+                ret.push([num].concat(rotate(cross, i)).slice(0, length));
+            }
+            return ret;
+        }
+
+
+        function intersection(a, b) {
+            var ret = [], aOne, i = -1, l;
+            l = a.length;
+            while (++i < l) {
+                aOne = a[i];
+                if (indexOf(b, aOne) !== -1) {
+                    ret.push(aOne);
+                }
+            }
+            return ret;
+        }
+
+
+        var _sort = (function () {
+
+            var isAll = function (arr, test) {
+                return every(arr, test);
+            };
+
+            var defaultCmp = function (a, b) {
+                return a - b;
+            };
+
+            var dateSort = function (a, b) {
+                return a.getTime() - b.getTime();
+            };
+
+            return function _sort(arr, property) {
+                var ret = [];
+                if (isArray(arr)) {
+                    ret = arr.slice();
+                    if (property) {
+                        if (typeof property === "function") {
+                            ret.sort(property);
+                        } else {
+                            ret.sort(function (a, b) {
+                                var aProp = a[property], bProp = b[property];
+                                if (isString(aProp) && isString(bProp)) {
+                                    return aProp > bProp ? 1 : aProp < bProp ? -1 : 0;
+                                } else if (isDate(aProp) && isDate(bProp)) {
+                                    return aProp.getTime() - bProp.getTime();
+                                } else {
+                                    return aProp - bProp;
+                                }
+                            });
+                        }
+                    } else {
+                        if (isAll(ret, isString)) {
+                            ret.sort();
+                        } else if (isAll(ret, isDate)) {
+                            ret.sort(dateSort);
+                        } else {
+                            ret.sort(defaultCmp);
+                        }
+                    }
+                }
+                return ret;
+            };
+
+        })();
+
+        function indexOf(arr, searchElement, from) {
+            var index = (from || 0) - 1,
+                length = arr.length;
+            while (++index < length) {
+                if (arr[index] === searchElement) {
+                    return index;
+                }
+            }
+            return -1;
+        }
+
+        function lastIndexOf(arr, searchElement, from) {
+            if (!isArray(arr)) {
+                throw new TypeError();
+            }
+
+            var t = Object(arr);
+            var len = t.length >>> 0;
+            if (len === 0) {
+                return -1;
+            }
+
+            var n = len;
+            if (arguments.length > 2) {
+                n = Number(arguments[2]);
+                if (n !== n) {
+                    n = 0;
+                } else if (n !== 0 && n !== (1 / 0) && n !== -(1 / 0)) {
+                    n = (n > 0 || -1) * floor(abs(n));
+                }
+            }
+
+            var k = n >= 0 ? mathMin(n, len - 1) : len - abs(n);
+
+            for (; k >= 0; k--) {
+                if (k in t && t[k] === searchElement) {
+                    return k;
+                }
+            }
+            return -1;
+        }
+
+        function filter(arr, iterator, scope) {
+            if (arr && arrayFilter && arrayFilter === arr.filter) {
+                return arr.filter(iterator, scope);
+            }
+            if (!isArray(arr) || typeof iterator !== "function") {
+                throw new TypeError();
+            }
+
+            var t = Object(arr);
+            var len = t.length >>> 0;
+            var res = [];
+            for (var i = 0; i < len; i++) {
+                if (i in t) {
+                    var val = t[i]; // in case fun mutates this
+                    if (iterator.call(scope, val, i, t)) {
+                        res.push(val);
+                    }
+                }
+            }
+            return res;
+        }
+
+        function forEach(arr, iterator, scope) {
+            if (!isArray(arr) || typeof iterator !== "function") {
+                throw new TypeError();
+            }
+            if (arr && arrayForEach && arrayForEach === arr.forEach) {
+                arr.forEach(iterator, scope);
+                return arr;
+            }
+            for (var i = 0, len = arr.length; i < len; ++i) {
+                iterator.call(scope || arr, arr[i], i, arr);
+            }
+
+            return arr;
+        }
+
+        function every(arr, iterator, scope) {
+            if (arr && arrayEvery && arrayEvery === arr.every) {
+                return arr.every(iterator, scope);
+            }
+            if (!isArray(arr) || typeof iterator !== "function") {
+                throw new TypeError();
+            }
+            var t = Object(arr);
+            var len = t.length >>> 0;
+            for (var i = 0; i < len; i++) {
+                if (i in t && !iterator.call(scope, t[i], i, t)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function some(arr, iterator, scope) {
+            if (arr && arraySome && arraySome === arr.some) {
+                return arr.some(iterator, scope);
+            }
+            if (!isArray(arr) || typeof iterator !== "function") {
+                throw new TypeError();
+            }
+            var t = Object(arr);
+            var len = t.length >>> 0;
+            for (var i = 0; i < len; i++) {
+                if (i in t && iterator.call(scope, t[i], i, t)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function map(arr, iterator, scope) {
+            if (arr && arrayMap && arrayMap === arr.map) {
+                return arr.map(iterator, scope);
+            }
+            if (!isArray(arr) || typeof iterator !== "function") {
+                throw new TypeError();
+            }
+
+            var t = Object(arr);
+            var len = t.length >>> 0;
+            var res = [];
+            for (var i = 0; i < len; i++) {
+                if (i in t) {
+                    res.push(iterator.call(scope, t[i], i, t));
+                }
+            }
+            return res;
+        }
+
+        function reduce(arr, accumulator, curr) {
+            var initial = arguments.length > 2;
+            if (arr && arrayReduce && arrayReduce === arr.reduce) {
+                return initial ? arr.reduce(accumulator, curr) : arr.reduce(accumulator);
+            }
+            if (!isArray(arr) || typeof accumulator !== "function") {
+                throw new TypeError();
+            }
+            var i = 0, l = arr.length >> 0;
+            if (arguments.length < 3) {
+                if (l === 0) {
+                    throw new TypeError("Array length is 0 and no second argument");
+                }
+                curr = arr[0];
+                i = 1; // start accumulating at the second element
+            } else {
+                curr = arguments[2];
+            }
+            while (i < l) {
+                if (i in arr) {
+                    curr = accumulator.call(undefined, curr, arr[i], i, arr);
+                }
+                ++i;
+            }
+            return curr;
+        }
+
+        function reduceRight(arr, accumulator, curr) {
+            var initial = arguments.length > 2;
+            if (arr && arrayReduceRight && arrayReduceRight === arr.reduceRight) {
+                return initial ? arr.reduceRight(accumulator, curr) : arr.reduceRight(accumulator);
+            }
+            if (!isArray(arr) || typeof accumulator !== "function") {
+                throw new TypeError();
+            }
+
+            var t = Object(arr);
+            var len = t.length >>> 0;
+
+            // no value to return if no initial value, empty array
+            if (len === 0 && arguments.length === 2) {
+                throw new TypeError();
+            }
+
+            var k = len - 1;
+            if (arguments.length >= 3) {
+                curr = arguments[2];
+            } else {
+                do {
+                    if (k in arr) {
+                        curr = arr[k--];
+                        break;
+                    }
+                }
+                while (true);
+            }
+            while (k >= 0) {
+                if (k in t) {
+                    curr = accumulator.call(undefined, curr, t[k], k, t);
+                }
+                k--;
+            }
+            return curr;
+        }
+
+
+        function toArray(o) {
+            var ret = [];
+            if (o !== null) {
+                var args = argsToArray(arguments);
+                if (args.length === 1) {
+                    if (isArray(o)) {
+                        ret = o;
+                    } else if (is.isHash(o)) {
+                        for (var i in o) {
+                            if (o.hasOwnProperty(i)) {
+                                ret.push([i, o[i]]);
+                            }
+                        }
+                    } else {
+                        ret.push(o);
+                    }
+                } else {
+                    forEach(args, function (a) {
+                        ret = ret.concat(toArray(a));
+                    });
+                }
+            }
+            return ret;
+        }
+
+        function sum(array) {
+            array = array || [];
+            if (array.length) {
+                return reduce(array, function (a, b) {
+                    return a + b;
+                });
+            } else {
+                return 0;
+            }
+        }
+
+        function avg(arr) {
+            arr = arr || [];
+            if (arr.length) {
+                var total = sum(arr);
+                if (is.isNumber(total)) {
+                    return  total / arr.length;
+                } else {
+                    throw new Error("Cannot average an array of non numbers.");
+                }
+            } else {
+                return 0;
+            }
+        }
+
+        function sort(arr, cmp) {
+            return _sort(arr, cmp);
+        }
+
+        function min(arr, cmp) {
+            return _sort(arr, cmp)[0];
+        }
+
+        function max(arr, cmp) {
+            return _sort(arr, cmp)[arr.length - 1];
+        }
+
+        function difference(arr1) {
+            var ret = arr1, args = flatten(argsToArray(arguments, 1));
+            if (isArray(arr1)) {
+                ret = filter(arr1, function (a) {
+                    return indexOf(args, a) === -1;
+                });
+            }
+            return ret;
+        }
+
+        function removeDuplicates(arr) {
+            var ret = [], i = -1, l, retLength = 0;
+            if (arr) {
+                l = arr.length;
+                while (++i < l) {
+                    var item = arr[i];
+                    if (indexOf(ret, item) === -1) {
+                        ret[retLength++] = item;
+                    }
+                }
+            }
+            return ret;
+        }
+
+
+        function unique(arr) {
+            return removeDuplicates(arr);
+        }
+
+
+        function rotate(arr, numberOfTimes) {
+            var ret = arr.slice();
+            if (typeof numberOfTimes !== "number") {
+                numberOfTimes = 1;
+            }
+            if (numberOfTimes && isArray(arr)) {
+                if (numberOfTimes > 0) {
+                    ret.push(ret.shift());
+                    numberOfTimes--;
+                } else {
+                    ret.unshift(ret.pop());
+                    numberOfTimes++;
+                }
+                return rotate(ret, numberOfTimes);
+            } else {
+                return ret;
+            }
+        }
+
+        function permutations(arr, length) {
+            var ret = [];
+            if (isArray(arr)) {
+                var copy = arr.slice(0);
+                if (typeof length !== "number") {
+                    length = arr.length;
+                }
+                if (!length) {
+                    ret = [
+                        []
+                    ];
+                } else if (length <= arr.length) {
+                    ret = reduce(arr, function (a, b, i) {
+                        var ret;
+                        if (length > 1) {
+                            ret = permute(b, rotate(copy, i).slice(1), length);
+                        } else {
+                            ret = [
+                                [b]
+                            ];
+                        }
+                        return a.concat(ret);
+                    }, []);
+                }
+            }
+            return ret;
+        }
+
+        function zip() {
+            var ret = [];
+            var arrs = argsToArray(arguments);
+            if (arrs.length > 1) {
+                var arr1 = arrs.shift();
+                if (isArray(arr1)) {
+                    ret = reduce(arr1, function (a, b, i) {
+                        var curr = [b];
+                        for (var j = 0; j < arrs.length; j++) {
+                            var currArr = arrs[j];
+                            if (isArray(currArr) && !is.isUndefined(currArr[i])) {
+                                curr.push(currArr[i]);
+                            } else {
+                                curr.push(null);
+                            }
+                        }
+                        a.push(curr);
+                        return a;
+                    }, []);
+                }
+            }
+            return ret;
+        }
+
+        function transpose(arr) {
+            var ret = [];
+            if (isArray(arr) && arr.length) {
+                var last;
+                forEach(arr, function (a) {
+                    if (isArray(a) && (!last || a.length === last.length)) {
+                        forEach(a, function (b, i) {
+                            if (!ret[i]) {
+                                ret[i] = [];
+                            }
+                            ret[i].push(b);
+                        });
+                        last = a;
+                    }
+                });
+            }
+            return ret;
+        }
+
+        function valuesAt(arr, indexes) {
+            var ret = [];
+            indexes = argsToArray(arguments);
+            arr = indexes.shift();
+            if (isArray(arr) && indexes.length) {
+                for (var i = 0, l = indexes.length; i < l; i++) {
+                    ret.push(arr[indexes[i]] || null);
+                }
+            }
+            return ret;
+        }
+
+        function union() {
+            var ret = [];
+            var arrs = argsToArray(arguments);
+            if (arrs.length > 1) {
+                for (var i = 0, l = arrs.length; i < l; i++) {
+                    ret = ret.concat(arrs[i]);
+                }
+                ret = removeDuplicates(ret);
+            }
+            return ret;
+        }
+
+        function intersect() {
+            var collect = [], sets, i = -1 , l;
+            if (arguments.length > 1) {
+                //assume we are intersections all the lists in the array
+                sets = argsToArray(arguments);
+            } else {
+                sets = arguments[0];
+            }
+            if (isArray(sets)) {
+                collect = sets[0];
+                i = 0;
+                l = sets.length;
+                while (++i < l) {
+                    collect = intersection(collect, sets[i]);
+                }
+            }
+            return removeDuplicates(collect);
+        }
+
+        function powerSet(arr) {
+            var ret = [];
+            if (isArray(arr) && arr.length) {
+                ret = reduce(arr, function (a, b) {
+                    var ret = map(a, function (c) {
+                        return c.concat(b);
+                    });
+                    return a.concat(ret);
+                }, [
+                    []
+                ]);
+            }
+            return ret;
+        }
+
+        function cartesian(a, b) {
+            var ret = [];
+            if (isArray(a) && isArray(b) && a.length && b.length) {
+                ret = cross(a[0], b).concat(cartesian(a.slice(1), b));
+            }
+            return ret;
+        }
+
+        function compact(arr) {
+            var ret = [];
+            if (isArray(arr) && arr.length) {
+                ret = filter(arr, function (item) {
+                    return !is.isUndefinedOrNull(item);
+                });
+            }
+            return ret;
+        }
+
+        function multiply(arr, times) {
+            times = is.isNumber(times) ? times : 1;
+            if (!times) {
+                //make sure times is greater than zero if it is zero then dont multiply it
+                times = 1;
+            }
+            arr = toArray(arr || []);
+            var ret = [], i = 0;
+            while (++i <= times) {
+                ret = ret.concat(arr);
+            }
+            return ret;
+        }
+
+        function flatten(arr) {
+            var set;
+            var args = argsToArray(arguments);
+            if (args.length > 1) {
+                //assume we are intersections all the lists in the array
+                set = args;
+            } else {
+                set = toArray(arr);
+            }
+            return reduce(set, function (a, b) {
+                return a.concat(b);
+            }, []);
+        }
+
+        function pluck(arr, prop) {
+            prop = prop.split(".");
+            var result = arr.slice(0);
+            forEach(prop, function (prop) {
+                var exec = prop.match(/(\w+)\(\)$/);
+                result = map(result, function (item) {
+                    return exec ? item[exec[1]]() : item[prop];
+                });
+            });
+            return result;
+        }
+
+        function invoke(arr, func, args) {
+            args = argsToArray(arguments, 2);
+            return map(arr, function (item) {
+                var exec = isString(func) ? item[func] : func;
+                return exec.apply(item, args);
+            });
+        }
+
+
+        var array = {
+            toArray: toArray,
+            sum: sum,
+            avg: avg,
+            sort: sort,
+            min: min,
+            max: max,
+            difference: difference,
+            removeDuplicates: removeDuplicates,
+            unique: unique,
+            rotate: rotate,
+            permutations: permutations,
+            zip: zip,
+            transpose: transpose,
+            valuesAt: valuesAt,
+            union: union,
+            intersect: intersect,
+            powerSet: powerSet,
+            cartesian: cartesian,
+            compact: compact,
+            multiply: multiply,
+            flatten: flatten,
+            pluck: pluck,
+            invoke: invoke,
+            forEach: forEach,
+            map: map,
+            filter: filter,
+            reduce: reduce,
+            reduceRight: reduceRight,
+            some: some,
+            every: every,
+            indexOf: indexOf,
+            lastIndexOf: lastIndexOf
+        };
+
+        return extended.define(isArray, array).expose(array);
+    }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            module.exports = defineArray(require("extended"), require("is-extended"), require("arguments-extended"));
+        }
+    } else if ("function" === typeof define && define.amd) {
+        define(["extended", "is-extended", "arguments-extended"], function (extended, is, args) {
+            return defineArray(extended, is, args);
+        });
+    } else {
+        this.arrayExtended = defineArray(this.extended, this.isExtended, this.argumentsExtended);
+    }
+
+}).call(this);
+
+
+
+
+
+
+
+},{"arguments-extended":35,"extended":40,"is-extended":50}],37:[function(require,module,exports){
+(function () {
+    "use strict";
+
+    function defineDate(extended, is, array) {
+
+        function _pad(string, length, ch, end) {
+            string = "" + string; //check for numbers
+            ch = ch || " ";
+            var strLen = string.length;
+            while (strLen < length) {
+                if (end) {
+                    string += ch;
+                } else {
+                    string = ch + string;
+                }
+                strLen++;
+            }
+            return string;
+        }
+
+        function _truncate(string, length, end) {
+            var ret = string;
+            if (is.isString(ret)) {
+                if (string.length > length) {
+                    if (end) {
+                        var l = string.length;
+                        ret = string.substring(l - length, l);
+                    } else {
+                        ret = string.substring(0, length);
+                    }
+                }
+            } else {
+                ret = _truncate("" + ret, length);
+            }
+            return ret;
+        }
+
+        function every(arr, iterator, scope) {
+            if (!is.isArray(arr) || typeof iterator !== "function") {
+                throw new TypeError();
+            }
+            var t = Object(arr);
+            var len = t.length >>> 0;
+            for (var i = 0; i < len; i++) {
+                if (i in t && !iterator.call(scope, t[i], i, t)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+
+        var transforms = (function () {
+                var floor = Math.floor, round = Math.round;
+
+                var addMap = {
+                    day: function addDay(date, amount) {
+                        return [amount, "Date", false];
+                    },
+                    weekday: function addWeekday(date, amount) {
+                        // Divide the increment time span into weekspans plus leftover days
+                        // e.g., 8 days is one 5-day weekspan / and two leftover days
+                        // Can't have zero leftover days, so numbers divisible by 5 get
+                        // a days value of 5, and the remaining days make up the number of weeks
+                        var days, weeks, mod = amount % 5, strt = date.getDay(), adj = 0;
+                        if (!mod) {
+                            days = (amount > 0) ? 5 : -5;
+                            weeks = (amount > 0) ? ((amount - 5) / 5) : ((amount + 5) / 5);
+                        } else {
+                            days = mod;
+                            weeks = parseInt(amount / 5, 10);
+                        }
+                        if (strt === 6 && amount > 0) {
+                            adj = 1;
+                        } else if (strt === 0 && amount < 0) {
+                            // Orig date is Sun / negative increment
+                            // Jump back over Sat
+                            adj = -1;
+                        }
+                        // Get weekday val for the new date
+                        var trgt = strt + days;
+                        // New date is on Sat or Sun
+                        if (trgt === 0 || trgt === 6) {
+                            adj = (amount > 0) ? 2 : -2;
+                        }
+                        // Increment by number of weeks plus leftover days plus
+                        // weekend adjustments
+                        return [(7 * weeks) + days + adj, "Date", false];
+                    },
+                    year: function addYear(date, amount) {
+                        return [amount, "FullYear", true];
+                    },
+                    week: function addWeek(date, amount) {
+                        return [amount * 7, "Date", false];
+                    },
+                    quarter: function addYear(date, amount) {
+                        return [amount * 3, "Month", true];
+                    },
+                    month: function addYear(date, amount) {
+                        return [amount, "Month", true];
+                    }
+                };
+
+                function addTransform(interval, date, amount) {
+                    interval = interval.replace(/s$/, "");
+                    if (addMap.hasOwnProperty(interval)) {
+                        return addMap[interval](date, amount);
+                    }
+                    return [amount, "UTC" + interval.charAt(0).toUpperCase() + interval.substring(1) + "s", false];
+                }
+
+
+                var differenceMap = {
+                    "quarter": function quarterDifference(date1, date2, utc) {
+                        var yearDiff = date2.getFullYear() - date1.getFullYear();
+                        var m1 = date1[utc ? "getUTCMonth" : "getMonth"]();
+                        var m2 = date2[utc ? "getUTCMonth" : "getMonth"]();
+                        // Figure out which quarter the months are in
+                        var q1 = floor(m1 / 3) + 1;
+                        var q2 = floor(m2 / 3) + 1;
+                        // Add quarters for any year difference between the dates
+                        q2 += (yearDiff * 4);
+                        return q2 - q1;
+                    },
+
+                    "weekday": function weekdayDifference(date1, date2, utc) {
+                        var days = differenceTransform("day", date1, date2, utc), weeks;
+                        var mod = days % 7;
+                        // Even number of weeks
+                        if (mod === 0) {
+                            days = differenceTransform("week", date1, date2, utc) * 5;
+                        } else {
+                            // Weeks plus spare change (< 7 days)
+                            var adj = 0, aDay = date1[utc ? "getUTCDay" : "getDay"](), bDay = date2[utc ? "getUTCDay" : "getDay"]();
+                            weeks = parseInt(days / 7, 10);
+                            // Mark the date advanced by the number of
+                            // round weeks (may be zero)
+                            var dtMark = new Date(+date1);
+                            dtMark.setDate(dtMark[utc ? "getUTCDate" : "getDate"]() + (weeks * 7));
+                            var dayMark = dtMark[utc ? "getUTCDay" : "getDay"]();
+
+                            // Spare change days -- 6 or less
+                            if (days > 0) {
+                                if (aDay === 6 || bDay === 6) {
+                                    adj = -1;
+                                } else if (aDay === 0) {
+                                    adj = 0;
+                                } else if (bDay === 0 || (dayMark + mod) > 5) {
+                                    adj = -2;
+                                }
+                            } else if (days < 0) {
+                                if (aDay === 6) {
+                                    adj = 0;
+                                } else if (aDay === 0 || bDay === 0) {
+                                    adj = 1;
+                                } else if (bDay === 6 || (dayMark + mod) < 0) {
+                                    adj = 2;
+                                }
+                            }
+                            days += adj;
+                            days -= (weeks * 2);
+                        }
+                        return days;
+                    },
+                    year: function (date1, date2) {
+                        return date2.getFullYear() - date1.getFullYear();
+                    },
+                    month: function (date1, date2, utc) {
+                        var m1 = date1[utc ? "getUTCMonth" : "getMonth"]();
+                        var m2 = date2[utc ? "getUTCMonth" : "getMonth"]();
+                        return (m2 - m1) + ((date2.getFullYear() - date1.getFullYear()) * 12);
+                    },
+                    week: function (date1, date2, utc) {
+                        return round(differenceTransform("day", date1, date2, utc) / 7);
+                    },
+                    day: function (date1, date2) {
+                        return 1.1574074074074074e-8 * (date2.getTime() - date1.getTime());
+                    },
+                    hour: function (date1, date2) {
+                        return 2.7777777777777776e-7 * (date2.getTime() - date1.getTime());
+                    },
+                    minute: function (date1, date2) {
+                        return 0.000016666666666666667 * (date2.getTime() - date1.getTime());
+                    },
+                    second: function (date1, date2) {
+                        return 0.001 * (date2.getTime() - date1.getTime());
+                    },
+                    millisecond: function (date1, date2) {
+                        return date2.getTime() - date1.getTime();
+                    }
+                };
+
+
+                function differenceTransform(interval, date1, date2, utc) {
+                    interval = interval.replace(/s$/, "");
+                    return round(differenceMap[interval](date1, date2, utc));
+                }
+
+
+                return {
+                    addTransform: addTransform,
+                    differenceTransform: differenceTransform
+                };
+            }()),
+            addTransform = transforms.addTransform,
+            differenceTransform = transforms.differenceTransform;
+
+
+        /**
+         * @ignore
+         * Based on DOJO Date Implementation
+         *
+         * Dojo is available under *either* the terms of the modified BSD license *or* the
+         * Academic Free License version 2.1. As a recipient of Dojo, you may choose which
+         * license to receive this code under (except as noted in per-module LICENSE
+         * files). Some modules may not be the copyright of the Dojo Foundation. These
+         * modules contain explicit declarations of copyright in both the LICENSE files in
+         * the directories in which they reside and in the code itself. No external
+         * contributions are allowed under licenses which are fundamentally incompatible
+         * with the AFL or BSD licenses that Dojo is distributed under.
+         *
+         */
+
+        var floor = Math.floor, round = Math.round, min = Math.min, pow = Math.pow, ceil = Math.ceil, abs = Math.abs;
+        var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        var monthAbbr = ["Jan.", "Feb.", "Mar.", "Apr.", "May.", "Jun.", "Jul.", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."];
+        var dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        var dayAbbr = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        var eraNames = ["Before Christ", "Anno Domini"];
+        var eraAbbr = ["BC", "AD"];
+
+
+        function getDayOfYear(/*Date*/dateObject, utc) {
+            // summary: gets the day of the year as represented by dateObject
+            return date.difference(new Date(dateObject.getFullYear(), 0, 1, dateObject.getHours()), dateObject, null, utc) + 1; // Number
+        }
+
+        function getWeekOfYear(/*Date*/dateObject, /*Number*/firstDayOfWeek, utc) {
+            firstDayOfWeek = firstDayOfWeek || 0;
+            var fullYear = dateObject[utc ? "getUTCFullYear" : "getFullYear"]();
+            var firstDayOfYear = new Date(fullYear, 0, 1).getDay(),
+                adj = (firstDayOfYear - firstDayOfWeek + 7) % 7,
+                week = floor((getDayOfYear(dateObject) + adj - 1) / 7);
+
+            // if year starts on the specified day, start counting weeks at 1
+            if (firstDayOfYear === firstDayOfWeek) {
+                week++;
+            }
+
+            return week; // Number
+        }
+
+        function getTimezoneName(/*Date*/dateObject) {
+            var str = dateObject.toString();
+            var tz = '';
+            var pos = str.indexOf('(');
+            if (pos > -1) {
+                tz = str.substring(++pos, str.indexOf(')'));
+            }
+            return tz; // String
+        }
+
+
+        function buildDateEXP(pattern, tokens) {
+            return pattern.replace(/([a-z])\1*/ig,function (match) {
+                // Build a simple regexp.  Avoid captures, which would ruin the tokens list
+                var s,
+                    c = match.charAt(0),
+                    l = match.length,
+                    p2 = '0?',
+                    p3 = '0{0,2}';
+                if (c === 'y') {
+                    s = '\\d{2,4}';
+                } else if (c === "M") {
+                    s = (l > 2) ? '\\S+?' : '1[0-2]|' + p2 + '[1-9]';
+                } else if (c === "D") {
+                    s = '[12][0-9][0-9]|3[0-5][0-9]|36[0-6]|' + p3 + '[1-9][0-9]|' + p2 + '[1-9]';
+                } else if (c === "d") {
+                    s = '3[01]|[12]\\d|' + p2 + '[1-9]';
+                } else if (c === "w") {
+                    s = '[1-4][0-9]|5[0-3]|' + p2 + '[1-9]';
+                } else if (c === "E") {
+                    s = '\\S+';
+                } else if (c === "h") {
+                    s = '1[0-2]|' + p2 + '[1-9]';
+                } else if (c === "K") {
+                    s = '1[01]|' + p2 + '\\d';
+                } else if (c === "H") {
+                    s = '1\\d|2[0-3]|' + p2 + '\\d';
+                } else if (c === "k") {
+                    s = '1\\d|2[0-4]|' + p2 + '[1-9]';
+                } else if (c === "m" || c === "s") {
+                    s = '[0-5]\\d';
+                } else if (c === "S") {
+                    s = '\\d{' + l + '}';
+                } else if (c === "a") {
+                    var am = 'AM', pm = 'PM';
+                    s = am + '|' + pm;
+                    if (am !== am.toLowerCase()) {
+                        s += '|' + am.toLowerCase();
+                    }
+                    if (pm !== pm.toLowerCase()) {
+                        s += '|' + pm.toLowerCase();
+                    }
+                    s = s.replace(/\./g, "\\.");
+                } else if (c === 'v' || c === 'z' || c === 'Z' || c === 'G' || c === 'q' || c === 'Q') {
+                    s = ".*";
+                } else {
+                    s = c === " " ? "\\s*" : c + "*";
+                }
+                if (tokens) {
+                    tokens.push(match);
+                }
+
+                return "(" + s + ")"; // add capture
+            }).replace(/[\xa0 ]/g, "[\\s\\xa0]"); // normalize whitespace.  Need explicit handling of \xa0 for IE.
+        }
+
+
+        /**
+         * @namespace Utilities for Dates
+         */
+        var date = {
+
+            /**@lends date*/
+
+            /**
+             * Returns the number of days in the month of a date
+             *
+             * @example
+             *
+             *  dateExtender.getDaysInMonth(new Date(2006, 1, 1)); //28
+             *  dateExtender.getDaysInMonth(new Date(2004, 1, 1)); //29
+             *  dateExtender.getDaysInMonth(new Date(2006, 2, 1)); //31
+             *  dateExtender.getDaysInMonth(new Date(2006, 3, 1)); //30
+             *  dateExtender.getDaysInMonth(new Date(2006, 4, 1)); //31
+             *  dateExtender.getDaysInMonth(new Date(2006, 5, 1)); //30
+             *  dateExtender.getDaysInMonth(new Date(2006, 6, 1)); //31
+             * @param {Date} dateObject the date containing the month
+             * @return {Number} the number of days in the month
+             */
+            getDaysInMonth: function (/*Date*/dateObject) {
+                //	summary:
+                //		Returns the number of days in the month used by dateObject
+                var month = dateObject.getMonth();
+                var days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+                if (month === 1 && date.isLeapYear(dateObject)) {
+                    return 29;
+                } // Number
+                return days[month]; // Number
+            },
+
+            /**
+             * Determines if a date is a leap year
+             *
+             * @example
+             *
+             *  dateExtender.isLeapYear(new Date(1600, 0, 1)); //true
+             *  dateExtender.isLeapYear(new Date(2004, 0, 1)); //true
+             *  dateExtender.isLeapYear(new Date(2000, 0, 1)); //true
+             *  dateExtender.isLeapYear(new Date(2006, 0, 1)); //false
+             *  dateExtender.isLeapYear(new Date(1900, 0, 1)); //false
+             *  dateExtender.isLeapYear(new Date(1800, 0, 1)); //false
+             *  dateExtender.isLeapYear(new Date(1700, 0, 1)); //false
+             *
+             * @param {Date} dateObject
+             * @returns {Boolean} true if it is a leap year false otherwise
+             */
+            isLeapYear: function (/*Date*/dateObject, utc) {
+                var year = dateObject[utc ? "getUTCFullYear" : "getFullYear"]();
+                return (year % 400 === 0) || (year % 4 === 0 && year % 100 !== 0);
+
+            },
+
+            /**
+             * Determines if a date is on a weekend
+             *
+             * @example
+             *
+             * var thursday = new Date(2006, 8, 21);
+             * var saturday = new Date(2006, 8, 23);
+             * var sunday = new Date(2006, 8, 24);
+             * var monday = new Date(2006, 8, 25);
+             * dateExtender.isWeekend(thursday)); //false
+             * dateExtender.isWeekend(saturday); //true
+             * dateExtender.isWeekend(sunday); //true
+             * dateExtender.isWeekend(monday)); //false
+             *
+             * @param {Date} dateObject the date to test
+             *
+             * @returns {Boolean} true if the date is a weekend
+             */
+            isWeekend: function (/*Date?*/dateObject, utc) {
+                // summary:
+                //	Determines if the date falls on a weekend, according to local custom.
+                var day = (dateObject || new Date())[utc ? "getUTCDay" : "getDay"]();
+                return day === 0 || day === 6;
+            },
+
+            /**
+             * Get the timezone of a date
+             *
+             * @example
+             *  //just setting the strLocal to simulate the toString() of a date
+             *  dt.str = 'Sun Sep 17 2006 22:25:51 GMT-0500 (CDT)';
+             *  //just setting the strLocal to simulate the locale
+             *  dt.strLocale = 'Sun 17 Sep 2006 10:25:51 PM CDT';
+             *  dateExtender.getTimezoneName(dt); //'CDT'
+             *  dt.str = 'Sun Sep 17 2006 22:57:18 GMT-0500 (CDT)';
+             *  dt.strLocale = 'Sun Sep 17 22:57:18 2006';
+             *  dateExtender.getTimezoneName(dt); //'CDT'
+             * @param dateObject the date to get the timezone from
+             *
+             * @returns {String} the timezone of the date
+             */
+            getTimezoneName: getTimezoneName,
+
+            /**
+             * Compares two dates
+             *
+             * @example
+             *
+             * var d1 = new Date();
+             * d1.setHours(0);
+             * dateExtender.compare(d1, d1); // 0
+             *
+             *  var d1 = new Date();
+             *  d1.setHours(0);
+             *  var d2 = new Date();
+             *  d2.setFullYear(2005);
+             *  d2.setHours(12);
+             *  dateExtender.compare(d1, d2, "date"); // 1
+             *  dateExtender.compare(d1, d2, "datetime"); // 1
+             *
+             *  var d1 = new Date();
+             *  d1.setHours(0);
+             *  var d2 = new Date();
+             *  d2.setFullYear(2005);
+             *  d2.setHours(12);
+             *  dateExtender.compare(d2, d1, "date"); // -1
+             *  dateExtender.compare(d1, d2, "time"); //-1
+             *
+             * @param {Date|String} date1 the date to comapare
+             * @param {Date|String} [date2=new Date()] the date to compare date1 againse
+             * @param {"date"|"time"|"datetime"} portion compares the portion specified
+             *
+             * @returns -1 if date1 is < date2 0 if date1 === date2  1 if date1 > date2
+             */
+            compare: function (/*Date*/date1, /*Date*/date2, /*String*/portion) {
+                date1 = new Date(+date1);
+                date2 = new Date(+(date2 || new Date()));
+
+                if (portion === "date") {
+                    // Ignore times and compare dates.
+                    date1.setHours(0, 0, 0, 0);
+                    date2.setHours(0, 0, 0, 0);
+                } else if (portion === "time") {
+                    // Ignore dates and compare times.
+                    date1.setFullYear(0, 0, 0);
+                    date2.setFullYear(0, 0, 0);
+                }
+                return date1 > date2 ? 1 : date1 < date2 ? -1 : 0;
+            },
+
+
+            /**
+             * Adds a specified interval and amount to a date
+             *
+             * @example
+             *  var dtA = new Date(2005, 11, 27);
+             *  dateExtender.add(dtA, "year", 1); //new Date(2006, 11, 27);
+             *  dateExtender.add(dtA, "years", 1); //new Date(2006, 11, 27);
+             *
+             *  dtA = new Date(2000, 0, 1);
+             *  dateExtender.add(dtA, "quarter", 1); //new Date(2000, 3, 1);
+             *  dateExtender.add(dtA, "quarters", 1); //new Date(2000, 3, 1);
+             *
+             *  dtA = new Date(2000, 0, 1);
+             *  dateExtender.add(dtA, "month", 1); //new Date(2000, 1, 1);
+             *  dateExtender.add(dtA, "months", 1); //new Date(2000, 1, 1);
+             *
+             *  dtA = new Date(2000, 0, 31);
+             *  dateExtender.add(dtA, "month", 1); //new Date(2000, 1, 29);
+             *  dateExtender.add(dtA, "months", 1); //new Date(2000, 1, 29);
+             *
+             *  dtA = new Date(2000, 0, 1);
+             *  dateExtender.add(dtA, "week", 1); //new Date(2000, 0, 8);
+             *  dateExtender.add(dtA, "weeks", 1); //new Date(2000, 0, 8);
+             *
+             *  dtA = new Date(2000, 0, 1);
+             *  dateExtender.add(dtA, "day", 1); //new Date(2000, 0, 2);
+             *
+             *  dtA = new Date(2000, 0, 1);
+             *  dateExtender.add(dtA, "weekday", 1); //new Date(2000, 0, 3);
+             *
+             *  dtA = new Date(2000, 0, 1, 11);
+             *  dateExtender.add(dtA, "hour", 1); //new Date(2000, 0, 1, 12);
+             *
+             *  dtA = new Date(2000, 11, 31, 23, 59);
+             *  dateExtender.add(dtA, "minute", 1); //new Date(2001, 0, 1, 0, 0);
+             *
+             *  dtA = new Date(2000, 11, 31, 23, 59, 59);
+             *  dateExtender.add(dtA, "second", 1); //new Date(2001, 0, 1, 0, 0, 0);
+             *
+             *  dtA = new Date(2000, 11, 31, 23, 59, 59, 999);
+             *  dateExtender.add(dtA, "millisecond", 1); //new Date(2001, 0, 1, 0, 0, 0, 0);
+             *
+             * @param {Date} date
+             * @param {String} interval the interval to add
+             *  <ul>
+             *      <li>day | days</li>
+             *      <li>weekday | weekdays</li>
+             *      <li>year | years</li>
+             *      <li>week | weeks</li>
+             *      <li>quarter | quarters</li>
+             *      <li>months | months</li>
+             *      <li>hour | hours</li>
+             *      <li>minute | minutes</li>
+             *      <li>second | seconds</li>
+             *      <li>millisecond | milliseconds</li>
+             *  </ul>
+             * @param {Number} [amount=0] the amount to add
+             */
+            add: function (/*Date*/date, /*String*/interval, /*int*/amount) {
+                var res = addTransform(interval, date, amount || 0);
+                amount = res[0];
+                var property = res[1];
+                var sum = new Date(+date);
+                var fixOvershoot = res[2];
+                if (property) {
+                    sum["set" + property](sum["get" + property]() + amount);
+                }
+
+                if (fixOvershoot && (sum.getDate() < date.getDate())) {
+                    sum.setDate(0);
+                }
+
+                return sum; // Date
+            },
+
+            /**
+             * Finds the difference between two dates based on the specified interval
+             *
+             * @example
+             *
+             * var dtA, dtB;
+             *
+             * dtA = new Date(2005, 11, 27);
+             * dtB = new Date(2006, 11, 27);
+             * dateExtender.difference(dtA, dtB, "year"); //1
+             *
+             * dtA = new Date(2000, 1, 29);
+             * dtB = new Date(2001, 2, 1);
+             * dateExtender.difference(dtA, dtB, "quarter"); //4
+             * dateExtender.difference(dtA, dtB, "month"); //13
+             *
+             * dtA = new Date(2000, 1, 1);
+             * dtB = new Date(2000, 1, 8);
+             * dateExtender.difference(dtA, dtB, "week"); //1
+             *
+             * dtA = new Date(2000, 1, 29);
+             * dtB = new Date(2000, 2, 1);
+             * dateExtender.difference(dtA, dtB, "day"); //1
+             *
+             * dtA = new Date(2006, 7, 3);
+             * dtB = new Date(2006, 7, 11);
+             * dateExtender.difference(dtA, dtB, "weekday"); //6
+             *
+             * dtA = new Date(2000, 11, 31, 23);
+             * dtB = new Date(2001, 0, 1, 0);
+             * dateExtender.difference(dtA, dtB, "hour"); //1
+             *
+             * dtA = new Date(2000, 11, 31, 23, 59);
+             * dtB = new Date(2001, 0, 1, 0, 0);
+             * dateExtender.difference(dtA, dtB, "minute"); //1
+             *
+             * dtA = new Date(2000, 11, 31, 23, 59, 59);
+             * dtB = new Date(2001, 0, 1, 0, 0, 0);
+             * dateExtender.difference(dtA, dtB, "second"); //1
+             *
+             * dtA = new Date(2000, 11, 31, 23, 59, 59, 999);
+             * dtB = new Date(2001, 0, 1, 0, 0, 0, 0);
+             * dateExtender.difference(dtA, dtB, "millisecond"); //1
+             *
+             *
+             * @param {Date} date1
+             * @param {Date} [date2 = new Date()]
+             * @param {String} [interval = "day"] the intercal to find the difference of.
+             *   <ul>
+             *      <li>day | days</li>
+             *      <li>weekday | weekdays</li>
+             *      <li>year | years</li>
+             *      <li>week | weeks</li>
+             *      <li>quarter | quarters</li>
+             *      <li>months | months</li>
+             *      <li>hour | hours</li>
+             *      <li>minute | minutes</li>
+             *      <li>second | seconds</li>
+             *      <li>millisecond | milliseconds</li>
+             *  </ul>
+             */
+            difference: function (/*Date*/date1, /*Date?*/date2, /*String*/interval, utc) {
+                date2 = date2 || new Date();
+                interval = interval || "day";
+                return differenceTransform(interval, date1, date2, utc);
+            },
+
+            /**
+             * Formats a date to the specidifed format string
+             *
+             * @example
+             *
+             * var date = new Date(2006, 7, 11, 0, 55, 12, 345);
+             * dateExtender.format(date, "EEEE, MMMM dd, yyyy"); //"Friday, August 11, 2006"
+             * dateExtender.format(date, "M/dd/yy"); //"8/11/06"
+             * dateExtender.format(date, "E"); //"6"
+             * dateExtender.format(date, "h:m a"); //"12:55 AM"
+             * dateExtender.format(date, 'h:m:s'); //"12:55:12"
+             * dateExtender.format(date, 'h:m:s.SS'); //"12:55:12.35"
+             * dateExtender.format(date, 'k:m:s.SS'); //"24:55:12.35"
+             * dateExtender.format(date, 'H:m:s.SS'); //"0:55:12.35"
+             * dateExtender.format(date, "ddMMyyyy"); //"11082006"
+             *
+             * @param date the date to format
+             * @param {String} format the format of the date composed of the following options
+             * <ul>
+             *                  <li> G    Era designator    Text    AD</li>
+             *                  <li> y    Year    Year    1996; 96</li>
+             *                  <li> M    Month in year    Month    July; Jul; 07</li>
+             *                  <li> w    Week in year    Number    27</li>
+             *                  <li> W    Week in month    Number    2</li>
+             *                  <li> D    Day in year    Number    189</li>
+             *                  <li> d    Day in month    Number    10</li>
+             *                  <li> E    Day in week    Text    Tuesday; Tue</li>
+             *                  <li> a    Am/pm marker    Text    PM</li>
+             *                  <li> H    Hour in day (0-23)    Number    0</li>
+             *                  <li> k    Hour in day (1-24)    Number    24</li>
+             *                  <li> K    Hour in am/pm (0-11)    Number    0</li>
+             *                  <li> h    Hour in am/pm (1-12)    Number    12</li>
+             *                  <li> m    Minute in hour    Number    30</li>
+             *                  <li> s    Second in minute    Number    55</li>
+             *                  <li> S    Millisecond    Number    978</li>
+             *                  <li> z    Time zone    General time zone    Pacific Standard Time; PST; GMT-08:00</li>
+             *                  <li> Z    Time zone    RFC 822 time zone    -0800 </li>
+             * </ul>
+             */
+            format: function (date, format, utc) {
+                utc = utc || false;
+                var fullYear, month, day, d, hour, minute, second, millisecond;
+                if (utc) {
+                    fullYear = date.getUTCFullYear();
+                    month = date.getUTCMonth();
+                    day = date.getUTCDay();
+                    d = date.getUTCDate();
+                    hour = date.getUTCHours();
+                    minute = date.getUTCMinutes();
+                    second = date.getUTCSeconds();
+                    millisecond = date.getUTCMilliseconds();
+                } else {
+                    fullYear = date.getFullYear();
+                    month = date.getMonth();
+                    d = date.getDate();
+                    day = date.getDay();
+                    hour = date.getHours();
+                    minute = date.getMinutes();
+                    second = date.getSeconds();
+                    millisecond = date.getMilliseconds();
+                }
+                return format.replace(/([A-Za-z])\1*/g, function (match) {
+                    var s, pad,
+                        c = match.charAt(0),
+                        l = match.length;
+                    if (c === 'd') {
+                        s = "" + d;
+                        pad = true;
+                    } else if (c === "H" && !s) {
+                        s = "" + hour;
+                        pad = true;
+                    } else if (c === 'm' && !s) {
+                        s = "" + minute;
+                        pad = true;
+                    } else if (c === 's') {
+                        if (!s) {
+                            s = "" + second;
+                        }
+                        pad = true;
+                    } else if (c === "G") {
+                        s = ((l < 4) ? eraAbbr : eraNames)[fullYear < 0 ? 0 : 1];
+                    } else if (c === "y") {
+                        s = fullYear;
+                        if (l > 1) {
+                            if (l === 2) {
+                                s = _truncate("" + s, 2, true);
+                            } else {
+                                pad = true;
+                            }
+                        }
+                    } else if (c.toUpperCase() === "Q") {
+                        s = ceil((month + 1) / 3);
+                        pad = true;
+                    } else if (c === "M") {
+                        if (l < 3) {
+                            s = month + 1;
+                            pad = true;
+                        } else {
+                            s = (l === 3 ? monthAbbr : monthNames)[month];
+                        }
+                    } else if (c === "w") {
+                        s = getWeekOfYear(date, 0, utc);
+                        pad = true;
+                    } else if (c === "D") {
+                        s = getDayOfYear(date, utc);
+                        pad = true;
+                    } else if (c === "E") {
+                        if (l < 3) {
+                            s = day + 1;
+                            pad = true;
+                        } else {
+                            s = (l === -3 ? dayAbbr : dayNames)[day];
+                        }
+                    } else if (c === 'a') {
+                        s = (hour < 12) ? 'AM' : 'PM';
+                    } else if (c === "h") {
+                        s = (hour % 12) || 12;
+                        pad = true;
+                    } else if (c === "K") {
+                        s = (hour % 12);
+                        pad = true;
+                    } else if (c === "k") {
+                        s = hour || 24;
+                        pad = true;
+                    } else if (c === "S") {
+                        s = round(millisecond * pow(10, l - 3));
+                        pad = true;
+                    } else if (c === "z" || c === "v" || c === "Z") {
+                        s = getTimezoneName(date);
+                        if ((c === "z" || c === "v") && !s) {
+                            l = 4;
+                        }
+                        if (!s || c === "Z") {
+                            var offset = date.getTimezoneOffset();
+                            var tz = [
+                                (offset >= 0 ? "-" : "+"),
+                                _pad(floor(abs(offset) / 60), 2, "0"),
+                                _pad(abs(offset) % 60, 2, "0")
+                            ];
+                            if (l === 4) {
+                                tz.splice(0, 0, "GMT");
+                                tz.splice(3, 0, ":");
+                            }
+                            s = tz.join("");
+                        }
+                    } else {
+                        s = match;
+                    }
+                    if (pad) {
+                        s = _pad(s, l, '0');
+                    }
+                    return s;
+                });
+            }
+
+        };
+
+        var numberDate = {};
+
+        function addInterval(interval) {
+            numberDate[interval + "sFromNow"] = function (val) {
+                return date.add(new Date(), interval, val);
+            };
+            numberDate[interval + "sAgo"] = function (val) {
+                return date.add(new Date(), interval, -val);
+            };
+        }
+
+        var intervals = ["year", "month", "day", "hour", "minute", "second"];
+        for (var i = 0, l = intervals.length; i < l; i++) {
+            addInterval(intervals[i]);
+        }
+
+        var stringDate = {
+
+            parseDate: function (dateStr, format) {
+                if (!format) {
+                    throw new Error('format required when calling dateExtender.parse');
+                }
+                var tokens = [], regexp = buildDateEXP(format, tokens),
+                    re = new RegExp("^" + regexp + "$", "i"),
+                    match = re.exec(dateStr);
+                if (!match) {
+                    return null;
+                } // null
+                var result = [1970, 0, 1, 0, 0, 0, 0], // will get converted to a Date at the end
+                    amPm = "",
+                    valid = every(match, function (v, i) {
+                        if (i) {
+                            var token = tokens[i - 1];
+                            var l = token.length, type = token.charAt(0);
+                            if (type === 'y') {
+                                if (v < 100) {
+                                    v = parseInt(v, 10);
+                                    //choose century to apply, according to a sliding window
+                                    //of 80 years before and 20 years after present year
+                                    var year = '' + new Date().getFullYear(),
+                                        century = year.substring(0, 2) * 100,
+                                        cutoff = min(year.substring(2, 4) + 20, 99);
+                                    result[0] = (v < cutoff) ? century + v : century - 100 + v;
+                                } else {
+                                    result[0] = v;
+                                }
+                            } else if (type === "M") {
+                                if (l > 2) {
+                                    var months = monthNames, j, k;
+                                    if (l === 3) {
+                                        months = monthAbbr;
+                                    }
+                                    //Tolerate abbreviating period in month part
+                                    //Case-insensitive comparison
+                                    v = v.replace(".", "").toLowerCase();
+                                    var contains = false;
+                                    for (j = 0, k = months.length; j < k && !contains; j++) {
+                                        var s = months[j].replace(".", "").toLocaleLowerCase();
+                                        if (s === v) {
+                                            v = j;
+                                            contains = true;
+                                        }
+                                    }
+                                    if (!contains) {
+                                        return false;
+                                    }
+                                } else {
+                                    v--;
+                                }
+                                result[1] = v;
+                            } else if (type === "E" || type === "e") {
+                                var days = dayNames;
+                                if (l === 3) {
+                                    days = dayAbbr;
+                                }
+                                //Case-insensitive comparison
+                                v = v.toLowerCase();
+                                days = array.map(days, function (d) {
+                                    return d.toLowerCase();
+                                });
+                                var d = array.indexOf(days, v);
+                                if (d === -1) {
+                                    v = parseInt(v, 10);
+                                    if (isNaN(v) || v > days.length) {
+                                        return false;
+                                    }
+                                } else {
+                                    v = d;
+                                }
+                            } else if (type === 'D' || type === "d") {
+                                if (type === "D") {
+                                    result[1] = 0;
+                                }
+                                result[2] = v;
+                            } else if (type === "a") {
+                                var am = "am";
+                                var pm = "pm";
+                                var period = /\./g;
+                                v = v.replace(period, '').toLowerCase();
+                                // we might not have seen the hours field yet, so store the state and apply hour change later
+                                amPm = (v === pm) ? 'p' : (v === am) ? 'a' : '';
+                            } else if (type === "k" || type === "h" || type === "H" || type === "K") {
+                                if (type === "k" && (+v) === 24) {
+                                    v = 0;
+                                }
+                                result[3] = v;
+                            } else if (type === "m") {
+                                result[4] = v;
+                            } else if (type === "s") {
+                                result[5] = v;
+                            } else if (type === "S") {
+                                result[6] = v;
+                            }
+                        }
+                        return true;
+                    });
+                if (valid) {
+                    var hours = +result[3];
+                    //account for am/pm
+                    if (amPm === 'p' && hours < 12) {
+                        result[3] = hours + 12; //e.g., 3pm -> 15
+                    } else if (amPm === 'a' && hours === 12) {
+                        result[3] = 0; //12am -> 0
+                    }
+                    var dateObject = new Date(result[0], result[1], result[2], result[3], result[4], result[5], result[6]); // Date
+                    var dateToken = (array.indexOf(tokens, 'd') !== -1),
+                        monthToken = (array.indexOf(tokens, 'M') !== -1),
+                        month = result[1],
+                        day = result[2],
+                        dateMonth = dateObject.getMonth(),
+                        dateDay = dateObject.getDate();
+                    if ((monthToken && dateMonth > month) || (dateToken && dateDay > day)) {
+                        return null;
+                    }
+                    return dateObject; // Date
+                } else {
+                    return null;
+                }
+            }
+        };
+
+
+        var ret = extended.define(is.isDate, date).define(is.isString, stringDate).define(is.isNumber, numberDate);
+        for (i in date) {
+            if (date.hasOwnProperty(i)) {
+                ret[i] = date[i];
+            }
+        }
+
+        for (i in stringDate) {
+            if (stringDate.hasOwnProperty(i)) {
+                ret[i] = stringDate[i];
+            }
+        }
+        for (i in numberDate) {
+            if (numberDate.hasOwnProperty(i)) {
+                ret[i] = numberDate[i];
+            }
+        }
+        return ret;
+    }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            module.exports = defineDate(require("extended"), require("is-extended"), require("array-extended"));
+
+        }
+    } else if ("function" === typeof define && define.amd) {
+        define(["extended", "is-extended", "array-extended"], function (extended, is, arr) {
+            return defineDate(extended, is, arr);
+        });
+    } else {
+        this.dateExtended = defineDate(this.extended, this.isExtended, this.arrayExtended);
+    }
+
+}).call(this);
+
+
+
+
+
+
+
+},{"array-extended":36,"extended":40,"is-extended":50}],38:[function(require,module,exports){
+(function () {
+
+    /**
+     * @projectName declare
+     * @github http://github.com/doug-martin/declare.js
+     * @header
+     *
+     * Declare is a library designed to allow writing object oriented code the same way in both the browser and node.js.
+     *
+     * ##Installation
+     *
+     * `npm install declare.js`
+     *
+     * Or [download the source](https://raw.github.com/doug-martin/declare.js/master/declare.js) ([minified](https://raw.github.com/doug-martin/declare.js/master/declare-min.js))
+     *
+     * ###Requirejs
+     *
+     * To use with requirejs place the `declare` source in the root scripts directory
+     *
+     * ```
+     *
+     * define(["declare"], function(declare){
+     *      return declare({
+     *          instance : {
+     *              hello : function(){
+     *                  return "world";
+     *              }
+     *          }
+     *      });
+     * });
+     *
+     * ```
+     *
+     *
+     * ##Usage
+     *
+     * declare.js provides
+     *
+     * Class methods
+     *
+     * * `as(module | object, name)` : exports the object to module or the object with the name
+     * * `mixin(mixin)` : mixes in an object but does not inherit directly from the object. **Note** this does not return a new class but changes the original class.
+     * * `extend(proto)` : extend a class with the given properties. A shortcut to `declare(Super, {})`;
+     *
+     * Instance methods
+     *
+     * * `_super(arguments)`: calls the super of the current method, you can pass in either the argments object or an array with arguments you want passed to super
+     * * `_getSuper()`: returns a this methods direct super.
+     * * `_static` : use to reference class properties and methods.
+     * * `get(prop)` : gets a property invoking the getter if it exists otherwise it just returns the named property on the object.
+     * * `set(prop, val)` : sets a property invoking the setter if it exists otherwise it just sets the named property on the object.
+     *
+     *
+     * ###Declaring a new Class
+     *
+     * Creating a new class with declare is easy!
+     *
+     * ```
+     *
+     * var Mammal = declare({
+     *      //define your instance methods and properties
+     *      instance : {
+     *
+     *          //will be called whenever a new instance is created
+     *          constructor: function(options) {
+     *              options = options || {};
+     *              this._super(arguments);
+     *              this._type = options.type || "mammal";
+     *          },
+     *
+     *          speak : function() {
+     *              return  "A mammal of type " + this._type + " sounds like";
+     *          },
+     *
+     *          //Define your getters
+     *          getters : {
+     *
+     *              //can be accessed by using the get method. (mammal.get("type"))
+     *              type : function() {
+     *                  return this._type;
+     *              }
+     *          },
+     *
+     *           //Define your setters
+     *          setters : {
+     *
+     *                //can be accessed by using the set method. (mammal.set("type", "mammalType"))
+     *              type : function(t) {
+     *                  this._type = t;
+     *              }
+     *          }
+     *      },
+     *
+     *      //Define your static methods
+     *      static : {
+     *
+     *          //Mammal.soundOff(); //"Im a mammal!!"
+     *          soundOff : function() {
+     *              return "Im a mammal!!";
+     *          }
+     *      }
+     * });
+     *
+     *
+     * ```
+     *
+     * You can use Mammal just like you would any other class.
+     *
+     * ```
+     * Mammal.soundOff("Im a mammal!!");
+     *
+     * var myMammal = new Mammal({type : "mymammal"});
+     * myMammal.speak(); // "A mammal of type mymammal sounds like"
+     * myMammal.get("type"); //"mymammal"
+     * myMammal.set("type", "mammal");
+     * myMammal.get("type"); //"mammal"
+     *
+     *
+     * ```
+     *
+     * ###Extending a class
+     *
+     * If you want to just extend a single class use the .extend method.
+     *
+     * ```
+     *
+     * var Wolf = Mammal.extend({
+     *
+     *   //define your instance method
+     *   instance: {
+     *
+     *        //You can override super constructors just be sure to call `_super`
+     *       constructor: function(options) {
+     *          options = options || {};
+     *          this._super(arguments); //call our super constructor.
+     *          this._sound = "growl";
+     *          this._color = options.color || "grey";
+     *      },
+     *
+     *      //override Mammals `speak` method by appending our own data to it.
+     *      speak : function() {
+     *          return this._super(arguments) + " a " + this._sound;
+     *      },
+     *
+     *      //add new getters for sound and color
+     *      getters : {
+     *
+     *           //new Wolf().get("type")
+     *           //notice color is read only as we did not define a setter
+     *          color : function() {
+     *              return this._color;
+     *          },
+     *
+     *          //new Wolf().get("sound")
+     *          sound : function() {
+     *              return this._sound;
+     *          }
+     *      },
+     *
+     *      setters : {
+     *
+     *          //new Wolf().set("sound", "howl")
+     *          sound : function(s) {
+     *              this._sound = s;
+     *          }
+     *      }
+     *
+     *  },
+     *
+     *  static : {
+     *
+     *      //You can override super static methods also! And you can still use _super
+     *      soundOff : function() {
+     *          //You can even call super in your statics!!!
+     *          //should return "I'm a mammal!! that growls"
+     *          return this._super(arguments) + " that growls";
+     *      }
+     *  }
+     * });
+     *
+     * Wolf.soundOff(); //Im a mammal!! that growls
+     *
+     * var myWolf = new Wolf();
+     * myWolf instanceof Mammal //true
+     * myWolf instanceof Wolf //true
+     *
+     * ```
+     *
+     * You can also extend a class by using the declare method and just pass in the super class.
+     *
+     * ```
+     * //Typical hierarchical inheritance
+     * // Mammal->Wolf->Dog
+     * var Dog = declare(Wolf, {
+     *    instance: {
+     *        constructor: function(options) {
+     *            options = options || {};
+     *            this._super(arguments);
+     *            //override Wolfs initialization of sound to woof.
+     *            this._sound = "woof";
+     *
+     *        },
+     *
+     *        speak : function() {
+     *            //Should return "A mammal of type mammal sounds like a growl thats domesticated"
+     *            return this._super(arguments) + " thats domesticated";
+     *        }
+     *    },
+     *
+     *    static : {
+     *        soundOff : function() {
+     *            //should return "I'm a mammal!! that growls but now barks"
+     *            return this._super(arguments) + " but now barks";
+     *        }
+     *    }
+     * });
+     *
+     * Dog.soundOff(); //Im a mammal!! that growls but now barks
+     *
+     * var myDog = new Dog();
+     * myDog instanceof Mammal //true
+     * myDog instanceof Wolf //true
+     * myDog instanceof Dog //true
+     *
+     *
+     * //Notice you still get the extend method.
+     *
+     * // Mammal->Wolf->Dog->Breed
+     * var Breed = Dog.extend({
+     *    instance: {
+     *
+     *        //initialize outside of constructor
+     *        _pitch : "high",
+     *
+     *        constructor: function(options) {
+     *            options = options || {};
+     *            this._super(arguments);
+     *            this.breed = options.breed || "lab";
+     *        },
+     *
+     *        speak : function() {
+     *            //Should return "A mammal of type mammal sounds like a
+     *            //growl thats domesticated with a high pitch!"
+     *            return this._super(arguments) + " with a " + this._pitch + " pitch!";
+     *        },
+     *
+     *        getters : {
+     *            pitch : function() {
+     *                return this._pitch;
+     *            }
+     *        }
+     *    },
+     *
+     *    static : {
+     *        soundOff : function() {
+     *            //should return "I'M A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
+     *            return this._super(arguments).toUpperCase() + "!";
+     *        }
+     *    }
+     * });
+     *
+     *
+     * Breed.soundOff()//"IM A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
+     *
+     * var myBreed = new Breed({color : "gold", type : "lab"}),
+     * myBreed instanceof Dog //true
+     * myBreed instanceof Wolf //true
+     * myBreed instanceof Mammal //true
+     * myBreed.speak() //"A mammal of type lab sounds like a woof thats domesticated with a high pitch!"
+     * myBreed.get("type") //"lab"
+     * myBreed.get("color") //"gold"
+     * myBreed.get("sound")" //"woof"
+     * ```
+     *
+     * ###Multiple Inheritance / Mixins
+     *
+     * declare also allows the use of multiple super classes.
+     * This is useful if you have generic classes that provide functionality but shouldnt be used on their own.
+     *
+     * Lets declare a mixin that allows us to watch for property changes.
+     *
+     * ```
+     * //Notice that we set up the functions outside of declare because we can reuse them
+     *
+     * function _set(prop, val) {
+     *     //get the old value
+     *     var oldVal = this.get(prop);
+     *     //call super to actually set the property
+     *     var ret = this._super(arguments);
+     *     //call our handlers
+     *     this.__callHandlers(prop, oldVal, val);
+     *     return ret;
+     * }
+     *
+     * function _callHandlers(prop, oldVal, newVal) {
+     *    //get our handlers for the property
+     *     var handlers = this.__watchers[prop], l;
+     *     //if the handlers exist and their length does not equal 0 then we call loop through them
+     *     if (handlers && (l = handlers.length) !== 0) {
+     *         for (var i = 0; i < l; i++) {
+     *             //call the handler
+     *             handlers[i].call(null, prop, oldVal, newVal);
+     *         }
+     *     }
+     * }
+     *
+     *
+     * //the watch function
+     * function _watch(prop, handler) {
+     *     if ("function" !== typeof handler) {
+     *         //if its not a function then its an invalid handler
+     *         throw new TypeError("Invalid handler.");
+     *     }
+     *     if (!this.__watchers[prop]) {
+     *         //create the watchers if it doesnt exist
+     *         this.__watchers[prop] = [handler];
+     *     } else {
+     *         //otherwise just add it to the handlers array
+     *         this.__watchers[prop].push(handler);
+     *     }
+     * }
+     *
+     * function _unwatch(prop, handler) {
+     *     if ("function" !== typeof handler) {
+     *         throw new TypeError("Invalid handler.");
+     *     }
+     *     var handlers = this.__watchers[prop], index;
+     *     if (handlers && (index = handlers.indexOf(handler)) !== -1) {
+     *        //remove the handler if it is found
+     *         handlers.splice(index, 1);
+     *     }
+     * }
+     *
+     * declare({
+     *     instance:{
+     *         constructor:function () {
+     *             this._super(arguments);
+     *             //set up our watchers
+     *             this.__watchers = {};
+     *         },
+     *
+     *         //override the default set function so we can watch values
+     *         "set":_set,
+     *         //set up our callhandlers function
+     *         __callHandlers:_callHandlers,
+     *         //add the watch function
+     *         watch:_watch,
+     *         //add the unwatch function
+     *         unwatch:_unwatch
+     *     },
+     *
+     *     "static":{
+     *
+     *         init:function () {
+     *             this._super(arguments);
+     *             this.__watchers = {};
+     *         },
+     *         //override the default set function so we can watch values
+     *         "set":_set,
+     *         //set our callHandlers function
+     *         __callHandlers:_callHandlers,
+     *         //add the watch
+     *         watch:_watch,
+     *         //add the unwatch function
+     *         unwatch:_unwatch
+     *     }
+     * })
+     *
+     * ```
+     *
+     * Now lets use the mixin
+     *
+     * ```
+     * var WatchDog = declare([Dog, WatchMixin]);
+     *
+     * var watchDog = new WatchDog();
+     * //create our handler
+     * function watch(id, oldVal, newVal) {
+     *     console.log("watchdog's %s was %s, now %s", id, oldVal, newVal);
+     * }
+     *
+     * //watch for property changes
+     * watchDog.watch("type", watch);
+     * watchDog.watch("color", watch);
+     * watchDog.watch("sound", watch);
+     *
+     * //now set the properties each handler will be called
+     * watchDog.set("type", "newDog");
+     * watchDog.set("color", "newColor");
+     * watchDog.set("sound", "newSound");
+     *
+     *
+     * //unwatch the property changes
+     * watchDog.unwatch("type", watch);
+     * watchDog.unwatch("color", watch);
+     * watchDog.unwatch("sound", watch);
+     *
+     * //no handlers will be called this time
+     * watchDog.set("type", "newDog");
+     * watchDog.set("color", "newColor");
+     * watchDog.set("sound", "newSound");
+     *
+     *
+     * ```
+     *
+     * ###Accessing static methods and properties witin an instance.
+     *
+     * To access static properties on an instance use the `_static` property which is a reference to your constructor.
+     *
+     * For example if your in your constructor and you want to have configurable default values.
+     *
+     * ```
+     * consturctor : function constructor(opts){
+     *     this.opts = opts || {};
+     *     this._type = opts.type || this._static.DEFAULT_TYPE;
+     * }
+     * ```
+     *
+     *
+     *
+     * ###Creating a new instance of within an instance.
+     *
+     * Often times you want to create a new instance of an object within an instance. If your subclassed however you cannot return a new instance of the parent class as it will not be the right sub class. `declare` provides a way around this by setting the `_static` property on each isntance of the class.
+     *
+     * Lets add a reproduce method `Mammal`
+     *
+     * ```
+     * reproduce : function(options){
+     *     return new this._static(options);
+     * }
+     * ```
+     *
+     * Now in each subclass you can call reproduce and get the proper type.
+     *
+     * ```
+     * var myDog = new Dog();
+     * var myDogsChild = myDog.reproduce();
+     *
+     * myDogsChild instanceof Dog; //true
+     * ```
+     *
+     * ###Using the `as`
+     *
+     * `declare` also provides an `as` method which allows you to add your class to an object or if your using node.js you can pass in `module` and the class will be exported as the module.
+     *
+     * ```
+     * var animals = {};
+     *
+     * Mammal.as(animals, "Dog");
+     * Wolf.as(animals, "Wolf");
+     * Dog.as(animals, "Dog");
+     * Breed.as(animals, "Breed");
+     *
+     * var myDog = new animals.Dog();
+     *
+     * ```
+     *
+     * Or in node
+     *
+     * ```
+     * Mammal.as(exports, "Dog");
+     * Wolf.as(exports, "Wolf");
+     * Dog.as(exports, "Dog");
+     * Breed.as(exports, "Breed");
+     *
+     * ```
+     *
+     * To export a class as the `module` in node
+     *
+     * ```
+     * Mammal.as(module);
+     * ```
+     *
+     *
+     */
+    function createDeclared() {
+        var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
+
+        var SUPER_REGEXP = /(super)/g;
+
+        function argsToArray(args, slice) {
+            slice = slice || 0;
+            return arraySlice.call(args, slice);
+        }
+
+        function isArray(obj) {
+            return Object.prototype.toString.call(obj) === "[object Array]";
+        }
+
+        function isObject(obj) {
+            var undef;
+            return obj !== null && obj !== undef && typeof obj === "object";
+        }
+
+        function isHash(obj) {
+            var ret = isObject(obj);
+            return ret && obj.constructor === Object;
+        }
+
+        var isArguments = function _isArguments(object) {
+            return Object.prototype.toString.call(object) === '[object Arguments]';
+        };
+
+        if (!isArguments(arguments)) {
+            isArguments = function _isArguments(obj) {
+                return !!(obj && obj.hasOwnProperty("callee"));
+            };
+        }
+
+        function indexOf(arr, item) {
+            if (arr && arr.length) {
+                for (var i = 0, l = arr.length; i < l; i++) {
+                    if (arr[i] === item) {
+                        return i;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        function merge(target, source, exclude) {
+            var name, s;
+            for (name in source) {
+                if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
+                    s = source[name];
+                    if (!(name in target) || (target[name] !== s)) {
+                        target[name] = s;
+                    }
+                }
+            }
+            return target;
+        }
+
+        function callSuper(args, a) {
+            var meta = this.__meta,
+                supers = meta.supers,
+                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
+            if (l > pos) {
+                args = !args ? [] : (!isArguments(args) && !isArray(args)) ? [args] : args;
+                var name = superMeta.name, f = superMeta.f, m;
+                do {
+                    m = supers[pos][name];
+                    if ("function" === typeof m && (m = m._f || m) !== f) {
+                        superMeta.pos = 1 + pos;
+                        return m.apply(this, args);
+                    }
+                } while (l > ++pos);
+            }
+
+            return null;
+        }
+
+        function getSuper() {
+            var meta = this.__meta,
+                supers = meta.supers,
+                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
+            if (l > pos) {
+                var name = superMeta.name, f = superMeta.f, m;
+                do {
+                    m = supers[pos][name];
+                    if ("function" === typeof m && (m = m._f || m) !== f) {
+                        superMeta.pos = 1 + pos;
+                        return m.bind(this);
+                    }
+                } while (l > ++pos);
+            }
+            return null;
+        }
+
+        function getter(name) {
+            var getters = this.__getters__;
+            if (getters.hasOwnProperty(name)) {
+                return getters[name].apply(this);
+            } else {
+                return this[name];
+            }
+        }
+
+        function setter(name, val) {
+            var setters = this.__setters__;
+            if (isHash(name)) {
+                for (var i in name) {
+                    var prop = name[i];
+                    if (setters.hasOwnProperty(i)) {
+                        setters[name].call(this, prop);
+                    } else {
+                        this[i] = prop;
+                    }
+                }
+            } else {
+                if (setters.hasOwnProperty(name)) {
+                    return setters[name].apply(this, argsToArray(arguments, 1));
+                } else {
+                    return this[name] = val;
+                }
+            }
+        }
+
+
+        function defaultFunction() {
+            var meta = this.__meta || {},
+                supers = meta.supers,
+                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
+            if (l > pos) {
+                var name = superMeta.name, f = superMeta.f, m;
+                do {
+                    m = supers[pos][name];
+                    if ("function" === typeof m && (m = m._f || m) !== f) {
+                        superMeta.pos = 1 + pos;
+                        return m.apply(this, arguments);
+                    }
+                } while (l > ++pos);
+            }
+            return null;
+        }
+
+
+        function functionWrapper(f, name) {
+            if (f.toString().match(SUPER_REGEXP)) {
+                var wrapper = function wrapper() {
+                    var ret, meta = this.__meta || {};
+                    var orig = meta.superMeta;
+                    meta.superMeta = {f: f, pos: 0, name: name};
+                    switch (arguments.length) {
+                    case 0:
+                        ret = f.call(this);
+                        break;
+                    case 1:
+                        ret = f.call(this, arguments[0]);
+                        break;
+                    case 2:
+                        ret = f.call(this, arguments[0], arguments[1]);
+                        break;
+
+                    case 3:
+                        ret = f.call(this, arguments[0], arguments[1], arguments[2]);
+                        break;
+                    default:
+                        ret = f.apply(this, arguments);
+                    }
+                    meta.superMeta = orig;
+                    return ret;
+                };
+                wrapper._f = f;
+                return wrapper;
+            } else {
+                f._f = f;
+                return f;
+            }
+        }
+
+        function defineMixinProps(child, proto) {
+
+            var operations = proto.setters || {}, __setters = child.__setters__, __getters = child.__getters__;
+            for (var i in operations) {
+                if (!__setters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
+                    __setters[i] = operations[i];
+                }
+            }
+            operations = proto.getters || {};
+            for (i in operations) {
+                if (!__getters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
+                    __getters[i] = operations[i];
+                }
+            }
+            for (var j in proto) {
+                if (j !== "getters" && j !== "setters") {
+                    var p = proto[j];
+                    if ("function" === typeof p) {
+                        if (!child.hasOwnProperty(j)) {
+                            child[j] = functionWrapper(defaultFunction, j);
+                        }
+                    } else {
+                        child[j] = p;
+                    }
+                }
+            }
+        }
+
+        function mixin() {
+            var args = argsToArray(arguments), l = args.length;
+            var child = this.prototype;
+            var childMeta = child.__meta, thisMeta = this.__meta, bases = child.__meta.bases, staticBases = bases.slice(),
+                staticSupers = thisMeta.supers || [], supers = childMeta.supers || [];
+            for (var i = 0; i < l; i++) {
+                var m = args[i], mProto = m.prototype;
+                var protoMeta = mProto.__meta, meta = m.__meta;
+                !protoMeta && (protoMeta = (mProto.__meta = {proto: mProto || {}}));
+                !meta && (meta = (m.__meta = {proto: m.__proto__ || {}}));
+                defineMixinProps(child, protoMeta.proto || {});
+                defineMixinProps(this, meta.proto || {});
+                //copy the bases for static,
+
+                mixinSupers(m.prototype, supers, bases);
+                mixinSupers(m, staticSupers, staticBases);
+            }
+            return this;
+        }
+
+        function mixinSupers(sup, arr, bases) {
+            var meta = sup.__meta;
+            !meta && (meta = (sup.__meta = {}));
+            var unique = sup.__meta.unique;
+            !unique && (meta.unique = "declare" + ++classCounter);
+            //check it we already have this super mixed into our prototype chain
+            //if true then we have already looped their supers!
+            if (indexOf(bases, unique) === -1) {
+                //add their id to our bases
+                bases.push(unique);
+                var supers = sup.__meta.supers || [], i = supers.length - 1 || 0;
+                while (i >= 0) {
+                    mixinSupers(supers[i--], arr, bases);
+                }
+                arr.unshift(sup);
+            }
+        }
+
+        function defineProps(child, proto) {
+            var operations = proto.setters,
+                __setters = child.__setters__,
+                __getters = child.__getters__;
+            if (operations) {
+                for (var i in operations) {
+                    __setters[i] = operations[i];
+                }
+            }
+            operations = proto.getters || {};
+            if (operations) {
+                for (i in operations) {
+                    __getters[i] = operations[i];
+                }
+            }
+            for (i in proto) {
+                if (i != "getters" && i != "setters") {
+                    var f = proto[i];
+                    if ("function" === typeof f) {
+                        var meta = f.__meta || {};
+                        if (!meta.isConstructor) {
+                            child[i] = functionWrapper(f, i);
+                        } else {
+                            child[i] = f;
+                        }
+                    } else {
+                        child[i] = f;
+                    }
+                }
+            }
+
+        }
+
+        function _export(obj, name) {
+            if (obj && name) {
+                obj[name] = this;
+            } else {
+                obj.exports = obj = this;
+            }
+            return this;
+        }
+
+        function extend(proto) {
+            return declare(this, proto);
+        }
+
+        function getNew(ctor) {
+            // create object with correct prototype using a do-nothing
+            // constructor
+            forceNew.prototype = ctor.prototype;
+            var t = new forceNew();
+            forceNew.prototype = null;	// clean up
+            return t;
+        }
+
+
+        function __declare(child, sup, proto) {
+            var childProto = {}, supers = [];
+            var unique = "declare" + ++classCounter, bases = [], staticBases = [];
+            var instanceSupers = [], staticSupers = [];
+            var meta = {
+                supers: instanceSupers,
+                unique: unique,
+                bases: bases,
+                superMeta: {
+                    f: null,
+                    pos: 0,
+                    name: null
+                }
+            };
+            var childMeta = {
+                supers: staticSupers,
+                unique: unique,
+                bases: staticBases,
+                isConstructor: true,
+                superMeta: {
+                    f: null,
+                    pos: 0,
+                    name: null
+                }
+            };
+
+            if (isHash(sup) && !proto) {
+                proto = sup;
+                sup = Base;
+            }
+
+            if ("function" === typeof sup || isArray(sup)) {
+                supers = isArray(sup) ? sup : [sup];
+                sup = supers.shift();
+                child.__meta = childMeta;
+                childProto = getNew(sup);
+                childProto.__meta = meta;
+                childProto.__getters__ = merge({}, childProto.__getters__ || {});
+                childProto.__setters__ = merge({}, childProto.__setters__ || {});
+                child.__getters__ = merge({}, child.__getters__ || {});
+                child.__setters__ = merge({}, child.__setters__ || {});
+                mixinSupers(sup.prototype, instanceSupers, bases);
+                mixinSupers(sup, staticSupers, staticBases);
+            } else {
+                child.__meta = childMeta;
+                childProto.__meta = meta;
+                childProto.__getters__ = childProto.__getters__ || {};
+                childProto.__setters__ = childProto.__setters__ || {};
+                child.__getters__ = child.__getters__ || {};
+                child.__setters__ = child.__setters__ || {};
+            }
+            child.prototype = childProto;
+            if (proto) {
+                var instance = meta.proto = proto.instance || {};
+                var stat = childMeta.proto = proto.static || {};
+                stat.init = stat.init || defaultFunction;
+                defineProps(childProto, instance);
+                defineProps(child, stat);
+                if (!instance.hasOwnProperty("constructor")) {
+                    childProto.constructor = instance.constructor = functionWrapper(defaultFunction, "constructor");
+                } else {
+                    childProto.constructor = functionWrapper(instance.constructor, "constructor");
+                }
+            } else {
+                meta.proto = {};
+                childMeta.proto = {};
+                child.init = functionWrapper(defaultFunction, "init");
+                childProto.constructor = functionWrapper(defaultFunction, "constructor");
+            }
+            if (supers.length) {
+                mixin.apply(child, supers);
+            }
+            if (sup) {
+                //do this so we mixin our super methods directly but do not ov
+                merge(child, merge(merge({}, sup), child));
+            }
+            childProto._super = child._super = callSuper;
+            childProto._getSuper = child._getSuper = getSuper;
+            childProto._static = child;
+        }
+
+        function declare(sup, proto) {
+            function declared() {
+                switch (arguments.length) {
+                case 0:
+                    this.constructor.call(this);
+                    break;
+                case 1:
+                    this.constructor.call(this, arguments[0]);
+                    break;
+                case 2:
+                    this.constructor.call(this, arguments[0], arguments[1]);
+                    break;
+                case 3:
+                    this.constructor.call(this, arguments[0], arguments[1], arguments[2]);
+                    break;
+                default:
+                    this.constructor.apply(this, arguments);
+                }
+            }
+
+            __declare(declared, sup, proto);
+            return declared.init() || declared;
+        }
+
+        function singleton(sup, proto) {
+            var retInstance;
+
+            function declaredSingleton() {
+                if (!retInstance) {
+                    this.constructor.apply(this, arguments);
+                    retInstance = this;
+                }
+                return retInstance;
+            }
+
+            __declare(declaredSingleton, sup, proto);
+            return  declaredSingleton.init() || declaredSingleton;
+        }
+
+        Base = declare({
+            instance: {
+                "get": getter,
+                "set": setter
+            },
+
+            "static": {
+                "get": getter,
+                "set": setter,
+                mixin: mixin,
+                extend: extend,
+                as: _export
+            }
+        });
+
+        declare.singleton = singleton;
+        return declare;
+    }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            module.exports = createDeclared();
+        }
+    } else if ("function" === typeof define && define.amd) {
+        define(createDeclared);
+    } else {
+        this.declare = createDeclared();
+    }
+}());
+
+
+
+
+},{}],39:[function(require,module,exports){
+module.exports = require("./declare.js");
+},{"./declare.js":38}],40:[function(require,module,exports){
+(function () {
+    "use strict";
+    /*global extender is, dateExtended*/
+
+    function defineExtended(extender) {
+
+
+        var merge = (function merger() {
+            function _merge(target, source) {
+                var name, s;
+                for (name in source) {
+                    if (source.hasOwnProperty(name)) {
+                        s = source[name];
+                        if (!(name in target) || (target[name] !== s)) {
+                            target[name] = s;
+                        }
+                    }
+                }
+                return target;
+            }
+
+            return function merge(obj) {
+                if (!obj) {
+                    obj = {};
+                }
+                for (var i = 1, l = arguments.length; i < l; i++) {
+                    _merge(obj, arguments[i]);
+                }
+                return obj; // Object
+            };
+        }());
+
+        function getExtended() {
+
+            var loaded = {};
+
+
+            //getInitial instance;
+            var extended = extender.define();
+            extended.expose({
+                register: function register(alias, extendWith) {
+                    if (!extendWith) {
+                        extendWith = alias;
+                        alias = null;
+                    }
+                    var type = typeof extendWith;
+                    if (alias) {
+                        extended[alias] = extendWith;
+                    } else if (extendWith && type === "function") {
+                        extended.extend(extendWith);
+                    } else if (type === "object") {
+                        extended.expose(extendWith);
+                    } else {
+                        throw new TypeError("extended.register must be called with an extender function");
+                    }
+                    return extended;
+                },
+
+                define: function () {
+                    return extender.define.apply(extender, arguments);
+                }
+            });
+
+            return extended;
+        }
+
+        function extended() {
+            return getExtended();
+        }
+
+        extended.define = function define() {
+            return extender.define.apply(extender, arguments);
+        };
+
+        return extended;
+    }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            module.exports = defineExtended(require("extender"));
+
+        }
+    } else if ("function" === typeof define && define.amd) {
+        define(["extender"], function (extender) {
+            return defineExtended(extender);
+        });
+    } else {
+        this.extended = defineExtended(this.extender);
+    }
+
+}).call(this);
+
+
+
+
+
+
+
+},{"extender":42}],41:[function(require,module,exports){
+(function () {
+    /*jshint strict:false*/
+
+
+    /**
+     *
+     * @projectName extender
+     * @github http://github.com/doug-martin/extender
+     * @header
+     * [![build status](https://secure.travis-ci.org/doug-martin/extender.png)](http://travis-ci.org/doug-martin/extender)
+     * # Extender
+     *
+     * `extender` is a library that helps in making chainable APIs, by creating a function that accepts different values and returns an object decorated with functions based on the type.
+     *
+     * ## Why Is Extender Different?
+     *
+     * Extender is different than normal chaining because is does more than return `this`. It decorates your values in a type safe manner.
+     *
+     * For example if you return an array from a string based method then the returned value will be decorated with array methods and not the string methods. This allow you as the developer to focus on your API and not worrying about how to properly build and connect your API.
+     *
+     *
+     * ## Installation
+     *
+     * ```
+     * npm install extender
+     * ```
+     *
+     * Or [download the source](https://raw.github.com/doug-martin/extender/master/extender.js) ([minified](https://raw.github.com/doug-martin/extender/master/extender-min.js))
+     *
+     * **Note** `extender` depends on [`declare.js`](http://doug-martin.github.com/declare.js/).
+     *
+     * ### Requirejs
+     *
+     * To use with requirejs place the `extend` source in the root scripts directory
+     *
+     * ```javascript
+     *
+     * define(["extender"], function(extender){
+     * });
+     *
+     * ```
+     *
+     *
+     * ## Usage
+     *
+     * **`extender.define(tester, decorations)`**
+     *
+     * To create your own extender call the `extender.define` function.
+     *
+     * This function accepts an optional tester which is used to determine a value should be decorated with the specified `decorations`
+     *
+     * ```javascript
+     * function isString(obj) {
+     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
+     * }
+     *
+     *
+     * var myExtender = extender.define(isString, {
+     *		multiply: function (str, times) {
+     *			var ret = str;
+     *			for (var i = 1; i < times; i++) {
+     *				ret += str;
+     *			}
+     *			return ret;
+     *		},
+     *		toArray: function (str, delim) {
+     *			delim = delim || "";
+     *			return str.split(delim);
+     *		}
+     *	});
+     *
+     * myExtender("hello").multiply(2).value(); //hellohello
+     *
+     * ```
+     *
+     * If you do not specify a tester function and just pass in an object of `functions` then all values passed in will be decorated with methods.
+     *
+     * ```javascript
+     *
+     * function isUndefined(obj) {
+     *     var undef;
+     *     return obj === undef;
+     * }
+     *
+     * function isUndefinedOrNull(obj) {
+     *	var undef;
+     *     return obj === undef || obj === null;
+     * }
+     *
+     * function isArray(obj) {
+     *     return Object.prototype.toString.call(obj) === "[object Array]";
+     * }
+     *
+     * function isBoolean(obj) {
+     *     var undef, type = typeof obj;
+     *     return !isUndefinedOrNull(obj) && type === "boolean" || type === "Boolean";
+     * }
+     *
+     * function isString(obj) {
+     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
+     * }
+     *
+     * var myExtender = extender.define({
+     *	isUndefined : isUndefined,
+     *	isUndefinedOrNull : isUndefinedOrNull,
+     *	isArray : isArray,
+     *	isBoolean : isBoolean,
+     *	isString : isString
+     * });
+     *
+     * ```
+     *
+     * To use
+     *
+     * ```
+     * var undef;
+     * myExtender("hello").isUndefined().value(); //false
+     * myExtender(undef).isUndefined().value(); //true
+     * ```
+     *
+     * You can also chain extenders so that they accept multiple types and decorates accordingly.
+     *
+     * ```javascript
+     * myExtender
+     *     .define(isArray, {
+     *		pluck: function (arr, m) {
+     *			var ret = [];
+     *			for (var i = 0, l = arr.length; i < l; i++) {
+     *				ret.push(arr[i][m]);
+     *			}
+     *			return ret;
+     *		}
+     *	})
+     *     .define(isBoolean, {
+     *		invert: function (val) {
+     *			return !val;
+     *		}
+     *	});
+     *
+     * myExtender([{a: "a"},{a: "b"},{a: "c"}]).pluck("a").value(); //["a", "b", "c"]
+     * myExtender("I love javascript!").toArray(/\s+/).pluck("0"); //["I", "l", "j"]
+     *
+     * ```
+     *
+     * Notice that we reuse the same extender as defined above.
+     *
+     * **Return Values**
+     *
+     * When creating an extender if you return a value from one of the decoration functions then that value will also be decorated. If you do not return any values then the extender will be returned.
+     *
+     * **Default decoration methods**
+     *
+     * By default every value passed into an extender is decorated with the following methods.
+     *
+     * * `value` : The value this extender represents.
+     * * `eq(otherValue)` : Tests strict equality of the currently represented value to the `otherValue`
+     * * `neq(oterValue)` : Tests strict inequality of the currently represented value.
+     * * `print` : logs the current value to the console.
+     *
+     * **Extender initialization**
+     *
+     * When creating an extender you can also specify a constructor which will be invoked with the current value.
+     *
+     * ```javascript
+     * myExtender.define(isString, {
+     *	constructor : function(val){
+     *     //set our value to the string trimmed
+     *		this._value = val.trimRight().trimLeft();
+     *	}
+     * });
+     * ```
+     *
+     * **`noWrap`**
+     *
+     * `extender` also allows you to specify methods that should not have the value wrapped providing a cleaner exit function other than `value()`.
+     *
+     * For example suppose you have an API that allows you to build a validator, rather than forcing the user to invoke the `value` method you could add a method called `validator` which makes more syntactic sense.
+     *
+     * ```
+     *
+     * var myValidator = extender.define({
+     *     //chainable validation methods
+     *     //...
+     *     //end chainable validation methods
+     *
+     *     noWrap : {
+     *         validator : function(){
+     *             //return your validator
+     *         }
+     *     }
+     * });
+     *
+     * myValidator().isNotNull().isEmailAddress().validator(); //now you dont need to call .value()
+     *
+     *
+     * ```
+     * **`extender.extend(extendr)`**
+     *
+     * You may also compose extenders through the use of `extender.extend(extender)`, which will return an entirely new extender that is the composition of extenders.
+     *
+     * Suppose you have the following two extenders.
+     *
+     * ```javascript
+     * var myExtender = extender
+     *        .define({
+     *            isFunction: is.function,
+     *            isNumber: is.number,
+     *            isString: is.string,
+     *            isDate: is.date,
+     *            isArray: is.array,
+     *            isBoolean: is.boolean,
+     *            isUndefined: is.undefined,
+     *            isDefined: is.defined,
+     *            isUndefinedOrNull: is.undefinedOrNull,
+     *            isNull: is.null,
+     *            isArguments: is.arguments,
+     *            isInstanceOf: is.instanceOf,
+     *            isRegExp: is.regExp
+     *        });
+     * var myExtender2 = extender.define(is.array, {
+     *     pluck: function (arr, m) {
+     *         var ret = [];
+     *         for (var i = 0, l = arr.length; i < l; i++) {
+     *             ret.push(arr[i][m]);
+     *         }
+     *         return ret;
+     *     },
+     *
+     *     noWrap: {
+     *         pluckPlain: function (arr, m) {
+     *             var ret = [];
+     *             for (var i = 0, l = arr.length; i < l; i++) {
+     *                 ret.push(arr[i][m]);
+     *             }
+     *             return ret;
+     *         }
+     *     }
+     * });
+     *
+     *
+     * ```
+     *
+     * And you do not want to alter either of them but instead what to create a third that is the union of the two.
+     *
+     *
+     * ```javascript
+     * var composed = extender.extend(myExtender).extend(myExtender2);
+     * ```
+     * So now you can use the new extender with the joined functionality if `myExtender` and `myExtender2`.
+     *
+     * ```javascript
+     * var extended = composed([
+     *      {a: "a"},
+     *      {a: "b"},
+     *      {a: "c"}
+     * ]);
+     * extended.isArray().value(); //true
+     * extended.pluck("a").value(); // ["a", "b", "c"]);
+     *
+     * ```
+     *
+     * **Note** `myExtender` and `myExtender2` will **NOT** be altered.
+     *
+     * **`extender.expose(methods)`**
+     *
+     * The `expose` method allows you to add methods to your extender that are not wrapped or automatically chained by exposing them on the extender directly.
+     *
+     * ```
+     * var isMethods = {
+     *      isFunction: is.function,
+     *      isNumber: is.number,
+     *      isString: is.string,
+     *      isDate: is.date,
+     *      isArray: is.array,
+     *      isBoolean: is.boolean,
+     *      isUndefined: is.undefined,
+     *      isDefined: is.defined,
+     *      isUndefinedOrNull: is.undefinedOrNull,
+     *      isNull: is.null,
+     *      isArguments: is.arguments,
+     *      isInstanceOf: is.instanceOf,
+     *      isRegExp: is.regExp
+     * };
+     *
+     * var myExtender = extender.define(isMethods).expose(isMethods);
+     *
+     * myExtender.isArray([]); //true
+     * myExtender([]).isArray([]).value(); //true
+     *
+     * ```
+     *
+     *
+     * **Using `instanceof`**
+     *
+     * When using extenders you can test if a value is an `instanceof` of an extender by using the instanceof operator.
+     *
+     * ```javascript
+     * var str = myExtender("hello");
+     *
+     * str instanceof myExtender; //true
+     * ```
+     *
+     * ## Examples
+     *
+     * To see more examples click [here](https://github.com/doug-martin/extender/tree/master/examples)
+     */
+    function defineExtender(declare) {
+
+
+        var slice = Array.prototype.slice, undef;
+
+        function indexOf(arr, item) {
+            if (arr && arr.length) {
+                for (var i = 0, l = arr.length; i < l; i++) {
+                    if (arr[i] === item) {
+                        return i;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        function isArray(obj) {
+            return Object.prototype.toString.call(obj) === "[object Array]";
+        }
+
+        var merge = (function merger() {
+            function _merge(target, source, exclude) {
+                var name, s;
+                for (name in source) {
+                    if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
+                        s = source[name];
+                        if (!(name in target) || (target[name] !== s)) {
+                            target[name] = s;
+                        }
+                    }
+                }
+                return target;
+            }
+
+            return function merge(obj) {
+                if (!obj) {
+                    obj = {};
+                }
+                var l = arguments.length;
+                var exclude = arguments[arguments.length - 1];
+                if (isArray(exclude)) {
+                    l--;
+                } else {
+                    exclude = [];
+                }
+                for (var i = 1; i < l; i++) {
+                    _merge(obj, arguments[i], exclude);
+                }
+                return obj; // Object
+            };
+        }());
+
+
+        function extender(supers) {
+            supers = supers || [];
+            var Base = declare({
+                instance: {
+                    constructor: function (value) {
+                        this._value = value;
+                    },
+
+                    value: function () {
+                        return this._value;
+                    },
+
+                    eq: function eq(val) {
+                        return this["__extender__"](this._value === val);
+                    },
+
+                    neq: function neq(other) {
+                        return this["__extender__"](this._value !== other);
+                    },
+                    print: function () {
+                        console.log(this._value);
+                        return this;
+                    }
+                }
+            }), defined = [];
+
+            function addMethod(proto, name, func) {
+                if ("function" !== typeof func) {
+                    throw new TypeError("when extending type you must provide a function");
+                }
+                var extendedMethod;
+                if (name === "constructor") {
+                    extendedMethod = function () {
+                        this._super(arguments);
+                        func.apply(this, arguments);
+                    };
+                } else {
+                    extendedMethod = function extendedMethod() {
+                        var args = slice.call(arguments);
+                        args.unshift(this._value);
+                        var ret = func.apply(this, args);
+                        return ret !== undef ? this["__extender__"](ret) : this;
+                    };
+                }
+                proto[name] = extendedMethod;
+            }
+
+            function addNoWrapMethod(proto, name, func) {
+                if ("function" !== typeof func) {
+                    throw new TypeError("when extending type you must provide a function");
+                }
+                var extendedMethod;
+                if (name === "constructor") {
+                    extendedMethod = function () {
+                        this._super(arguments);
+                        func.apply(this, arguments);
+                    };
+                } else {
+                    extendedMethod = function extendedMethod() {
+                        var args = slice.call(arguments);
+                        args.unshift(this._value);
+                        return func.apply(this, args);
+                    };
+                }
+                proto[name] = extendedMethod;
+            }
+
+            function decorateProto(proto, decoration, nowrap) {
+                for (var i in decoration) {
+                    if (decoration.hasOwnProperty(i)) {
+                        if (i !== "getters" && i !== "setters") {
+                            if (i === "noWrap") {
+                                decorateProto(proto, decoration[i], true);
+                            } else if (nowrap) {
+                                addNoWrapMethod(proto, i, decoration[i]);
+                            } else {
+                                addMethod(proto, i, decoration[i]);
+                            }
+                        } else {
+                            proto[i] = decoration[i];
+                        }
+                    }
+                }
+            }
+
+            function _extender(obj) {
+                var ret = obj, i, l;
+                if (!(obj instanceof Base)) {
+                    var OurBase = Base;
+                    for (i = 0, l = defined.length; i < l; i++) {
+                        var definer = defined[i];
+                        if (definer[0](obj)) {
+                            OurBase = OurBase.extend({instance: definer[1]});
+                        }
+                    }
+                    ret = new OurBase(obj);
+                    ret["__extender__"] = _extender;
+                }
+                return ret;
+            }
+
+            function always() {
+                return true;
+            }
+
+            function define(tester, decorate) {
+                if (arguments.length) {
+                    if (typeof tester === "object") {
+                        decorate = tester;
+                        tester = always;
+                    }
+                    decorate = decorate || {};
+                    var proto = {};
+                    decorateProto(proto, decorate);
+                    //handle browsers like which skip over the constructor while looping
+                    if (!proto.hasOwnProperty("constructor")) {
+                        if (decorate.hasOwnProperty("constructor")) {
+                            addMethod(proto, "constructor", decorate.constructor);
+                        } else {
+                            proto.constructor = function () {
+                                this._super(arguments);
+                            };
+                        }
+                    }
+                    defined.push([tester, proto]);
+                }
+                return _extender;
+            }
+
+            function extend(supr) {
+                if (supr && supr.hasOwnProperty("__defined__")) {
+                    _extender["__defined__"] = defined = defined.concat(supr["__defined__"]);
+                }
+                merge(_extender, supr, ["define", "extend", "expose", "__defined__"]);
+                return _extender;
+            }
+
+            _extender.define = define;
+            _extender.extend = extend;
+            _extender.expose = function expose() {
+                var methods;
+                for (var i = 0, l = arguments.length; i < l; i++) {
+                    methods = arguments[i];
+                    if (typeof methods === "object") {
+                        merge(_extender, methods, ["define", "extend", "expose", "__defined__"]);
+                    }
+                }
+                return _extender;
+            };
+            _extender["__defined__"] = defined;
+
+
+            return _extender;
+        }
+
+        return {
+            define: function () {
+                return extender().define.apply(extender, arguments);
+            },
+
+            extend: function (supr) {
+                return extender().define().extend(supr);
+            }
+        };
+
+    }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            module.exports = defineExtender(require("declare.js"));
+
+        }
+    } else if ("function" === typeof define && define.amd) {
+        define(["declare"], function (declare) {
+            return defineExtender(declare);
+        });
+    } else {
+        this.extender = defineExtender(this.declare);
+    }
+
+}).call(this);
+},{"declare.js":39}],42:[function(require,module,exports){
+module.exports = require("./extender.js");
+},{"./extender.js":41}],43:[function(require,module,exports){
+(function () {
+    "use strict";
+
+    function defineFunction(extended, is, args) {
+
+        var isArray = is.isArray,
+            isObject = is.isObject,
+            isString = is.isString,
+            isFunction = is.isFunction,
+            argsToArray = args.argsToArray;
+
+        function hitch(scope, method, args) {
+            args = argsToArray(arguments, 2);
+            if ((isString(method) && !(method in scope))) {
+                throw new Error(method + " property not defined in scope");
+            } else if (!isString(method) && !isFunction(method)) {
+                throw new Error(method + " is not a function");
+            }
+            if (isString(method)) {
+                return function () {
+                    var func = scope[method];
+                    if (isFunction(func)) {
+                        var scopeArgs = args.concat(argsToArray(arguments));
+                        return func.apply(scope, scopeArgs);
+                    } else {
+                        return func;
+                    }
+                };
+            } else {
+                if (args.length) {
+                    return function () {
+                        var scopeArgs = args.concat(argsToArray(arguments));
+                        return method.apply(scope, scopeArgs);
+                    };
+                } else {
+
+                    return function () {
+                        return method.apply(scope, arguments);
+                    };
+                }
+            }
+        }
+
+
+        function applyFirst(method, args) {
+            args = argsToArray(arguments, 1);
+            if (!isString(method) && !isFunction(method)) {
+                throw new Error(method + " must be the name of a property or function to execute");
+            }
+            if (isString(method)) {
+                return function () {
+                    var scopeArgs = argsToArray(arguments), scope = scopeArgs.shift();
+                    var func = scope[method];
+                    if (isFunction(func)) {
+                        scopeArgs = args.concat(scopeArgs);
+                        return func.apply(scope, scopeArgs);
+                    } else {
+                        return func;
+                    }
+                };
+            } else {
+                return function () {
+                    var scopeArgs = argsToArray(arguments), scope = scopeArgs.shift();
+                    scopeArgs = args.concat(scopeArgs);
+                    return method.apply(scope, scopeArgs);
+                };
+            }
+        }
+
+
+        function hitchIgnore(scope, method, args) {
+            args = argsToArray(arguments, 2);
+            if ((isString(method) && !(method in scope))) {
+                throw new Error(method + " property not defined in scope");
+            } else if (!isString(method) && !isFunction(method)) {
+                throw new Error(method + " is not a function");
+            }
+            if (isString(method)) {
+                return function () {
+                    var func = scope[method];
+                    if (isFunction(func)) {
+                        return func.apply(scope, args);
+                    } else {
+                        return func;
+                    }
+                };
+            } else {
+                return function () {
+                    return method.apply(scope, args);
+                };
+            }
+        }
+
+
+        function hitchAll(scope) {
+            var funcs = argsToArray(arguments, 1);
+            if (!isObject(scope) && !isFunction(scope)) {
+                throw new TypeError("scope must be an object");
+            }
+            if (funcs.length === 1 && isArray(funcs[0])) {
+                funcs = funcs[0];
+            }
+            if (!funcs.length) {
+                funcs = [];
+                for (var k in scope) {
+                    if (scope.hasOwnProperty(k) && isFunction(scope[k])) {
+                        funcs.push(k);
+                    }
+                }
+            }
+            for (var i = 0, l = funcs.length; i < l; i++) {
+                scope[funcs[i]] = hitch(scope, scope[funcs[i]]);
+            }
+            return scope;
+        }
+
+
+        function partial(method, args) {
+            args = argsToArray(arguments, 1);
+            if (!isString(method) && !isFunction(method)) {
+                throw new Error(method + " must be the name of a property or function to execute");
+            }
+            if (isString(method)) {
+                return function () {
+                    var func = this[method];
+                    if (isFunction(func)) {
+                        var scopeArgs = args.concat(argsToArray(arguments));
+                        return func.apply(this, scopeArgs);
+                    } else {
+                        return func;
+                    }
+                };
+            } else {
+                return function () {
+                    var scopeArgs = args.concat(argsToArray(arguments));
+                    return method.apply(this, scopeArgs);
+                };
+            }
+        }
+
+        function curryFunc(f, execute) {
+            return function () {
+                var args = argsToArray(arguments);
+                return execute ? f.apply(this, arguments) : function () {
+                    return f.apply(this, args.concat(argsToArray(arguments)));
+                };
+            };
+        }
+
+
+        function curry(depth, cb, scope) {
+            var f;
+            if (scope) {
+                f = hitch(scope, cb);
+            } else {
+                f = cb;
+            }
+            if (depth) {
+                var len = depth - 1;
+                for (var i = len; i >= 0; i--) {
+                    f = curryFunc(f, i === len);
+                }
+            }
+            return f;
+        }
+
+        return extended
+            .define(isObject, {
+                bind: hitch,
+                bindAll: hitchAll,
+                bindIgnore: hitchIgnore,
+                curry: function (scope, depth, fn) {
+                    return curry(depth, fn, scope);
+                }
+            })
+            .define(isFunction, {
+                bind: function (fn, obj) {
+                    return hitch.apply(this, [obj, fn].concat(argsToArray(arguments, 2)));
+                },
+                bindIgnore: function (fn, obj) {
+                    return hitchIgnore.apply(this, [obj, fn].concat(argsToArray(arguments, 2)));
+                },
+                partial: partial,
+                applyFirst: applyFirst,
+                curry: function (fn, num, scope) {
+                    return curry(num, fn, scope);
+                },
+                noWrap: {
+                    f: function () {
+                        return this.value();
+                    }
+                }
+            })
+            .define(isString, {
+                bind: function (str, scope) {
+                    return hitch(scope, str);
+                },
+                bindIgnore: function (str, scope) {
+                    return hitchIgnore(scope, str);
+                },
+                partial: partial,
+                applyFirst: applyFirst,
+                curry: function (fn, depth, scope) {
+                    return curry(depth, fn, scope);
+                }
+            })
+            .expose({
+                bind: hitch,
+                bindAll: hitchAll,
+                bindIgnore: hitchIgnore,
+                partial: partial,
+                applyFirst: applyFirst,
+                curry: curry
+            });
+
+    }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            module.exports = defineFunction(require("extended"), require("is-extended"), require("arguments-extended"));
+
+        }
+    } else if ("function" === typeof define && define.amd) {
+        define(["extended", "is-extended", "arguments-extended"], function (extended, is, args) {
+            return defineFunction(extended, is, args);
+        });
+    } else {
+        this.functionExtended = defineFunction(this.extended, this.isExtended, this.argumentsExtended);
+    }
+
+}).call(this);
+
+
+
+
+
+
+
+},{"arguments-extended":35,"extended":40,"is-extended":50}],44:[function(require,module,exports){
+var process=require("__browserify_process");if (!process.EventEmitter) process.EventEmitter = function () {};
+
+var EventEmitter = exports.EventEmitter = process.EventEmitter;
+var isArray = typeof Array.isArray === 'function'
+    ? Array.isArray
+    : function (xs) {
+        return Object.prototype.toString.call(xs) === '[object Array]'
+    }
+;
+function indexOf (xs, x) {
+    if (xs.indexOf) return xs.indexOf(x);
+    for (var i = 0; i < xs.length; i++) {
+        if (x === xs[i]) return i;
+    }
+    return -1;
+}
+
+// By default EventEmitters will print a warning if more than
+// 10 listeners are added to it. This is a useful default which
+// helps finding memory leaks.
+//
+// Obviously not all Emitters should be limited to 10. This function allows
+// that to be increased. Set to zero for unlimited.
+var defaultMaxListeners = 10;
+EventEmitter.prototype.setMaxListeners = function(n) {
+  if (!this._events) this._events = {};
+  this._events.maxListeners = n;
+};
+
+
+EventEmitter.prototype.emit = function(type) {
+  // If there is no 'error' event listener then throw.
+  if (type === 'error') {
+    if (!this._events || !this._events.error ||
+        (isArray(this._events.error) && !this._events.error.length))
+    {
+      if (arguments[1] instanceof Error) {
+        throw arguments[1]; // Unhandled 'error' event
+      } else {
+        throw new Error("Uncaught, unspecified 'error' event.");
+      }
+      return false;
+    }
+  }
+
+  if (!this._events) return false;
+  var handler = this._events[type];
+  if (!handler) return false;
+
+  if (typeof handler == 'function') {
+    switch (arguments.length) {
+      // fast cases
+      case 1:
+        handler.call(this);
+        break;
+      case 2:
+        handler.call(this, arguments[1]);
+        break;
+      case 3:
+        handler.call(this, arguments[1], arguments[2]);
+        break;
+      // slower
+      default:
+        var args = Array.prototype.slice.call(arguments, 1);
+        handler.apply(this, args);
+    }
+    return true;
+
+  } else if (isArray(handler)) {
+    var args = Array.prototype.slice.call(arguments, 1);
+
+    var listeners = handler.slice();
+    for (var i = 0, l = listeners.length; i < l; i++) {
+      listeners[i].apply(this, args);
+    }
+    return true;
+
+  } else {
+    return false;
+  }
+};
+
+// EventEmitter is defined in src/node_events.cc
+// EventEmitter.prototype.emit() is also defined there.
+EventEmitter.prototype.addListener = function(type, listener) {
+  if ('function' !== typeof listener) {
+    throw new Error('addListener only takes instances of Function');
+  }
+
+  if (!this._events) this._events = {};
+
+  // To avoid recursion in the case that type == "newListeners"! Before
+  // adding it to the listeners, first emit "newListeners".
+  this.emit('newListener', type, listener);
+
+  if (!this._events[type]) {
+    // Optimize the case of one listener. Don't need the extra array object.
+    this._events[type] = listener;
+  } else if (isArray(this._events[type])) {
+
+    // Check for listener leak
+    if (!this._events[type].warned) {
+      var m;
+      if (this._events.maxListeners !== undefined) {
+        m = this._events.maxListeners;
+      } else {
+        m = defaultMaxListeners;
+      }
+
+      if (m && m > 0 && this._events[type].length > m) {
+        this._events[type].warned = true;
+        console.error('(node) warning: possible EventEmitter memory ' +
+                      'leak detected. %d listeners added. ' +
+                      'Use emitter.setMaxListeners() to increase limit.',
+                      this._events[type].length);
+        console.trace();
+      }
+    }
+
+    // If we've already got an array, just append.
+    this._events[type].push(listener);
+  } else {
+    // Adding the second element, need to change to array.
+    this._events[type] = [this._events[type], listener];
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.on = EventEmitter.prototype.addListener;
+
+EventEmitter.prototype.once = function(type, listener) {
+  var self = this;
+  self.on(type, function g() {
+    self.removeListener(type, g);
+    listener.apply(this, arguments);
+  });
+
+  return this;
+};
+
+EventEmitter.prototype.removeListener = function(type, listener) {
+  if ('function' !== typeof listener) {
+    throw new Error('removeListener only takes instances of Function');
+  }
+
+  // does not use listeners(), so no side effect of creating _events[type]
+  if (!this._events || !this._events[type]) return this;
+
+  var list = this._events[type];
+
+  if (isArray(list)) {
+    var i = indexOf(list, listener);
+    if (i < 0) return this;
+    list.splice(i, 1);
+    if (list.length == 0)
+      delete this._events[type];
+  } else if (this._events[type] === listener) {
+    delete this._events[type];
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.removeAllListeners = function(type) {
+  if (arguments.length === 0) {
+    this._events = {};
+    return this;
+  }
+
+  // does not use listeners(), so no side effect of creating _events[type]
+  if (type && this._events && this._events[type]) this._events[type] = null;
+  return this;
+};
+
+EventEmitter.prototype.listeners = function(type) {
+  if (!this._events) this._events = {};
+  if (!this._events[type]) this._events[type] = [];
+  if (!isArray(this._events[type])) {
+    this._events[type] = [this._events[type]];
+  }
+  return this._events[type];
+};
+
+EventEmitter.listenerCount = function(emitter, type) {
+  var ret;
+  if (!emitter._events || !emitter._events[type])
+    ret = 0;
+  else if (typeof emitter._events[type] === 'function')
+    ret = 1;
+  else
+    ret = emitter._events[type].length;
+  return ret;
+};
+
+},{"__browserify_process":48}],45:[function(require,module,exports){
+// nothing to see here... no file methods for the browser
+
+},{}],46:[function(require,module,exports){
+var process=require("__browserify_process");function filter (xs, fn) {
+    var res = [];
+    for (var i = 0; i < xs.length; i++) {
+        if (fn(xs[i], i, xs)) res.push(xs[i]);
+    }
+    return res;
+}
+
+// resolves . and .. elements in a path array with directory names there
+// must be no slashes, empty elements, or device names (c:\) in the array
+// (so also no leading and trailing slashes - it does not distinguish
+// relative and absolute paths)
+function normalizeArray(parts, allowAboveRoot) {
+  // if the path tries to go above the root, `up` ends up > 0
+  var up = 0;
+  for (var i = parts.length; i >= 0; i--) {
+    var last = parts[i];
+    if (last == '.') {
+      parts.splice(i, 1);
+    } else if (last === '..') {
+      parts.splice(i, 1);
+      up++;
+    } else if (up) {
+      parts.splice(i, 1);
+      up--;
+    }
+  }
+
+  // if the path is allowed to go above the root, restore leading ..s
+  if (allowAboveRoot) {
+    for (; up--; up) {
+      parts.unshift('..');
+    }
+  }
+
+  return parts;
+}
+
+// Regex to split a filename into [*, dir, basename, ext]
+// posix version
+var splitPathRe = /^(.+\/(?!$)|\/)?((?:.+?)?(\.[^.]*)?)$/;
+
+// path.resolve([from ...], to)
+// posix version
+exports.resolve = function() {
+var resolvedPath = '',
+    resolvedAbsolute = false;
+
+for (var i = arguments.length; i >= -1 && !resolvedAbsolute; i--) {
+  var path = (i >= 0)
+      ? arguments[i]
+      : process.cwd();
+
+  // Skip empty and invalid entries
+  if (typeof path !== 'string' || !path) {
+    continue;
+  }
+
+  resolvedPath = path + '/' + resolvedPath;
+  resolvedAbsolute = path.charAt(0) === '/';
+}
+
+// At this point the path should be resolved to a full absolute path, but
+// handle relative paths to be safe (might happen when process.cwd() fails)
+
+// Normalize the path
+resolvedPath = normalizeArray(filter(resolvedPath.split('/'), function(p) {
+    return !!p;
+  }), !resolvedAbsolute).join('/');
+
+  return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
+};
+
+// path.normalize(path)
+// posix version
+exports.normalize = function(path) {
+var isAbsolute = path.charAt(0) === '/',
+    trailingSlash = path.slice(-1) === '/';
+
+// Normalize the path
+path = normalizeArray(filter(path.split('/'), function(p) {
+    return !!p;
+  }), !isAbsolute).join('/');
+
+  if (!path && !isAbsolute) {
+    path = '.';
+  }
+  if (path && trailingSlash) {
+    path += '/';
+  }
+  
+  return (isAbsolute ? '/' : '') + path;
+};
+
+
+// posix version
+exports.join = function() {
+  var paths = Array.prototype.slice.call(arguments, 0);
+  return exports.normalize(filter(paths, function(p, index) {
+    return p && typeof p === 'string';
+  }).join('/'));
+};
+
+
+exports.dirname = function(path) {
+  var dir = splitPathRe.exec(path)[1] || '';
+  var isWindows = false;
+  if (!dir) {
+    // No dirname
+    return '.';
+  } else if (dir.length === 1 ||
+      (isWindows && dir.length <= 3 && dir.charAt(1) === ':')) {
+    // It is just a slash or a drive letter with a slash
+    return dir;
+  } else {
+    // It is a full dirname, strip trailing slash
+    return dir.substring(0, dir.length - 1);
+  }
+};
+
+
+exports.basename = function(path, ext) {
+  var f = splitPathRe.exec(path)[2] || '';
+  // TODO: make this comparison case-insensitive on windows?
+  if (ext && f.substr(-1 * ext.length) === ext) {
+    f = f.substr(0, f.length - ext.length);
+  }
+  return f;
+};
+
+
+exports.extname = function(path) {
+  return splitPathRe.exec(path)[3] || '';
+};
+
+exports.relative = function(from, to) {
+  from = exports.resolve(from).substr(1);
+  to = exports.resolve(to).substr(1);
+
+  function trim(arr) {
+    var start = 0;
+    for (; start < arr.length; start++) {
+      if (arr[start] !== '') break;
+    }
+
+    var end = arr.length - 1;
+    for (; end >= 0; end--) {
+      if (arr[end] !== '') break;
+    }
+
+    if (start > end) return [];
+    return arr.slice(start, end - start + 1);
+  }
+
+  var fromParts = trim(from.split('/'));
+  var toParts = trim(to.split('/'));
+
+  var length = Math.min(fromParts.length, toParts.length);
+  var samePartsLength = length;
+  for (var i = 0; i < length; i++) {
+    if (fromParts[i] !== toParts[i]) {
+      samePartsLength = i;
+      break;
+    }
+  }
+
+  var outputParts = [];
+  for (var i = samePartsLength; i < fromParts.length; i++) {
+    outputParts.push('..');
+  }
+
+  outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+  return outputParts.join('/');
+};
+
+exports.sep = '/';
+
+},{"__browserify_process":48}],47:[function(require,module,exports){
 require=(function(e,t,n,r){function i(r){if(!n[r]){if(!t[r]){if(e)return e(r);throw new Error("Cannot find module '"+r+"'")}var s=n[r]={exports:{}};t[r][0](function(e){var n=t[r][1][e];return i(n?n:e)},s,s.exports)}return n[r].exports}for(var s=0;s<r.length;s++)i(r[s]);return i})(typeof require!=="undefined"&&require,{1:[function(require,module,exports){
-exports.readIEEE754 = function(buffer, offset, isBE, mLen, nBytes) {
-  var e, m,
-      eLen = nBytes * 8 - mLen - 1,
-      eMax = (1 << eLen) - 1,
-      eBias = eMax >> 1,
-      nBits = -7,
-      i = isBE ? 0 : (nBytes - 1),
-      d = isBE ? 1 : -1,
-      s = buffer[offset + i];
-
-  i += d;
-
-  e = s & ((1 << (-nBits)) - 1);
-  s >>= (-nBits);
-  nBits += eLen;
-  for (; nBits > 0; e = e * 256 + buffer[offset + i], i += d, nBits -= 8);
-
-  m = e & ((1 << (-nBits)) - 1);
-  e >>= (-nBits);
-  nBits += mLen;
-  for (; nBits > 0; m = m * 256 + buffer[offset + i], i += d, nBits -= 8);
-
-  if (e === 0) {
-    e = 1 - eBias;
-  } else if (e === eMax) {
-    return m ? NaN : ((s ? -1 : 1) * Infinity);
-  } else {
-    m = m + Math.pow(2, mLen);
-    e = e - eBias;
-  }
-  return (s ? -1 : 1) * m * Math.pow(2, e - mLen);
-};
-
-exports.writeIEEE754 = function(buffer, value, offset, isBE, mLen, nBytes) {
-  var e, m, c,
-      eLen = nBytes * 8 - mLen - 1,
-      eMax = (1 << eLen) - 1,
-      eBias = eMax >> 1,
-      rt = (mLen === 23 ? Math.pow(2, -24) - Math.pow(2, -77) : 0),
-      i = isBE ? (nBytes - 1) : 0,
-      d = isBE ? -1 : 1,
-      s = value < 0 || (value === 0 && 1 / value < 0) ? 1 : 0;
-
-  value = Math.abs(value);
-
-  if (isNaN(value) || value === Infinity) {
-    m = isNaN(value) ? 1 : 0;
-    e = eMax;
-  } else {
-    e = Math.floor(Math.log(value) / Math.LN2);
-    if (value * (c = Math.pow(2, -e)) < 1) {
-      e--;
-      c *= 2;
-    }
-    if (e + eBias >= 1) {
-      value += rt / c;
-    } else {
-      value += rt * Math.pow(2, 1 - eBias);
-    }
-    if (value * c >= 2) {
-      e++;
-      c /= 2;
-    }
-
-    if (e + eBias >= eMax) {
-      m = 0;
-      e = eMax;
-    } else if (e + eBias >= 1) {
-      m = (value * c - 1) * Math.pow(2, mLen);
-      e = e + eBias;
-    } else {
-      m = value * Math.pow(2, eBias - 1) * Math.pow(2, mLen);
-      e = 0;
-    }
-  }
-
-  for (; mLen >= 8; buffer[offset + i] = m & 0xff, i += d, m /= 256, mLen -= 8);
-
-  e = (e << mLen) | m;
-  eLen += mLen;
-  for (; eLen > 0; buffer[offset + i] = e & 0xff, i += d, e /= 256, eLen -= 8);
-
-  buffer[offset + i - d] |= s * 128;
-};
-
-},{}],2:[function(require,module,exports){
-(function(){// UTILITY
+// UTILITY
 var util = require('util');
 var Buffer = require("buffer").Buffer;
 var pSlice = Array.prototype.slice;
@@ -1945,11 +8501,689 @@ assert.doesNotThrow = function(block, /*optional*/error, /*optional*/message) {
 
 assert.ifError = function(err) { if (err) {throw err;}};
 
-})()
-},{"util":3,"buffer":4}],"buffer-browserify":[function(require,module,exports){
+},{"util":2,"buffer":3}],2:[function(require,module,exports){
+var events = require('events');
+
+exports.isArray = isArray;
+exports.isDate = function(obj){return Object.prototype.toString.call(obj) === '[object Date]'};
+exports.isRegExp = function(obj){return Object.prototype.toString.call(obj) === '[object RegExp]'};
+
+
+exports.print = function () {};
+exports.puts = function () {};
+exports.debug = function() {};
+
+exports.inspect = function(obj, showHidden, depth, colors) {
+  var seen = [];
+
+  var stylize = function(str, styleType) {
+    // http://en.wikipedia.org/wiki/ANSI_escape_code#graphics
+    var styles =
+        { 'bold' : [1, 22],
+          'italic' : [3, 23],
+          'underline' : [4, 24],
+          'inverse' : [7, 27],
+          'white' : [37, 39],
+          'grey' : [90, 39],
+          'black' : [30, 39],
+          'blue' : [34, 39],
+          'cyan' : [36, 39],
+          'green' : [32, 39],
+          'magenta' : [35, 39],
+          'red' : [31, 39],
+          'yellow' : [33, 39] };
+
+    var style =
+        { 'special': 'cyan',
+          'number': 'blue',
+          'boolean': 'yellow',
+          'undefined': 'grey',
+          'null': 'bold',
+          'string': 'green',
+          'date': 'magenta',
+          // "name": intentionally not styling
+          'regexp': 'red' }[styleType];
+
+    if (style) {
+      return '\033[' + styles[style][0] + 'm' + str +
+             '\033[' + styles[style][1] + 'm';
+    } else {
+      return str;
+    }
+  };
+  if (! colors) {
+    stylize = function(str, styleType) { return str; };
+  }
+
+  function format(value, recurseTimes) {
+    // Provide a hook for user-specified inspect functions.
+    // Check that value is an object with an inspect function on it
+    if (value && typeof value.inspect === 'function' &&
+        // Filter out the util module, it's inspect function is special
+        value !== exports &&
+        // Also filter out any prototype objects using the circular check.
+        !(value.constructor && value.constructor.prototype === value)) {
+      return value.inspect(recurseTimes);
+    }
+
+    // Primitive types cannot have properties
+    switch (typeof value) {
+      case 'undefined':
+        return stylize('undefined', 'undefined');
+
+      case 'string':
+        var simple = '\'' + JSON.stringify(value).replace(/^"|"$/g, '')
+                                                 .replace(/'/g, "\\'")
+                                                 .replace(/\\"/g, '"') + '\'';
+        return stylize(simple, 'string');
+
+      case 'number':
+        return stylize('' + value, 'number');
+
+      case 'boolean':
+        return stylize('' + value, 'boolean');
+    }
+    // For some reason typeof null is "object", so special case here.
+    if (value === null) {
+      return stylize('null', 'null');
+    }
+
+    // Look up the keys of the object.
+    var visible_keys = Object_keys(value);
+    var keys = showHidden ? Object_getOwnPropertyNames(value) : visible_keys;
+
+    // Functions without properties can be shortcutted.
+    if (typeof value === 'function' && keys.length === 0) {
+      if (isRegExp(value)) {
+        return stylize('' + value, 'regexp');
+      } else {
+        var name = value.name ? ': ' + value.name : '';
+        return stylize('[Function' + name + ']', 'special');
+      }
+    }
+
+    // Dates without properties can be shortcutted
+    if (isDate(value) && keys.length === 0) {
+      return stylize(value.toUTCString(), 'date');
+    }
+
+    var base, type, braces;
+    // Determine the object type
+    if (isArray(value)) {
+      type = 'Array';
+      braces = ['[', ']'];
+    } else {
+      type = 'Object';
+      braces = ['{', '}'];
+    }
+
+    // Make functions say that they are functions
+    if (typeof value === 'function') {
+      var n = value.name ? ': ' + value.name : '';
+      base = (isRegExp(value)) ? ' ' + value : ' [Function' + n + ']';
+    } else {
+      base = '';
+    }
+
+    // Make dates with properties first say the date
+    if (isDate(value)) {
+      base = ' ' + value.toUTCString();
+    }
+
+    if (keys.length === 0) {
+      return braces[0] + base + braces[1];
+    }
+
+    if (recurseTimes < 0) {
+      if (isRegExp(value)) {
+        return stylize('' + value, 'regexp');
+      } else {
+        return stylize('[Object]', 'special');
+      }
+    }
+
+    seen.push(value);
+
+    var output = keys.map(function(key) {
+      var name, str;
+      if (value.__lookupGetter__) {
+        if (value.__lookupGetter__(key)) {
+          if (value.__lookupSetter__(key)) {
+            str = stylize('[Getter/Setter]', 'special');
+          } else {
+            str = stylize('[Getter]', 'special');
+          }
+        } else {
+          if (value.__lookupSetter__(key)) {
+            str = stylize('[Setter]', 'special');
+          }
+        }
+      }
+      if (visible_keys.indexOf(key) < 0) {
+        name = '[' + key + ']';
+      }
+      if (!str) {
+        if (seen.indexOf(value[key]) < 0) {
+          if (recurseTimes === null) {
+            str = format(value[key]);
+          } else {
+            str = format(value[key], recurseTimes - 1);
+          }
+          if (str.indexOf('\n') > -1) {
+            if (isArray(value)) {
+              str = str.split('\n').map(function(line) {
+                return '  ' + line;
+              }).join('\n').substr(2);
+            } else {
+              str = '\n' + str.split('\n').map(function(line) {
+                return '   ' + line;
+              }).join('\n');
+            }
+          }
+        } else {
+          str = stylize('[Circular]', 'special');
+        }
+      }
+      if (typeof name === 'undefined') {
+        if (type === 'Array' && key.match(/^\d+$/)) {
+          return str;
+        }
+        name = JSON.stringify('' + key);
+        if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
+          name = name.substr(1, name.length - 2);
+          name = stylize(name, 'name');
+        } else {
+          name = name.replace(/'/g, "\\'")
+                     .replace(/\\"/g, '"')
+                     .replace(/(^"|"$)/g, "'");
+          name = stylize(name, 'string');
+        }
+      }
+
+      return name + ': ' + str;
+    });
+
+    seen.pop();
+
+    var numLinesEst = 0;
+    var length = output.reduce(function(prev, cur) {
+      numLinesEst++;
+      if (cur.indexOf('\n') >= 0) numLinesEst++;
+      return prev + cur.length + 1;
+    }, 0);
+
+    if (length > 50) {
+      output = braces[0] +
+               (base === '' ? '' : base + '\n ') +
+               ' ' +
+               output.join(',\n  ') +
+               ' ' +
+               braces[1];
+
+    } else {
+      output = braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
+    }
+
+    return output;
+  }
+  return format(obj, (typeof depth === 'undefined' ? 2 : depth));
+};
+
+
+function isArray(ar) {
+  return ar instanceof Array ||
+         Array.isArray(ar) ||
+         (ar && ar !== Object.prototype && isArray(ar.__proto__));
+}
+
+
+function isRegExp(re) {
+  return re instanceof RegExp ||
+    (typeof re === 'object' && Object.prototype.toString.call(re) === '[object RegExp]');
+}
+
+
+function isDate(d) {
+  if (d instanceof Date) return true;
+  if (typeof d !== 'object') return false;
+  var properties = Date.prototype && Object_getOwnPropertyNames(Date.prototype);
+  var proto = d.__proto__ && Object_getOwnPropertyNames(d.__proto__);
+  return JSON.stringify(proto) === JSON.stringify(properties);
+}
+
+function pad(n) {
+  return n < 10 ? '0' + n.toString(10) : n.toString(10);
+}
+
+var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
+              'Oct', 'Nov', 'Dec'];
+
+// 26 Feb 16:19:34
+function timestamp() {
+  var d = new Date();
+  var time = [pad(d.getHours()),
+              pad(d.getMinutes()),
+              pad(d.getSeconds())].join(':');
+  return [d.getDate(), months[d.getMonth()], time].join(' ');
+}
+
+exports.log = function (msg) {};
+
+exports.pump = null;
+
+var Object_keys = Object.keys || function (obj) {
+    var res = [];
+    for (var key in obj) res.push(key);
+    return res;
+};
+
+var Object_getOwnPropertyNames = Object.getOwnPropertyNames || function (obj) {
+    var res = [];
+    for (var key in obj) {
+        if (Object.hasOwnProperty.call(obj, key)) res.push(key);
+    }
+    return res;
+};
+
+var Object_create = Object.create || function (prototype, properties) {
+    // from es5-shim
+    var object;
+    if (prototype === null) {
+        object = { '__proto__' : null };
+    }
+    else {
+        if (typeof prototype !== 'object') {
+            throw new TypeError(
+                'typeof prototype[' + (typeof prototype) + '] != \'object\''
+            );
+        }
+        var Type = function () {};
+        Type.prototype = prototype;
+        object = new Type();
+        object.__proto__ = prototype;
+    }
+    if (typeof properties !== 'undefined' && Object.defineProperties) {
+        Object.defineProperties(object, properties);
+    }
+    return object;
+};
+
+exports.inherits = function(ctor, superCtor) {
+  ctor.super_ = superCtor;
+  ctor.prototype = Object_create(superCtor.prototype, {
+    constructor: {
+      value: ctor,
+      enumerable: false,
+      writable: true,
+      configurable: true
+    }
+  });
+};
+
+var formatRegExp = /%[sdj%]/g;
+exports.format = function(f) {
+  if (typeof f !== 'string') {
+    var objects = [];
+    for (var i = 0; i < arguments.length; i++) {
+      objects.push(exports.inspect(arguments[i]));
+    }
+    return objects.join(' ');
+  }
+
+  var i = 1;
+  var args = arguments;
+  var len = args.length;
+  var str = String(f).replace(formatRegExp, function(x) {
+    if (x === '%%') return '%';
+    if (i >= len) return x;
+    switch (x) {
+      case '%s': return String(args[i++]);
+      case '%d': return Number(args[i++]);
+      case '%j': return JSON.stringify(args[i++]);
+      default:
+        return x;
+    }
+  });
+  for(var x = args[i]; i < len; x = args[++i]){
+    if (x === null || typeof x !== 'object') {
+      str += ' ' + x;
+    } else {
+      str += ' ' + exports.inspect(x);
+    }
+  }
+  return str;
+};
+
+},{"events":4}],5:[function(require,module,exports){
+exports.readIEEE754 = function(buffer, offset, isBE, mLen, nBytes) {
+  var e, m,
+      eLen = nBytes * 8 - mLen - 1,
+      eMax = (1 << eLen) - 1,
+      eBias = eMax >> 1,
+      nBits = -7,
+      i = isBE ? 0 : (nBytes - 1),
+      d = isBE ? 1 : -1,
+      s = buffer[offset + i];
+
+  i += d;
+
+  e = s & ((1 << (-nBits)) - 1);
+  s >>= (-nBits);
+  nBits += eLen;
+  for (; nBits > 0; e = e * 256 + buffer[offset + i], i += d, nBits -= 8);
+
+  m = e & ((1 << (-nBits)) - 1);
+  e >>= (-nBits);
+  nBits += mLen;
+  for (; nBits > 0; m = m * 256 + buffer[offset + i], i += d, nBits -= 8);
+
+  if (e === 0) {
+    e = 1 - eBias;
+  } else if (e === eMax) {
+    return m ? NaN : ((s ? -1 : 1) * Infinity);
+  } else {
+    m = m + Math.pow(2, mLen);
+    e = e - eBias;
+  }
+  return (s ? -1 : 1) * m * Math.pow(2, e - mLen);
+};
+
+exports.writeIEEE754 = function(buffer, value, offset, isBE, mLen, nBytes) {
+  var e, m, c,
+      eLen = nBytes * 8 - mLen - 1,
+      eMax = (1 << eLen) - 1,
+      eBias = eMax >> 1,
+      rt = (mLen === 23 ? Math.pow(2, -24) - Math.pow(2, -77) : 0),
+      i = isBE ? (nBytes - 1) : 0,
+      d = isBE ? -1 : 1,
+      s = value < 0 || (value === 0 && 1 / value < 0) ? 1 : 0;
+
+  value = Math.abs(value);
+
+  if (isNaN(value) || value === Infinity) {
+    m = isNaN(value) ? 1 : 0;
+    e = eMax;
+  } else {
+    e = Math.floor(Math.log(value) / Math.LN2);
+    if (value * (c = Math.pow(2, -e)) < 1) {
+      e--;
+      c *= 2;
+    }
+    if (e + eBias >= 1) {
+      value += rt / c;
+    } else {
+      value += rt * Math.pow(2, 1 - eBias);
+    }
+    if (value * c >= 2) {
+      e++;
+      c /= 2;
+    }
+
+    if (e + eBias >= eMax) {
+      m = 0;
+      e = eMax;
+    } else if (e + eBias >= 1) {
+      m = (value * c - 1) * Math.pow(2, mLen);
+      e = e + eBias;
+    } else {
+      m = value * Math.pow(2, eBias - 1) * Math.pow(2, mLen);
+      e = 0;
+    }
+  }
+
+  for (; mLen >= 8; buffer[offset + i] = m & 0xff, i += d, m /= 256, mLen -= 8);
+
+  e = (e << mLen) | m;
+  eLen += mLen;
+  for (; eLen > 0; buffer[offset + i] = e & 0xff, i += d, e /= 256, eLen -= 8);
+
+  buffer[offset + i - d] |= s * 128;
+};
+
+},{}],6:[function(require,module,exports){
+// shim for using process in browser
+
+var process = module.exports = {};
+
+process.nextTick = (function () {
+    var canSetImmediate = typeof window !== 'undefined'
+    && window.setImmediate;
+    var canPost = typeof window !== 'undefined'
+    && window.postMessage && window.addEventListener
+    ;
+
+    if (canSetImmediate) {
+        return function (f) { return window.setImmediate(f) };
+    }
+
+    if (canPost) {
+        var queue = [];
+        window.addEventListener('message', function (ev) {
+            if (ev.source === window && ev.data === 'process-tick') {
+                ev.stopPropagation();
+                if (queue.length > 0) {
+                    var fn = queue.shift();
+                    fn();
+                }
+            }
+        }, true);
+
+        return function nextTick(fn) {
+            queue.push(fn);
+            window.postMessage('process-tick', '*');
+        };
+    }
+
+    return function nextTick(fn) {
+        setTimeout(fn, 0);
+    };
+})();
+
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+}
+
+// TODO(shtylman)
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+
+},{}],4:[function(require,module,exports){
+(function(process){if (!process.EventEmitter) process.EventEmitter = function () {};
+
+var EventEmitter = exports.EventEmitter = process.EventEmitter;
+var isArray = typeof Array.isArray === 'function'
+    ? Array.isArray
+    : function (xs) {
+        return Object.prototype.toString.call(xs) === '[object Array]'
+    }
+;
+function indexOf (xs, x) {
+    if (xs.indexOf) return xs.indexOf(x);
+    for (var i = 0; i < xs.length; i++) {
+        if (x === xs[i]) return i;
+    }
+    return -1;
+}
+
+// By default EventEmitters will print a warning if more than
+// 10 listeners are added to it. This is a useful default which
+// helps finding memory leaks.
+//
+// Obviously not all Emitters should be limited to 10. This function allows
+// that to be increased. Set to zero for unlimited.
+var defaultMaxListeners = 10;
+EventEmitter.prototype.setMaxListeners = function(n) {
+  if (!this._events) this._events = {};
+  this._events.maxListeners = n;
+};
+
+
+EventEmitter.prototype.emit = function(type) {
+  // If there is no 'error' event listener then throw.
+  if (type === 'error') {
+    if (!this._events || !this._events.error ||
+        (isArray(this._events.error) && !this._events.error.length))
+    {
+      if (arguments[1] instanceof Error) {
+        throw arguments[1]; // Unhandled 'error' event
+      } else {
+        throw new Error("Uncaught, unspecified 'error' event.");
+      }
+      return false;
+    }
+  }
+
+  if (!this._events) return false;
+  var handler = this._events[type];
+  if (!handler) return false;
+
+  if (typeof handler == 'function') {
+    switch (arguments.length) {
+      // fast cases
+      case 1:
+        handler.call(this);
+        break;
+      case 2:
+        handler.call(this, arguments[1]);
+        break;
+      case 3:
+        handler.call(this, arguments[1], arguments[2]);
+        break;
+      // slower
+      default:
+        var args = Array.prototype.slice.call(arguments, 1);
+        handler.apply(this, args);
+    }
+    return true;
+
+  } else if (isArray(handler)) {
+    var args = Array.prototype.slice.call(arguments, 1);
+
+    var listeners = handler.slice();
+    for (var i = 0, l = listeners.length; i < l; i++) {
+      listeners[i].apply(this, args);
+    }
+    return true;
+
+  } else {
+    return false;
+  }
+};
+
+// EventEmitter is defined in src/node_events.cc
+// EventEmitter.prototype.emit() is also defined there.
+EventEmitter.prototype.addListener = function(type, listener) {
+  if ('function' !== typeof listener) {
+    throw new Error('addListener only takes instances of Function');
+  }
+
+  if (!this._events) this._events = {};
+
+  // To avoid recursion in the case that type == "newListeners"! Before
+  // adding it to the listeners, first emit "newListeners".
+  this.emit('newListener', type, listener);
+
+  if (!this._events[type]) {
+    // Optimize the case of one listener. Don't need the extra array object.
+    this._events[type] = listener;
+  } else if (isArray(this._events[type])) {
+
+    // Check for listener leak
+    if (!this._events[type].warned) {
+      var m;
+      if (this._events.maxListeners !== undefined) {
+        m = this._events.maxListeners;
+      } else {
+        m = defaultMaxListeners;
+      }
+
+      if (m && m > 0 && this._events[type].length > m) {
+        this._events[type].warned = true;
+        console.error('(node) warning: possible EventEmitter memory ' +
+                      'leak detected. %d listeners added. ' +
+                      'Use emitter.setMaxListeners() to increase limit.',
+                      this._events[type].length);
+        console.trace();
+      }
+    }
+
+    // If we've already got an array, just append.
+    this._events[type].push(listener);
+  } else {
+    // Adding the second element, need to change to array.
+    this._events[type] = [this._events[type], listener];
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.on = EventEmitter.prototype.addListener;
+
+EventEmitter.prototype.once = function(type, listener) {
+  var self = this;
+  self.on(type, function g() {
+    self.removeListener(type, g);
+    listener.apply(this, arguments);
+  });
+
+  return this;
+};
+
+EventEmitter.prototype.removeListener = function(type, listener) {
+  if ('function' !== typeof listener) {
+    throw new Error('removeListener only takes instances of Function');
+  }
+
+  // does not use listeners(), so no side effect of creating _events[type]
+  if (!this._events || !this._events[type]) return this;
+
+  var list = this._events[type];
+
+  if (isArray(list)) {
+    var i = indexOf(list, listener);
+    if (i < 0) return this;
+    list.splice(i, 1);
+    if (list.length == 0)
+      delete this._events[type];
+  } else if (this._events[type] === listener) {
+    delete this._events[type];
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.removeAllListeners = function(type) {
+  if (arguments.length === 0) {
+    this._events = {};
+    return this;
+  }
+
+  // does not use listeners(), so no side effect of creating _events[type]
+  if (type && this._events && this._events[type]) this._events[type] = null;
+  return this;
+};
+
+EventEmitter.prototype.listeners = function(type) {
+  if (!this._events) this._events = {};
+  if (!this._events[type]) this._events[type] = [];
+  if (!isArray(this._events[type])) {
+    this._events[type] = [this._events[type]];
+  }
+  return this._events[type];
+};
+
+})(require("__browserify_process"))
+},{"__browserify_process":6}],"buffer-browserify":[function(require,module,exports){
 module.exports=require('q9TxCC');
 },{}],"q9TxCC":[function(require,module,exports){
-(function(){function SlowBuffer (size) {
+function SlowBuffer (size) {
     this.length = size;
 };
 
@@ -3267,361 +10501,7 @@ SlowBuffer.prototype.writeFloatBE = Buffer.prototype.writeFloatBE;
 SlowBuffer.prototype.writeDoubleLE = Buffer.prototype.writeDoubleLE;
 SlowBuffer.prototype.writeDoubleBE = Buffer.prototype.writeDoubleBE;
 
-})()
-},{"assert":2,"./buffer_ieee754":1,"base64-js":5}],3:[function(require,module,exports){
-var events = require('events');
-
-exports.isArray = isArray;
-exports.isDate = function(obj){return Object.prototype.toString.call(obj) === '[object Date]'};
-exports.isRegExp = function(obj){return Object.prototype.toString.call(obj) === '[object RegExp]'};
-
-
-exports.print = function () {};
-exports.puts = function () {};
-exports.debug = function() {};
-
-exports.inspect = function(obj, showHidden, depth, colors) {
-  var seen = [];
-
-  var stylize = function(str, styleType) {
-    // http://en.wikipedia.org/wiki/ANSI_escape_code#graphics
-    var styles =
-        { 'bold' : [1, 22],
-          'italic' : [3, 23],
-          'underline' : [4, 24],
-          'inverse' : [7, 27],
-          'white' : [37, 39],
-          'grey' : [90, 39],
-          'black' : [30, 39],
-          'blue' : [34, 39],
-          'cyan' : [36, 39],
-          'green' : [32, 39],
-          'magenta' : [35, 39],
-          'red' : [31, 39],
-          'yellow' : [33, 39] };
-
-    var style =
-        { 'special': 'cyan',
-          'number': 'blue',
-          'boolean': 'yellow',
-          'undefined': 'grey',
-          'null': 'bold',
-          'string': 'green',
-          'date': 'magenta',
-          // "name": intentionally not styling
-          'regexp': 'red' }[styleType];
-
-    if (style) {
-      return '\033[' + styles[style][0] + 'm' + str +
-             '\033[' + styles[style][1] + 'm';
-    } else {
-      return str;
-    }
-  };
-  if (! colors) {
-    stylize = function(str, styleType) { return str; };
-  }
-
-  function format(value, recurseTimes) {
-    // Provide a hook for user-specified inspect functions.
-    // Check that value is an object with an inspect function on it
-    if (value && typeof value.inspect === 'function' &&
-        // Filter out the util module, it's inspect function is special
-        value !== exports &&
-        // Also filter out any prototype objects using the circular check.
-        !(value.constructor && value.constructor.prototype === value)) {
-      return value.inspect(recurseTimes);
-    }
-
-    // Primitive types cannot have properties
-    switch (typeof value) {
-      case 'undefined':
-        return stylize('undefined', 'undefined');
-
-      case 'string':
-        var simple = '\'' + JSON.stringify(value).replace(/^"|"$/g, '')
-                                                 .replace(/'/g, "\\'")
-                                                 .replace(/\\"/g, '"') + '\'';
-        return stylize(simple, 'string');
-
-      case 'number':
-        return stylize('' + value, 'number');
-
-      case 'boolean':
-        return stylize('' + value, 'boolean');
-    }
-    // For some reason typeof null is "object", so special case here.
-    if (value === null) {
-      return stylize('null', 'null');
-    }
-
-    // Look up the keys of the object.
-    var visible_keys = Object_keys(value);
-    var keys = showHidden ? Object_getOwnPropertyNames(value) : visible_keys;
-
-    // Functions without properties can be shortcutted.
-    if (typeof value === 'function' && keys.length === 0) {
-      if (isRegExp(value)) {
-        return stylize('' + value, 'regexp');
-      } else {
-        var name = value.name ? ': ' + value.name : '';
-        return stylize('[Function' + name + ']', 'special');
-      }
-    }
-
-    // Dates without properties can be shortcutted
-    if (isDate(value) && keys.length === 0) {
-      return stylize(value.toUTCString(), 'date');
-    }
-
-    var base, type, braces;
-    // Determine the object type
-    if (isArray(value)) {
-      type = 'Array';
-      braces = ['[', ']'];
-    } else {
-      type = 'Object';
-      braces = ['{', '}'];
-    }
-
-    // Make functions say that they are functions
-    if (typeof value === 'function') {
-      var n = value.name ? ': ' + value.name : '';
-      base = (isRegExp(value)) ? ' ' + value : ' [Function' + n + ']';
-    } else {
-      base = '';
-    }
-
-    // Make dates with properties first say the date
-    if (isDate(value)) {
-      base = ' ' + value.toUTCString();
-    }
-
-    if (keys.length === 0) {
-      return braces[0] + base + braces[1];
-    }
-
-    if (recurseTimes < 0) {
-      if (isRegExp(value)) {
-        return stylize('' + value, 'regexp');
-      } else {
-        return stylize('[Object]', 'special');
-      }
-    }
-
-    seen.push(value);
-
-    var output = keys.map(function(key) {
-      var name, str;
-      if (value.__lookupGetter__) {
-        if (value.__lookupGetter__(key)) {
-          if (value.__lookupSetter__(key)) {
-            str = stylize('[Getter/Setter]', 'special');
-          } else {
-            str = stylize('[Getter]', 'special');
-          }
-        } else {
-          if (value.__lookupSetter__(key)) {
-            str = stylize('[Setter]', 'special');
-          }
-        }
-      }
-      if (visible_keys.indexOf(key) < 0) {
-        name = '[' + key + ']';
-      }
-      if (!str) {
-        if (seen.indexOf(value[key]) < 0) {
-          if (recurseTimes === null) {
-            str = format(value[key]);
-          } else {
-            str = format(value[key], recurseTimes - 1);
-          }
-          if (str.indexOf('\n') > -1) {
-            if (isArray(value)) {
-              str = str.split('\n').map(function(line) {
-                return '  ' + line;
-              }).join('\n').substr(2);
-            } else {
-              str = '\n' + str.split('\n').map(function(line) {
-                return '   ' + line;
-              }).join('\n');
-            }
-          }
-        } else {
-          str = stylize('[Circular]', 'special');
-        }
-      }
-      if (typeof name === 'undefined') {
-        if (type === 'Array' && key.match(/^\d+$/)) {
-          return str;
-        }
-        name = JSON.stringify('' + key);
-        if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
-          name = name.substr(1, name.length - 2);
-          name = stylize(name, 'name');
-        } else {
-          name = name.replace(/'/g, "\\'")
-                     .replace(/\\"/g, '"')
-                     .replace(/(^"|"$)/g, "'");
-          name = stylize(name, 'string');
-        }
-      }
-
-      return name + ': ' + str;
-    });
-
-    seen.pop();
-
-    var numLinesEst = 0;
-    var length = output.reduce(function(prev, cur) {
-      numLinesEst++;
-      if (cur.indexOf('\n') >= 0) numLinesEst++;
-      return prev + cur.length + 1;
-    }, 0);
-
-    if (length > 50) {
-      output = braces[0] +
-               (base === '' ? '' : base + '\n ') +
-               ' ' +
-               output.join(',\n  ') +
-               ' ' +
-               braces[1];
-
-    } else {
-      output = braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
-    }
-
-    return output;
-  }
-  return format(obj, (typeof depth === 'undefined' ? 2 : depth));
-};
-
-
-function isArray(ar) {
-  return ar instanceof Array ||
-         Array.isArray(ar) ||
-         (ar && ar !== Object.prototype && isArray(ar.__proto__));
-}
-
-
-function isRegExp(re) {
-  return re instanceof RegExp ||
-    (typeof re === 'object' && Object.prototype.toString.call(re) === '[object RegExp]');
-}
-
-
-function isDate(d) {
-  if (d instanceof Date) return true;
-  if (typeof d !== 'object') return false;
-  var properties = Date.prototype && Object_getOwnPropertyNames(Date.prototype);
-  var proto = d.__proto__ && Object_getOwnPropertyNames(d.__proto__);
-  return JSON.stringify(proto) === JSON.stringify(properties);
-}
-
-function pad(n) {
-  return n < 10 ? '0' + n.toString(10) : n.toString(10);
-}
-
-var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
-              'Oct', 'Nov', 'Dec'];
-
-// 26 Feb 16:19:34
-function timestamp() {
-  var d = new Date();
-  var time = [pad(d.getHours()),
-              pad(d.getMinutes()),
-              pad(d.getSeconds())].join(':');
-  return [d.getDate(), months[d.getMonth()], time].join(' ');
-}
-
-exports.log = function (msg) {};
-
-exports.pump = null;
-
-var Object_keys = Object.keys || function (obj) {
-    var res = [];
-    for (var key in obj) res.push(key);
-    return res;
-};
-
-var Object_getOwnPropertyNames = Object.getOwnPropertyNames || function (obj) {
-    var res = [];
-    for (var key in obj) {
-        if (Object.hasOwnProperty.call(obj, key)) res.push(key);
-    }
-    return res;
-};
-
-var Object_create = Object.create || function (prototype, properties) {
-    // from es5-shim
-    var object;
-    if (prototype === null) {
-        object = { '__proto__' : null };
-    }
-    else {
-        if (typeof prototype !== 'object') {
-            throw new TypeError(
-                'typeof prototype[' + (typeof prototype) + '] != \'object\''
-            );
-        }
-        var Type = function () {};
-        Type.prototype = prototype;
-        object = new Type();
-        object.__proto__ = prototype;
-    }
-    if (typeof properties !== 'undefined' && Object.defineProperties) {
-        Object.defineProperties(object, properties);
-    }
-    return object;
-};
-
-exports.inherits = function(ctor, superCtor) {
-  ctor.super_ = superCtor;
-  ctor.prototype = Object_create(superCtor.prototype, {
-    constructor: {
-      value: ctor,
-      enumerable: false,
-      writable: true,
-      configurable: true
-    }
-  });
-};
-
-var formatRegExp = /%[sdj%]/g;
-exports.format = function(f) {
-  if (typeof f !== 'string') {
-    var objects = [];
-    for (var i = 0; i < arguments.length; i++) {
-      objects.push(exports.inspect(arguments[i]));
-    }
-    return objects.join(' ');
-  }
-
-  var i = 1;
-  var args = arguments;
-  var len = args.length;
-  var str = String(f).replace(formatRegExp, function(x) {
-    if (x === '%%') return '%';
-    if (i >= len) return x;
-    switch (x) {
-      case '%s': return String(args[i++]);
-      case '%d': return Number(args[i++]);
-      case '%j': return JSON.stringify(args[i++]);
-      default:
-        return x;
-    }
-  });
-  for(var x = args[i]; i < len; x = args[++i]){
-    if (x === null || typeof x !== 'object') {
-      str += ' ' + x;
-    } else {
-      str += ' ' + exports.inspect(x);
-    }
-  }
-  return str;
-};
-
-},{"events":6}],5:[function(require,module,exports){
+},{"assert":1,"./buffer_ieee754":5,"base64-js":7}],7:[function(require,module,exports){
 (function (exports) {
 	'use strict';
 
@@ -3707,7 +10587,7 @@ exports.format = function(f) {
 	module.exports.fromByteArray = uint8ToBase64;
 }());
 
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 exports.readIEEE754 = function(buffer, offset, isBE, mLen, nBytes) {
   var e, m,
       eLen = nBytes * 8 - mLen - 1,
@@ -3793,248 +10673,8 @@ exports.writeIEEE754 = function(buffer, value, offset, isBE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128;
 };
 
-},{}],8:[function(require,module,exports){
-// shim for using process in browser
-
-var process = module.exports = {};
-
-process.nextTick = (function () {
-    var canSetImmediate = typeof window !== 'undefined'
-    && window.setImmediate;
-    var canPost = typeof window !== 'undefined'
-    && window.postMessage && window.addEventListener
-    ;
-
-    if (canSetImmediate) {
-        return function (f) { return window.setImmediate(f) };
-    }
-
-    if (canPost) {
-        var queue = [];
-        window.addEventListener('message', function (ev) {
-            if (ev.source === window && ev.data === 'process-tick') {
-                ev.stopPropagation();
-                if (queue.length > 0) {
-                    var fn = queue.shift();
-                    fn();
-                }
-            }
-        }, true);
-
-        return function nextTick(fn) {
-            queue.push(fn);
-            window.postMessage('process-tick', '*');
-        };
-    }
-
-    return function nextTick(fn) {
-        setTimeout(fn, 0);
-    };
-})();
-
-process.title = 'browser';
-process.browser = true;
-process.env = {};
-process.argv = [];
-
-process.binding = function (name) {
-    throw new Error('process.binding is not supported');
-}
-
-// TODO(shtylman)
-process.cwd = function () { return '/' };
-process.chdir = function (dir) {
-    throw new Error('process.chdir is not supported');
-};
-
-},{}],6:[function(require,module,exports){
-(function(process){if (!process.EventEmitter) process.EventEmitter = function () {};
-
-var EventEmitter = exports.EventEmitter = process.EventEmitter;
-var isArray = typeof Array.isArray === 'function'
-    ? Array.isArray
-    : function (xs) {
-        return Object.prototype.toString.call(xs) === '[object Array]'
-    }
-;
-function indexOf (xs, x) {
-    if (xs.indexOf) return xs.indexOf(x);
-    for (var i = 0; i < xs.length; i++) {
-        if (x === xs[i]) return i;
-    }
-    return -1;
-}
-
-// By default EventEmitters will print a warning if more than
-// 10 listeners are added to it. This is a useful default which
-// helps finding memory leaks.
-//
-// Obviously not all Emitters should be limited to 10. This function allows
-// that to be increased. Set to zero for unlimited.
-var defaultMaxListeners = 10;
-EventEmitter.prototype.setMaxListeners = function(n) {
-  if (!this._events) this._events = {};
-  this._events.maxListeners = n;
-};
-
-
-EventEmitter.prototype.emit = function(type) {
-  // If there is no 'error' event listener then throw.
-  if (type === 'error') {
-    if (!this._events || !this._events.error ||
-        (isArray(this._events.error) && !this._events.error.length))
-    {
-      if (arguments[1] instanceof Error) {
-        throw arguments[1]; // Unhandled 'error' event
-      } else {
-        throw new Error("Uncaught, unspecified 'error' event.");
-      }
-      return false;
-    }
-  }
-
-  if (!this._events) return false;
-  var handler = this._events[type];
-  if (!handler) return false;
-
-  if (typeof handler == 'function') {
-    switch (arguments.length) {
-      // fast cases
-      case 1:
-        handler.call(this);
-        break;
-      case 2:
-        handler.call(this, arguments[1]);
-        break;
-      case 3:
-        handler.call(this, arguments[1], arguments[2]);
-        break;
-      // slower
-      default:
-        var args = Array.prototype.slice.call(arguments, 1);
-        handler.apply(this, args);
-    }
-    return true;
-
-  } else if (isArray(handler)) {
-    var args = Array.prototype.slice.call(arguments, 1);
-
-    var listeners = handler.slice();
-    for (var i = 0, l = listeners.length; i < l; i++) {
-      listeners[i].apply(this, args);
-    }
-    return true;
-
-  } else {
-    return false;
-  }
-};
-
-// EventEmitter is defined in src/node_events.cc
-// EventEmitter.prototype.emit() is also defined there.
-EventEmitter.prototype.addListener = function(type, listener) {
-  if ('function' !== typeof listener) {
-    throw new Error('addListener only takes instances of Function');
-  }
-
-  if (!this._events) this._events = {};
-
-  // To avoid recursion in the case that type == "newListeners"! Before
-  // adding it to the listeners, first emit "newListeners".
-  this.emit('newListener', type, listener);
-
-  if (!this._events[type]) {
-    // Optimize the case of one listener. Don't need the extra array object.
-    this._events[type] = listener;
-  } else if (isArray(this._events[type])) {
-
-    // Check for listener leak
-    if (!this._events[type].warned) {
-      var m;
-      if (this._events.maxListeners !== undefined) {
-        m = this._events.maxListeners;
-      } else {
-        m = defaultMaxListeners;
-      }
-
-      if (m && m > 0 && this._events[type].length > m) {
-        this._events[type].warned = true;
-        console.error('(node) warning: possible EventEmitter memory ' +
-                      'leak detected. %d listeners added. ' +
-                      'Use emitter.setMaxListeners() to increase limit.',
-                      this._events[type].length);
-        console.trace();
-      }
-    }
-
-    // If we've already got an array, just append.
-    this._events[type].push(listener);
-  } else {
-    // Adding the second element, need to change to array.
-    this._events[type] = [this._events[type], listener];
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.on = EventEmitter.prototype.addListener;
-
-EventEmitter.prototype.once = function(type, listener) {
-  var self = this;
-  self.on(type, function g() {
-    self.removeListener(type, g);
-    listener.apply(this, arguments);
-  });
-
-  return this;
-};
-
-EventEmitter.prototype.removeListener = function(type, listener) {
-  if ('function' !== typeof listener) {
-    throw new Error('removeListener only takes instances of Function');
-  }
-
-  // does not use listeners(), so no side effect of creating _events[type]
-  if (!this._events || !this._events[type]) return this;
-
-  var list = this._events[type];
-
-  if (isArray(list)) {
-    var i = indexOf(list, listener);
-    if (i < 0) return this;
-    list.splice(i, 1);
-    if (list.length == 0)
-      delete this._events[type];
-  } else if (this._events[type] === listener) {
-    delete this._events[type];
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.removeAllListeners = function(type) {
-  if (arguments.length === 0) {
-    this._events = {};
-    return this;
-  }
-
-  // does not use listeners(), so no side effect of creating _events[type]
-  if (type && this._events && this._events[type]) this._events[type] = null;
-  return this;
-};
-
-EventEmitter.prototype.listeners = function(type) {
-  if (!this._events) this._events = {};
-  if (!this._events[type]) this._events[type] = [];
-  if (!isArray(this._events[type])) {
-    this._events[type] = [this._events[type]];
-  }
-  return this._events[type];
-};
-
-})(require("__browserify_process"))
-},{"__browserify_process":8}],4:[function(require,module,exports){
-(function(){function SlowBuffer (size) {
+},{}],3:[function(require,module,exports){
+function SlowBuffer (size) {
     this.length = size;
 };
 
@@ -5317,8 +11957,7 @@ SlowBuffer.prototype.writeFloatBE = Buffer.prototype.writeFloatBE;
 SlowBuffer.prototype.writeDoubleLE = Buffer.prototype.writeDoubleLE;
 SlowBuffer.prototype.writeDoubleBE = Buffer.prototype.writeDoubleBE;
 
-})()
-},{"assert":2,"./buffer_ieee754":7,"base64-js":9}],9:[function(require,module,exports){
+},{"assert":1,"./buffer_ieee754":8,"base64-js":9}],9:[function(require,module,exports){
 (function (exports) {
 	'use strict';
 
@@ -5407,6904 +12046,315 @@ SlowBuffer.prototype.writeDoubleBE = Buffer.prototype.writeDoubleBE;
 },{}]},{},[])
 ;;module.exports=require("buffer-browserify")
 
-},{}],15:[function(require,module,exports){
-(function(Buffer){/*jshint evil:true*/
-"use strict";
-var extd = require("../extended"),
-    parser = require("../parser"),
-    constraintMatcher = require("../constraintMatcher.js"),
-    indexOf = extd.indexOf,
-    forEach = extd.forEach,
-    removeDuplicates = extd.removeDuplicates,
-    map = extd.map,
-    obj = extd.hash,
-    keys = obj.keys,
-    merge = extd.merge,
-    rules = require("../rule"),
-    common = require("./common"),
-    createDefined = common.createDefined,
-    createFunction = common.createFunction;
+},{}],48:[function(require,module,exports){
+// shim for using process in browser
 
+var process = module.exports = {};
 
-/**
- * @private
- * Parses an action from a rule definition
- * @param {String} action the body of the action to execute
- * @param {Array} identifiers array of identifiers collected
- * @param {Object} defined an object of defined
- * @param scope
- * @return {Object}
- */
-var parseAction = function (action, identifiers, defined, scope) {
-    var declares = [];
-    forEach(identifiers, function (i) {
-        if (action.indexOf(i) !== -1) {
-            declares.push("var " + i + "= facts." + i + ";");
-        }
-    });
-    extd(defined).keys().forEach(function (i) {
-        if (action.indexOf(i) !== -1) {
-            declares.push("var " + i + "= defined." + i + ";");
-        }
-    });
+process.nextTick = (function () {
+    var canSetImmediate = typeof window !== 'undefined'
+    && window.setImmediate;
+    var canPost = typeof window !== 'undefined'
+    && window.postMessage && window.addEventListener
+    ;
 
-    extd(scope).keys().forEach(function (i) {
-        if (action.indexOf(i) !== -1) {
-            declares.push("var " + i + "= scope." + i + ";");
-        }
-    });
-    var params = ["facts", 'flow'];
-    if (/next\(.*\)/.test(action)) {
-        params.push("next");
+    if (canSetImmediate) {
+        return function (f) { return window.setImmediate(f) };
     }
-    action = "with(flow){" + declares.join("") + action + "}";
-    try {
-        return new Function("defined, scope", "return " + new Function(params.join(","), action).toString())(defined, scope);
-    } catch (e) {
-        throw new Error("Invalid action : " + action + "\n" + e.message);
-    }
-};
 
-var createRuleFromObject = (function () {
-    var __resolveRule = function (rule, identifiers, conditions, defined, name) {
-        var condition = [], definedClass = rule[0], alias = rule[1], constraint = rule[2], refs = rule[3];
-        if (extd.isHash(constraint)) {
-            refs = constraint;
-            constraint = null;
-        }
-        if (definedClass && !!(definedClass = defined[definedClass])) {
-            condition.push(definedClass);
-        } else {
-            throw new Error("Invalid class " + rule[0] + " for rule " + name);
-        }
-        condition.push(alias, constraint, refs);
-        conditions.push(condition);
-        identifiers.push(alias);
-        if (constraint) {
-            forEach(constraintMatcher.getIdentifiers(parser.parseConstraint(constraint)), function (i) {
-                identifiers.push(i);
-            });
-        }
-        if (extd.isObject(refs)) {
-            for (var j in refs) {
-                var ident = refs[j];
-                if (indexOf(identifiers, ident) === -1) {
-                    identifiers.push(ident);
+    if (canPost) {
+        var queue = [];
+        window.addEventListener('message', function (ev) {
+            if (ev.source === window && ev.data === 'process-tick') {
+                ev.stopPropagation();
+                if (queue.length > 0) {
+                    var fn = queue.shift();
+                    fn();
                 }
             }
-        }
+        }, true);
 
-    };
-    return function (obj, defined, scope) {
-        var name = obj.name;
-        if (extd.isEmpty(obj)) {
-            throw new Error("Rule is empty");
-        }
-        var options = obj.options || {};
-        options.scope = scope;
-        var constraints = obj.constraints || [], l = constraints.length;
-        if (!l) {
-            constraints = ["true"];
-        }
-        var action = obj.action;
-        if (extd.isUndefined(action)) {
-            throw new Error("No action was defined for rule " + name);
-        }
-        var conditions = [], identifiers = [];
-        extd(constraints).forEach(function (rule) {
+        return function nextTick(fn) {
+            queue.push(fn);
+            window.postMessage('process-tick', '*');
+        };
+    }
 
-            if (rule.length) {
-                var r0 = rule[0];
-                if (r0 === "not") {
-                    var temp = [];
-                    rule.shift();
-                    __resolveRule(rule, identifiers, temp, defined, name);
-                    var cond = temp[0];
-                    cond.unshift(r0);
-                    conditions.push(cond);
-                } else if (r0 === "or") {
-                    var conds = [r0];
-                    rule.shift();
-                    forEach(rule, function (cond) {
-                        __resolveRule(cond, identifiers, conds, defined, name);
-                    });
-                    conditions.push(conds);
-                } else {
-                    __resolveRule(rule, identifiers, conditions, defined, name);
-                    identifiers = removeDuplicates(identifiers);
-                }
-            }
-
-        });
-        return rules.createRule(name, options, conditions, parseAction(action, identifiers, defined, scope));
+    return function nextTick(fn) {
+        setTimeout(fn, 0);
     };
 })();
 
-exports.parse = function (src) {
-    //parse flow from file
-    return parser.parseRuleSet(src);
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
 
-};
-exports.compile = function (flowObj, options, cb, Container) {
-    if (extd.isFunction(options)) {
-        cb = options;
-        options = {};
-    } else {
-        options = options || {};
-        cb = null;
-    }
-    var name = flowObj.name || options.name;
-    //if !name throw an error
-    if (!name) {
-        throw new Error("Name must be present in JSON or options");
-    }
-    var flow = new Container(name);
-    var defined = merge({Array: Array, String: String, Number: Number, Boolean: Boolean, RegExp: RegExp, Date: Date, Object: Object}, options.define || {});
-    if (typeof Buffer !== "undefined") {
-        defined.Buffer = Buffer;
-    }
-    var scope = merge({console: console}, options.scope);
-    //add any defined classes in the parsed flowObj to defined
-    forEach(flowObj.define, function (d) {
-        defined[d.name] = createDefined(d);
-    });
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+}
 
-    //expose any defined classes to the flow.
-    extd(defined).forEach(function (cls, name) {
-        flow.addDefined(name, cls);
-    });
-
-    var scopeNames = extd(flowObj.scope).pluck("name").union(extd(scope).keys().value()).value();
-    var definedNames = map(keys(defined), function (s) {
-        return s;
-    });
-    forEach(flowObj.scope, function (s) {
-        scope[s.name] = createFunction(s.body, defined, scope, scopeNames, definedNames);
-    });
-    var rules = flowObj.rules;
-    if (rules.length) {
-        forEach(rules, function (rule) {
-            flow.__rules = flow.__rules.concat(createRuleFromObject(rule, defined, scope));
-        });
-    }
-    if (cb) {
-        cb.call(flow, flow);
-    }
-    return flow;
+// TODO(shtylman)
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
 };
 
-exports.transpile = require("./transpile").transpile;
-
-
-
-
-})(require("__browserify_buffer").Buffer)
-},{"../constraintMatcher.js":16,"../extended":8,"../rule":9,"./common":29,"./transpile":30,"../parser":18,"__browserify_buffer":28}],8:[function(require,module,exports){
-module.exports = require("extended")()
-    .register(require("array-extended"))
-    .register(require("date-extended"))
-    .register(require("object-extended"))
-    .register(require("string-extended"))
-    .register(require("promise-extended"))
-    .register(require("function-extended"))
-    .register(require("is-extended"))
-    .register("HashTable", require("ht"))
-    .register("declare", require("declare.js"))
-    .register(require("leafy"))
-    .register("LinkedList", require("./linkedList"));
-
-
-},{"./linkedList":31,"extended":32,"array-extended":33,"date-extended":34,"object-extended":35,"string-extended":36,"promise-extended":37,"function-extended":38,"is-extended":39,"ht":40,"declare.js":41,"leafy":42}],10:[function(require,module,exports){
-"use strict";
-var declare = require("declare.js");
-
-
-var id = 0;
-
-var Fact = declare({
-
-    instance: {
-        constructor: function (obj) {
-            this.object = obj;
-            this.recency = 0;
-            this.id = id++;
-        },
-
-        equals: function (fact) {
-            return fact === this.object;
-        },
-
-        hashCode: function () {
-            return this.id;
-        }
-    }
-
-});
-
-declare({
-
-    instance: {
-
-        constructor: function () {
-            this.recency = 0;
-            this.facts = [];
-        },
-
-        dispose: function () {
-            this.facts.length = 0;
-        },
-
-        assertFact: function (fact) {
-            fact = new Fact(fact);
-            fact.recency = this.recency++;
-            this.facts.push(fact);
-            return fact;
-        },
-
-        retractFact: function (fact) {
-            var facts = this.facts, l = facts.length, i = -1, existingFact;
-            while (++i < l) {
-                existingFact = facts[i];
-                if (existingFact.equals(fact)) {
-                    this.facts.splice(i, 1);
-                    return existingFact;
-                }
-            }
-            //if we made it here we did not find the fact
-            throw new Error("the fact to remove does not exist");
-
-
-        }
-    }
-
-}).as(exports, "WorkingMemory");
-
-
-},{"declare.js":41}],16:[function(require,module,exports){
-"use strict";
-
-var extd = require("./extended"),
-    isArray = extd.isArray,
-    forEach = extd.forEach,
-    some = extd.some,
-    map = extd.map,
-    indexOf = extd.indexOf,
-    isNumber = extd.isNumber,
-    removeDups = extd.removeDuplicates,
-    atoms = require("./constraint");
-
-var definedFuncs = {
-    indexOf: extd.indexOf,
-    now: function () {
-        return new Date();
-    },
-
-    Date: function (y, m, d, h, min, s, ms) {
-        var date = new Date();
-        if (isNumber(y)) {
-            date.setYear(y);
-        }
-        if (isNumber(m)) {
-            date.setMonth(m);
-        }
-        if (isNumber(d)) {
-            date.setDate(d);
-        }
-        if (isNumber(h)) {
-            date.setHours(h);
-        }
-        if (isNumber(min)) {
-            date.setMinutes(min);
-        }
-        if (isNumber(s)) {
-            date.setSeconds(s);
-        }
-        if (isNumber(ms)) {
-            date.setMilliseconds(ms);
-        }
-        return date;
-    },
-
-    lengthOf: function (arr, length) {
-        return arr.length === length;
-    },
-
-    isTrue: function (val) {
-        return val === true;
-    },
-
-    isFalse: function (val) {
-        return val === false;
-    },
-
-    isNotNull: function (actual) {
-        return actual !== null;
-    },
-
-    dateCmp: function (dt1, dt2) {
-        return extd.compare(dt1, dt2);
-    }
-
-};
-
-forEach(["years", "days", "months", "hours", "minutes", "seconds"], function (k) {
-    definedFuncs[k + "FromNow"] = extd[k + "FromNow"];
-    definedFuncs[k + "Ago"] = extd[k + "Ago"];
-});
-
-
-forEach(["isArray", "isNumber", "isHash", "isObject", "isDate", "isBoolean", "isString", "isRegExp", "isNull", "isEmpty",
-    "isUndefined", "isDefined", "isUndefinedOrNull", "isPromiseLike", "isFunction", "deepEqual"], function (k) {
-    var m = extd[k];
-    definedFuncs[k] = function () {
-        return m.apply(extd, arguments);
-    };
-});
-
-
-var lang = {
-
-    equal: function (c1, c2) {
-        var ret = false;
-        if (c1 === c2) {
-            ret = true;
-        } else {
-            if (c1[2] === c2[2]) {
-                if (indexOf(["string", "number", "boolean", "regexp", "identifier", "null"], c1[2]) !== -1) {
-                    ret = c1[0] === c2[0];
-                } else if (c1[2] === "unary" || c1[2] === "logicalNot") {
-                    ret = this.equal(c1[0], c2[0]);
-                } else {
-                    ret = this.equal(c1[0], c2[0]) && this.equal(c1[1], c2[1]);
-                }
-            }
-        }
-        return ret;
-    },
-
-    getIdentifiers: function (rule) {
-        var ret = [];
-        var rule2 = rule[2];
-
-        if (rule2 === "identifier") {
-            //its an identifier so stop
-            return [rule[0]];
-        } else if (rule2 === "function") {
-            ret.push(rule[0]);
-            ret = ret.concat(this.getIdentifiers(rule[1]));
-        } else if (rule2 !== "string" &&
-            rule2 !== "number" &&
-            rule2 !== "boolean" &&
-            rule2 !== "regexp" &&
-            rule2 !== "unary" &&
-            rule2 !== "unary") {
-            //its an expression so keep going
-            if (rule2 === "prop") {
-                ret = ret.concat(this.getIdentifiers(rule[0]));
-                if (rule[1]) {
-                    var propChain = rule[1];
-                    //go through the member variables and collect any identifiers that may be in functions
-                    while (isArray(propChain)) {
-                        if (propChain[2] === "function") {
-                            ret = ret.concat(this.getIdentifiers(propChain[1]));
-                            break;
-                        } else {
-                            propChain = propChain[1];
-                        }
-                    }
-                }
-
-            } else {
-                if (rule[0]) {
-                    ret = ret.concat(this.getIdentifiers(rule[0]));
-                }
-                if (rule[1]) {
-                    ret = ret.concat(this.getIdentifiers(rule[1]));
-                }
-            }
-        }
-        //remove dups and return
-        return removeDups(ret);
-    },
-
-    toConstraints: function (rule, options) {
-        var ret = [],
-            alias = options.alias,
-            scope = options.scope || {};
-
-        var rule2 = rule[2];
-
-
-        if (rule2 === "and") {
-            ret = ret.concat(this.toConstraints(rule[0], options)).concat(this.toConstraints(rule[1], options));
-        } else if (
-            rule2 === "composite" ||
-                rule2 === "or" ||
-                rule2 === "lt" ||
-                rule2 === "gt" ||
-                rule2 === "lte" ||
-                rule2 === "gte" ||
-                rule2 === "like" ||
-                rule2 === "notLike" ||
-                rule2 === "eq" ||
-                rule2 === "neq" ||
-                rule2 === "in" ||
-                rule2 === "notIn" ||
-                rule2 === "prop" ||
-                rule2 === "function" ||
-                rule2 === "logicalNot") {
-            if (some(this.getIdentifiers(rule), function (i) {
-                return i !== alias && !(i in definedFuncs) && !(i in scope);
-            })) {
-                ret.push(new atoms.ReferenceConstraint(rule, options));
-            } else {
-                ret.push(new atoms.EqualityConstraint(rule, options));
-            }
-        }
-        return ret;
-    },
-
-
-    parse: function (rule) {
-        return this[rule[2]](rule[0], rule[1]);
-    },
-
-    composite: function (lhs) {
-        return this.parse(lhs);
-    },
-
-    and: function (lhs, rhs) {
-        return ["(", this.parse(lhs), "&&", this.parse(rhs), ")"].join(" ");
-    },
-
-    or: function (lhs, rhs) {
-        return ["(", this.parse(lhs), "||", this.parse(rhs), ")"].join(" ");
-    },
-
-    prop: function (name, prop) {
-        if (prop[2] === "function") {
-            return [this.parse(name), this.parse(prop)].join(".");
-        } else {
-            return [this.parse(name), "['", this.parse(prop), "']"].join("");
-        }
-    },
-
-    unary: function (lhs) {
-        return -1 * this.parse(lhs);
-    },
-
-    plus: function (lhs, rhs) {
-        return [this.parse(lhs), "+", this.parse(rhs)].join(" ");
-    },
-    minus: function (lhs, rhs) {
-        return [this.parse(lhs), "-", this.parse(rhs)].join(" ");
-    },
-
-    mult: function (lhs, rhs) {
-        return [this.parse(lhs), "*", this.parse(rhs)].join(" ");
-    },
-
-    div: function (lhs, rhs) {
-        return [this.parse(lhs), "/", this.parse(rhs)].join(" ");
-    },
-
-    mod: function (lhs, rhs) {
-        return [this.parse(lhs), "%", this.parse(rhs)].join(" ");
-    },
-
-    lt: function (lhs, rhs) {
-        return [this.parse(lhs), "<", this.parse(rhs)].join(" ");
-    },
-    gt: function (lhs, rhs) {
-        return [this.parse(lhs), ">", this.parse(rhs)].join(" ");
-    },
-    lte: function (lhs, rhs) {
-        return [this.parse(lhs), "<=", this.parse(rhs)].join(" ");
-    },
-    gte: function (lhs, rhs) {
-        return [this.parse(lhs), ">=", this.parse(rhs)].join(" ");
-    },
-    like: function (lhs, rhs) {
-        return [this.parse(rhs), ".test(", this.parse(lhs), ")"].join("");
-    },
-    notLike: function (lhs, rhs) {
-        return ["!", this.parse(rhs), ".test(", this.parse(lhs), ")"].join("");
-    },
-    eq: function (lhs, rhs) {
-        return [this.parse(lhs), "===", this.parse(rhs)].join(" ");
-    },
-    neq: function (lhs, rhs) {
-        return [this.parse(lhs), "!==", this.parse(rhs)].join(" ");
-    },
-
-    "in": function (lhs, rhs) {
-        return ["(indexOf(", this.parse(rhs), ",", this.parse(lhs), ")) != -1"].join("");
-    },
-
-    "notIn": function (lhs, rhs) {
-        return ["(indexOf(", this.parse(rhs), ",", this.parse(lhs), ")) == -1"].join("");
-    },
-
-    "arguments": function (lhs, rhs) {
-        var ret = [];
-        if (lhs) {
-            ret.push(this.parse(lhs));
-        }
-        if (rhs) {
-            ret.push(this.parse(rhs));
-        }
-        return ret.join(",");
-    },
-
-    "array": function (lhs) {
-        var args = [];
-        if (lhs) {
-            args = this.parse(lhs);
-            if (isArray(args)) {
-                return args;
-            } else {
-                return ["[", args, "]"].join("");
-            }
-        }
-        return ["[", args.join(","), "]"].join("");
-    },
-
-    "function": function (lhs, rhs) {
-        var args = this.parse(rhs);
-        return [lhs, "(", args, ")"].join("");
-    },
-
-    "string": function (lhs) {
-        return "'" + lhs + "'";
-    },
-
-    "number": function (lhs) {
-        return lhs;
-    },
-
-    "boolean": function (lhs) {
-        return lhs;
-    },
-
-    regexp: function (lhs) {
-        return lhs;
-    },
-
-    identifier: function (lhs) {
-        return lhs;
-    },
-
-    "null": function () {
-        return "null";
-    },
-
-    logicalNot: function (lhs) {
-        return ["!(", this.parse(lhs), ")"].join("");
-    }
-};
-
-var toJs = exports.toJs = function (rule, scope) {
-    /*jshint evil:true*/
-    var js = lang.parse(rule);
-    scope = scope || {};
-    var vars = lang.getIdentifiers(rule);
-    var body = "var indexOf = definedFuncs.indexOf;" + map(vars,function (v) {
-        var ret = ["var ", v, " = "];
-        if (definedFuncs.hasOwnProperty(v)) {
-            ret.push("definedFuncs['", v, "']");
-        } else if (scope.hasOwnProperty(v)) {
-            ret.push("scope['", v, "']");
-        } else {
-            ret.push("'", v, "' in fact ? fact['", v, "'] : hash['", v, "']");
-        }
-        ret.push(";");
-        return ret.join("");
-    }).join("") + " return !!(" + js + ");";
-    var f = new Function("fact, hash, definedFuncs, scope", body);
-
-    return function (fact, hash) {
-        return f(fact, hash, definedFuncs, scope);
-    };
-};
-
-exports.getMatcher = function (rule, scope) {
-    return toJs(rule, scope);
-};
-
-exports.toConstraints = function (constraint, options) {
-    //constraint.split("&&")
-    return lang.toConstraints(constraint, options);
-};
-
-exports.equal = function (c1, c2) {
-    return lang.equal(c1, c2);
-};
-
-exports.getIdentifiers = function (constraint) {
-    return lang.getIdentifiers(constraint);
-};
-
-
-
-},{"./extended":8,"./constraint":17}],17:[function(require,module,exports){
-"use strict";
-
-var extd = require("./extended"),
-    merge = extd.merge,
-    instanceOf = extd.instanceOf,
-    filter = extd.filter,
-    declare = extd.declare,
-    constraintMatcher;
-
-var Constraint = declare({
-
-    instance: {
-        constructor: function (type, constraint) {
-            if (!constraintMatcher) {
-                constraintMatcher = require("./constraintMatcher");
-            }
-            this.type = type;
-            this.constraint = constraint;
-        },
-        "assert": function () {
-            throw new Error("not implemented");
-        },
-
-        equal: function (constraint) {
-            return instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias") && extd.deepEqual(this.constraint, constraint.constraint);
-        },
-
-        getters: {
-            variables: function () {
-                return [this.get("alias")];
-            }
-        }
-
-
-    }
-});
-
-Constraint.extend({
-    instance: {
-        constructor: function (type) {
-            this._super(["object", type]);
-        },
-
-        "assert": function (param) {
-            return param instanceof this.constraint || param.constructor === this.constraint;
-        },
-
-        equal: function (constraint) {
-            return instanceOf(constraint, this._static) && this.constraint === constraint.constraint;
-        }
-    }
-}).as(exports, "ObjectConstraint");
-
-Constraint.extend({
-
-    instance: {
-        constructor: function (constraint, options) {
-            this._super(["equality", constraint]);
-            options = options || {};
-            this.pattern = options.pattern;
-            this._matcher = constraintMatcher.getMatcher(constraint, options.scope || {});
-        },
-
-        "assert": function (values) {
-            return this._matcher(values);
-        }
-    }
-}).as(exports, "EqualityConstraint");
-
-Constraint.extend({
-
-    instance: {
-        constructor: function () {
-            this._super(["equality", [true]]);
-        },
-
-        equal: function (constraint) {
-            return instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias");
-        },
-
-
-        "assert": function () {
-            return true;
-        }
-    }
-}).as(exports, "TrueConstraint");
-
-Constraint.extend({
-
-    instance: {
-        constructor: function (constraint, options) {
-            this.cache = {};
-            this._super(["reference", constraint]);
-            options = options || {};
-            this.values = [];
-            this.pattern = options.pattern;
-            this._options = options;
-            this._matcher = constraintMatcher.getMatcher(constraint, options.scope || {});
-        },
-
-        "assert": function (values) {
-            try {
-                return this._matcher(values);
-            } catch (e) {
-                throw new Error("Error with evaluating pattern " + this.pattern + " " + e.message);
-            }
-
-        },
-
-        merge: function (that) {
-            var ret = this;
-            if (that instanceof this._static) {
-                ret = new this._static([this.constraint, that.constraint, "and"], merge({}, this._options, this._options));
-                ret._alias = this._alias || that._alias;
-                ret.vars = this.vars.concat(that.vars);
-            }
-            return ret;
-        },
-
-        equal: function (constraint) {
-            return instanceOf(constraint, this._static) && extd.deepEqual(this.constraint, constraint.constraint);
-        },
-
-
-        getters: {
-            variables: function () {
-                return this.vars;
-            },
-
-            alias: function () {
-                return this._alias;
-            }
-        },
-
-        setters: {
-            alias: function (alias) {
-                this._alias = alias;
-                this.vars = filter(constraintMatcher.getIdentifiers(this.constraint), function (v) {
-                    return v !== alias;
-                });
-            }
-        }
-    }
-
-}).as(exports, "ReferenceConstraint");
-
-
-Constraint.extend({
-    instance: {
-        constructor: function (hash) {
-            this._super(["hash", hash]);
-        },
-
-        equal: function (constraint) {
-            return extd.instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias") && extd.deepEqual(this.constraint, constraint.constraint);
-        },
-
-        "assert": function () {
-            return true;
-        },
-
-        getters: {
-            variables: function () {
-                return this.constraint;
-            }
-        }
-
-    }
-}).as(exports, "HashConstraint");
-
-
-
-
-},{"./extended":8,"./constraintMatcher":16}],18:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 (function () {
     "use strict";
-    var constraintParser = require("./constraint/parser"),
-        noolParser = require("./nools/nool.parser");
 
-    exports.parseConstraint = function (expression) {
-        try {
-            return constraintParser.parse(expression);
-        } catch (e) {
-            throw new Error("Invalid expression '" + expression + "'");
-        }
-    };
+    function defineHt(_) {
 
-    exports.parseRuleSet = function (source) {
-        return noolParser.parse(source);
-    };
-})();
-},{"./constraint/parser":43,"./nools/nool.parser":44}],19:[function(require,module,exports){
-var AlphaNode = require("./alphaNode");
 
-AlphaNode.extend({
-    instance: {
-
-        constructor: function () {
-            this._super(arguments);
-            this.alias = this.constraint.get("alias");
-        },
-
-        toString: function () {
-            return "AliasNode" + this.__count;
-        },
-
-        assert: function (context) {
-            return this.__propagate("assert", context.set(this.alias, context.fact.object));
-        },
-
-        retract: function (assertable) {
-            this.propagateRetract(assertable.fact);
-        },
-
-        equal: function (other) {
-            return other instanceof this._static && this.alias === other.alias;
-        }
-    }
-}).as(module);
-},{"./alphaNode":45}],20:[function(require,module,exports){
-var AlphaNode = require("./alphaNode");
-
-AlphaNode.extend({
-    instance: {
-
-        constructor: function () {
-            this._super(arguments);
-        },
-
-        assert: function (context) {
-            if (this.constraint.assert(context.factHash)) {
-                this.__propagate("assert", context);
-            }
-        },
-
-        toString: function () {
-            return "EqualityNode" + this.__count;
-        }
-    }
-}).as(module);
-},{"./alphaNode":45}],21:[function(require,module,exports){
-var extd = require("../extended"),
-    values = extd.hash.values,
-    indexOf = extd.indexOf,
-    Node = require("./node"),
-    JoinReferenceNode = require("./joinReferenceNode");
-
-Node.extend({
-
-    instance: {
-        constructor: function () {
-            this._super([]);
-            this.constraint = new JoinReferenceNode();
-            this.leftMemory = {};
-            this.rightMemory = {};
-            this.leftTuples = [];
-            this.rightTuples = [];
-        },
-
-        dispose: function () {
-            this.leftMemory = {};
-            this.rightMemory = {};
-        },
-
-        disposeLeft: function (fact) {
-            this.leftMemory = {};
-            this.propagateDispose(fact);
-        },
-
-        disposeRight: function (fact) {
-            this.rightMemory = {};
-            this.propagateDispose(fact);
-        },
-
-        hashCode: function () {
-            return  "JoinNode " + this.__count;
-        },
-
-        toString: function () {
-            return "JoinNode " + this.__count;
-        },
-
-        retractResolve: function (match) {
-            var es = values(this.leftMemory), j = es.length, leftTuples = this.leftTuples;
-            while (--j > -1) {
-                var contexts = es[j], i = contexts.length, context;
-                while (--i > -1) {
-                    context = contexts[i];
-                    if (this.resolve(context.match, match)) {
-                        leftTuples.splice(indexOf(leftTuples, context), 1);
-                        contexts.splice(i, 1);
-                        break;
-                    }
-                }
-            }
-            this._propagateRetractResolve(match);
-        },
-
-        retractLeft: function (fact) {
-            var contexts = this.leftMemory[fact.id], tuples = this.leftTuples, i, l;
-            if (contexts) {
-                i = -1;
-                l = contexts.length;
-                while (++i < l) {
-                    tuples.splice(indexOf(tuples, contexts[i]), 1);
-                }
-                delete this.leftMemory[fact.id];
+        var hashFunction = function (key) {
+            if (typeof key === "string") {
+                return key;
+            } else if (typeof key === "object") {
+                return  key.hashCode ? key.hashCode() : "" + key;
             } else {
-                var tuple;
-                for (i = 0; i < tuples.length; i++) {
-                    tuple = tuples[i];
-                    if (indexOf(tuple.factIds, fact.id) !== -1) {
-                        tuples.splice(i, 1);
-                    }
-                }
-            }
-            this.propagateRetract(fact);
-        },
-
-        retractRight: function (fact) {
-            var context = this.rightMemory[fact.id], tuples = this.rightTuples;
-            if (context) {
-                tuples.splice(indexOf(tuples, context), 1);
-                delete this.rightMemory[fact.id];
-            } else {
-                var tuple;
-                for (var i = 0; i < tuples.length; i++) {
-                    tuple = tuples[i];
-                    if (indexOf(tuple.factIds, fact.id) !== -1) {
-                        tuples.splice(i, 1);
-                    }
-                }
-            }
-            this.propagateRetract(fact);
-        },
-
-        assertLeft: function (context) {
-            this.__addToLeftMemory(context);
-            var rm = this.rightTuples, i = -1, l = rm.length, thisConstraint = this.constraint, mr;
-            thisConstraint.setLeftContext(context);
-            while (++i < l) {
-                if ((mr = thisConstraint.setRightContext(rm[i]).match()).isMatch) {
-                    this.__propagate("assert", context.clone(null, null, mr));
-                }
-            }
-            thisConstraint.clearContexts();
-        },
-
-        assertRight: function (context) {
-            var fact = context.fact;
-            this.rightMemory[fact.id] = context;
-            this.rightTuples.push(context);
-            var fl = this.leftTuples, i = -1, l = fl.length, thisConstraint = this.constraint, mr;
-            thisConstraint.setRightContext(context);
-            while (++i < l) {
-                if ((mr = thisConstraint.setLeftContext(fl[i]).match()).isMatch) {
-                    this.__propagate("assert", context.clone(null, null, mr));
-                }
-            }
-            thisConstraint.clearContexts();
-        },
-
-        _propagateRetractResolve: function (context) {
-            this.__propagate("retractResolve", context);
-        },
-
-        __addToLeftMemory: function (context) {
-            var o = context.fact;
-            var lm = this.leftMemory[o.id];
-            if (!lm) {
-                lm = [];
-                this.leftMemory[o.id] = lm;
-            }
-            this.leftTuples.push(context);
-            lm.push(context);
-            return this;
-        }
-    }
-
-}).as(module);
-},{"../extended":8,"./node":46,"./joinReferenceNode":47}],22:[function(require,module,exports){
-var JoinNode = require("./joinNode"),
-    Context = require("../context"),
-    extd = require("../extended"),
-    indexOf = extd.indexOf;
-
-JoinNode.extend({
-    instance: {
-
-        constructor: function () {
-            this._super(arguments);
-            this.leftTupleMemory = {};
-            this.allTuples = {};
-        },
-
-
-        toString: function () {
-            return "NotNode " + this.__count;
-        },
-
-
-        retractRight: function (fact) {
-            var rightMemory = this.rightMemory;
-            var rightContext = rightMemory[fact.id], thisConstraint = this.constraint;
-            delete rightMemory[fact.id];
-            if (rightContext) {
-                var index = indexOf(this.rightTuples, rightContext);
-                this.rightTuples.splice(index, 1);
-                var fl = rightContext.blocking, leftContext;
-                var rValues = this.rightTuples, k = rValues.length, rc, j;
-                while ((leftContext = fl.pop())) {
-                    leftContext.blocker = null;
-                    thisConstraint.setLeftContext(leftContext);
-                    for (j = index; j < k; j++) {
-                        rc = rValues[j];
-                        thisConstraint.setRightContext(rc);
-                        if (thisConstraint.isMatch()) {
-                            leftContext.blocker = rc;
-                            rc.blocking.push(leftContext);
-                            this.__addToLeftTupleMemory(leftContext);
-                            break;
-                        }
-                    }
-                    if (!leftContext.blocker) {
-                        this.__removeFromLeftTupleMemory(leftContext);
-                        this.__addToLeftMemory(leftContext).propagateAssert(new Context(leftContext.fact, null, leftContext.match));
-                    }
-                }
-                thisConstraint.clearContexts();
-            }
-        },
-
-
-        retractLeft: function (fact) {
-            var factId = fact.id, tuples = this.allTuples[fact.id] || [], context, blocking, blocker;
-            while (tuples.length) {
-                context = tuples.pop();
-                if (indexOf(context.factIds, factId) !== -1) {
-                    this.__removeFromAllTupleMemory(context);
-                    this.__removeFromLeftMemory(context);
-                    this.__removeFromLeftTupleMemory(context);
-                    if ((blocker = context.blocker)) {
-                        blocking = blocker.blocking;
-                        blocking.splice(indexOf(blocking, context), 1);
-                        context.blocker = null;
-                    }
-                }
-            }
-            delete this.leftMemory[factId];
-            delete this.leftTupleMemory[factId];
-            this.propagateRetract(fact);
-
-        },
-
-        assertLeft: function (context) {
-            var values = this.rightTuples, thisConstraint = this.constraint, i = -1, l = values.length, rc;
-            if (l !== 0) {
-                thisConstraint.setLeftContext(context);
-                while (++i < l) {
-                    if (thisConstraint.setRightContext(rc = values[i]).isMatch()) {
-                        context.blocker = rc;
-                        rc.blocking.push(context);
-                        this.__addToLeftTupleMemory(context);
-                        context = null;
-                        break;
-                    }
-                }
-            }
-            if (context) {
-                this.__addToLeftMemory(context).propagateAssert(new Context(context.fact, null, context.match));
-            }
-        },
-
-        assertRight: function (context) {
-            context.blocking = [];
-            this.rightTuples.push(context);
-            this.rightMemory[context.fact.id] = context;
-            var fl = this.leftTuples, i = fl.length, leftContext, thisConstraint = this.constraint;
-            thisConstraint.setRightContext(context);
-            while (--i > -1) {
-                leftContext = fl[i];
-                if (thisConstraint.setLeftContext(leftContext).isMatch()) {
-                    this._propagateRetractResolve(leftContext.match);
-                    //blocked so remove from memory
-                    this.__removeFromLeftMemory(leftContext);
-                    leftContext.blocker = context;
-                    context.blocking.push(leftContext);
-                    this.__addToLeftTupleMemory(leftContext);
-                }
-            }
-            thisConstraint.clearContexts();
-        },
-
-        __removeFromLeftMemory: function (context) {
-            var leftMemories = this.leftMemory[context.fact.id] || [], lc, tuples = this.leftTuples;
-            for (var i = 0, l = tuples.length; i < l; i++) {
-                lc = tuples[i];
-                if (lc === context) {
-                    tuples.splice(i, 1);
-                    leftMemories.splice(indexOf(leftMemories, lc), 1);
-                    break;
-                }
-            }
-            return this;
-        },
-
-        __removeFromLeftTupleMemory: function (context) {
-            var leftMemories = this.leftTupleMemory[context.fact.id] || [], lc;
-            for (var i = 0, l = leftMemories.length; i < l; i++) {
-                lc = leftMemories[i];
-                if (lc === context) {
-                    leftMemories.splice(i, 1);
-                    break;
-                }
-            }
-            return this;
-        },
-
-        __addToAllTupleMemory: function (context) {
-            var factIds = context.factIds, i = -1, l = factIds.length, factId, allTuples = this.allTuples, tuples;
-            while (++i < l) {
-                factId = factIds[i];
-                tuples = allTuples[factId] = (allTuples[factId] || []);
-                if (indexOf(tuples, context) === -1) {
-                    tuples.push(context);
-                }
-            }
-            return this;
-
-        },
-
-        __removeFromAllTupleMemory: function (context) {
-            var factIds = context.factIds, i = -1, l = factIds.length, factId, allTuples = this.allTuples, tuples, index;
-            while (++i < l) {
-                factId = factIds[i];
-                tuples = allTuples[factId];
-                index = indexOf(tuples, context);
-                if (index !== -1) {
-                    tuples.splice(i, 1);
-                }
-            }
-            return this;
-
-        },
-
-
-        __addToLeftMemory: function (context) {
-            this._super(arguments);
-            this.__addToAllTupleMemory(context);
-            return this;
-        },
-
-        __addToLeftTupleMemory: function (context) {
-            var o = context.fact;
-            var lm = this.leftTupleMemory[o.id];
-            if (!lm) {
-                lm = [];
-                this.leftTupleMemory[o.id] = lm;
-            }
-            lm.push(context);
-            this.__addToAllTupleMemory(context);
-            return this;
-        }
-    }
-}).as(module);
-},{"./joinNode":21,"../context":48,"../extended":8}],23:[function(require,module,exports){
-var Node = require("./node");
-
-Node.extend({
-    instance: {
-        propagateAssert: function (context) {
-            this.__propagate("assertLeft", context);
-        },
-
-        propagateRetract: function (context) {
-            this.__propagate("retractLeft", context);
-        },
-
-        propagateResolve: function (context) {
-            this.__propagate("retractResolve", context);
-        },
-
-        modify: function (context) {
-            this.__propagate("modifyLeft", context);
-        },
-
-        retractResolve: function (match) {
-            this.__propagate("retractResolve", match);
-        },
-
-        dispose: function (context) {
-            this.propagateDispose(context);
-        },
-
-        toString: function () {
-            return "LeftAdapterNode " + this.__count;
-        }
-    }
-
-}).as(module);
-},{"./node":46}],25:[function(require,module,exports){
-var AlphaNode = require("./alphaNode"),
-    Context = require("../context");
-
-AlphaNode.extend({
-    instance: {
-
-        assert: function (fact) {
-            if (this.constraint.assert(fact.object)) {
-                this.__propagate("assert", fact);
-            }
-        },
-
-        retract: function (fact) {
-            if (this.constraint.assert(fact.object)) {
-                this.propagateRetract(fact);
-            }
-        },
-
-        toString: function () {
-            return "TypeNode" + this.__count;
-        },
-
-        dispose: function () {
-            var es = this.__entrySet, i = es.length - 1;
-            for (; i >= 0; i--) {
-                var e = es[i], outNode = e.key, paths = e.value;
-                outNode.dispose({paths: paths});
-            }
-        },
-
-        __propagate: function (method, fact) {
-            var es = this.__entrySet, i = es.length - 1;
-            for (; i >= 0; i--) {
-                var e = es[i], outNode = e.key, paths = e.value;
-                outNode[method](new Context(fact, paths));
-            }
-        }
-    }
-}).as(module);
-},{"./alphaNode":45,"../context":48}],24:[function(require,module,exports){
-var Node = require("./node");
-
-Node.extend({
-    instance: {
-
-        retractResolve: function (match) {
-            this.__propagate("retractResolve", match);
-        },
-
-        dispose: function (context) {
-            this.propagateDispose(context);
-        },
-
-        propagateAssert: function (context) {
-            this.__propagate("assertRight", context);
-        },
-
-        propagateRetract: function (context) {
-            this.__propagate("retractRight", context);
-        },
-
-        propagateResolve: function (context) {
-            this.__propagate("retractResolve", context);
-        },
-
-        modify: function (context) {
-            this.__propagate("modifyRight", context);
-        },
-
-        toString: function () {
-            return "RightAdapterNode " + this.__count;
-        }
-    }
-}).as(module);
-},{"./node":46}],26:[function(require,module,exports){
-var Node = require("./node"),
-    extd = require("../extended"),
-    bind = extd.bind,
-    removeDuplicates = extd.removeDuplicates;
-
-Node.extend({
-    instance: {
-        constructor: function (bucket, index, rule, agenda) {
-            this._super([]);
-            this.resolve = bind(this, this.resolve);
-            this.rule = rule;
-            this.index = index;
-            this.name = this.rule.name;
-            this.agenda = agenda;
-            this.bucket = bucket;
-            agenda.register(this);
-        },
-
-        __assertModify: function (context) {
-            var match = context.match;
-            match.recency.sort(
-                function (a, b) {
-                    return a - b;
-                }).reverse();
-            match.facts = removeDuplicates(match.facts);
-            if (match.isMatch) {
-                var rule = this.rule, bucket = this.bucket;
-                this.agenda.insert(this, {
-                    rule: rule,
-                    index: this.index,
-                    name: rule.name,
-                    recency: bucket.recency++,
-                    match: match,
-                    counter: bucket.counter
-                });
-            }
-        },
-
-        assert: function (context) {
-            this.__assertModify(context);
-        },
-
-        modify: function (context) {
-            this.__assertModify(context);
-        },
-
-        retract: function (fact) {
-            this.agenda.removeByFact(this, fact);
-        },
-
-        retractRight: function (fact) {
-            this.agenda.removeByFact(this, fact);
-        },
-
-        retractLeft: function (fact) {
-            this.agenda.removeByFact(this, fact);
-        },
-
-        assertLeft: function (context) {
-            this.__assertModify(context);
-        },
-
-        assertRight: function (context) {
-            this.__assertModify(context);
-        },
-
-        retractResolve: function (match) {
-            var resolve = this.resolve;
-            this.agenda.retract(this, function (v) {
-                return resolve(v.match, match);
-            });
-        },
-
-        toString: function () {
-            return "TerminalNode " + this.rule.name;
-        }
-    }
-}).as(module);
-},{"./node":46,"../extended":8}],27:[function(require,module,exports){
-var AlphaNode = require("./alphaNode"),
-    Context = require("../context"),
-    extd = require("../extended");
-
-AlphaNode.extend({
-    instance: {
-
-        constructor: function () {
-            this._super(arguments);
-            this.alias = this.constraint.get("alias");
-            this.varLength = (this.variables = extd(this.constraint.get("variables")).toArray().value()).length;
-        },
-
-        assert: function (context) {
-            var c = new Context(context.fact, context.paths);
-            var variables = this.variables, o = context.fact.object, item;
-            c.set(this.alias, o);
-            for (var i = 0, l = this.varLength; i < l; i++) {
-                item = variables[i];
-                c.set(item[1], o[item[0]]);
-            }
-
-            this.__propagate("assert", c);
-
-        },
-
-        toString: function () {
-            return "PropertyNode" + this.__count;
-        }
-    }
-}).as(module);
-
-
-
-},{"./alphaNode":45,"../context":48,"../extended":8}],29:[function(require,module,exports){
-/*jshint evil:true*/
-"use strict";
-var extd = require("../extended"),
-    forEach = extd.forEach,
-    isString = extd.isString;
-
-exports.modifiers = ["assert", "modify", "retract", "emit", "halt", "focus"];
-
-var createFunction = function (body, defined, scope, scopeNames, definedNames) {
-    var declares = [];
-    forEach(definedNames, function (i) {
-        if (body.indexOf(i) !== -1) {
-            declares.push("var " + i + "= defined." + i + ";");
-        }
-    });
-
-    forEach(scopeNames, function (i) {
-        if (body.indexOf(i) !== -1) {
-            declares.push("var " + i + "= scope." + i + ";");
-        }
-    });
-    body = ["((function(){", declares.join(""), "\n\treturn ", body, "\n})())"].join("");
-    try {
-        return eval(body);
-    } catch (e) {
-        throw new Error("Invalid action : " + body + "\n" + e.message);
-    }
-};
-
-var createDefined = (function () {
-
-    var _createDefined = function (options) {
-        options = isString(options) ? new Function("return " + options + ";")() : options;
-        var ret = options.hasOwnProperty("constructor") && "function" === typeof options.constructor ? options.constructor : function (opts) {
-            opts = opts || {};
-            for (var i in opts) {
-                if (i in options) {
-                    this[i] = opts[i];
-                }
+                return "" + key;
             }
         };
-        var proto = ret.prototype;
-        for (var i in options) {
-            proto[i] = options[i];
-        }
-        return ret;
 
-    };
+        var Bucket = _.declare({
 
-    return function (options) {
-        return _createDefined(options.properties);
-    };
-})();
-
-exports.createFunction = createFunction;
-exports.createDefined = createDefined;
-},{"../extended":8}],43:[function(require,module,exports){
-(function(process){/* parser generated by jison 0.4.6 */
-/*
-  Returns a Parser object of the following structure:
-
-  Parser: {
-    yy: {}
-  }
-
-  Parser.prototype: {
-    yy: {},
-    trace: function(),
-    symbols_: {associative list: name ==> number},
-    terminals_: {associative list: number ==> name},
-    productions_: [...],
-    performAction: function anonymous(yytext, yyleng, yylineno, yy, yystate, $$, _$),
-    table: [...],
-    defaultActions: {...},
-    parseError: function(str, hash),
-    parse: function(input),
-
-    lexer: {
-        EOF: 1,
-        parseError: function(str, hash),
-        setInput: function(input),
-        input: function(),
-        unput: function(str),
-        more: function(),
-        less: function(n),
-        pastInput: function(),
-        upcomingInput: function(),
-        showPosition: function(),
-        test_match: function(regex_match_array, rule_index),
-        next: function(),
-        lex: function(),
-        begin: function(condition),
-        popState: function(),
-        _currentRules: function(),
-        topState: function(),
-        pushState: function(condition),
-
-        options: {
-            ranges: boolean           (optional: true ==> token location info will include a .range[] member)
-            flex: boolean             (optional: true ==> flex-like lexing behaviour where the rules are tested exhaustively to find the longest match)
-            backtrack_lexer: boolean  (optional: true ==> lexer regexes are tested in order and for each matching regex the action code is invoked; the lexer terminates the scan when a token is returned by the action code)
-        },
-
-        performAction: function(yy, yy_, $avoiding_name_collisions, YY_START),
-        rules: [...],
-        conditions: {associative list: name ==> set},
-    }
-  }
-
-
-  token location info (@$, _$, etc.): {
-    first_line: n,
-    last_line: n,
-    first_column: n,
-    last_column: n,
-    range: [start_number, end_number]       (where the numbers are indexes into the input string, regular zero-based)
-  }
-
-
-  the parseError function receives a 'hash' object with these members for lexer and parser errors: {
-    text:        (matched text)
-    token:       (the produced terminal token, if any)
-    line:        (yylineno)
-  }
-  while parser (grammar) errors will also provide these members, i.e. parser errors deliver a superset of attributes: {
-    loc:         (yylloc)
-    expected:    (string describing the set of expected tokens)
-    recoverable: (boolean: TRUE when the parser has a error recovery rule available for this particular error)
-  }
-*/
-var parser = (function(){
-var parser = {trace: function trace() { },
-yy: {},
-symbols_: {"error":2,"expressions":3,"EXPRESSION":4,"EOF":5,"UNARY_EXPRESSION":6,"LITERAL_EXPRESSION":7,"-":8,"!":9,"MULTIPLICATIVE_EXPRESSION":10,"*":11,"/":12,"%":13,"ADDITIVE_EXPRESSION":14,"+":15,"EXPONENT_EXPRESSION":16,"^":17,"RELATIONAL_EXPRESSION":18,"<":19,">":20,"<=":21,">=":22,"EQUALITY_EXPRESSION":23,"==":24,"!=":25,"=~":26,"!=~":27,"IN_EXPRESSION":28,"in":29,"ARRAY_EXPRESSION":30,"notIn":31,"OBJECT_EXPRESSION":32,"AND_EXPRESSION":33,"&&":34,"OR_EXPRESSION":35,"||":36,"ARGUMENT_LIST":37,",":38,"FUNCTION":39,"IDENTIFIER":40,"(":41,")":42,"IDENTIFIER_EXPRESSION":43,".":44,"STRING_EXPRESSION":45,"STRING":46,"NUMBER_EXPRESSION":47,"NUMBER":48,"REGEXP_EXPRESSION":49,"REGEXP":50,"BOOLEAN_EXPRESSION":51,"BOOLEAN":52,"NULL_EXPRESSION":53,"NULL":54,"[":55,"]":56,"$accept":0,"$end":1},
-terminals_: {2:"error",5:"EOF",8:"-",9:"!",11:"*",12:"/",13:"%",15:"+",17:"^",19:"<",20:">",21:"<=",22:">=",24:"==",25:"!=",26:"=~",27:"!=~",29:"in",31:"notIn",34:"&&",36:"||",38:",",40:"IDENTIFIER",41:"(",42:")",44:".",46:"STRING",48:"NUMBER",50:"REGEXP",52:"BOOLEAN",54:"NULL",55:"[",56:"]"},
-productions_: [0,[3,2],[6,1],[6,2],[6,2],[10,1],[10,3],[10,3],[10,3],[14,1],[14,3],[14,3],[16,1],[16,3],[18,1],[18,3],[18,3],[18,3],[18,3],[23,1],[23,3],[23,3],[23,3],[23,3],[28,1],[28,3],[28,3],[28,3],[28,3],[33,1],[33,3],[35,1],[35,3],[37,1],[37,3],[39,3],[39,4],[32,1],[32,3],[32,3],[43,1],[45,1],[47,1],[49,1],[51,1],[53,1],[30,2],[30,3],[7,1],[7,1],[7,1],[7,1],[7,1],[7,1],[7,1],[7,1],[7,3],[4,1]],
-performAction: function anonymous(yytext, yyleng, yylineno, yy, yystate /* action[1] */, $$ /* vstack */, _$ /* lstack */) {
-/* this == yyval */
-
-var $0 = $$.length - 1;
-switch (yystate) {
-case 1:return $$[$0-1];
-break;
-case 3:this.$ = [$$[$0], null, 'unary'];
-break;
-case 4:this.$ = [$$[$0], null, 'logicalNot'];
-break;
-case 6:this.$ = [$$[$0-2], $$[$0], 'mult'];
-break;
-case 7:this.$ = [$$[$0-2], $$[$0], 'div'];
-break;
-case 8:this.$ = [$$[$0-2], $$[$0], 'mod'];
-break;
-case 10:this.$ = [$$[$0-2], $$[$0], 'plus'];
-break;
-case 11:this.$ = [$$[$0-2], $$[$0], 'minus'];
-break;
-case 13:this.$ = [$$[$0-2], $$[$0], 'pow'];
-break;
-case 15:this.$ = [$$[$0-2], $$[$0], 'lt'];
-break;
-case 16:this.$ = [$$[$0-2], $$[$0], 'gt'];
-break;
-case 17:this.$ = [$$[$0-2], $$[$0], 'lte'];
-break;
-case 18:this.$ = [$$[$0-2], $$[$0], 'gte'];
-break;
-case 20:this.$ = [$$[$0-2], $$[$0], 'eq'];
-break;
-case 21:this.$ = [$$[$0-2], $$[$0], 'neq'];
-break;
-case 22:this.$ = [$$[$0-2], $$[$0], 'like'];
-break;
-case 23:this.$ = [$$[$0-2], $$[$0], 'notLike'];
-break;
-case 25:this.$ = [$$[$0-2], $$[$0], 'in'];
-break;
-case 26:this.$ = [$$[$0-2], $$[$0], 'notIn'];
-break;
-case 27:this.$ = [$$[$0-2], $$[$0], 'in'];
-break;
-case 28:this.$ = [$$[$0-2], $$[$0], 'notIn'];
-break;
-case 30:this.$ = [$$[$0-2], $$[$0], 'and'];
-break;
-case 32:this.$ = [$$[$0-2], $$[$0], 'or'];
-break;
-case 34:this.$ = [$$[$0-2], $$[$0], 'arguments']
-break;
-case 35:this.$ = [$$[$0-2], [null, null, 'arguments'], 'function']
-break;
-case 36:this.$ = [$$[$0-3], $$[$0-1], 'function']
-break;
-case 38:this.$ = [$$[$0-2],$$[$0], 'prop'];
-break;
-case 39:this.$ = [$$[$0-2],$$[$0], 'prop'];
-break;
-case 40:this.$ = [String(yytext), null, 'identifier'];
-break;
-case 41:this.$ = [String(yytext.replace(/^['|"]|['|"]$/g, '')), null, 'string'];
-break;
-case 42:this.$ = [Number(yytext), null, 'number'];
-break;
-case 43:this.$ = [RegExp(yytext.replace(/^\/|\/$/g, '')), null, 'regexp'];
-break;
-case 44:this.$ = [yytext.replace(/^\s+/, '') == 'true', null, 'boolean'];
-break;
-case 45:this.$ = [null, null, 'null'];
-break;
-case 46:this.$ = [null, null, 'array'];
-break;
-case 47:this.$ = [$$[$0-1], null, 'array'];
-break;
-case 56:this.$ = [$$[$0-1], null, 'composite']
-break;
-}
-},
-table: [{3:1,4:2,6:29,7:7,8:[1,30],9:[1,31],10:28,14:27,16:18,18:8,23:6,28:5,30:15,32:16,33:4,35:3,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{1:[3]},{5:[1,32]},{5:[2,57],36:[1,33],42:[2,57]},{5:[2,31],34:[1,34],36:[2,31],42:[2,31]},{5:[2,29],34:[2,29],36:[2,29],42:[2,29]},{5:[2,24],24:[1,35],25:[1,36],26:[1,37],27:[1,38],34:[2,24],36:[2,24],42:[2,24]},{5:[2,2],8:[2,2],11:[2,2],12:[2,2],13:[2,2],15:[2,2],17:[2,2],19:[2,2],20:[2,2],21:[2,2],22:[2,2],24:[2,2],25:[2,2],26:[2,2],27:[2,2],29:[1,39],31:[1,40],34:[2,2],36:[2,2],42:[2,2]},{5:[2,19],19:[1,41],20:[1,42],21:[1,43],22:[1,44],24:[2,19],25:[2,19],26:[2,19],27:[2,19],34:[2,19],36:[2,19],42:[2,19]},{5:[2,48],8:[2,48],11:[2,48],12:[2,48],13:[2,48],15:[2,48],17:[2,48],19:[2,48],20:[2,48],21:[2,48],22:[2,48],24:[2,48],25:[2,48],26:[2,48],27:[2,48],29:[2,48],31:[2,48],34:[2,48],36:[2,48],38:[2,48],42:[2,48],56:[2,48]},{5:[2,49],8:[2,49],11:[2,49],12:[2,49],13:[2,49],15:[2,49],17:[2,49],19:[2,49],20:[2,49],21:[2,49],22:[2,49],24:[2,49],25:[2,49],26:[2,49],27:[2,49],29:[2,49],31:[2,49],34:[2,49],36:[2,49],38:[2,49],42:[2,49],56:[2,49]},{5:[2,50],8:[2,50],11:[2,50],12:[2,50],13:[2,50],15:[2,50],17:[2,50],19:[2,50],20:[2,50],21:[2,50],22:[2,50],24:[2,50],25:[2,50],26:[2,50],27:[2,50],29:[2,50],31:[2,50],34:[2,50],36:[2,50],38:[2,50],42:[2,50],56:[2,50]},{5:[2,51],8:[2,51],11:[2,51],12:[2,51],13:[2,51],15:[2,51],17:[2,51],19:[2,51],20:[2,51],21:[2,51],22:[2,51],24:[2,51],25:[2,51],26:[2,51],27:[2,51],29:[2,51],31:[2,51],34:[2,51],36:[2,51],38:[2,51],42:[2,51],56:[2,51]},{5:[2,52],8:[2,52],11:[2,52],12:[2,52],13:[2,52],15:[2,52],17:[2,52],19:[2,52],20:[2,52],21:[2,52],22:[2,52],24:[2,52],25:[2,52],26:[2,52],27:[2,52],29:[2,52],31:[2,52],34:[2,52],36:[2,52],38:[2,52],42:[2,52],56:[2,52]},{5:[2,53],8:[2,53],11:[2,53],12:[2,53],13:[2,53],15:[2,53],17:[2,53],19:[2,53],20:[2,53],21:[2,53],22:[2,53],24:[2,53],25:[2,53],26:[2,53],27:[2,53],29:[2,53],31:[2,53],34:[2,53],36:[2,53],38:[2,53],42:[2,53],56:[2,53]},{5:[2,54],8:[2,54],11:[2,54],12:[2,54],13:[2,54],15:[2,54],17:[2,54],19:[2,54],20:[2,54],21:[2,54],22:[2,54],24:[2,54],25:[2,54],26:[2,54],27:[2,54],29:[2,54],31:[2,54],34:[2,54],36:[2,54],38:[2,54],42:[2,54],56:[2,54]},{5:[2,55],8:[2,55],11:[2,55],12:[2,55],13:[2,55],15:[2,55],17:[2,55],19:[2,55],20:[2,55],21:[2,55],22:[2,55],24:[2,55],25:[2,55],26:[2,55],27:[2,55],29:[2,55],31:[2,55],34:[2,55],36:[2,55],38:[2,55],42:[2,55],44:[1,45],56:[2,55]},{4:46,6:29,7:7,8:[1,30],9:[1,31],10:28,14:27,16:18,18:8,23:6,28:5,30:15,32:16,33:4,35:3,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{5:[2,14],17:[1,47],19:[2,14],20:[2,14],21:[2,14],22:[2,14],24:[2,14],25:[2,14],26:[2,14],27:[2,14],34:[2,14],36:[2,14],42:[2,14]},{5:[2,41],8:[2,41],11:[2,41],12:[2,41],13:[2,41],15:[2,41],17:[2,41],19:[2,41],20:[2,41],21:[2,41],22:[2,41],24:[2,41],25:[2,41],26:[2,41],27:[2,41],29:[2,41],31:[2,41],34:[2,41],36:[2,41],38:[2,41],42:[2,41],56:[2,41]},{5:[2,42],8:[2,42],11:[2,42],12:[2,42],13:[2,42],15:[2,42],17:[2,42],19:[2,42],20:[2,42],21:[2,42],22:[2,42],24:[2,42],25:[2,42],26:[2,42],27:[2,42],29:[2,42],31:[2,42],34:[2,42],36:[2,42],38:[2,42],42:[2,42],56:[2,42]},{5:[2,43],8:[2,43],11:[2,43],12:[2,43],13:[2,43],15:[2,43],17:[2,43],19:[2,43],20:[2,43],21:[2,43],22:[2,43],24:[2,43],25:[2,43],26:[2,43],27:[2,43],29:[2,43],31:[2,43],34:[2,43],36:[2,43],38:[2,43],42:[2,43],56:[2,43]},{5:[2,44],8:[2,44],11:[2,44],12:[2,44],13:[2,44],15:[2,44],17:[2,44],19:[2,44],20:[2,44],21:[2,44],22:[2,44],24:[2,44],25:[2,44],26:[2,44],27:[2,44],29:[2,44],31:[2,44],34:[2,44],36:[2,44],38:[2,44],42:[2,44],56:[2,44]},{5:[2,45],8:[2,45],11:[2,45],12:[2,45],13:[2,45],15:[2,45],17:[2,45],19:[2,45],20:[2,45],21:[2,45],22:[2,45],24:[2,45],25:[2,45],26:[2,45],27:[2,45],29:[2,45],31:[2,45],34:[2,45],36:[2,45],38:[2,45],42:[2,45],56:[2,45]},{5:[2,40],8:[2,40],11:[2,40],12:[2,40],13:[2,40],15:[2,40],17:[2,40],19:[2,40],20:[2,40],21:[2,40],22:[2,40],24:[2,40],25:[2,40],26:[2,40],27:[2,40],29:[2,40],31:[2,40],34:[2,40],36:[2,40],38:[2,40],41:[1,48],42:[2,40],44:[2,40],56:[2,40]},{7:51,30:15,32:16,37:50,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25],56:[1,49]},{5:[2,37],8:[2,37],11:[2,37],12:[2,37],13:[2,37],15:[2,37],17:[2,37],19:[2,37],20:[2,37],21:[2,37],22:[2,37],24:[2,37],25:[2,37],26:[2,37],27:[2,37],29:[2,37],31:[2,37],34:[2,37],36:[2,37],38:[2,37],42:[2,37],44:[2,37],56:[2,37]},{5:[2,12],8:[1,53],15:[1,52],17:[2,12],19:[2,12],20:[2,12],21:[2,12],22:[2,12],24:[2,12],25:[2,12],26:[2,12],27:[2,12],34:[2,12],36:[2,12],42:[2,12]},{5:[2,9],8:[2,9],11:[1,54],12:[1,55],13:[1,56],15:[2,9],17:[2,9],19:[2,9],20:[2,9],21:[2,9],22:[2,9],24:[2,9],25:[2,9],26:[2,9],27:[2,9],34:[2,9],36:[2,9],42:[2,9]},{5:[2,5],8:[2,5],11:[2,5],12:[2,5],13:[2,5],15:[2,5],17:[2,5],19:[2,5],20:[2,5],21:[2,5],22:[2,5],24:[2,5],25:[2,5],26:[2,5],27:[2,5],34:[2,5],36:[2,5],42:[2,5]},{6:57,7:58,8:[1,30],9:[1,31],30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{6:59,7:58,8:[1,30],9:[1,31],30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{1:[2,1]},{6:29,7:7,8:[1,30],9:[1,31],10:28,14:27,16:18,18:8,23:6,28:5,30:15,32:16,33:60,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{6:29,7:7,8:[1,30],9:[1,31],10:28,14:27,16:18,18:8,23:6,28:61,30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{6:29,7:58,8:[1,30],9:[1,31],10:28,14:27,16:18,18:62,30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{6:29,7:58,8:[1,30],9:[1,31],10:28,14:27,16:18,18:63,30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{6:29,7:58,8:[1,30],9:[1,31],10:28,14:27,16:18,18:64,30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{6:29,7:58,8:[1,30],9:[1,31],10:28,14:27,16:18,18:65,30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{30:66,32:67,40:[1,68],43:26,55:[1,25]},{30:69,32:70,40:[1,68],43:26,55:[1,25]},{6:29,7:58,8:[1,30],9:[1,31],10:28,14:27,16:71,30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{6:29,7:58,8:[1,30],9:[1,31],10:28,14:27,16:72,30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{6:29,7:58,8:[1,30],9:[1,31],10:28,14:27,16:73,30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{6:29,7:58,8:[1,30],9:[1,31],10:28,14:27,16:74,30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{39:76,40:[1,24],43:75},{42:[1,77]},{6:29,7:58,8:[1,30],9:[1,31],10:28,14:78,30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{7:51,30:15,32:16,37:80,39:14,40:[1,24],41:[1,17],42:[1,79],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{5:[2,46],8:[2,46],11:[2,46],12:[2,46],13:[2,46],15:[2,46],17:[2,46],19:[2,46],20:[2,46],21:[2,46],22:[2,46],24:[2,46],25:[2,46],26:[2,46],27:[2,46],29:[2,46],31:[2,46],34:[2,46],36:[2,46],38:[2,46],42:[2,46],56:[2,46]},{38:[1,82],56:[1,81]},{38:[2,33],42:[2,33],56:[2,33]},{6:29,7:58,8:[1,30],9:[1,31],10:83,30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{6:29,7:58,8:[1,30],9:[1,31],10:84,30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{6:85,7:58,8:[1,30],9:[1,31],30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{6:86,7:58,8:[1,30],9:[1,31],30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{6:87,7:58,8:[1,30],9:[1,31],30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{5:[2,3],8:[2,3],11:[2,3],12:[2,3],13:[2,3],15:[2,3],17:[2,3],19:[2,3],20:[2,3],21:[2,3],22:[2,3],24:[2,3],25:[2,3],26:[2,3],27:[2,3],34:[2,3],36:[2,3],42:[2,3]},{5:[2,2],8:[2,2],11:[2,2],12:[2,2],13:[2,2],15:[2,2],17:[2,2],19:[2,2],20:[2,2],21:[2,2],22:[2,2],24:[2,2],25:[2,2],26:[2,2],27:[2,2],34:[2,2],36:[2,2],42:[2,2]},{5:[2,4],8:[2,4],11:[2,4],12:[2,4],13:[2,4],15:[2,4],17:[2,4],19:[2,4],20:[2,4],21:[2,4],22:[2,4],24:[2,4],25:[2,4],26:[2,4],27:[2,4],34:[2,4],36:[2,4],42:[2,4]},{5:[2,32],34:[1,34],36:[2,32],42:[2,32]},{5:[2,30],34:[2,30],36:[2,30],42:[2,30]},{5:[2,20],19:[1,41],20:[1,42],21:[1,43],22:[1,44],24:[2,20],25:[2,20],26:[2,20],27:[2,20],34:[2,20],36:[2,20],42:[2,20]},{5:[2,21],19:[1,41],20:[1,42],21:[1,43],22:[1,44],24:[2,21],25:[2,21],26:[2,21],27:[2,21],34:[2,21],36:[2,21],42:[2,21]},{5:[2,22],19:[1,41],20:[1,42],21:[1,43],22:[1,44],24:[2,22],25:[2,22],26:[2,22],27:[2,22],34:[2,22],36:[2,22],42:[2,22]},{5:[2,23],19:[1,41],20:[1,42],21:[1,43],22:[1,44],24:[2,23],25:[2,23],26:[2,23],27:[2,23],34:[2,23],36:[2,23],42:[2,23]},{5:[2,25],34:[2,25],36:[2,25],42:[2,25]},{5:[2,27],34:[2,27],36:[2,27],42:[2,27],44:[1,45]},{5:[2,40],34:[2,40],36:[2,40],42:[2,40],44:[2,40]},{5:[2,26],34:[2,26],36:[2,26],42:[2,26]},{5:[2,28],34:[2,28],36:[2,28],42:[2,28],44:[1,45]},{5:[2,15],17:[1,47],19:[2,15],20:[2,15],21:[2,15],22:[2,15],24:[2,15],25:[2,15],26:[2,15],27:[2,15],34:[2,15],36:[2,15],42:[2,15]},{5:[2,16],17:[1,47],19:[2,16],20:[2,16],21:[2,16],22:[2,16],24:[2,16],25:[2,16],26:[2,16],27:[2,16],34:[2,16],36:[2,16],42:[2,16]},{5:[2,17],17:[1,47],19:[2,17],20:[2,17],21:[2,17],22:[2,17],24:[2,17],25:[2,17],26:[2,17],27:[2,17],34:[2,17],36:[2,17],42:[2,17]},{5:[2,18],17:[1,47],19:[2,18],20:[2,18],21:[2,18],22:[2,18],24:[2,18],25:[2,18],26:[2,18],27:[2,18],34:[2,18],36:[2,18],42:[2,18]},{5:[2,38],8:[2,38],11:[2,38],12:[2,38],13:[2,38],15:[2,38],17:[2,38],19:[2,38],20:[2,38],21:[2,38],22:[2,38],24:[2,38],25:[2,38],26:[2,38],27:[2,38],29:[2,38],31:[2,38],34:[2,38],36:[2,38],38:[2,38],42:[2,38],44:[2,38],56:[2,38]},{5:[2,39],8:[2,39],11:[2,39],12:[2,39],13:[2,39],15:[2,39],17:[2,39],19:[2,39],20:[2,39],21:[2,39],22:[2,39],24:[2,39],25:[2,39],26:[2,39],27:[2,39],29:[2,39],31:[2,39],34:[2,39],36:[2,39],38:[2,39],42:[2,39],44:[2,39],56:[2,39]},{5:[2,56],8:[2,56],11:[2,56],12:[2,56],13:[2,56],15:[2,56],17:[2,56],19:[2,56],20:[2,56],21:[2,56],22:[2,56],24:[2,56],25:[2,56],26:[2,56],27:[2,56],29:[2,56],31:[2,56],34:[2,56],36:[2,56],38:[2,56],42:[2,56],56:[2,56]},{5:[2,13],8:[1,53],15:[1,52],17:[2,13],19:[2,13],20:[2,13],21:[2,13],22:[2,13],24:[2,13],25:[2,13],26:[2,13],27:[2,13],34:[2,13],36:[2,13],42:[2,13]},{5:[2,35],8:[2,35],11:[2,35],12:[2,35],13:[2,35],15:[2,35],17:[2,35],19:[2,35],20:[2,35],21:[2,35],22:[2,35],24:[2,35],25:[2,35],26:[2,35],27:[2,35],29:[2,35],31:[2,35],34:[2,35],36:[2,35],38:[2,35],42:[2,35],44:[2,35],56:[2,35]},{38:[1,82],42:[1,88]},{5:[2,47],8:[2,47],11:[2,47],12:[2,47],13:[2,47],15:[2,47],17:[2,47],19:[2,47],20:[2,47],21:[2,47],22:[2,47],24:[2,47],25:[2,47],26:[2,47],27:[2,47],29:[2,47],31:[2,47],34:[2,47],36:[2,47],38:[2,47],42:[2,47],56:[2,47]},{7:89,30:15,32:16,39:14,40:[1,24],41:[1,17],43:26,45:9,46:[1,19],47:10,48:[1,20],49:11,50:[1,21],51:12,52:[1,22],53:13,54:[1,23],55:[1,25]},{5:[2,10],8:[2,10],11:[1,54],12:[1,55],13:[1,56],15:[2,10],17:[2,10],19:[2,10],20:[2,10],21:[2,10],22:[2,10],24:[2,10],25:[2,10],26:[2,10],27:[2,10],34:[2,10],36:[2,10],42:[2,10]},{5:[2,11],8:[2,11],11:[1,54],12:[1,55],13:[1,56],15:[2,11],17:[2,11],19:[2,11],20:[2,11],21:[2,11],22:[2,11],24:[2,11],25:[2,11],26:[2,11],27:[2,11],34:[2,11],36:[2,11],42:[2,11]},{5:[2,6],8:[2,6],11:[2,6],12:[2,6],13:[2,6],15:[2,6],17:[2,6],19:[2,6],20:[2,6],21:[2,6],22:[2,6],24:[2,6],25:[2,6],26:[2,6],27:[2,6],34:[2,6],36:[2,6],42:[2,6]},{5:[2,7],8:[2,7],11:[2,7],12:[2,7],13:[2,7],15:[2,7],17:[2,7],19:[2,7],20:[2,7],21:[2,7],22:[2,7],24:[2,7],25:[2,7],26:[2,7],27:[2,7],34:[2,7],36:[2,7],42:[2,7]},{5:[2,8],8:[2,8],11:[2,8],12:[2,8],13:[2,8],15:[2,8],17:[2,8],19:[2,8],20:[2,8],21:[2,8],22:[2,8],24:[2,8],25:[2,8],26:[2,8],27:[2,8],34:[2,8],36:[2,8],42:[2,8]},{5:[2,36],8:[2,36],11:[2,36],12:[2,36],13:[2,36],15:[2,36],17:[2,36],19:[2,36],20:[2,36],21:[2,36],22:[2,36],24:[2,36],25:[2,36],26:[2,36],27:[2,36],29:[2,36],31:[2,36],34:[2,36],36:[2,36],38:[2,36],42:[2,36],44:[2,36],56:[2,36]},{38:[2,34],42:[2,34],56:[2,34]}],
-defaultActions: {32:[2,1]},
-parseError: function parseError(str, hash) {
-    if (hash.recoverable) {
-        this.trace(str);
-    } else {
-        throw new Error(str);
-    }
-},
-parse: function parse(input) {
-    var self = this, stack = [0], vstack = [null], lstack = [], table = this.table, yytext = '', yylineno = 0, yyleng = 0, recovering = 0, TERROR = 2, EOF = 1;
-    this.lexer.setInput(input);
-    this.lexer.yy = this.yy;
-    this.yy.lexer = this.lexer;
-    this.yy.parser = this;
-    if (typeof this.lexer.yylloc == 'undefined') {
-        this.lexer.yylloc = {};
-    }
-    var yyloc = this.lexer.yylloc;
-    lstack.push(yyloc);
-    var ranges = this.lexer.options && this.lexer.options.ranges;
-    if (typeof this.yy.parseError === 'function') {
-        this.parseError = this.yy.parseError;
-    } else {
-        this.parseError = Object.getPrototypeOf(this).parseError;
-    }
-    function popStack(n) {
-        stack.length = stack.length - 2 * n;
-        vstack.length = vstack.length - n;
-        lstack.length = lstack.length - n;
-    }
-    function lex() {
-        var token;
-        token = self.lexer.lex() || EOF;
-        if (typeof token !== 'number') {
-            token = self.symbols_[token] || token;
-        }
-        return token;
-    }
-    var symbol, preErrorSymbol, state, action, a, r, yyval = {}, p, len, newState, expected;
-    while (true) {
-        state = stack[stack.length - 1];
-        if (this.defaultActions[state]) {
-            action = this.defaultActions[state];
-        } else {
-            if (symbol === null || typeof symbol == 'undefined') {
-                symbol = lex();
-            }
-            action = table[state] && table[state][symbol];
-        }
-                    if (typeof action === 'undefined' || !action.length || !action[0]) {
-                var errStr = '';
-                expected = [];
-                for (p in table[state]) {
-                    if (this.terminals_[p] && p > TERROR) {
-                        expected.push('\'' + this.terminals_[p] + '\'');
-                    }
-                }
-                if (this.lexer.showPosition) {
-                    errStr = 'Parse error on line ' + (yylineno + 1) + ':\n' + this.lexer.showPosition() + '\nExpecting ' + expected.join(', ') + ', got \'' + (this.terminals_[symbol] || symbol) + '\'';
-                } else {
-                    errStr = 'Parse error on line ' + (yylineno + 1) + ': Unexpected ' + (symbol == EOF ? 'end of input' : '\'' + (this.terminals_[symbol] || symbol) + '\'');
-                }
-                this.parseError(errStr, {
-                    text: this.lexer.match,
-                    token: this.terminals_[symbol] || symbol,
-                    line: this.lexer.yylineno,
-                    loc: yyloc,
-                    expected: expected
-                });
-            }
-        if (action[0] instanceof Array && action.length > 1) {
-            throw new Error('Parse Error: multiple actions possible at state: ' + state + ', token: ' + symbol);
-        }
-        switch (action[0]) {
-        case 1:
-            stack.push(symbol);
-            vstack.push(this.lexer.yytext);
-            lstack.push(this.lexer.yylloc);
-            stack.push(action[1]);
-            symbol = null;
-            if (!preErrorSymbol) {
-                yyleng = this.lexer.yyleng;
-                yytext = this.lexer.yytext;
-                yylineno = this.lexer.yylineno;
-                yyloc = this.lexer.yylloc;
-                if (recovering > 0) {
-                    recovering--;
-                }
-            } else {
-                symbol = preErrorSymbol;
-                preErrorSymbol = null;
-            }
-            break;
-        case 2:
-            len = this.productions_[action[1]][1];
-            yyval.$ = vstack[vstack.length - len];
-            yyval._$ = {
-                first_line: lstack[lstack.length - (len || 1)].first_line,
-                last_line: lstack[lstack.length - 1].last_line,
-                first_column: lstack[lstack.length - (len || 1)].first_column,
-                last_column: lstack[lstack.length - 1].last_column
-            };
-            if (ranges) {
-                yyval._$.range = [
-                    lstack[lstack.length - (len || 1)].range[0],
-                    lstack[lstack.length - 1].range[1]
-                ];
-            }
-            r = this.performAction.call(yyval, yytext, yyleng, yylineno, this.yy, action[1], vstack, lstack);
-            if (typeof r !== 'undefined') {
-                return r;
-            }
-            if (len) {
-                stack = stack.slice(0, -1 * len * 2);
-                vstack = vstack.slice(0, -1 * len);
-                lstack = lstack.slice(0, -1 * len);
-            }
-            stack.push(this.productions_[action[1]][0]);
-            vstack.push(yyval.$);
-            lstack.push(yyval._$);
-            newState = table[stack[stack.length - 2]][stack[stack.length - 1]];
-            stack.push(newState);
-            break;
-        case 3:
-            return true;
-        }
-    }
-    return true;
-}};
-undefined/* generated by jison-lex 0.2.1 */
-var lexer = (function(){
-var lexer = {
-
-EOF:1,
-
-parseError:function parseError(str, hash) {
-        if (this.yy.parser) {
-            this.yy.parser.parseError(str, hash);
-        } else {
-            throw new Error(str);
-        }
-    },
-
-// resets the lexer, sets new input
-setInput:function (input) {
-        this._input = input;
-        this._more = this._backtrack = this.done = false;
-        this.yylineno = this.yyleng = 0;
-        this.yytext = this.matched = this.match = '';
-        this.conditionStack = ['INITIAL'];
-        this.yylloc = {
-            first_line: 1,
-            first_column: 0,
-            last_line: 1,
-            last_column: 0
-        };
-        if (this.options.ranges) {
-            this.yylloc.range = [0,0];
-        }
-        this.offset = 0;
-        return this;
-    },
-
-// consumes and returns one char from the input
-input:function () {
-        var ch = this._input[0];
-        this.yytext += ch;
-        this.yyleng++;
-        this.offset++;
-        this.match += ch;
-        this.matched += ch;
-        var lines = ch.match(/(?:\r\n?|\n).*/g);
-        if (lines) {
-            this.yylineno++;
-            this.yylloc.last_line++;
-        } else {
-            this.yylloc.last_column++;
-        }
-        if (this.options.ranges) {
-            this.yylloc.range[1]++;
-        }
-
-        this._input = this._input.slice(1);
-        return ch;
-    },
-
-// unshifts one char (or a string) into the input
-unput:function (ch) {
-        var len = ch.length;
-        var lines = ch.split(/(?:\r\n?|\n)/g);
-
-        this._input = ch + this._input;
-        this.yytext = this.yytext.substr(0, this.yytext.length - len - 1);
-        //this.yyleng -= len;
-        this.offset -= len;
-        var oldLines = this.match.split(/(?:\r\n?|\n)/g);
-        this.match = this.match.substr(0, this.match.length - 1);
-        this.matched = this.matched.substr(0, this.matched.length - 1);
-
-        if (lines.length - 1) {
-            this.yylineno -= lines.length - 1;
-        }
-        var r = this.yylloc.range;
-
-        this.yylloc = {
-            first_line: this.yylloc.first_line,
-            last_line: this.yylineno + 1,
-            first_column: this.yylloc.first_column,
-            last_column: lines ?
-                (lines.length === oldLines.length ? this.yylloc.first_column : 0)
-                 + oldLines[oldLines.length - lines.length].length - lines[0].length :
-              this.yylloc.first_column - len
-        };
-
-        if (this.options.ranges) {
-            this.yylloc.range = [r[0], r[0] + this.yyleng - len];
-        }
-        this.yyleng = this.yytext.length;
-        return this;
-    },
-
-// When called from action, caches matched text and appends it on next action
-more:function () {
-        this._more = true;
-        return this;
-    },
-
-// When called from action, signals the lexer that this rule fails to match the input, so the next matching rule (regex) should be tested instead.
-reject:function () {
-        if (this.options.backtrack_lexer) {
-            this._backtrack = true;
-        } else {
-            return this.parseError('Lexical error on line ' + (this.yylineno + 1) + '. You can only invoke reject() in the lexer when the lexer is of the backtracking persuasion (options.backtrack_lexer = true).\n' + this.showPosition(), {
-                text: "",
-                token: null,
-                line: this.yylineno
-            });
-
-        }
-        return this;
-    },
-
-// retain first n characters of the match
-less:function (n) {
-        this.unput(this.match.slice(n));
-    },
-
-// displays already matched input, i.e. for error messages
-pastInput:function () {
-        var past = this.matched.substr(0, this.matched.length - this.match.length);
-        return (past.length > 20 ? '...':'') + past.substr(-20).replace(/\n/g, "");
-    },
-
-// displays upcoming input, i.e. for error messages
-upcomingInput:function () {
-        var next = this.match;
-        if (next.length < 20) {
-            next += this._input.substr(0, 20-next.length);
-        }
-        return (next.substr(0,20) + (next.length > 20 ? '...' : '')).replace(/\n/g, "");
-    },
-
-// displays the character position where the lexing error occurred, i.e. for error messages
-showPosition:function () {
-        var pre = this.pastInput();
-        var c = new Array(pre.length + 1).join("-");
-        return pre + this.upcomingInput() + "\n" + c + "^";
-    },
-
-// test the lexed token: return FALSE when not a match, otherwise return token
-test_match:function (match, indexed_rule) {
-        var token,
-            lines,
-            backup;
-
-        if (this.options.backtrack_lexer) {
-            // save context
-            backup = {
-                yylineno: this.yylineno,
-                yylloc: {
-                    first_line: this.yylloc.first_line,
-                    last_line: this.last_line,
-                    first_column: this.yylloc.first_column,
-                    last_column: this.yylloc.last_column
-                },
-                yytext: this.yytext,
-                match: this.match,
-                matches: this.matches,
-                matched: this.matched,
-                yyleng: this.yyleng,
-                offset: this.offset,
-                _more: this._more,
-                _input: this._input,
-                yy: this.yy,
-                conditionStack: this.conditionStack.slice(0),
-                done: this.done
-            };
-            if (this.options.ranges) {
-                backup.yylloc.range = this.yylloc.range.slice(0);
-            }
-        }
-
-        lines = match[0].match(/(?:\r\n?|\n).*/g);
-        if (lines) {
-            this.yylineno += lines.length;
-        }
-        this.yylloc = {
-            first_line: this.yylloc.last_line,
-            last_line: this.yylineno + 1,
-            first_column: this.yylloc.last_column,
-            last_column: lines ?
-                         lines[lines.length - 1].length - lines[lines.length - 1].match(/\r?\n?/)[0].length :
-                         this.yylloc.last_column + match[0].length
-        };
-        this.yytext += match[0];
-        this.match += match[0];
-        this.matches = match;
-        this.yyleng = this.yytext.length;
-        if (this.options.ranges) {
-            this.yylloc.range = [this.offset, this.offset += this.yyleng];
-        }
-        this._more = false;
-        this._backtrack = false;
-        this._input = this._input.slice(match[0].length);
-        this.matched += match[0];
-        token = this.performAction.call(this, this.yy, this, indexed_rule, this.conditionStack[this.conditionStack.length - 1]);
-        if (this.done && this._input) {
-            this.done = false;
-        }
-        if (token) {
-            return token;
-        } else if (this._backtrack) {
-            // recover context
-            for (var k in backup) {
-                this[k] = backup[k];
-            }
-            return false; // rule action called reject() implying the next rule should be tested instead.
-        }
-        return false;
-    },
-
-// return next match in input
-next:function () {
-        if (this.done) {
-            return this.EOF;
-        }
-        if (!this._input) {
-            this.done = true;
-        }
-
-        var token,
-            match,
-            tempMatch,
-            index;
-        if (!this._more) {
-            this.yytext = '';
-            this.match = '';
-        }
-        var rules = this._currentRules();
-        for (var i = 0; i < rules.length; i++) {
-            tempMatch = this._input.match(this.rules[rules[i]]);
-            if (tempMatch && (!match || tempMatch[0].length > match[0].length)) {
-                match = tempMatch;
-                index = i;
-                if (this.options.backtrack_lexer) {
-                    token = this.test_match(tempMatch, rules[i]);
-                    if (token !== false) {
-                        return token;
-                    } else if (this._backtrack) {
-                        match = false;
-                        continue; // rule action called reject() implying a rule MISmatch.
-                    } else {
-                        // else: this is a lexer rule which consumes input without producing a token (e.g. whitespace)
-                        return false;
-                    }
-                } else if (!this.options.flex) {
-                    break;
-                }
-            }
-        }
-        if (match) {
-            token = this.test_match(match, rules[index]);
-            if (token !== false) {
-                return token;
-            }
-            // else: this is a lexer rule which consumes input without producing a token (e.g. whitespace)
-            return false;
-        }
-        if (this._input === "") {
-            return this.EOF;
-        } else {
-            return this.parseError('Lexical error on line ' + (this.yylineno + 1) + '. Unrecognized text.\n' + this.showPosition(), {
-                text: "",
-                token: null,
-                line: this.yylineno
-            });
-        }
-    },
-
-// return next match that has a token
-lex:function lex() {
-        var r = this.next();
-        if (r) {
-            return r;
-        } else {
-            return this.lex();
-        }
-    },
-
-// activates a new lexer condition state (pushes the new lexer condition state onto the condition stack)
-begin:function begin(condition) {
-        this.conditionStack.push(condition);
-    },
-
-// pop the previously active lexer condition state off the condition stack
-popState:function popState() {
-        var n = this.conditionStack.length - 1;
-        if (n > 0) {
-            return this.conditionStack.pop();
-        } else {
-            return this.conditionStack[0];
-        }
-    },
-
-// produce the lexer rule set which is active for the currently active lexer condition state
-_currentRules:function _currentRules() {
-        if (this.conditionStack.length && this.conditionStack[this.conditionStack.length - 1]) {
-            return this.conditions[this.conditionStack[this.conditionStack.length - 1]].rules;
-        } else {
-            return this.conditions["INITIAL"].rules;
-        }
-    },
-
-// return the currently active lexer condition state; when an index argument is provided it produces the N-th previous condition state, if available
-topState:function topState(n) {
-        n = this.conditionStack.length - 1 - Math.abs(n || 0);
-        if (n >= 0) {
-            return this.conditionStack[n];
-        } else {
-            return "INITIAL";
-        }
-    },
-
-// alias for begin(condition)
-pushState:function pushState(condition) {
-        this.begin(condition);
-    },
-
-// return the number of states currently on the stack
-stateStackSize:function stateStackSize() {
-        return this.conditionStack.length;
-    },
-options: {},
-performAction: function anonymous(yy,yy_,$avoiding_name_collisions,YY_START) {
-
-var YYSTATE=YY_START;
-switch($avoiding_name_collisions) {
-case 0:return 29;
-break;
-case 1:return 31;
-break;
-case 2:return 'from';
-break;
-case 3:return 24;
-break;
-case 4:return 25;
-break;
-case 5:return 21;
-break;
-case 6:return 19;
-break;
-case 7:return 22;
-break;
-case 8:return 20;
-break;
-case 9:return 26;
-break;
-case 10:return 27;
-break;
-case 11:return 34;
-break;
-case 12:return 36;
-break;
-case 13:return 54;
-break;
-case 14:return 52;
-break;
-case 15:/* skip whitespace */
-break;
-case 16:return 48;
-break;
-case 17:return 46;
-break;
-case 18:return 46;
-break;
-case 19:return 40;
-break;
-case 20:return 50;
-break;
-case 21:return 44;
-break;
-case 22:return 11;
-break;
-case 23:return 12;
-break;
-case 24:return 13;
-break;
-case 25:return 38;
-break;
-case 26:return 8;
-break;
-case 27:return 26;
-break;
-case 28:return 27;
-break;
-case 29:return 24;
-break;
-case 30:return 24;
-break;
-case 31:return 25;
-break;
-case 32:return 25;
-break;
-case 33:return 21;
-break;
-case 34:return 22;
-break;
-case 35:return 20;
-break;
-case 36:return 19;
-break;
-case 37:return 34;
-break;
-case 38:return 36;
-break;
-case 39:return 15;
-break;
-case 40:return 17;
-break;
-case 41:return 41;
-break;
-case 42:return 56;
-break;
-case 43:return 55;
-break;
-case 44:return 42;
-break;
-case 45:return 9;
-break;
-case 46:return 5;
-break;
-}
-},
-rules: [/^(?:\s+in\b)/,/^(?:\s+notIn\b)/,/^(?:\s+from\b)/,/^(?:\s+(eq|EQ)\b)/,/^(?:\s+(neq|NEQ)\b)/,/^(?:\s+(lte|LTE)\b)/,/^(?:\s+(lt|LT)\b)/,/^(?:\s+(gte|GTE)\b)/,/^(?:\s+(gt|GT)\b)/,/^(?:\s+(like|LIKE)\b)/,/^(?:\s+(notLike|NOT_LIKE)\b)/,/^(?:\s+(and|AND)\b)/,/^(?:\s+(or|OR)\b)/,/^(?:\s+null\b)/,/^(?:\s+(true|false)\b)/,/^(?:\s+)/,/^(?:-?[0-9]+(?:\.[0-9]+)?\b)/,/^(?:'[^']*')/,/^(?:"[^"]*")/,/^(?:([a-zA-Z_$][0-9a-zA-Z_$]*))/,/^(?:\/(.*)\/)/,/^(?:\.)/,/^(?:\*)/,/^(?:\/)/,/^(?:\%)/,/^(?:,)/,/^(?:-)/,/^(?:=~)/,/^(?:!=~)/,/^(?:==)/,/^(?:===)/,/^(?:!=)/,/^(?:!==)/,/^(?:<=)/,/^(?:>=)/,/^(?:>)/,/^(?:<)/,/^(?:&&)/,/^(?:\|\|)/,/^(?:\+)/,/^(?:\^)/,/^(?:\()/,/^(?:\])/,/^(?:\[)/,/^(?:\))/,/^(?:!)/,/^(?:$)/],
-conditions: {"INITIAL":{"rules":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46],"inclusive":true}}
-};
-return lexer;
-})();
-parser.lexer = lexer;
-function Parser () {
-  this.yy = {};
-}
-Parser.prototype = parser;parser.Parser = Parser;
-return new Parser;
-})();
-
-
-if (typeof require !== 'undefined' && typeof exports !== 'undefined') {
-exports.parser = parser;
-exports.Parser = parser.Parser;
-exports.parse = function () { return parser.parse.apply(parser, arguments); };
-exports.main = function commonjsMain(args) {
-    if (!args[1]) {
-        console.log('Usage: '+args[0]+' FILE');
-        process.exit(1);
-    }
-    var source = require('fs').readFileSync(require('path').normalize(args[1]), "utf8");
-    return exports.parser.parse(source);
-};
-if (typeof module !== 'undefined' && require.main === module) {
-  exports.main(process.argv.slice(1));
-}
-}
-})(require("__browserify_process"))
-},{"fs":4,"path":6,"__browserify_process":5}],30:[function(require,module,exports){
-(function(Buffer){var extd = require("../extended"),
-    forEach = extd.forEach,
-    indexOf = extd.indexOf,
-    merge = extd.merge,
-    isString = extd.isString,
-    constraintMatcher = require("../constraintMatcher"),
-    parser = require("../parser");
-
-function definedToJs(options) {
-    /*jshint evil:true*/
-    options = isString(options) ? new Function("return " + options + ";")() : options;
-    var ret = ["(function(){"], value;
-
-    if (options.hasOwnProperty("constructor") && "function" === typeof options.constructor) {
-        ret.push("var Defined = " + options.constructor.toString() + ";");
-    } else {
-        ret.push("var Defined = function(opts){ for(var i in opts){if(opts.hasOwnProperty(i)){this[i] = opts[i];}}};");
-    }
-    ret.push("var proto = Defined.prototype;");
-    for (var key in options) {
-        if (options.hasOwnProperty(key)) {
-            value = options[key];
-            ret.push("proto." + key + " = " + (extd.isFunction(value) ? value.toString() : extd.format("%j", value)) + ";");
-        }
-    }
-    ret.push("return Defined;");
-    ret.push("}())");
-    return ret.join("");
-
-}
-
-function actionToJs(action, identifiers, defined, scope) {
-    var declares = [];
-    forEach(identifiers, function (i) {
-        if (action.indexOf(i) !== -1) {
-            declares.push("var " + i + "= facts." + i + ";");
-        }
-    });
-    extd(defined).keys().forEach(function (i) {
-        if (action.indexOf(i) !== -1) {
-            declares.push("var " + i + "= defined." + i + ";");
-        }
-    });
-
-    extd(scope).keys().forEach(function (i) {
-        if (action.indexOf(i) !== -1) {
-            declares.push("var " + i + "= scope." + i + ";");
-        }
-    });
-    var params = ["facts", 'flow'];
-    if (/next\(.*\)/.test(action)) {
-        params.push("next");
-    }
-    action = declares.join("") + action;
-    try {
-        return ["function(", params.join(","), "){with(flow){", action, "}}"].join("");
-    } catch (e) {
-        throw new Error("Invalid action : " + action + "\n" + e.message);
-    }
-}
-
-function constraintsToJs(constraint, identifiers) {
-    constraint = constraint.slice(0);
-    var ret = [];
-    if (constraint[0] === "or") {
-        ret.push('["' + constraint.shift() + '"');
-        ret.push(extd.map(constraint,function (c) {
-            return constraintsToJs(c, identifiers);
-        }).join(",") + "]");
-        return ret;
-    } else if (constraint[0] === "not") {
-        ret.push('"', constraint.shift(), '", ');
-    }
-    identifiers.push(constraint[1]);
-    ret.push(constraint[0], ', "' + constraint[1].replace(/"/g, "\"") + '"');
-    constraint.splice(0, 2);
-    if (constraint.length) {
-        //constraint
-        var c = constraint.shift();
-        if (extd.isString(c)) {
-            ret.push(',"' + c.replace(/"/g, "\""), '"');
-            forEach(constraintMatcher.getIdentifiers(parser.parseConstraint(c)), function (i) {
-                identifiers.push(i);
-            });
-        } else {
-            ret.push(',"true"');
-            constraint.unshift(c);
-        }
-    }
-    if (constraint.length) {
-        //ret of options
-        var refs = constraint.shift();
-        extd(refs).values().forEach(function (ident) {
-            if (indexOf(identifiers, ident) === -1) {
-                identifiers.push(ident);
-            }
-        });
-        ret.push(',' + extd.format('%j', [refs]));
-    }
-    return '[' + ret.join("") + ']';
-}
-
-exports.transpile = function (flowObj, options) {
-    options = options || {};
-    var ret = [];
-    ret.push("(function(){");
-    ret.push("return function(options){");
-    ret.push("options = options || {};");
-    ret.push("var bind = function(scope, fn){return function(){return fn.apply(scope, arguments);};}, defined = options.defined || {}, scope = options.scope || {};");
-    var defined = merge({Array: Array, String: String, Number: Number, Boolean: Boolean, RegExp: RegExp, Date: Date, Object: Object}, options.define || {});
-    if (typeof Buffer !== "undefined") {
-        defined.Buffer = Buffer;
-    }
-    var scope = merge({console: console}, options.scope);
-    ret.push(["return nools.flow('", options.name, "', function(){"].join(""));
-    //add any defined classes in the parsed flowObj to defined
-    ret.push(extd(flowObj.define || []).map(function (defined) {
-        var name = defined.name;
-        defined[name] = {};
-        return ["var", name, "= defined." + name, "= this.addDefined('" + name + "',", definedToJs(defined.properties) + ");"].join(" ");
-    }).value().join("\n"));
-    ret.push(extd(flowObj.scope || []).map(function (s) {
-        var name = s.name;
-        scope[name] = {};
-        return ["var", name, "= scope." + name, "= ", s.body, ";"].join(" ");
-    }).value().join("\n"));
-    ret.push("scope.console = console;\n");
-
-
-    ret.push(extd(flowObj.rules || []).map(function (rule) {
-        var identifiers = [], ret = ["this.rule('", rule.name, "'"], options = extd.merge(rule.options || {}, {scope: "scope"});
-        ret.push(",", extd.format("%j", [options]).replace(/(:"scope")/, ":scope"));
-        if (rule.constraints && !extd.isEmpty(rule.constraints)) {
-            ret.push(", [");
-            ret.push(extd(rule.constraints).map(function (c) {
-                return constraintsToJs(c, identifiers);
-            }).value().join(","));
-            ret.push("]");
-        }
-        ret.push(",", actionToJs(rule.action, identifiers, defined, scope));
-        ret.push(");");
-        return ret.join("");
-    }).value().join(""));
-    ret.push("});");
-    ret.push("};");
-    ret.push("}());");
-    return ret.join("");
-};
-
-
-
-})(require("__browserify_buffer").Buffer)
-},{"../extended":8,"../constraintMatcher":16,"../parser":18,"__browserify_buffer":28}],41:[function(require,module,exports){
-module.exports = require("./declare.js");
-},{"./declare.js":49}],31:[function(require,module,exports){
-var declare = require("declare.js");
-declare({
-
-    instance: {
-        constructor: function () {
-            this.head = null;
-            this.tail = null;
-            this.length = null;
-        },
-
-        push: function (data) {
-            var tail = this.tail, head = this.head, node = {data: data, prev: tail, next: null};
-            if (tail) {
-                this.tail.next = node;
-            }
-            this.tail = node;
-            if (!head) {
-                this.head = node;
-            }
-            this.length++;
-            return node;
-        },
-
-        remove: function (node) {
-            if (node.prev) {
-                node.prev.next = node.next;
-            } else {
-                this.head = node.next;
-            }
-            if (node.next) {
-                node.next.prev = node.prev;
-            } else {
-                this.tail = node.prev;
-            }
-            node.data = node.prev = node.next = null;
-            this.length--;
-        },
-
-        forEach: function (cb) {
-            var head = {next: this.head};
-            while ((head = head.next)) {
-                cb(head.data);
-            }
-        },
-
-        clear: function () {
-            this.head = this.tail = null;
-            this.length = 0;
-        }
-
-    }
-
-}).as(module);
-
-},{"declare.js":41}],49:[function(require,module,exports){
-(function () {
-
-    /**
-     * @projectName declare
-     * @github http://github.com/doug-martin/declare.js
-     * @header
-     *
-     * Declare is a library designed to allow writing object oriented code the same way in both the browser and node.js.
-     *
-     * ##Installation
-     *
-     * `npm install declare.js`
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/declare.js/master/declare.js) ([minified](https://raw.github.com/doug-martin/declare.js/master/declare-min.js))
-     *
-     * ###Requirejs
-     *
-     * To use with requirejs place the `declare` source in the root scripts directory
-     *
-     * ```
-     *
-     * define(["declare"], function(declare){
-     *      return declare({
-     *          instance : {
-     *              hello : function(){
-     *                  return "world";
-     *              }
-     *          }
-     *      });
-     * });
-     *
-     * ```
-     *
-     *
-     * ##Usage
-     *
-     * declare.js provides
-     *
-     * Class methods
-     *
-     * * `as(module | object, name)` : exports the object to module or the object with the name
-     * * `mixin(mixin)` : mixes in an object but does not inherit directly from the object. **Note** this does not return a new class but changes the original class.
-     * * `extend(proto)` : extend a class with the given properties. A shortcut to `declare(Super, {})`;
-     *
-     * Instance methods
-     *
-     * * `_super(arguments)`: calls the super of the current method, you can pass in either the argments object or an array with arguments you want passed to super
-     * * `_getSuper()`: returns a this methods direct super.
-     * * `_static` : use to reference class properties and methods.
-     * * `get(prop)` : gets a property invoking the getter if it exists otherwise it just returns the named property on the object.
-     * * `set(prop, val)` : sets a property invoking the setter if it exists otherwise it just sets the named property on the object.
-     *
-     *
-     * ###Declaring a new Class
-     *
-     * Creating a new class with declare is easy!
-     *
-     * ```
-     *
-     * var Mammal = declare({
-     *      //define your instance methods and properties
-     *      instance : {
-     *
-     *          //will be called whenever a new instance is created
-     *          constructor: function(options) {
-     *              options = options || {};
-     *              this._super(arguments);
-     *              this._type = options.type || "mammal";
-     *          },
-     *
-     *          speak : function() {
-     *              return  "A mammal of type " + this._type + " sounds like";
-     *          },
-     *
-     *          //Define your getters
-     *          getters : {
-     *
-     *              //can be accessed by using the get method. (mammal.get("type"))
-     *              type : function() {
-     *                  return this._type;
-     *              }
-     *          },
-     *
-     *           //Define your setters
-     *          setters : {
-     *
-     *                //can be accessed by using the set method. (mammal.set("type", "mammalType"))
-     *              type : function(t) {
-     *                  this._type = t;
-     *              }
-     *          }
-     *      },
-     *
-     *      //Define your static methods
-     *      static : {
-     *
-     *          //Mammal.soundOff(); //"Im a mammal!!"
-     *          soundOff : function() {
-     *              return "Im a mammal!!";
-     *          }
-     *      }
-     * });
-     *
-     *
-     * ```
-     *
-     * You can use Mammal just like you would any other class.
-     *
-     * ```
-     * Mammal.soundOff("Im a mammal!!");
-     *
-     * var myMammal = new Mammal({type : "mymammal"});
-     * myMammal.speak(); // "A mammal of type mymammal sounds like"
-     * myMammal.get("type"); //"mymammal"
-     * myMammal.set("type", "mammal");
-     * myMammal.get("type"); //"mammal"
-     *
-     *
-     * ```
-     *
-     * ###Extending a class
-     *
-     * If you want to just extend a single class use the .extend method.
-     *
-     * ```
-     *
-     * var Wolf = Mammal.extend({
-     *
-     *   //define your instance method
-     *   instance: {
-     *
-     *        //You can override super constructors just be sure to call `_super`
-     *       constructor: function(options) {
-     *          options = options || {};
-     *          this._super(arguments); //call our super constructor.
-     *          this._sound = "growl";
-     *          this._color = options.color || "grey";
-     *      },
-     *
-     *      //override Mammals `speak` method by appending our own data to it.
-     *      speak : function() {
-     *          return this._super(arguments) + " a " + this._sound;
-     *      },
-     *
-     *      //add new getters for sound and color
-     *      getters : {
-     *
-     *           //new Wolf().get("type")
-     *           //notice color is read only as we did not define a setter
-     *          color : function() {
-     *              return this._color;
-     *          },
-     *
-     *          //new Wolf().get("sound")
-     *          sound : function() {
-     *              return this._sound;
-     *          }
-     *      },
-     *
-     *      setters : {
-     *
-     *          //new Wolf().set("sound", "howl")
-     *          sound : function(s) {
-     *              this._sound = s;
-     *          }
-     *      }
-     *
-     *  },
-     *
-     *  static : {
-     *
-     *      //You can override super static methods also! And you can still use _super
-     *      soundOff : function() {
-     *          //You can even call super in your statics!!!
-     *          //should return "I'm a mammal!! that growls"
-     *          return this._super(arguments) + " that growls";
-     *      }
-     *  }
-     * });
-     *
-     * Wolf.soundOff(); //Im a mammal!! that growls
-     *
-     * var myWolf = new Wolf();
-     * myWolf instanceof Mammal //true
-     * myWolf instanceof Wolf //true
-     *
-     * ```
-     *
-     * You can also extend a class by using the declare method and just pass in the super class.
-     *
-     * ```
-     * //Typical hierarchical inheritance
-     * // Mammal->Wolf->Dog
-     * var Dog = declare(Wolf, {
-     *    instance: {
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            //override Wolfs initialization of sound to woof.
-     *            this._sound = "woof";
-     *
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a growl thats domesticated"
-     *            return this._super(arguments) + " thats domesticated";
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'm a mammal!! that growls but now barks"
-     *            return this._super(arguments) + " but now barks";
-     *        }
-     *    }
-     * });
-     *
-     * Dog.soundOff(); //Im a mammal!! that growls but now barks
-     *
-     * var myDog = new Dog();
-     * myDog instanceof Mammal //true
-     * myDog instanceof Wolf //true
-     * myDog instanceof Dog //true
-     *
-     *
-     * //Notice you still get the extend method.
-     *
-     * // Mammal->Wolf->Dog->Breed
-     * var Breed = Dog.extend({
-     *    instance: {
-     *
-     *        //initialize outside of constructor
-     *        _pitch : "high",
-     *
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            this.breed = options.breed || "lab";
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a
-     *            //growl thats domesticated with a high pitch!"
-     *            return this._super(arguments) + " with a " + this._pitch + " pitch!";
-     *        },
-     *
-     *        getters : {
-     *            pitch : function() {
-     *                return this._pitch;
-     *            }
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'M A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *            return this._super(arguments).toUpperCase() + "!";
-     *        }
-     *    }
-     * });
-     *
-     *
-     * Breed.soundOff()//"IM A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *
-     * var myBreed = new Breed({color : "gold", type : "lab"}),
-     * myBreed instanceof Dog //true
-     * myBreed instanceof Wolf //true
-     * myBreed instanceof Mammal //true
-     * myBreed.speak() //"A mammal of type lab sounds like a woof thats domesticated with a high pitch!"
-     * myBreed.get("type") //"lab"
-     * myBreed.get("color") //"gold"
-     * myBreed.get("sound")" //"woof"
-     * ```
-     *
-     * ###Multiple Inheritance / Mixins
-     *
-     * declare also allows the use of multiple super classes.
-     * This is useful if you have generic classes that provide functionality but shouldnt be used on their own.
-     *
-     * Lets declare a mixin that allows us to watch for property changes.
-     *
-     * ```
-     * //Notice that we set up the functions outside of declare because we can reuse them
-     *
-     * function _set(prop, val) {
-     *     //get the old value
-     *     var oldVal = this.get(prop);
-     *     //call super to actually set the property
-     *     var ret = this._super(arguments);
-     *     //call our handlers
-     *     this.__callHandlers(prop, oldVal, val);
-     *     return ret;
-     * }
-     *
-     * function _callHandlers(prop, oldVal, newVal) {
-     *    //get our handlers for the property
-     *     var handlers = this.__watchers[prop], l;
-     *     //if the handlers exist and their length does not equal 0 then we call loop through them
-     *     if (handlers && (l = handlers.length) !== 0) {
-     *         for (var i = 0; i < l; i++) {
-     *             //call the handler
-     *             handlers[i].call(null, prop, oldVal, newVal);
-     *         }
-     *     }
-     * }
-     *
-     *
-     * //the watch function
-     * function _watch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         //if its not a function then its an invalid handler
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     if (!this.__watchers[prop]) {
-     *         //create the watchers if it doesnt exist
-     *         this.__watchers[prop] = [handler];
-     *     } else {
-     *         //otherwise just add it to the handlers array
-     *         this.__watchers[prop].push(handler);
-     *     }
-     * }
-     *
-     * function _unwatch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     var handlers = this.__watchers[prop], index;
-     *     if (handlers && (index = handlers.indexOf(handler)) !== -1) {
-     *        //remove the handler if it is found
-     *         handlers.splice(index, 1);
-     *     }
-     * }
-     *
-     * declare({
-     *     instance:{
-     *         constructor:function () {
-     *             this._super(arguments);
-     *             //set up our watchers
-     *             this.__watchers = {};
-     *         },
-     *
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set up our callhandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch function
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     },
-     *
-     *     "static":{
-     *
-     *         init:function () {
-     *             this._super(arguments);
-     *             this.__watchers = {};
-     *         },
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set our callHandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     }
-     * })
-     *
-     * ```
-     *
-     * Now lets use the mixin
-     *
-     * ```
-     * var WatchDog = declare([Dog, WatchMixin]);
-     *
-     * var watchDog = new WatchDog();
-     * //create our handler
-     * function watch(id, oldVal, newVal) {
-     *     console.log("watchdog's %s was %s, now %s", id, oldVal, newVal);
-     * }
-     *
-     * //watch for property changes
-     * watchDog.watch("type", watch);
-     * watchDog.watch("color", watch);
-     * watchDog.watch("sound", watch);
-     *
-     * //now set the properties each handler will be called
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * //unwatch the property changes
-     * watchDog.unwatch("type", watch);
-     * watchDog.unwatch("color", watch);
-     * watchDog.unwatch("sound", watch);
-     *
-     * //no handlers will be called this time
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * ```
-     *
-     * ###Accessing static methods and properties witin an instance.
-     *
-     * To access static properties on an instance use the `_static` property which is a reference to your constructor.
-     *
-     * For example if your in your constructor and you want to have configurable default values.
-     *
-     * ```
-     * consturctor : function constructor(opts){
-     *     this.opts = opts || {};
-     *     this._type = opts.type || this._static.DEFAULT_TYPE;
-     * }
-     * ```
-     *
-     *
-     *
-     * ###Creating a new instance of within an instance.
-     *
-     * Often times you want to create a new instance of an object within an instance. If your subclassed however you cannot return a new instance of the parent class as it will not be the right sub class. `declare` provides a way around this by setting the `_static` property on each isntance of the class.
-     *
-     * Lets add a reproduce method `Mammal`
-     *
-     * ```
-     * reproduce : function(options){
-     *     return new this._static(options);
-     * }
-     * ```
-     *
-     * Now in each subclass you can call reproduce and get the proper type.
-     *
-     * ```
-     * var myDog = new Dog();
-     * var myDogsChild = myDog.reproduce();
-     *
-     * myDogsChild instanceof Dog; //true
-     * ```
-     *
-     * ###Using the `as`
-     *
-     * `declare` also provides an `as` method which allows you to add your class to an object or if your using node.js you can pass in `module` and the class will be exported as the module.
-     *
-     * ```
-     * var animals = {};
-     *
-     * Mammal.as(animals, "Dog");
-     * Wolf.as(animals, "Wolf");
-     * Dog.as(animals, "Dog");
-     * Breed.as(animals, "Breed");
-     *
-     * var myDog = new animals.Dog();
-     *
-     * ```
-     *
-     * Or in node
-     *
-     * ```
-     * Mammal.as(exports, "Dog");
-     * Wolf.as(exports, "Wolf");
-     * Dog.as(exports, "Dog");
-     * Breed.as(exports, "Breed");
-     *
-     * ```
-     *
-     * To export a class as the `module` in node
-     *
-     * ```
-     * Mammal.as(module);
-     * ```
-     *
-     *
-     */
-    function createDeclared() {
-        var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
-
-        var SUPER_REGEXP = /(super)/g;
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        var isArguments = function _isArguments(object) {
-            return Object.prototype.toString.call(object) === '[object Arguments]';
-        };
-
-        if (!isArguments(arguments)) {
-            isArguments = function _isArguments(obj) {
-                return !!(obj && obj.hasOwnProperty("callee"));
-            };
-        }
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function merge(target, source, exclude) {
-            var name, s;
-            for (name in source) {
-                if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function callSuper(args, a) {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                args = !args ? [] : (!isArguments(args) && !isArray(args)) ? [args] : args;
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, args);
-                    }
-                } while (l > ++pos);
-            }
-
-            return null;
-        }
-
-        function getSuper() {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.bind(this);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getter(name) {
-            var getters = this.__getters__;
-            if (getters.hasOwnProperty(name)) {
-                return getters[name].apply(this);
-            } else {
-                return this[name];
-            }
-        }
-
-        function setter(name, val) {
-            var setters = this.__setters__;
-            if (isHash(name)) {
-                for (var i in name) {
-                    var prop = name[i];
-                    if (setters.hasOwnProperty(i)) {
-                        setters[name].call(this, prop);
-                    } else {
-                        this[i] = prop;
-                    }
-                }
-            } else {
-                if (setters.hasOwnProperty(name)) {
-                    return setters[name].apply(this, argsToArray(arguments, 1));
-                } else {
-                    return this[name] = val;
-                }
-            }
-        }
-
-
-        function defaultFunction() {
-            var meta = this.__meta || {},
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, arguments);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-
-        function functionWrapper(f, name) {
-            if (f.toString().match(SUPER_REGEXP)) {
-                var wrapper = function wrapper() {
-                    var ret, meta = this.__meta || {};
-                    var orig = meta.superMeta;
-                    meta.superMeta = {f: f, pos: 0, name: name};
-                    switch (arguments.length) {
-                    case 0:
-                        ret = f.call(this);
-                        break;
-                    case 1:
-                        ret = f.call(this, arguments[0]);
-                        break;
-                    case 2:
-                        ret = f.call(this, arguments[0], arguments[1]);
-                        break;
-
-                    case 3:
-                        ret = f.call(this, arguments[0], arguments[1], arguments[2]);
-                        break;
-                    default:
-                        ret = f.apply(this, arguments);
-                    }
-                    meta.superMeta = orig;
-                    return ret;
-                };
-                wrapper._f = f;
-                return wrapper;
-            } else {
-                f._f = f;
-                return f;
-            }
-        }
-
-        function defineMixinProps(child, proto) {
-
-            var operations = proto.setters || {}, __setters = child.__setters__, __getters = child.__getters__;
-            for (var i in operations) {
-                if (!__setters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            for (i in operations) {
-                if (!__getters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __getters[i] = operations[i];
-                }
-            }
-            for (var j in proto) {
-                if (j !== "getters" && j !== "setters") {
-                    var p = proto[j];
-                    if ("function" === typeof p) {
-                        if (!child.hasOwnProperty(j)) {
-                            child[j] = functionWrapper(defaultFunction, j);
-                        }
-                    } else {
-                        child[j] = p;
-                    }
-                }
-            }
-        }
-
-        function mixin() {
-            var args = argsToArray(arguments), l = args.length;
-            var child = this.prototype;
-            var childMeta = child.__meta, thisMeta = this.__meta, bases = child.__meta.bases, staticBases = bases.slice(),
-                staticSupers = thisMeta.supers || [], supers = childMeta.supers || [];
-            for (var i = 0; i < l; i++) {
-                var m = args[i], mProto = m.prototype;
-                var protoMeta = mProto.__meta, meta = m.__meta;
-                !protoMeta && (protoMeta = (mProto.__meta = {proto: mProto || {}}));
-                !meta && (meta = (m.__meta = {proto: m.__proto__ || {}}));
-                defineMixinProps(child, protoMeta.proto || {});
-                defineMixinProps(this, meta.proto || {});
-                //copy the bases for static,
-
-                mixinSupers(m.prototype, supers, bases);
-                mixinSupers(m, staticSupers, staticBases);
-            }
-            return this;
-        }
-
-        function mixinSupers(sup, arr, bases) {
-            var meta = sup.__meta;
-            !meta && (meta = (sup.__meta = {}));
-            var unique = sup.__meta.unique;
-            !unique && (meta.unique = "declare" + ++classCounter);
-            //check it we already have this super mixed into our prototype chain
-            //if true then we have already looped their supers!
-            if (indexOf(bases, unique) === -1) {
-                //add their id to our bases
-                bases.push(unique);
-                var supers = sup.__meta.supers || [], i = supers.length - 1 || 0;
-                while (i >= 0) {
-                    mixinSupers(supers[i--], arr, bases);
-                }
-                arr.unshift(sup);
-            }
-        }
-
-        function defineProps(child, proto) {
-            var operations = proto.setters,
-                __setters = child.__setters__,
-                __getters = child.__getters__;
-            if (operations) {
-                for (var i in operations) {
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            if (operations) {
-                for (i in operations) {
-                    __getters[i] = operations[i];
-                }
-            }
-            for (i in proto) {
-                if (i != "getters" && i != "setters") {
-                    var f = proto[i];
-                    if ("function" === typeof f) {
-                        var meta = f.__meta || {};
-                        if (!meta.isConstructor) {
-                            child[i] = functionWrapper(f, i);
-                        } else {
-                            child[i] = f;
-                        }
-                    } else {
-                        child[i] = f;
-                    }
-                }
-            }
-
-        }
-
-        function _export(obj, name) {
-            if (obj && name) {
-                obj[name] = this;
-            } else {
-                obj.exports = obj = this;
-            }
-            return this;
-        }
-
-        function extend(proto) {
-            return declare(this, proto);
-        }
-
-        function getNew(ctor) {
-            // create object with correct prototype using a do-nothing
-            // constructor
-            forceNew.prototype = ctor.prototype;
-            var t = new forceNew();
-            forceNew.prototype = null;	// clean up
-            return t;
-        }
-
-
-        function __declare(child, sup, proto) {
-            var childProto = {}, supers = [];
-            var unique = "declare" + ++classCounter, bases = [], staticBases = [];
-            var instanceSupers = [], staticSupers = [];
-            var meta = {
-                supers: instanceSupers,
-                unique: unique,
-                bases: bases,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-            var childMeta = {
-                supers: staticSupers,
-                unique: unique,
-                bases: staticBases,
-                isConstructor: true,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-
-            if (isHash(sup) && !proto) {
-                proto = sup;
-                sup = Base;
-            }
-
-            if ("function" === typeof sup || isArray(sup)) {
-                supers = isArray(sup) ? sup : [sup];
-                sup = supers.shift();
-                child.__meta = childMeta;
-                childProto = getNew(sup);
-                childProto.__meta = meta;
-                childProto.__getters__ = merge({}, childProto.__getters__ || {});
-                childProto.__setters__ = merge({}, childProto.__setters__ || {});
-                child.__getters__ = merge({}, child.__getters__ || {});
-                child.__setters__ = merge({}, child.__setters__ || {});
-                mixinSupers(sup.prototype, instanceSupers, bases);
-                mixinSupers(sup, staticSupers, staticBases);
-            } else {
-                child.__meta = childMeta;
-                childProto.__meta = meta;
-                childProto.__getters__ = childProto.__getters__ || {};
-                childProto.__setters__ = childProto.__setters__ || {};
-                child.__getters__ = child.__getters__ || {};
-                child.__setters__ = child.__setters__ || {};
-            }
-            child.prototype = childProto;
-            if (proto) {
-                var instance = meta.proto = proto.instance || {};
-                var stat = childMeta.proto = proto.static || {};
-                stat.init = stat.init || defaultFunction;
-                defineProps(childProto, instance);
-                defineProps(child, stat);
-                if (!instance.hasOwnProperty("constructor")) {
-                    childProto.constructor = instance.constructor = functionWrapper(defaultFunction, "constructor");
-                } else {
-                    childProto.constructor = functionWrapper(instance.constructor, "constructor");
-                }
-            } else {
-                meta.proto = {};
-                childMeta.proto = {};
-                child.init = functionWrapper(defaultFunction, "init");
-                childProto.constructor = functionWrapper(defaultFunction, "constructor");
-            }
-            if (supers.length) {
-                mixin.apply(child, supers);
-            }
-            if (sup) {
-                //do this so we mixin our super methods directly but do not ov
-                merge(child, merge(merge({}, sup), child));
-            }
-            childProto._super = child._super = callSuper;
-            childProto._getSuper = child._getSuper = getSuper;
-            childProto._static = child;
-        }
-
-        function declare(sup, proto) {
-            function declared() {
-                switch (arguments.length) {
-                case 0:
-                    this.constructor.call(this);
-                    break;
-                case 1:
-                    this.constructor.call(this, arguments[0]);
-                    break;
-                case 2:
-                    this.constructor.call(this, arguments[0], arguments[1]);
-                    break;
-                case 3:
-                    this.constructor.call(this, arguments[0], arguments[1], arguments[2]);
-                    break;
-                default:
-                    this.constructor.apply(this, arguments);
-                }
-            }
-
-            __declare(declared, sup, proto);
-            return declared.init() || declared;
-        }
-
-        function singleton(sup, proto) {
-            var retInstance;
-
-            function declaredSingleton() {
-                if (!retInstance) {
-                    this.constructor.apply(this, arguments);
-                    retInstance = this;
-                }
-                return retInstance;
-            }
-
-            __declare(declaredSingleton, sup, proto);
-            return  declaredSingleton.init() || declaredSingleton;
-        }
-
-        Base = declare({
             instance: {
-                "get": getter,
-                "set": setter
-            },
-
-            "static": {
-                "get": getter,
-                "set": setter,
-                mixin: mixin,
-                extend: extend,
-                as: _export
-            }
-        });
-
-        declare.singleton = singleton;
-        return declare;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = createDeclared();
-        }
-    } else if ("function" === typeof define && define.amd) {
-        define(createDeclared);
-    } else {
-        this.declare = createDeclared();
-    }
-}());
-
-
-
-
-},{}],32:[function(require,module,exports){
-(function(){(function () {
-    "use strict";
-    /*global extender is, dateExtended*/
-
-    function defineExtended(extender) {
-
-
-        var merge = (function merger() {
-            function _merge(target, source) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name)) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
-            }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                for (var i = 1, l = arguments.length; i < l; i++) {
-                    _merge(obj, arguments[i]);
-                }
-                return obj; // Object
-            };
-        }());
-
-        function getExtended() {
-
-            var loaded = {};
-
-
-            //getInitial instance;
-            var extended = extender.define();
-            extended.expose({
-                register: function register(alias, extendWith) {
-                    if (!extendWith) {
-                        extendWith = alias;
-                        alias = null;
-                    }
-                    var type = typeof extendWith;
-                    if (alias) {
-                        extended[alias] = extendWith;
-                    } else if (extendWith && type === "function") {
-                        extended.extend(extendWith);
-                    } else if (type === "object") {
-                        extended.expose(extendWith);
-                    } else {
-                        throw new TypeError("extended.register must be called with an extender function");
-                    }
-                    return extended;
-                },
-
-                define: function () {
-                    return extender.define.apply(extender, arguments);
-                }
-            });
-
-            return extended;
-        }
-
-        function extended() {
-            return getExtended();
-        }
-
-        extended.define = function define() {
-            return extender.define.apply(extender, arguments);
-        };
-
-        return extended;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtended(require("extender"));
-
-        }
-    } else if ("function" === typeof define && define.amd) {
-        define(["extender"], function (extender) {
-            return defineExtended(extender);
-        });
-    } else {
-        this.extended = defineExtended(this.extender);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-})()
-},{"extender":50}],48:[function(require,module,exports){
-"use strict";
-var extd = require("./extended"),
-    declare = extd.declare,
-    merge = extd.merge,
-    union = extd.union,
-    pSlice = Array.prototype.slice;
-
-var Match = declare({
-    instance: {
-        constructor: function (assertable) {
-            this.isMatch = true;
-            if (assertable instanceof this._static) {
-                this.isMatch = assertable.isMatch;
-                this.facts = pSlice.call(assertable.facts);
-                this.factIds = pSlice.call(assertable.factIds);
-                this.hashCode = this.factIds.join(":");
-                this.factHash = merge({}, assertable.factHash);
-                this.recency = pSlice.call(assertable.recency);
-            } else if (assertable) {
-                this.facts = [assertable];
-                this.factIds = [assertable.id];
-                this.recency = [assertable.recency];
-                this.hashCode = assertable.id + "";
-                this.factHash = assertable.factHash || {};
-            } else {
-                this.facts = [];
-                this.factIds = [];
-                this.factHash = {};
-                this.hashCode = "";
-            }
-        },
-
-        merge: function (mr) {
-            var ret = new this._static();
-            ret.isMatch = mr.isMatch;
-            ret.facts = this.facts.concat(mr.facts);
-            ret.factIds = this.factIds.concat(mr.factIds);
-            ret.hashCode = ret.factIds.join(":");
-            ret.factHash = merge({}, this.factHash, mr.factHash);
-            ret.recency = union(this.recency, mr.recency);
-            return ret;
-        }
-    }
-});
-
-var Context = declare({
-    instance: {
-        match: null,
-        factHash: null,
-        fact: null,
-        hashCode: null,
-        paths: null,
-
-        constructor: function (fact, paths, mr) {
-            this.fact = fact;
-            this.paths = paths || null;
-            var match = this.match = mr || new Match(fact);
-            this.factHash = match.factHash;
-            this.hashCode = match.hashCode;
-            this.factIds = match.factIds;
-        },
-
-        "set": function (key, value) {
-            this.factHash[key] = value;
-            return this;
-        },
-
-        isMatch: function (isMatch) {
-            this.match.isMatch = isMatch;
-            return this;
-        },
-
-        clone: function (fact, paths, match) {
-            return new Context(fact || this.fact, paths || this.path, match || this.match);
-        }
-    }
-}).as(module);
-
-
-
-},{"./extended":8}],45:[function(require,module,exports){
-"use strict";
-var Node = require("./node");
-
-Node.extend({
-    instance: {
-        constructor: function (constraint) {
-            this._super([]);
-            this.constraint = constraint;
-        },
-
-        toString: function () {
-            return "AlphaNode " + this.__count;
-        },
-
-        equal: function (constraint) {
-            return this.constraint.equal(constraint.constraint);
-        }
-    }
-}).as(module);
-},{"./node":46}],46:[function(require,module,exports){
-var extd = require("../extended"),
-    forEach = extd.forEach,
-    indexOf = extd.indexOf,
-    intersect = extd.intersect,
-    declare = extd.declare,
-    HashTable = extd.HashTable,
-    Context = require("../context");
-
-var count = 0;
-declare({
-    instance: {
-        constructor: function () {
-            this.nodes = new HashTable();
-            this.rules = [];
-            this.parentNodes = [];
-            this.__count = count++;
-            this.__entrySet = [];
-        },
-
-        addRule: function (rule) {
-            if (indexOf(this.rules, rule) === -1) {
-                this.rules.push(rule);
-            }
-            return this;
-        },
-
-        merge: function (that) {
-            that.nodes.forEach(function (entry) {
-                var patterns = entry.value, node = entry.key;
-                for (var i = 0, l = patterns.length; i < l; i++) {
-                    this.addOutNode(node, patterns[i]);
-                }
-                that.nodes.remove(node);
-            }, this);
-            var thatParentNodes = that.parentNodes;
-            for (var i = 0, l = that.parentNodes.l; i < l; i++) {
-                var parentNode = thatParentNodes[i];
-                this.addParentNode(parentNode);
-                parentNode.nodes.remove(that);
-            }
-            return this;
-        },
-
-        resolve: function (mr1, mr2) {
-            return mr1.hashCode === mr2.hashCode;
-        },
-
-        print: function (tab) {
-            console.log(tab + this.toString());
-            forEach(this.parentNodes, function (n) {
-                n.print("    " + tab);
-            });
-        },
-
-        addOutNode: function (outNode, pattern) {
-            if (!this.nodes.contains(outNode)) {
-                this.nodes.put(outNode, []);
-            }
-            this.nodes.get(outNode).push(pattern);
-            this.__entrySet = this.nodes.entrySet();
-        },
-
-        addParentNode: function (n) {
-            if (indexOf(this.parentNodes, n) === -1) {
-                this.parentNodes.push(n);
-            }
-        },
-
-        shareable: function () {
-            return false;
-        },
-
-        __propagate: function (method, context, outNodes) {
-            outNodes = outNodes || this.nodes;
-            var entrySet = this.__entrySet, i = entrySet.length, entry, outNode, paths, continuingPaths;
-            while (--i > -1) {
-                entry = entrySet[i];
-                outNode = entry.key;
-                paths = entry.value;
-                if (context.paths) {
-                    if ((continuingPaths = intersect(paths, context.paths)).length) {
-                        outNode[method](new Context(context.fact, continuingPaths, context.match));
-                    }
-                } else {
-                    outNode[method](context);
-                }
-            }
-        },
-
-        dispose: function (assertable) {
-            this.propagateDispose(assertable);
-        },
-
-        retract: function (assertable) {
-            this.propagateRetract(assertable);
-        },
-
-        propagateDispose: function (assertable, outNodes) {
-            outNodes = outNodes || this.nodes;
-            var entrySet = this.__entrySet, i = entrySet.length - 1;
-            for (; i >= 0; i--) {
-                var entry = entrySet[i], outNode = entry.key;
-                outNode.dispose(assertable);
-            }
-        },
-
-        propagateAssert: function (assertable, outNodes) {
-            this.__propagate("assert", assertable, outNodes || this.nodes);
-        },
-
-        propagateRetract: function (assertable, outNodes) {
-            this.__propagate("retract", assertable, outNodes || this.nodes);
-        },
-
-        assert: function (assertable) {
-            this.propagateAssert(assertable);
-        },
-
-        propagateModify: function (assertable, outNodes) {
-            this.__propagate("modify", assertable, outNodes || this.nodes);
-        }
-    }
-
-}).as(module);
-
-},{"../extended":8,"../context":48}],47:[function(require,module,exports){
-var Node = require("./node");
-Node.extend({
-
-    instance: {
-
-        constraint: null,
-        __lc: null,
-        __rc: null,
-        __varLength: 0,
-
-        constructor: function () {
-            this._super(arguments);
-            this.__fh = {};
-            this.__variables = [];
-        },
-
-        setLeftContext: function (lc) {
-            this.__lc = lc;
-            var match = lc.match;
-            var newFh = match.factHash,
-                fh = this.__fh,
-                prop,
-                vars = this.__variables,
-                i = -1,
-                l = this.__varLength;
-            while (++i < l) {
-                prop = vars[i];
-                fh[prop] = newFh[prop];
-            }
-            return this;
-        },
-
-        setRightContext: function (rc) {
-            this.__fh[this.__alias] = (this.__rc = rc).fact.object;
-            return this;
-        },
-
-        clearContexts: function () {
-            this.__fh = {};
-            this.__lc = null;
-            this.__rc = null;
-            return this;
-        },
-
-        clearRightContext: function () {
-            this.__rc = null;
-            this.__fh[this.__alias] = null;
-            return this;
-        },
-
-        clearLeftContext: function () {
-            this.__lc = null;
-            var fh = this.__fh = {}, rc = this.__rc;
-            fh[this.__alias] = rc ? rc.fact.object : null;
-            return this;
-        },
-
-        addConstraint: function (constraint) {
-            if (this.constraint === null) {
-                this.constraint = constraint;
-            } else {
-                this.constraint = this.constraint.merge(constraint);
-            }
-            this.__alias = this.constraint.get("alias");
-            this.__varLength = (this.__variables = this.__variables.concat(this.constraint.get("variables"))).length;
-        },
-
-        equal: function (constraint) {
-            if (this.constraint !== null) {
-                return this.constraint.equal(constraint.constraint);
-            }
-        },
-
-        isMatch: function () {
-            var constraint = this.constraint, ret = true;
-            if (constraint !== null) {
-                ret = constraint.assert(this.__fh);
-            }
-            return ret;
-        },
-
-        match: function () {
-            var ret = {isMatch: false}, constraint = this.constraint;
-            if (constraint === null) {
-                ret = this.__lc.match.merge(this.__rc.match);
-            } else {
-                var rightContext = this.__rc, fh = this.__fh;
-                if (constraint.assert(fh)) {
-                    ret = this.__lc.match.merge(rightContext.match);
-                }
-            }
-            return ret;
-        }
-
-    }
-
-}).as(module);
-},{"./node":46}],44:[function(require,module,exports){
-"use strict";
-
-var tokens = require("./tokens.js"),
-    extd = require("../../extended"),
-    keys = extd.hash.keys,
-    utils = require("./util.js");
-
-var parse = function (src, keywords, context) {
-    var orig = src;
-    src = src.replace(/\/\/(.*)[\n|\r|\r\n]/g, "").replace(/\n|\r|\r\n/g, " ");
-
-    var blockTypes = new RegExp("^(" + keys(keywords).join("|") + ")"), index;
-    while (src && (index = utils.findNextTokenIndex(src)) !== -1) {
-        src = src.substr(index);
-        var blockType = src.match(blockTypes);
-        if (blockType !== null) {
-            blockType = blockType[1];
-            if (blockType in keywords) {
-                try {
-                    src = keywords[blockType](src, context, parse).replace(/^\s*|\s*$/g, "");
-                } catch (e) {
-                    throw new Error("Invalid " + blockType + " definition \n" + e.message + "; \nstarting at : " + orig);
-                }
-            } else {
-                throw new Error("Unknown token" + blockType);
-            }
-        } else {
-            throw new Error("Error parsing " + src);
-        }
-    }
-};
-
-exports.parse = function (src) {
-    var context = {define: [], rules: [], scope: []};
-    parse(src, tokens, context);
-    return context;
-};
-
-
-},{"./tokens.js":51,"./util.js":52,"../../extended":8}],52:[function(require,module,exports){
-(function () {
-    "use strict";
-
-
-    var WHITE_SPACE_REG = /[\s|\n|\r|\t]/;
-
-    var TOKEN_INVERTS = {
-        "{": "}",
-        "}": "{",
-        "(": ")",
-        ")": "(",
-        "[": "]"
-    };
-
-    var getTokensBetween = exports.getTokensBetween = function (str, start, stop, includeStartEnd) {
-        var depth = 0, ret = [];
-        if (!start) {
-            start = TOKEN_INVERTS[stop];
-            depth = 1;
-        }
-        if (!stop) {
-            stop = TOKEN_INVERTS[start];
-        }
-        str = Object(str);
-        var startPushing = false, token, cursor = 0, found = false;
-        while ((token = str.charAt(cursor++))) {
-            if (token === start) {
-                depth++;
-                if (!startPushing) {
-                    startPushing = true;
-                    if (includeStartEnd) {
-                        ret.push(token);
-                    }
-                } else {
-                    ret.push(token);
-                }
-            } else if (token === stop && cursor) {
-                depth--;
-                if (depth === 0) {
-                    if (includeStartEnd) {
-                        ret.push(token);
-                    }
-                    found = true;
-                    break;
-                }
-                ret.push(token);
-            } else if (startPushing) {
-                ret.push(token);
-            }
-        }
-        if (!found) {
-            throw new Error("Unable to match " + start + " in " + str);
-        }
-        return ret;
-    };
-
-    exports.getParamList = function (str) {
-        return  getTokensBetween(str, "(", ")", true).join("");
-    };
-
-    var findNextTokenIndex = exports.findNextTokenIndex = function (str, startIndex, endIndex) {
-        startIndex = startIndex || 0;
-        endIndex = endIndex || str.length;
-        var ret = -1, l = str.length;
-        if (!endIndex || endIndex > l) {
-            endIndex = l;
-        }
-        for (; startIndex < endIndex; startIndex++) {
-            var c = str.charAt(startIndex);
-            if (!WHITE_SPACE_REG.test(c)) {
-                ret = startIndex;
-                break;
-            }
-        }
-        return ret;
-    };
-
-    exports.findNextToken = function (str, startIndex, endIndex) {
-        return str.charAt(findNextTokenIndex(str, startIndex, endIndex));
-    };
-
-
-})();
-},{}],33:[function(require,module,exports){
-(function(){(function () {
-    "use strict";
-    /*global define*/
-
-    function defineArray(extended, is, args) {
-
-        var isString = is.isString,
-            isArray = Array.isArray || is.isArray,
-            isDate = is.isDate,
-            floor = Math.floor,
-            abs = Math.abs,
-            mathMax = Math.max,
-            mathMin = Math.min,
-            arrayProto = Array.prototype,
-            arrayIndexOf = arrayProto.indexOf,
-            arrayForEach = arrayProto.forEach,
-            arrayMap = arrayProto.map,
-            arrayReduce = arrayProto.reduce,
-            arrayReduceRight = arrayProto.reduceRight,
-            arrayFilter = arrayProto.filter,
-            arrayEvery = arrayProto.every,
-            arraySome = arrayProto.some,
-            argsToArray = args.argsToArray;
-
-
-        function cross(num, cros) {
-            return reduceRight(cros, function (a, b) {
-                if (!isArray(b)) {
-                    b = [b];
-                }
-                b.unshift(num);
-                a.unshift(b);
-                return a;
-            }, []);
-        }
-
-        function permute(num, cross, length) {
-            var ret = [];
-            for (var i = 0; i < cross.length; i++) {
-                ret.push([num].concat(rotate(cross, i)).slice(0, length));
-            }
-            return ret;
-        }
-
-
-        function intersection(a, b) {
-            var ret = [], aOne, i = -1, l;
-            l = a.length;
-            while (++i < l) {
-                aOne = a[i];
-                if (indexOf(b, aOne) !== -1) {
-                    ret.push(aOne);
-                }
-            }
-            return ret;
-        }
-
-
-        var _sort = (function () {
-
-            var isAll = function (arr, test) {
-                return every(arr, test);
-            };
-
-            var defaultCmp = function (a, b) {
-                return a - b;
-            };
-
-            var dateSort = function (a, b) {
-                return a.getTime() - b.getTime();
-            };
-
-            return function _sort(arr, property) {
-                var ret = [];
-                if (isArray(arr)) {
-                    ret = arr.slice();
-                    if (property) {
-                        if (typeof property === "function") {
-                            ret.sort(property);
-                        } else {
-                            ret.sort(function (a, b) {
-                                var aProp = a[property], bProp = b[property];
-                                if (isString(aProp) && isString(bProp)) {
-                                    return aProp > bProp ? 1 : aProp < bProp ? -1 : 0;
-                                } else if (isDate(aProp) && isDate(bProp)) {
-                                    return aProp.getTime() - bProp.getTime();
-                                } else {
-                                    return aProp - bProp;
-                                }
-                            });
-                        }
-                    } else {
-                        if (isAll(ret, isString)) {
-                            ret.sort();
-                        } else if (isAll(ret, isDate)) {
-                            ret.sort(dateSort);
-                        } else {
-                            ret.sort(defaultCmp);
-                        }
-                    }
-                }
-                return ret;
-            };
-
-        })();
-
-        function indexOf(arr, searchElement, from) {
-            var index = (from || 0) - 1,
-                length = arr.length;
-            while (++index < length) {
-                if (arr[index] === searchElement) {
-                    return index;
-                }
-            }
-            return -1;
-        }
-
-        function lastIndexOf(arr, searchElement, from) {
-            if (!isArray(arr)) {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            if (len === 0) {
-                return -1;
-            }
-
-            var n = len;
-            if (arguments.length > 2) {
-                n = Number(arguments[2]);
-                if (n !== n) {
-                    n = 0;
-                } else if (n !== 0 && n !== (1 / 0) && n !== -(1 / 0)) {
-                    n = (n > 0 || -1) * floor(abs(n));
-                }
-            }
-
-            var k = n >= 0 ? mathMin(n, len - 1) : len - abs(n);
-
-            for (; k >= 0; k--) {
-                if (k in t && t[k] === searchElement) {
-                    return k;
-                }
-            }
-            return -1;
-        }
-
-        function filter(arr, iterator, scope) {
-            if (arr && arrayFilter && arrayFilter === arr.filter) {
-                return arr.filter(iterator, scope);
-            }
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            var res = [];
-            for (var i = 0; i < len; i++) {
-                if (i in t) {
-                    var val = t[i]; // in case fun mutates this
-                    if (iterator.call(scope, val, i, t)) {
-                        res.push(val);
-                    }
-                }
-            }
-            return res;
-        }
-
-        function forEach(arr, iterator, scope) {
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-            if (arr && arrayForEach && arrayForEach === arr.forEach) {
-                arr.forEach(iterator, scope);
-                return arr;
-            }
-            for (var i = 0, len = arr.length; i < len; ++i) {
-                iterator.call(scope || arr, arr[i], i, arr);
-            }
-
-            return arr;
-        }
-
-        function every(arr, iterator, scope) {
-            if (arr && arrayEvery && arrayEvery === arr.every) {
-                return arr.every(iterator, scope);
-            }
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            for (var i = 0; i < len; i++) {
-                if (i in t && !iterator.call(scope, t[i], i, t)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        function some(arr, iterator, scope) {
-            if (arr && arraySome && arraySome === arr.some) {
-                return arr.some(iterator, scope);
-            }
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            for (var i = 0; i < len; i++) {
-                if (i in t && iterator.call(scope, t[i], i, t)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        function map(arr, iterator, scope) {
-            if (arr && arrayMap && arrayMap === arr.map) {
-                return arr.map(iterator, scope);
-            }
-            if (!isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            var res = [];
-            for (var i = 0; i < len; i++) {
-                if (i in t) {
-                    res.push(iterator.call(scope, t[i], i, t));
-                }
-            }
-            return res;
-        }
-
-        function reduce(arr, accumulator, curr) {
-            var initial = arguments.length > 2;
-            if (arr && arrayReduce && arrayReduce === arr.reduce) {
-                return initial ? arr.reduce(accumulator, curr) : arr.reduce(accumulator);
-            }
-            if (!isArray(arr) || typeof accumulator !== "function") {
-                throw new TypeError();
-            }
-            var i = 0, l = arr.length >> 0;
-            if (arguments.length < 3) {
-                if (l === 0) {
-                    throw new TypeError("Array length is 0 and no second argument");
-                }
-                curr = arr[0];
-                i = 1; // start accumulating at the second element
-            } else {
-                curr = arguments[2];
-            }
-            while (i < l) {
-                if (i in arr) {
-                    curr = accumulator.call(undefined, curr, arr[i], i, arr);
-                }
-                ++i;
-            }
-            return curr;
-        }
-
-        function reduceRight(arr, accumulator, curr) {
-            var initial = arguments.length > 2;
-            if (arr && arrayReduceRight && arrayReduceRight === arr.reduceRight) {
-                return initial ? arr.reduceRight(accumulator, curr) : arr.reduceRight(accumulator);
-            }
-            if (!isArray(arr) || typeof accumulator !== "function") {
-                throw new TypeError();
-            }
-
-            var t = Object(arr);
-            var len = t.length >>> 0;
-
-            // no value to return if no initial value, empty array
-            if (len === 0 && arguments.length === 2) {
-                throw new TypeError();
-            }
-
-            var k = len - 1;
-            if (arguments.length >= 3) {
-                curr = arguments[2];
-            } else {
-                do {
-                    if (k in arr) {
-                        curr = arr[k--];
-                        break;
-                    }
-                }
-                while (true);
-            }
-            while (k >= 0) {
-                if (k in t) {
-                    curr = accumulator.call(undefined, curr, t[k], k, t);
-                }
-                k--;
-            }
-            return curr;
-        }
-
-
-        function toArray(o) {
-            var ret = [];
-            if (o !== null) {
-                var args = argsToArray(arguments);
-                if (args.length === 1) {
-                    if (isArray(o)) {
-                        ret = o;
-                    } else if (is.isHash(o)) {
-                        for (var i in o) {
-                            if (o.hasOwnProperty(i)) {
-                                ret.push([i, o[i]]);
-                            }
-                        }
-                    } else {
-                        ret.push(o);
-                    }
-                } else {
-                    forEach(args, function (a) {
-                        ret = ret.concat(toArray(a));
-                    });
-                }
-            }
-            return ret;
-        }
-
-        function sum(array) {
-            array = array || [];
-            if (array.length) {
-                return reduce(array, function (a, b) {
-                    return a + b;
-                });
-            } else {
-                return 0;
-            }
-        }
-
-        function avg(arr) {
-            arr = arr || [];
-            if (arr.length) {
-                var total = sum(arr);
-                if (is.isNumber(total)) {
-                    return  total / arr.length;
-                } else {
-                    throw new Error("Cannot average an array of non numbers.");
-                }
-            } else {
-                return 0;
-            }
-        }
-
-        function sort(arr, cmp) {
-            return _sort(arr, cmp);
-        }
-
-        function min(arr, cmp) {
-            return _sort(arr, cmp)[0];
-        }
-
-        function max(arr, cmp) {
-            return _sort(arr, cmp)[arr.length - 1];
-        }
-
-        function difference(arr1) {
-            var ret = arr1, args = flatten(argsToArray(arguments, 1));
-            if (isArray(arr1)) {
-                ret = filter(arr1, function (a) {
-                    return indexOf(args, a) === -1;
-                });
-            }
-            return ret;
-        }
-
-        function removeDuplicates(arr) {
-            var ret = [], i = -1, l, retLength = 0;
-            if (arr) {
-                l = arr.length;
-                while (++i < l) {
-                    var item = arr[i];
-                    if (indexOf(ret, item) === -1) {
-                        ret[retLength++] = item;
-                    }
-                }
-            }
-            return ret;
-        }
-
-
-        function unique(arr) {
-            return removeDuplicates(arr);
-        }
-
-
-        function rotate(arr, numberOfTimes) {
-            var ret = arr.slice();
-            if (typeof numberOfTimes !== "number") {
-                numberOfTimes = 1;
-            }
-            if (numberOfTimes && isArray(arr)) {
-                if (numberOfTimes > 0) {
-                    ret.push(ret.shift());
-                    numberOfTimes--;
-                } else {
-                    ret.unshift(ret.pop());
-                    numberOfTimes++;
-                }
-                return rotate(ret, numberOfTimes);
-            } else {
-                return ret;
-            }
-        }
-
-        function permutations(arr, length) {
-            var ret = [];
-            if (isArray(arr)) {
-                var copy = arr.slice(0);
-                if (typeof length !== "number") {
-                    length = arr.length;
-                }
-                if (!length) {
-                    ret = [
-                        []
-                    ];
-                } else if (length <= arr.length) {
-                    ret = reduce(arr, function (a, b, i) {
-                        var ret;
-                        if (length > 1) {
-                            ret = permute(b, rotate(copy, i).slice(1), length);
-                        } else {
-                            ret = [
-                                [b]
-                            ];
-                        }
-                        return a.concat(ret);
-                    }, []);
-                }
-            }
-            return ret;
-        }
-
-        function zip() {
-            var ret = [];
-            var arrs = argsToArray(arguments);
-            if (arrs.length > 1) {
-                var arr1 = arrs.shift();
-                if (isArray(arr1)) {
-                    ret = reduce(arr1, function (a, b, i) {
-                        var curr = [b];
-                        for (var j = 0; j < arrs.length; j++) {
-                            var currArr = arrs[j];
-                            if (isArray(currArr) && !is.isUndefined(currArr[i])) {
-                                curr.push(currArr[i]);
-                            } else {
-                                curr.push(null);
-                            }
-                        }
-                        a.push(curr);
-                        return a;
-                    }, []);
-                }
-            }
-            return ret;
-        }
-
-        function transpose(arr) {
-            var ret = [];
-            if (isArray(arr) && arr.length) {
-                var last;
-                forEach(arr, function (a) {
-                    if (isArray(a) && (!last || a.length === last.length)) {
-                        forEach(a, function (b, i) {
-                            if (!ret[i]) {
-                                ret[i] = [];
-                            }
-                            ret[i].push(b);
-                        });
-                        last = a;
-                    }
-                });
-            }
-            return ret;
-        }
-
-        function valuesAt(arr, indexes) {
-            var ret = [];
-            indexes = argsToArray(arguments);
-            arr = indexes.shift();
-            if (isArray(arr) && indexes.length) {
-                for (var i = 0, l = indexes.length; i < l; i++) {
-                    ret.push(arr[indexes[i]] || null);
-                }
-            }
-            return ret;
-        }
-
-        function union() {
-            var ret = [];
-            var arrs = argsToArray(arguments);
-            if (arrs.length > 1) {
-                for (var i = 0, l = arrs.length; i < l; i++) {
-                    ret = ret.concat(arrs[i]);
-                }
-                ret = removeDuplicates(ret);
-            }
-            return ret;
-        }
-
-        function intersect() {
-            var collect = [], sets, i = -1 , l;
-            if (arguments.length > 1) {
-                //assume we are intersections all the lists in the array
-                sets = argsToArray(arguments);
-            } else {
-                sets = arguments[0];
-            }
-            if (isArray(sets)) {
-                collect = sets[0];
-                i = 0;
-                l = sets.length;
-                while (++i < l) {
-                    collect = intersection(collect, sets[i]);
-                }
-            }
-            return removeDuplicates(collect);
-        }
-
-        function powerSet(arr) {
-            var ret = [];
-            if (isArray(arr) && arr.length) {
-                ret = reduce(arr, function (a, b) {
-                    var ret = map(a, function (c) {
-                        return c.concat(b);
-                    });
-                    return a.concat(ret);
-                }, [
-                    []
-                ]);
-            }
-            return ret;
-        }
-
-        function cartesian(a, b) {
-            var ret = [];
-            if (isArray(a) && isArray(b) && a.length && b.length) {
-                ret = cross(a[0], b).concat(cartesian(a.slice(1), b));
-            }
-            return ret;
-        }
-
-        function compact(arr) {
-            var ret = [];
-            if (isArray(arr) && arr.length) {
-                ret = filter(arr, function (item) {
-                    return !is.isUndefinedOrNull(item);
-                });
-            }
-            return ret;
-        }
-
-        function multiply(arr, times) {
-            times = is.isNumber(times) ? times : 1;
-            if (!times) {
-                //make sure times is greater than zero if it is zero then dont multiply it
-                times = 1;
-            }
-            arr = toArray(arr || []);
-            var ret = [], i = 0;
-            while (++i <= times) {
-                ret = ret.concat(arr);
-            }
-            return ret;
-        }
-
-        function flatten(arr) {
-            var set;
-            var args = argsToArray(arguments);
-            if (args.length > 1) {
-                //assume we are intersections all the lists in the array
-                set = args;
-            } else {
-                set = toArray(arr);
-            }
-            return reduce(set, function (a, b) {
-                return a.concat(b);
-            }, []);
-        }
-
-        function pluck(arr, prop) {
-            prop = prop.split(".");
-            var result = arr.slice(0);
-            forEach(prop, function (prop) {
-                var exec = prop.match(/(\w+)\(\)$/);
-                result = map(result, function (item) {
-                    return exec ? item[exec[1]]() : item[prop];
-                });
-            });
-            return result;
-        }
-
-        function invoke(arr, func, args) {
-            args = argsToArray(arguments, 2);
-            return map(arr, function (item) {
-                var exec = isString(func) ? item[func] : func;
-                return exec.apply(item, args);
-            });
-        }
-
-
-        var array = {
-            toArray: toArray,
-            sum: sum,
-            avg: avg,
-            sort: sort,
-            min: min,
-            max: max,
-            difference: difference,
-            removeDuplicates: removeDuplicates,
-            unique: unique,
-            rotate: rotate,
-            permutations: permutations,
-            zip: zip,
-            transpose: transpose,
-            valuesAt: valuesAt,
-            union: union,
-            intersect: intersect,
-            powerSet: powerSet,
-            cartesian: cartesian,
-            compact: compact,
-            multiply: multiply,
-            flatten: flatten,
-            pluck: pluck,
-            invoke: invoke,
-            forEach: forEach,
-            map: map,
-            filter: filter,
-            reduce: reduce,
-            reduceRight: reduceRight,
-            some: some,
-            every: every,
-            indexOf: indexOf,
-            lastIndexOf: lastIndexOf
-        };
-
-        return extended.define(isArray, array).expose(array);
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineArray(require("extended"), require("is-extended"), require("arguments-extended"));
-        }
-    } else if ("function" === typeof define && define.amd) {
-        define(["extended", "is-extended", "arguments-extended"], function (extended, is, args) {
-            return defineArray(extended, is, args);
-        });
-    } else {
-        this.arrayExtended = defineArray(this.extended, this.isExtended, this.argumentsExtended);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-})()
-},{"extended":32,"is-extended":39,"arguments-extended":53}],34:[function(require,module,exports){
-(function () {
-    "use strict";
-
-    function defineDate(extended, is, array) {
-
-        function _pad(string, length, ch, end) {
-            string = "" + string; //check for numbers
-            ch = ch || " ";
-            var strLen = string.length;
-            while (strLen < length) {
-                if (end) {
-                    string += ch;
-                } else {
-                    string = ch + string;
-                }
-                strLen++;
-            }
-            return string;
-        }
-
-        function _truncate(string, length, end) {
-            var ret = string;
-            if (is.isString(ret)) {
-                if (string.length > length) {
-                    if (end) {
-                        var l = string.length;
-                        ret = string.substring(l - length, l);
-                    } else {
-                        ret = string.substring(0, length);
-                    }
-                }
-            } else {
-                ret = _truncate("" + ret, length);
-            }
-            return ret;
-        }
-
-        function every(arr, iterator, scope) {
-            if (!is.isArray(arr) || typeof iterator !== "function") {
-                throw new TypeError();
-            }
-            var t = Object(arr);
-            var len = t.length >>> 0;
-            for (var i = 0; i < len; i++) {
-                if (i in t && !iterator.call(scope, t[i], i, t)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-
-        var transforms = (function () {
-                var floor = Math.floor, round = Math.round;
-
-                var addMap = {
-                    day: function addDay(date, amount) {
-                        return [amount, "Date", false];
-                    },
-                    weekday: function addWeekday(date, amount) {
-                        // Divide the increment time span into weekspans plus leftover days
-                        // e.g., 8 days is one 5-day weekspan / and two leftover days
-                        // Can't have zero leftover days, so numbers divisible by 5 get
-                        // a days value of 5, and the remaining days make up the number of weeks
-                        var days, weeks, mod = amount % 5, strt = date.getDay(), adj = 0;
-                        if (!mod) {
-                            days = (amount > 0) ? 5 : -5;
-                            weeks = (amount > 0) ? ((amount - 5) / 5) : ((amount + 5) / 5);
-                        } else {
-                            days = mod;
-                            weeks = parseInt(amount / 5, 10);
-                        }
-                        if (strt === 6 && amount > 0) {
-                            adj = 1;
-                        } else if (strt === 0 && amount < 0) {
-                            // Orig date is Sun / negative increment
-                            // Jump back over Sat
-                            adj = -1;
-                        }
-                        // Get weekday val for the new date
-                        var trgt = strt + days;
-                        // New date is on Sat or Sun
-                        if (trgt === 0 || trgt === 6) {
-                            adj = (amount > 0) ? 2 : -2;
-                        }
-                        // Increment by number of weeks plus leftover days plus
-                        // weekend adjustments
-                        return [(7 * weeks) + days + adj, "Date", false];
-                    },
-                    year: function addYear(date, amount) {
-                        return [amount, "FullYear", true];
-                    },
-                    week: function addWeek(date, amount) {
-                        return [amount * 7, "Date", false];
-                    },
-                    quarter: function addYear(date, amount) {
-                        return [amount * 3, "Month", true];
-                    },
-                    month: function addYear(date, amount) {
-                        return [amount, "Month", true];
-                    }
-                };
-
-                function addTransform(interval, date, amount) {
-                    interval = interval.replace(/s$/, "");
-                    if (addMap.hasOwnProperty(interval)) {
-                        return addMap[interval](date, amount);
-                    }
-                    return [amount, "UTC" + interval.charAt(0).toUpperCase() + interval.substring(1) + "s", false];
-                }
-
-
-                var differenceMap = {
-                    "quarter": function quarterDifference(date1, date2, utc) {
-                        var yearDiff = date2.getFullYear() - date1.getFullYear();
-                        var m1 = date1[utc ? "getUTCMonth" : "getMonth"]();
-                        var m2 = date2[utc ? "getUTCMonth" : "getMonth"]();
-                        // Figure out which quarter the months are in
-                        var q1 = floor(m1 / 3) + 1;
-                        var q2 = floor(m2 / 3) + 1;
-                        // Add quarters for any year difference between the dates
-                        q2 += (yearDiff * 4);
-                        return q2 - q1;
-                    },
-
-                    "weekday": function weekdayDifference(date1, date2, utc) {
-                        var days = differenceTransform("day", date1, date2, utc), weeks;
-                        var mod = days % 7;
-                        // Even number of weeks
-                        if (mod === 0) {
-                            days = differenceTransform("week", date1, date2, utc) * 5;
-                        } else {
-                            // Weeks plus spare change (< 7 days)
-                            var adj = 0, aDay = date1[utc ? "getUTCDay" : "getDay"](), bDay = date2[utc ? "getUTCDay" : "getDay"]();
-                            weeks = parseInt(days / 7, 10);
-                            // Mark the date advanced by the number of
-                            // round weeks (may be zero)
-                            var dtMark = new Date(+date1);
-                            dtMark.setDate(dtMark[utc ? "getUTCDate" : "getDate"]() + (weeks * 7));
-                            var dayMark = dtMark[utc ? "getUTCDay" : "getDay"]();
-
-                            // Spare change days -- 6 or less
-                            if (days > 0) {
-                                if (aDay === 6 || bDay === 6) {
-                                    adj = -1;
-                                } else if (aDay === 0) {
-                                    adj = 0;
-                                } else if (bDay === 0 || (dayMark + mod) > 5) {
-                                    adj = -2;
-                                }
-                            } else if (days < 0) {
-                                if (aDay === 6) {
-                                    adj = 0;
-                                } else if (aDay === 0 || bDay === 0) {
-                                    adj = 1;
-                                } else if (bDay === 6 || (dayMark + mod) < 0) {
-                                    adj = 2;
-                                }
-                            }
-                            days += adj;
-                            days -= (weeks * 2);
-                        }
-                        return days;
-                    },
-                    year: function (date1, date2) {
-                        return date2.getFullYear() - date1.getFullYear();
-                    },
-                    month: function (date1, date2, utc) {
-                        var m1 = date1[utc ? "getUTCMonth" : "getMonth"]();
-                        var m2 = date2[utc ? "getUTCMonth" : "getMonth"]();
-                        return (m2 - m1) + ((date2.getFullYear() - date1.getFullYear()) * 12);
-                    },
-                    week: function (date1, date2, utc) {
-                        return round(differenceTransform("day", date1, date2, utc) / 7);
-                    },
-                    day: function (date1, date2) {
-                        return 1.1574074074074074e-8 * (date2.getTime() - date1.getTime());
-                    },
-                    hour: function (date1, date2) {
-                        return 2.7777777777777776e-7 * (date2.getTime() - date1.getTime());
-                    },
-                    minute: function (date1, date2) {
-                        return 0.000016666666666666667 * (date2.getTime() - date1.getTime());
-                    },
-                    second: function (date1, date2) {
-                        return 0.001 * (date2.getTime() - date1.getTime());
-                    },
-                    millisecond: function (date1, date2) {
-                        return date2.getTime() - date1.getTime();
-                    }
-                };
-
-
-                function differenceTransform(interval, date1, date2, utc) {
-                    interval = interval.replace(/s$/, "");
-                    return round(differenceMap[interval](date1, date2, utc));
-                }
-
-
-                return {
-                    addTransform: addTransform,
-                    differenceTransform: differenceTransform
-                };
-            }()),
-            addTransform = transforms.addTransform,
-            differenceTransform = transforms.differenceTransform;
-
-
-        /**
-         * @ignore
-         * Based on DOJO Date Implementation
-         *
-         * Dojo is available under *either* the terms of the modified BSD license *or* the
-         * Academic Free License version 2.1. As a recipient of Dojo, you may choose which
-         * license to receive this code under (except as noted in per-module LICENSE
-         * files). Some modules may not be the copyright of the Dojo Foundation. These
-         * modules contain explicit declarations of copyright in both the LICENSE files in
-         * the directories in which they reside and in the code itself. No external
-         * contributions are allowed under licenses which are fundamentally incompatible
-         * with the AFL or BSD licenses that Dojo is distributed under.
-         *
-         */
-
-        var floor = Math.floor, round = Math.round, min = Math.min, pow = Math.pow, ceil = Math.ceil, abs = Math.abs;
-        var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-        var monthAbbr = ["Jan.", "Feb.", "Mar.", "Apr.", "May.", "Jun.", "Jul.", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."];
-        var dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-        var dayAbbr = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        var eraNames = ["Before Christ", "Anno Domini"];
-        var eraAbbr = ["BC", "AD"];
-
-
-        function getDayOfYear(/*Date*/dateObject, utc) {
-            // summary: gets the day of the year as represented by dateObject
-            return date.difference(new Date(dateObject.getFullYear(), 0, 1, dateObject.getHours()), dateObject, null, utc) + 1; // Number
-        }
-
-        function getWeekOfYear(/*Date*/dateObject, /*Number*/firstDayOfWeek, utc) {
-            firstDayOfWeek = firstDayOfWeek || 0;
-            var fullYear = dateObject[utc ? "getUTCFullYear" : "getFullYear"]();
-            var firstDayOfYear = new Date(fullYear, 0, 1).getDay(),
-                adj = (firstDayOfYear - firstDayOfWeek + 7) % 7,
-                week = floor((getDayOfYear(dateObject) + adj - 1) / 7);
-
-            // if year starts on the specified day, start counting weeks at 1
-            if (firstDayOfYear === firstDayOfWeek) {
-                week++;
-            }
-
-            return week; // Number
-        }
-
-        function getTimezoneName(/*Date*/dateObject) {
-            var str = dateObject.toString();
-            var tz = '';
-            var pos = str.indexOf('(');
-            if (pos > -1) {
-                tz = str.substring(++pos, str.indexOf(')'));
-            }
-            return tz; // String
-        }
-
-
-        function buildDateEXP(pattern, tokens) {
-            return pattern.replace(/([a-z])\1*/ig,function (match) {
-                // Build a simple regexp.  Avoid captures, which would ruin the tokens list
-                var s,
-                    c = match.charAt(0),
-                    l = match.length,
-                    p2 = '0?',
-                    p3 = '0{0,2}';
-                if (c === 'y') {
-                    s = '\\d{2,4}';
-                } else if (c === "M") {
-                    s = (l > 2) ? '\\S+?' : '1[0-2]|' + p2 + '[1-9]';
-                } else if (c === "D") {
-                    s = '[12][0-9][0-9]|3[0-5][0-9]|36[0-6]|' + p3 + '[1-9][0-9]|' + p2 + '[1-9]';
-                } else if (c === "d") {
-                    s = '3[01]|[12]\\d|' + p2 + '[1-9]';
-                } else if (c === "w") {
-                    s = '[1-4][0-9]|5[0-3]|' + p2 + '[1-9]';
-                } else if (c === "E") {
-                    s = '\\S+';
-                } else if (c === "h") {
-                    s = '1[0-2]|' + p2 + '[1-9]';
-                } else if (c === "K") {
-                    s = '1[01]|' + p2 + '\\d';
-                } else if (c === "H") {
-                    s = '1\\d|2[0-3]|' + p2 + '\\d';
-                } else if (c === "k") {
-                    s = '1\\d|2[0-4]|' + p2 + '[1-9]';
-                } else if (c === "m" || c === "s") {
-                    s = '[0-5]\\d';
-                } else if (c === "S") {
-                    s = '\\d{' + l + '}';
-                } else if (c === "a") {
-                    var am = 'AM', pm = 'PM';
-                    s = am + '|' + pm;
-                    if (am !== am.toLowerCase()) {
-                        s += '|' + am.toLowerCase();
-                    }
-                    if (pm !== pm.toLowerCase()) {
-                        s += '|' + pm.toLowerCase();
-                    }
-                    s = s.replace(/\./g, "\\.");
-                } else if (c === 'v' || c === 'z' || c === 'Z' || c === 'G' || c === 'q' || c === 'Q') {
-                    s = ".*";
-                } else {
-                    s = c === " " ? "\\s*" : c + "*";
-                }
-                if (tokens) {
-                    tokens.push(match);
-                }
-
-                return "(" + s + ")"; // add capture
-            }).replace(/[\xa0 ]/g, "[\\s\\xa0]"); // normalize whitespace.  Need explicit handling of \xa0 for IE.
-        }
-
-
-        /**
-         * @namespace Utilities for Dates
-         */
-        var date = {
-
-            /**@lends date*/
-
-            /**
-             * Returns the number of days in the month of a date
-             *
-             * @example
-             *
-             *  dateExtender.getDaysInMonth(new Date(2006, 1, 1)); //28
-             *  dateExtender.getDaysInMonth(new Date(2004, 1, 1)); //29
-             *  dateExtender.getDaysInMonth(new Date(2006, 2, 1)); //31
-             *  dateExtender.getDaysInMonth(new Date(2006, 3, 1)); //30
-             *  dateExtender.getDaysInMonth(new Date(2006, 4, 1)); //31
-             *  dateExtender.getDaysInMonth(new Date(2006, 5, 1)); //30
-             *  dateExtender.getDaysInMonth(new Date(2006, 6, 1)); //31
-             * @param {Date} dateObject the date containing the month
-             * @return {Number} the number of days in the month
-             */
-            getDaysInMonth: function (/*Date*/dateObject) {
-                //	summary:
-                //		Returns the number of days in the month used by dateObject
-                var month = dateObject.getMonth();
-                var days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-                if (month === 1 && date.isLeapYear(dateObject)) {
-                    return 29;
-                } // Number
-                return days[month]; // Number
-            },
-
-            /**
-             * Determines if a date is a leap year
-             *
-             * @example
-             *
-             *  dateExtender.isLeapYear(new Date(1600, 0, 1)); //true
-             *  dateExtender.isLeapYear(new Date(2004, 0, 1)); //true
-             *  dateExtender.isLeapYear(new Date(2000, 0, 1)); //true
-             *  dateExtender.isLeapYear(new Date(2006, 0, 1)); //false
-             *  dateExtender.isLeapYear(new Date(1900, 0, 1)); //false
-             *  dateExtender.isLeapYear(new Date(1800, 0, 1)); //false
-             *  dateExtender.isLeapYear(new Date(1700, 0, 1)); //false
-             *
-             * @param {Date} dateObject
-             * @returns {Boolean} true if it is a leap year false otherwise
-             */
-            isLeapYear: function (/*Date*/dateObject, utc) {
-                var year = dateObject[utc ? "getUTCFullYear" : "getFullYear"]();
-                return (year % 400 === 0) || (year % 4 === 0 && year % 100 !== 0);
-
-            },
-
-            /**
-             * Determines if a date is on a weekend
-             *
-             * @example
-             *
-             * var thursday = new Date(2006, 8, 21);
-             * var saturday = new Date(2006, 8, 23);
-             * var sunday = new Date(2006, 8, 24);
-             * var monday = new Date(2006, 8, 25);
-             * dateExtender.isWeekend(thursday)); //false
-             * dateExtender.isWeekend(saturday); //true
-             * dateExtender.isWeekend(sunday); //true
-             * dateExtender.isWeekend(monday)); //false
-             *
-             * @param {Date} dateObject the date to test
-             *
-             * @returns {Boolean} true if the date is a weekend
-             */
-            isWeekend: function (/*Date?*/dateObject, utc) {
-                // summary:
-                //	Determines if the date falls on a weekend, according to local custom.
-                var day = (dateObject || new Date())[utc ? "getUTCDay" : "getDay"]();
-                return day === 0 || day === 6;
-            },
-
-            /**
-             * Get the timezone of a date
-             *
-             * @example
-             *  //just setting the strLocal to simulate the toString() of a date
-             *  dt.str = 'Sun Sep 17 2006 22:25:51 GMT-0500 (CDT)';
-             *  //just setting the strLocal to simulate the locale
-             *  dt.strLocale = 'Sun 17 Sep 2006 10:25:51 PM CDT';
-             *  dateExtender.getTimezoneName(dt); //'CDT'
-             *  dt.str = 'Sun Sep 17 2006 22:57:18 GMT-0500 (CDT)';
-             *  dt.strLocale = 'Sun Sep 17 22:57:18 2006';
-             *  dateExtender.getTimezoneName(dt); //'CDT'
-             * @param dateObject the date to get the timezone from
-             *
-             * @returns {String} the timezone of the date
-             */
-            getTimezoneName: getTimezoneName,
-
-            /**
-             * Compares two dates
-             *
-             * @example
-             *
-             * var d1 = new Date();
-             * d1.setHours(0);
-             * dateExtender.compare(d1, d1); // 0
-             *
-             *  var d1 = new Date();
-             *  d1.setHours(0);
-             *  var d2 = new Date();
-             *  d2.setFullYear(2005);
-             *  d2.setHours(12);
-             *  dateExtender.compare(d1, d2, "date"); // 1
-             *  dateExtender.compare(d1, d2, "datetime"); // 1
-             *
-             *  var d1 = new Date();
-             *  d1.setHours(0);
-             *  var d2 = new Date();
-             *  d2.setFullYear(2005);
-             *  d2.setHours(12);
-             *  dateExtender.compare(d2, d1, "date"); // -1
-             *  dateExtender.compare(d1, d2, "time"); //-1
-             *
-             * @param {Date|String} date1 the date to comapare
-             * @param {Date|String} [date2=new Date()] the date to compare date1 againse
-             * @param {"date"|"time"|"datetime"} portion compares the portion specified
-             *
-             * @returns -1 if date1 is < date2 0 if date1 === date2  1 if date1 > date2
-             */
-            compare: function (/*Date*/date1, /*Date*/date2, /*String*/portion) {
-                date1 = new Date(+date1);
-                date2 = new Date(+(date2 || new Date()));
-
-                if (portion === "date") {
-                    // Ignore times and compare dates.
-                    date1.setHours(0, 0, 0, 0);
-                    date2.setHours(0, 0, 0, 0);
-                } else if (portion === "time") {
-                    // Ignore dates and compare times.
-                    date1.setFullYear(0, 0, 0);
-                    date2.setFullYear(0, 0, 0);
-                }
-                return date1 > date2 ? 1 : date1 < date2 ? -1 : 0;
-            },
-
-
-            /**
-             * Adds a specified interval and amount to a date
-             *
-             * @example
-             *  var dtA = new Date(2005, 11, 27);
-             *  dateExtender.add(dtA, "year", 1); //new Date(2006, 11, 27);
-             *  dateExtender.add(dtA, "years", 1); //new Date(2006, 11, 27);
-             *
-             *  dtA = new Date(2000, 0, 1);
-             *  dateExtender.add(dtA, "quarter", 1); //new Date(2000, 3, 1);
-             *  dateExtender.add(dtA, "quarters", 1); //new Date(2000, 3, 1);
-             *
-             *  dtA = new Date(2000, 0, 1);
-             *  dateExtender.add(dtA, "month", 1); //new Date(2000, 1, 1);
-             *  dateExtender.add(dtA, "months", 1); //new Date(2000, 1, 1);
-             *
-             *  dtA = new Date(2000, 0, 31);
-             *  dateExtender.add(dtA, "month", 1); //new Date(2000, 1, 29);
-             *  dateExtender.add(dtA, "months", 1); //new Date(2000, 1, 29);
-             *
-             *  dtA = new Date(2000, 0, 1);
-             *  dateExtender.add(dtA, "week", 1); //new Date(2000, 0, 8);
-             *  dateExtender.add(dtA, "weeks", 1); //new Date(2000, 0, 8);
-             *
-             *  dtA = new Date(2000, 0, 1);
-             *  dateExtender.add(dtA, "day", 1); //new Date(2000, 0, 2);
-             *
-             *  dtA = new Date(2000, 0, 1);
-             *  dateExtender.add(dtA, "weekday", 1); //new Date(2000, 0, 3);
-             *
-             *  dtA = new Date(2000, 0, 1, 11);
-             *  dateExtender.add(dtA, "hour", 1); //new Date(2000, 0, 1, 12);
-             *
-             *  dtA = new Date(2000, 11, 31, 23, 59);
-             *  dateExtender.add(dtA, "minute", 1); //new Date(2001, 0, 1, 0, 0);
-             *
-             *  dtA = new Date(2000, 11, 31, 23, 59, 59);
-             *  dateExtender.add(dtA, "second", 1); //new Date(2001, 0, 1, 0, 0, 0);
-             *
-             *  dtA = new Date(2000, 11, 31, 23, 59, 59, 999);
-             *  dateExtender.add(dtA, "millisecond", 1); //new Date(2001, 0, 1, 0, 0, 0, 0);
-             *
-             * @param {Date} date
-             * @param {String} interval the interval to add
-             *  <ul>
-             *      <li>day | days</li>
-             *      <li>weekday | weekdays</li>
-             *      <li>year | years</li>
-             *      <li>week | weeks</li>
-             *      <li>quarter | quarters</li>
-             *      <li>months | months</li>
-             *      <li>hour | hours</li>
-             *      <li>minute | minutes</li>
-             *      <li>second | seconds</li>
-             *      <li>millisecond | milliseconds</li>
-             *  </ul>
-             * @param {Number} [amount=0] the amount to add
-             */
-            add: function (/*Date*/date, /*String*/interval, /*int*/amount) {
-                var res = addTransform(interval, date, amount || 0);
-                amount = res[0];
-                var property = res[1];
-                var sum = new Date(+date);
-                var fixOvershoot = res[2];
-                if (property) {
-                    sum["set" + property](sum["get" + property]() + amount);
-                }
-
-                if (fixOvershoot && (sum.getDate() < date.getDate())) {
-                    sum.setDate(0);
-                }
-
-                return sum; // Date
-            },
-
-            /**
-             * Finds the difference between two dates based on the specified interval
-             *
-             * @example
-             *
-             * var dtA, dtB;
-             *
-             * dtA = new Date(2005, 11, 27);
-             * dtB = new Date(2006, 11, 27);
-             * dateExtender.difference(dtA, dtB, "year"); //1
-             *
-             * dtA = new Date(2000, 1, 29);
-             * dtB = new Date(2001, 2, 1);
-             * dateExtender.difference(dtA, dtB, "quarter"); //4
-             * dateExtender.difference(dtA, dtB, "month"); //13
-             *
-             * dtA = new Date(2000, 1, 1);
-             * dtB = new Date(2000, 1, 8);
-             * dateExtender.difference(dtA, dtB, "week"); //1
-             *
-             * dtA = new Date(2000, 1, 29);
-             * dtB = new Date(2000, 2, 1);
-             * dateExtender.difference(dtA, dtB, "day"); //1
-             *
-             * dtA = new Date(2006, 7, 3);
-             * dtB = new Date(2006, 7, 11);
-             * dateExtender.difference(dtA, dtB, "weekday"); //6
-             *
-             * dtA = new Date(2000, 11, 31, 23);
-             * dtB = new Date(2001, 0, 1, 0);
-             * dateExtender.difference(dtA, dtB, "hour"); //1
-             *
-             * dtA = new Date(2000, 11, 31, 23, 59);
-             * dtB = new Date(2001, 0, 1, 0, 0);
-             * dateExtender.difference(dtA, dtB, "minute"); //1
-             *
-             * dtA = new Date(2000, 11, 31, 23, 59, 59);
-             * dtB = new Date(2001, 0, 1, 0, 0, 0);
-             * dateExtender.difference(dtA, dtB, "second"); //1
-             *
-             * dtA = new Date(2000, 11, 31, 23, 59, 59, 999);
-             * dtB = new Date(2001, 0, 1, 0, 0, 0, 0);
-             * dateExtender.difference(dtA, dtB, "millisecond"); //1
-             *
-             *
-             * @param {Date} date1
-             * @param {Date} [date2 = new Date()]
-             * @param {String} [interval = "day"] the intercal to find the difference of.
-             *   <ul>
-             *      <li>day | days</li>
-             *      <li>weekday | weekdays</li>
-             *      <li>year | years</li>
-             *      <li>week | weeks</li>
-             *      <li>quarter | quarters</li>
-             *      <li>months | months</li>
-             *      <li>hour | hours</li>
-             *      <li>minute | minutes</li>
-             *      <li>second | seconds</li>
-             *      <li>millisecond | milliseconds</li>
-             *  </ul>
-             */
-            difference: function (/*Date*/date1, /*Date?*/date2, /*String*/interval, utc) {
-                date2 = date2 || new Date();
-                interval = interval || "day";
-                return differenceTransform(interval, date1, date2, utc);
-            },
-
-            /**
-             * Formats a date to the specidifed format string
-             *
-             * @example
-             *
-             * var date = new Date(2006, 7, 11, 0, 55, 12, 345);
-             * dateExtender.format(date, "EEEE, MMMM dd, yyyy"); //"Friday, August 11, 2006"
-             * dateExtender.format(date, "M/dd/yy"); //"8/11/06"
-             * dateExtender.format(date, "E"); //"6"
-             * dateExtender.format(date, "h:m a"); //"12:55 AM"
-             * dateExtender.format(date, 'h:m:s'); //"12:55:12"
-             * dateExtender.format(date, 'h:m:s.SS'); //"12:55:12.35"
-             * dateExtender.format(date, 'k:m:s.SS'); //"24:55:12.35"
-             * dateExtender.format(date, 'H:m:s.SS'); //"0:55:12.35"
-             * dateExtender.format(date, "ddMMyyyy"); //"11082006"
-             *
-             * @param date the date to format
-             * @param {String} format the format of the date composed of the following options
-             * <ul>
-             *                  <li> G    Era designator    Text    AD</li>
-             *                  <li> y    Year    Year    1996; 96</li>
-             *                  <li> M    Month in year    Month    July; Jul; 07</li>
-             *                  <li> w    Week in year    Number    27</li>
-             *                  <li> W    Week in month    Number    2</li>
-             *                  <li> D    Day in year    Number    189</li>
-             *                  <li> d    Day in month    Number    10</li>
-             *                  <li> E    Day in week    Text    Tuesday; Tue</li>
-             *                  <li> a    Am/pm marker    Text    PM</li>
-             *                  <li> H    Hour in day (0-23)    Number    0</li>
-             *                  <li> k    Hour in day (1-24)    Number    24</li>
-             *                  <li> K    Hour in am/pm (0-11)    Number    0</li>
-             *                  <li> h    Hour in am/pm (1-12)    Number    12</li>
-             *                  <li> m    Minute in hour    Number    30</li>
-             *                  <li> s    Second in minute    Number    55</li>
-             *                  <li> S    Millisecond    Number    978</li>
-             *                  <li> z    Time zone    General time zone    Pacific Standard Time; PST; GMT-08:00</li>
-             *                  <li> Z    Time zone    RFC 822 time zone    -0800 </li>
-             * </ul>
-             */
-            format: function (date, format, utc) {
-                utc = utc || false;
-                var fullYear, month, day, d, hour, minute, second, millisecond;
-                if (utc) {
-                    fullYear = date.getUTCFullYear();
-                    month = date.getUTCMonth();
-                    day = date.getUTCDay();
-                    d = date.getUTCDate();
-                    hour = date.getUTCHours();
-                    minute = date.getUTCMinutes();
-                    second = date.getUTCSeconds();
-                    millisecond = date.getUTCMilliseconds();
-                } else {
-                    fullYear = date.getFullYear();
-                    month = date.getMonth();
-                    d = date.getDate();
-                    day = date.getDay();
-                    hour = date.getHours();
-                    minute = date.getMinutes();
-                    second = date.getSeconds();
-                    millisecond = date.getMilliseconds();
-                }
-                return format.replace(/([A-Za-z])\1*/g, function (match) {
-                    var s, pad,
-                        c = match.charAt(0),
-                        l = match.length;
-                    if (c === 'd') {
-                        s = "" + d;
-                        pad = true;
-                    } else if (c === "H" && !s) {
-                        s = "" + hour;
-                        pad = true;
-                    } else if (c === 'm' && !s) {
-                        s = "" + minute;
-                        pad = true;
-                    } else if (c === 's') {
-                        if (!s) {
-                            s = "" + second;
-                        }
-                        pad = true;
-                    } else if (c === "G") {
-                        s = ((l < 4) ? eraAbbr : eraNames)[fullYear < 0 ? 0 : 1];
-                    } else if (c === "y") {
-                        s = fullYear;
-                        if (l > 1) {
-                            if (l === 2) {
-                                s = _truncate("" + s, 2, true);
-                            } else {
-                                pad = true;
-                            }
-                        }
-                    } else if (c.toUpperCase() === "Q") {
-                        s = ceil((month + 1) / 3);
-                        pad = true;
-                    } else if (c === "M") {
-                        if (l < 3) {
-                            s = month + 1;
-                            pad = true;
-                        } else {
-                            s = (l === 3 ? monthAbbr : monthNames)[month];
-                        }
-                    } else if (c === "w") {
-                        s = getWeekOfYear(date, 0, utc);
-                        pad = true;
-                    } else if (c === "D") {
-                        s = getDayOfYear(date, utc);
-                        pad = true;
-                    } else if (c === "E") {
-                        if (l < 3) {
-                            s = day + 1;
-                            pad = true;
-                        } else {
-                            s = (l === -3 ? dayAbbr : dayNames)[day];
-                        }
-                    } else if (c === 'a') {
-                        s = (hour < 12) ? 'AM' : 'PM';
-                    } else if (c === "h") {
-                        s = (hour % 12) || 12;
-                        pad = true;
-                    } else if (c === "K") {
-                        s = (hour % 12);
-                        pad = true;
-                    } else if (c === "k") {
-                        s = hour || 24;
-                        pad = true;
-                    } else if (c === "S") {
-                        s = round(millisecond * pow(10, l - 3));
-                        pad = true;
-                    } else if (c === "z" || c === "v" || c === "Z") {
-                        s = getTimezoneName(date);
-                        if ((c === "z" || c === "v") && !s) {
-                            l = 4;
-                        }
-                        if (!s || c === "Z") {
-                            var offset = date.getTimezoneOffset();
-                            var tz = [
-                                (offset >= 0 ? "-" : "+"),
-                                _pad(floor(abs(offset) / 60), 2, "0"),
-                                _pad(abs(offset) % 60, 2, "0")
-                            ];
-                            if (l === 4) {
-                                tz.splice(0, 0, "GMT");
-                                tz.splice(3, 0, ":");
-                            }
-                            s = tz.join("");
-                        }
-                    } else {
-                        s = match;
-                    }
-                    if (pad) {
-                        s = _pad(s, l, '0');
-                    }
-                    return s;
-                });
-            }
-
-        };
-
-        var numberDate = {};
-
-        function addInterval(interval) {
-            numberDate[interval + "sFromNow"] = function (val) {
-                return date.add(new Date(), interval, val);
-            };
-            numberDate[interval + "sAgo"] = function (val) {
-                return date.add(new Date(), interval, -val);
-            };
-        }
-
-        var intervals = ["year", "month", "day", "hour", "minute", "second"];
-        for (var i = 0, l = intervals.length; i < l; i++) {
-            addInterval(intervals[i]);
-        }
-
-        var stringDate = {
-
-            parseDate: function (dateStr, format) {
-                if (!format) {
-                    throw new Error('format required when calling dateExtender.parse');
-                }
-                var tokens = [], regexp = buildDateEXP(format, tokens),
-                    re = new RegExp("^" + regexp + "$", "i"),
-                    match = re.exec(dateStr);
-                if (!match) {
-                    return null;
-                } // null
-                var result = [1970, 0, 1, 0, 0, 0, 0], // will get converted to a Date at the end
-                    amPm = "",
-                    valid = every(match, function (v, i) {
-                        if (i) {
-                            var token = tokens[i - 1];
-                            var l = token.length, type = token.charAt(0);
-                            if (type === 'y') {
-                                if (v < 100) {
-                                    v = parseInt(v, 10);
-                                    //choose century to apply, according to a sliding window
-                                    //of 80 years before and 20 years after present year
-                                    var year = '' + new Date().getFullYear(),
-                                        century = year.substring(0, 2) * 100,
-                                        cutoff = min(year.substring(2, 4) + 20, 99);
-                                    result[0] = (v < cutoff) ? century + v : century - 100 + v;
-                                } else {
-                                    result[0] = v;
-                                }
-                            } else if (type === "M") {
-                                if (l > 2) {
-                                    var months = monthNames, j, k;
-                                    if (l === 3) {
-                                        months = monthAbbr;
-                                    }
-                                    //Tolerate abbreviating period in month part
-                                    //Case-insensitive comparison
-                                    v = v.replace(".", "").toLowerCase();
-                                    var contains = false;
-                                    for (j = 0, k = months.length; j < k && !contains; j++) {
-                                        var s = months[j].replace(".", "").toLocaleLowerCase();
-                                        if (s === v) {
-                                            v = j;
-                                            contains = true;
-                                        }
-                                    }
-                                    if (!contains) {
-                                        return false;
-                                    }
-                                } else {
-                                    v--;
-                                }
-                                result[1] = v;
-                            } else if (type === "E" || type === "e") {
-                                var days = dayNames;
-                                if (l === 3) {
-                                    days = dayAbbr;
-                                }
-                                //Case-insensitive comparison
-                                v = v.toLowerCase();
-                                days = array.map(days, function (d) {
-                                    return d.toLowerCase();
-                                });
-                                var d = array.indexOf(days, v);
-                                if (d === -1) {
-                                    v = parseInt(v, 10);
-                                    if (isNaN(v) || v > days.length) {
-                                        return false;
-                                    }
-                                } else {
-                                    v = d;
-                                }
-                            } else if (type === 'D' || type === "d") {
-                                if (type === "D") {
-                                    result[1] = 0;
-                                }
-                                result[2] = v;
-                            } else if (type === "a") {
-                                var am = "am";
-                                var pm = "pm";
-                                var period = /\./g;
-                                v = v.replace(period, '').toLowerCase();
-                                // we might not have seen the hours field yet, so store the state and apply hour change later
-                                amPm = (v === pm) ? 'p' : (v === am) ? 'a' : '';
-                            } else if (type === "k" || type === "h" || type === "H" || type === "K") {
-                                if (type === "k" && (+v) === 24) {
-                                    v = 0;
-                                }
-                                result[3] = v;
-                            } else if (type === "m") {
-                                result[4] = v;
-                            } else if (type === "s") {
-                                result[5] = v;
-                            } else if (type === "S") {
-                                result[6] = v;
-                            }
-                        }
-                        return true;
-                    });
-                if (valid) {
-                    var hours = +result[3];
-                    //account for am/pm
-                    if (amPm === 'p' && hours < 12) {
-                        result[3] = hours + 12; //e.g., 3pm -> 15
-                    } else if (amPm === 'a' && hours === 12) {
-                        result[3] = 0; //12am -> 0
-                    }
-                    var dateObject = new Date(result[0], result[1], result[2], result[3], result[4], result[5], result[6]); // Date
-                    var dateToken = (array.indexOf(tokens, 'd') !== -1),
-                        monthToken = (array.indexOf(tokens, 'M') !== -1),
-                        month = result[1],
-                        day = result[2],
-                        dateMonth = dateObject.getMonth(),
-                        dateDay = dateObject.getDate();
-                    if ((monthToken && dateMonth > month) || (dateToken && dateDay > day)) {
-                        return null;
-                    }
-                    return dateObject; // Date
-                } else {
-                    return null;
-                }
-            }
-        };
-
-
-        var ret = extended.define(is.isDate, date).define(is.isString, stringDate).define(is.isNumber, numberDate);
-        for (i in date) {
-            if (date.hasOwnProperty(i)) {
-                ret[i] = date[i];
-            }
-        }
-
-        for (i in stringDate) {
-            if (stringDate.hasOwnProperty(i)) {
-                ret[i] = stringDate[i];
-            }
-        }
-        for (i in numberDate) {
-            if (numberDate.hasOwnProperty(i)) {
-                ret[i] = numberDate[i];
-            }
-        }
-        return ret;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineDate(require("extended"), require("is-extended"), require("array-extended"));
-
-        }
-    } else if ("function" === typeof define && define.amd) {
-        define(["extended", "is-extended", "array-extended"], function (extended, is, arr) {
-            return defineDate(extended, is, arr);
-        });
-    } else {
-        this.dateExtended = defineDate(this.extended, this.isExtended, this.arrayExtended);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-},{"extended":32,"is-extended":39,"array-extended":33}],35:[function(require,module,exports){
-(function(){(function () {
-    "use strict";
-    /*global extended isExtended*/
-
-    function defineObject(extended, is, arr) {
-
-        var deepEqual = is.deepEqual,
-            isString = is.isString,
-            isHash = is.isHash,
-            difference = arr.difference,
-            hasOwn = Object.prototype.hasOwnProperty,
-            isFunction = is.isFunction;
-
-        function _merge(target, source) {
-            var name, s;
-            for (name in source) {
-                if (hasOwn.call(source, name)) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function _deepMerge(target, source) {
-            var name, s, t;
-            for (name in source) {
-                if (hasOwn.call(source, name)) {
-                    s = source[name];
-                    t = target[name];
-                    if (!deepEqual(t, s)) {
-                        if (isHash(t) && isHash(s)) {
-                            target[name] = _deepMerge(t, s);
-                        } else if (isHash(s)) {
-                            target[name] = _deepMerge({}, s);
-                        } else {
-                            target[name] = s;
-                        }
-                    }
-                }
-            }
-            return target;
-        }
-
-
-        function merge(obj) {
-            if (!obj) {
-                obj = {};
-            }
-            for (var i = 1, l = arguments.length; i < l; i++) {
-                _merge(obj, arguments[i]);
-            }
-            return obj; // Object
-        }
-
-        function deepMerge(obj) {
-            if (!obj) {
-                obj = {};
-            }
-            for (var i = 1, l = arguments.length; i < l; i++) {
-                _deepMerge(obj, arguments[i]);
-            }
-            return obj; // Object
-        }
-
-
-        function extend(parent, child) {
-            var proto = parent.prototype || parent;
-            merge(proto, child);
-            return parent;
-        }
-
-        function forEach(hash, iterator, scope) {
-            if (!isHash(hash) || !isFunction(iterator)) {
-                throw new TypeError();
-            }
-            var objKeys = keys(hash), key;
-            for (var i = 0, len = objKeys.length; i < len; ++i) {
-                key = objKeys[i];
-                iterator.call(scope || hash, hash[key], key, hash);
-            }
-            return hash;
-        }
-
-        function filter(hash, iterator, scope) {
-            if (!isHash(hash) || !isFunction(iterator)) {
-                throw new TypeError();
-            }
-            var objKeys = keys(hash), key, value, ret = {};
-            for (var i = 0, len = objKeys.length; i < len; ++i) {
-                key = objKeys[i];
-                value = hash[key];
-                if (iterator.call(scope || hash, value, key, hash)) {
-                    ret[key] = value;
-                }
-            }
-            return ret;
-        }
-
-        function values(hash) {
-            if (!isHash(hash)) {
-                throw new TypeError();
-            }
-            var objKeys = keys(hash), ret = [];
-            for (var i = 0, len = objKeys.length; i < len; ++i) {
-                ret.push(hash[objKeys[i]]);
-            }
-            return ret;
-        }
-
-
-        function keys(hash) {
-            if (!isHash(hash)) {
-                throw new TypeError();
-            }
-            var ret = [];
-            for (var i in hash) {
-                if (hasOwn.call(hash, i)) {
-                    ret.push(i);
-                }
-            }
-            return ret;
-        }
-
-        function invert(hash) {
-            if (!isHash(hash)) {
-                throw new TypeError();
-            }
-            var objKeys = keys(hash), key, ret = {};
-            for (var i = 0, len = objKeys.length; i < len; ++i) {
-                key = objKeys[i];
-                ret[hash[key]] = key;
-            }
-            return ret;
-        }
-
-        function toArray(hash) {
-            if (!isHash(hash)) {
-                throw new TypeError();
-            }
-            var objKeys = keys(hash), key, ret = [];
-            for (var i = 0, len = objKeys.length; i < len; ++i) {
-                key = objKeys[i];
-                ret.push([key, hash[key]]);
-            }
-            return ret;
-        }
-
-        function omit(hash, omitted) {
-            if (!isHash(hash)) {
-                throw new TypeError();
-            }
-            if (isString(omitted)) {
-                omitted = [omitted];
-            }
-            var objKeys = difference(keys(hash), omitted), key, ret = {};
-            for (var i = 0, len = objKeys.length; i < len; ++i) {
-                key = objKeys[i];
-                ret[key] = hash[key];
-            }
-            return ret;
-        }
-
-        var hash = {
-            forEach: forEach,
-            filter: filter,
-            invert: invert,
-            values: values,
-            toArray: toArray,
-            keys: keys,
-            omit: omit
-        };
-
-
-        var obj = {
-            extend: extend,
-            merge: merge,
-            deepMerge: deepMerge,
-            omit: omit
-        };
-
-        var ret = extended.define(is.isObject, obj).define(isHash, hash).define(is.isFunction, {extend: extend}).expose({hash: hash}).expose(obj);
-        var orig = ret.extend;
-        ret.extend = function __extend() {
-            if (arguments.length === 1) {
-                return orig.extend.apply(ret, arguments);
-            } else {
-                extend.apply(null, arguments);
-            }
-        };
-        return ret;
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineObject(require("extended"), require("is-extended"), require("array-extended"));
-
-        }
-    } else if ("function" === typeof define && define.amd) {
-        define(["extended", "is-extended", "array-extended"], function (extended, is, array) {
-            return defineObject(extended, is, array);
-        });
-    } else {
-        this.objectExtended = defineObject(this.extended, this.isExtended, this.arrayExtended);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-})()
-},{"extended":32,"is-extended":39,"array-extended":33}],36:[function(require,module,exports){
-(function () {
-    "use strict";
-
-    function defineString(extended, is, date, arr) {
-
-        var stringify;
-        if (typeof JSON === "undefined") {
-            /*
-             json2.js
-             2012-10-08
-
-             Public Domain.
-
-             NO WARRANTY EXPRESSED OR IMPLIED. USE AT YOUR OWN RISK.
-             */
-
-            (function () {
-                function f(n) {
-                    // Format integers to have at least two digits.
-                    return n < 10 ? '0' + n : n;
-                }
-
-                var isPrimitive = is.tester().isString().isNumber().isBoolean().tester();
-
-                function toJSON(obj) {
-                    if (is.isDate(obj)) {
-                        return isFinite(obj.valueOf()) ? obj.getUTCFullYear() + '-' +
-                            f(obj.getUTCMonth() + 1) + '-' +
-                            f(obj.getUTCDate()) + 'T' +
-                            f(obj.getUTCHours()) + ':' +
-                            f(obj.getUTCMinutes()) + ':' +
-                            f(obj.getUTCSeconds()) + 'Z'
-                            : null;
-                    } else if (isPrimitive(obj)) {
-                        return obj.valueOf();
-                    }
-                    return obj;
-                }
-
-                var cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
-                    escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
-                    gap,
-                    indent,
-                    meta = {    // table of character substitutions
-                        '\b': '\\b',
-                        '\t': '\\t',
-                        '\n': '\\n',
-                        '\f': '\\f',
-                        '\r': '\\r',
-                        '"': '\\"',
-                        '\\': '\\\\'
-                    },
-                    rep;
-
-
-                function quote(string) {
-                    escapable.lastIndex = 0;
-                    return escapable.test(string) ? '"' + string.replace(escapable, function (a) {
-                        var c = meta[a];
-                        return typeof c === 'string' ? c : '\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
-                    }) + '"' : '"' + string + '"';
-                }
-
-
-                function str(key, holder) {
-
-                    var i, k, v, length, mind = gap, partial, value = holder[key];
-                    if (value) {
-                        value = toJSON(value);
-                    }
-                    if (typeof rep === 'function') {
-                        value = rep.call(holder, key, value);
-                    }
-                    switch (typeof value) {
-                    case 'string':
-                        return quote(value);
-                    case 'number':
-                        return isFinite(value) ? String(value) : 'null';
-                    case 'boolean':
-                    case 'null':
-                        return String(value);
-                    case 'object':
-                        if (!value) {
-                            return 'null';
-                        }
-                        gap += indent;
-                        partial = [];
-                        if (Object.prototype.toString.apply(value) === '[object Array]') {
-                            length = value.length;
-                            for (i = 0; i < length; i += 1) {
-                                partial[i] = str(i, value) || 'null';
-                            }
-                            v = partial.length === 0 ? '[]' : gap ? '[\n' + gap + partial.join(',\n' + gap) + '\n' + mind + ']' : '[' + partial.join(',') + ']';
-                            gap = mind;
-                            return v;
-                        }
-                        if (rep && typeof rep === 'object') {
-                            length = rep.length;
-                            for (i = 0; i < length; i += 1) {
-                                if (typeof rep[i] === 'string') {
-                                    k = rep[i];
-                                    v = str(k, value);
-                                    if (v) {
-                                        partial.push(quote(k) + (gap ? ': ' : ':') + v);
-                                    }
-                                }
-                            }
-                        } else {
-                            for (k in value) {
-                                if (Object.prototype.hasOwnProperty.call(value, k)) {
-                                    v = str(k, value);
-                                    if (v) {
-                                        partial.push(quote(k) + (gap ? ': ' : ':') + v);
-                                    }
-                                }
-                            }
-                        }
-                        v = partial.length === 0 ? '{}' : gap ? '{\n' + gap + partial.join(',\n' + gap) + '\n' + mind + '}' : '{' + partial.join(',') + '}';
-                        gap = mind;
-                        return v;
-                    }
-                }
-
-                stringify = function (value, replacer, space) {
-                    var i;
-                    gap = '';
-                    indent = '';
-                    if (typeof space === 'number') {
-                        for (i = 0; i < space; i += 1) {
-                            indent += ' ';
-                        }
-                    } else if (typeof space === 'string') {
-                        indent = space;
-                    }
-                    rep = replacer;
-                    if (replacer && typeof replacer !== 'function' &&
-                        (typeof replacer !== 'object' ||
-                            typeof replacer.length !== 'number')) {
-                        throw new Error('JSON.stringify');
-                    }
-                    return str('', {'': value});
-                };
-            }());
-        } else {
-            stringify = JSON.stringify;
-        }
-
-
-        var isHash = is.isHash, aSlice = Array.prototype.slice;
-
-        var FORMAT_REGEX = /%((?:-?\+?.?\d*)?|(?:\[[^\[|\]]*\]))?([sjdDZ])/g;
-        var INTERP_REGEX = /\{(?:\[([^\[|\]]*)\])?(\w+)\}/g;
-        var STR_FORMAT = /(-?)(\+?)([A-Z|a-z|\W]?)([1-9][0-9]*)?$/;
-        var OBJECT_FORMAT = /([1-9][0-9]*)$/g;
-
-        function formatString(string, format) {
-            var ret = string;
-            if (STR_FORMAT.test(format)) {
-                var match = format.match(STR_FORMAT);
-                var isLeftJustified = match[1], padChar = match[3], width = match[4];
-                if (width) {
-                    width = parseInt(width, 10);
-                    if (ret.length < width) {
-                        ret = pad(ret, width, padChar, isLeftJustified);
-                    } else {
-                        ret = truncate(ret, width);
-                    }
-                }
-            }
-            return ret;
-        }
-
-        function formatNumber(number, format) {
-            var ret;
-            if (is.isNumber(number)) {
-                ret = "" + number;
-                if (STR_FORMAT.test(format)) {
-                    var match = format.match(STR_FORMAT);
-                    var isLeftJustified = match[1], signed = match[2], padChar = match[3], width = match[4];
-                    if (signed) {
-                        ret = (number > 0 ? "+" : "") + ret;
-                    }
-                    if (width) {
-                        width = parseInt(width, 10);
-                        if (ret.length < width) {
-                            ret = pad(ret, width, padChar || "0", isLeftJustified);
-                        } else {
-                            ret = truncate(ret, width);
-                        }
-                    }
-
-                }
-            } else {
-                throw new Error("stringExtended.format : when using %d the parameter must be a number!");
-            }
-            return ret;
-        }
-
-        function formatObject(object, format) {
-            var ret, match = format.match(OBJECT_FORMAT), spacing = 0;
-            if (match) {
-                spacing = parseInt(match[0], 10);
-                if (isNaN(spacing)) {
-                    spacing = 0;
-                }
-            }
-            try {
-                ret = stringify(object, null, spacing);
-            } catch (e) {
-                throw new Error("stringExtended.format : Unable to parse json from ", object);
-            }
-            return ret;
-        }
-
-
-        var styles = {
-            //styles
-            bold: 1,
-            bright: 1,
-            italic: 3,
-            underline: 4,
-            blink: 5,
-            inverse: 7,
-            crossedOut: 9,
-
-            red: 31,
-            green: 32,
-            yellow: 33,
-            blue: 34,
-            magenta: 35,
-            cyan: 36,
-            white: 37,
-
-            redBackground: 41,
-            greenBackground: 42,
-            yellowBackground: 43,
-            blueBackground: 44,
-            magentaBackground: 45,
-            cyanBackground: 46,
-            whiteBackground: 47,
-
-            encircled: 52,
-            overlined: 53,
-            grey: 90,
-            black: 90
-        };
-
-        var characters = {
-            SMILEY: "☺",
-            SOLID_SMILEY: "☻",
-            HEART: "♥",
-            DIAMOND: "♦",
-            CLOVE: "♣",
-            SPADE: "♠",
-            DOT: "•",
-            SQUARE_CIRCLE: "◘",
-            CIRCLE: "○",
-            FILLED_SQUARE_CIRCLE: "◙",
-            MALE: "♂",
-            FEMALE: "♀",
-            EIGHT_NOTE: "♪",
-            DOUBLE_EIGHTH_NOTE: "♫",
-            SUN: "☼",
-            PLAY: "►",
-            REWIND: "◄",
-            UP_DOWN: "↕",
-            PILCROW: "¶",
-            SECTION: "§",
-            THICK_MINUS: "▬",
-            SMALL_UP_DOWN: "↨",
-            UP_ARROW: "↑",
-            DOWN_ARROW: "↓",
-            RIGHT_ARROW: "→",
-            LEFT_ARROW: "←",
-            RIGHT_ANGLE: "∟",
-            LEFT_RIGHT_ARROW: "↔",
-            TRIANGLE: "▲",
-            DOWN_TRIANGLE: "▼",
-            HOUSE: "⌂",
-            C_CEDILLA: "Ç",
-            U_UMLAUT: "ü",
-            E_ACCENT: "é",
-            A_LOWER_CIRCUMFLEX: "â",
-            A_LOWER_UMLAUT: "ä",
-            A_LOWER_GRAVE_ACCENT: "à",
-            A_LOWER_CIRCLE_OVER: "å",
-            C_LOWER_CIRCUMFLEX: "ç",
-            E_LOWER_CIRCUMFLEX: "ê",
-            E_LOWER_UMLAUT: "ë",
-            E_LOWER_GRAVE_ACCENT: "è",
-            I_LOWER_UMLAUT: "ï",
-            I_LOWER_CIRCUMFLEX: "î",
-            I_LOWER_GRAVE_ACCENT: "ì",
-            A_UPPER_UMLAUT: "Ä",
-            A_UPPER_CIRCLE: "Å",
-            E_UPPER_ACCENT: "É",
-            A_E_LOWER: "æ",
-            A_E_UPPER: "Æ",
-            O_LOWER_CIRCUMFLEX: "ô",
-            O_LOWER_UMLAUT: "ö",
-            O_LOWER_GRAVE_ACCENT: "ò",
-            U_LOWER_CIRCUMFLEX: "û",
-            U_LOWER_GRAVE_ACCENT: "ù",
-            Y_LOWER_UMLAUT: "ÿ",
-            O_UPPER_UMLAUT: "Ö",
-            U_UPPER_UMLAUT: "Ü",
-            CENTS: "¢",
-            POUND: "£",
-            YEN: "¥",
-            CURRENCY: "¤",
-            PTS: "₧",
-            FUNCTION: "ƒ",
-            A_LOWER_ACCENT: "á",
-            I_LOWER_ACCENT: "í",
-            O_LOWER_ACCENT: "ó",
-            U_LOWER_ACCENT: "ú",
-            N_LOWER_TILDE: "ñ",
-            N_UPPER_TILDE: "Ñ",
-            A_SUPER: "ª",
-            O_SUPER: "º",
-            UPSIDEDOWN_QUESTION: "¿",
-            SIDEWAYS_L: "⌐",
-            NEGATION: "¬",
-            ONE_HALF: "½",
-            ONE_FOURTH: "¼",
-            UPSIDEDOWN_EXCLAMATION: "¡",
-            DOUBLE_LEFT: "«",
-            DOUBLE_RIGHT: "»",
-            LIGHT_SHADED_BOX: "░",
-            MEDIUM_SHADED_BOX: "▒",
-            DARK_SHADED_BOX: "▓",
-            VERTICAL_LINE: "│",
-            MAZE__SINGLE_RIGHT_T: "┤",
-            MAZE_SINGLE_RIGHT_TOP: "┐",
-            MAZE_SINGLE_RIGHT_BOTTOM_SMALL: "┘",
-            MAZE_SINGLE_LEFT_TOP_SMALL: "┌",
-            MAZE_SINGLE_LEFT_BOTTOM_SMALL: "└",
-            MAZE_SINGLE_LEFT_T: "├",
-            MAZE_SINGLE_BOTTOM_T: "┴",
-            MAZE_SINGLE_TOP_T: "┬",
-            MAZE_SINGLE_CENTER: "┼",
-            MAZE_SINGLE_HORIZONTAL_LINE: "─",
-            MAZE_SINGLE_RIGHT_DOUBLECENTER_T: "╡",
-            MAZE_SINGLE_RIGHT_DOUBLE_BL: "╛",
-            MAZE_SINGLE_RIGHT_DOUBLE_T: "╢",
-            MAZE_SINGLE_RIGHT_DOUBLEBOTTOM_TOP: "╖",
-            MAZE_SINGLE_RIGHT_DOUBLELEFT_TOP: "╕",
-            MAZE_SINGLE_LEFT_DOUBLE_T: "╞",
-            MAZE_SINGLE_BOTTOM_DOUBLE_T: "╧",
-            MAZE_SINGLE_TOP_DOUBLE_T: "╤",
-            MAZE_SINGLE_TOP_DOUBLECENTER_T: "╥",
-            MAZE_SINGLE_BOTTOM_DOUBLECENTER_T: "╨",
-            MAZE_SINGLE_LEFT_DOUBLERIGHT_BOTTOM: "╘",
-            MAZE_SINGLE_LEFT_DOUBLERIGHT_TOP: "╒",
-            MAZE_SINGLE_LEFT_DOUBLEBOTTOM_TOP: "╓",
-            MAZE_SINGLE_LEFT_DOUBLETOP_BOTTOM: "╙",
-            MAZE_SINGLE_LEFT_TOP: "Γ",
-            MAZE_SINGLE_RIGHT_BOTTOM: "╜",
-            MAZE_SINGLE_LEFT_CENTER: "╟",
-            MAZE_SINGLE_DOUBLECENTER_CENTER: "╫",
-            MAZE_SINGLE_DOUBLECROSS_CENTER: "╪",
-            MAZE_DOUBLE_LEFT_CENTER: "╣",
-            MAZE_DOUBLE_VERTICAL: "║",
-            MAZE_DOUBLE_RIGHT_TOP: "╗",
-            MAZE_DOUBLE_RIGHT_BOTTOM: "╝",
-            MAZE_DOUBLE_LEFT_BOTTOM: "╚",
-            MAZE_DOUBLE_LEFT_TOP: "╔",
-            MAZE_DOUBLE_BOTTOM_T: "╩",
-            MAZE_DOUBLE_TOP_T: "╦",
-            MAZE_DOUBLE_LEFT_T: "╠",
-            MAZE_DOUBLE_HORIZONTAL: "═",
-            MAZE_DOUBLE_CROSS: "╬",
-            SOLID_RECTANGLE: "█",
-            THICK_LEFT_VERTICAL: "▌",
-            THICK_RIGHT_VERTICAL: "▐",
-            SOLID_SMALL_RECTANGLE_BOTTOM: "▄",
-            SOLID_SMALL_RECTANGLE_TOP: "▀",
-            PHI_UPPER: "Φ",
-            INFINITY: "∞",
-            INTERSECTION: "∩",
-            DEFINITION: "≡",
-            PLUS_MINUS: "±",
-            GT_EQ: "≥",
-            LT_EQ: "≤",
-            THEREFORE: "⌠",
-            SINCE: "∵",
-            DOESNOT_EXIST: "∄",
-            EXISTS: "∃",
-            FOR_ALL: "∀",
-            EXCLUSIVE_OR: "⊕",
-            BECAUSE: "⌡",
-            DIVIDE: "÷",
-            APPROX: "≈",
-            DEGREE: "°",
-            BOLD_DOT: "∙",
-            DOT_SMALL: "·",
-            CHECK: "√",
-            ITALIC_X: "✗",
-            SUPER_N: "ⁿ",
-            SQUARED: "²",
-            CUBED: "³",
-            SOLID_BOX: "■",
-            PERMILE: "‰",
-            REGISTERED_TM: "®",
-            COPYRIGHT: "©",
-            TRADEMARK: "™",
-            BETA: "β",
-            GAMMA: "γ",
-            ZETA: "ζ",
-            ETA: "η",
-            IOTA: "ι",
-            KAPPA: "κ",
-            LAMBDA: "λ",
-            NU: "ν",
-            XI: "ξ",
-            OMICRON: "ο",
-            RHO: "ρ",
-            UPSILON: "υ",
-            CHI_LOWER: "φ",
-            CHI_UPPER: "χ",
-            PSI: "ψ",
-            ALPHA: "α",
-            ESZETT: "ß",
-            PI: "π",
-            SIGMA_UPPER: "Σ",
-            SIGMA_LOWER: "σ",
-            MU: "µ",
-            TAU: "τ",
-            THETA: "Θ",
-            OMEGA: "Ω",
-            DELTA: "δ",
-            PHI_LOWER: "φ",
-            EPSILON: "ε"
-        };
-
-        function pad(string, length, ch, end) {
-            string = "" + string; //check for numbers
-            ch = ch || " ";
-            var strLen = string.length;
-            while (strLen < length) {
-                if (end) {
-                    string += ch;
-                } else {
-                    string = ch + string;
-                }
-                strLen++;
-            }
-            return string;
-        }
-
-        function truncate(string, length, end) {
-            var ret = string;
-            if (is.isString(ret)) {
-                if (string.length > length) {
-                    if (end) {
-                        var l = string.length;
-                        ret = string.substring(l - length, l);
-                    } else {
-                        ret = string.substring(0, length);
-                    }
-                }
-            } else {
-                ret = truncate("" + ret, length);
-            }
-            return ret;
-        }
-
-        function format(str, obj) {
-            if (obj instanceof Array) {
-                var i = 0, len = obj.length;
-                //find the matches
-                return str.replace(FORMAT_REGEX, function (m, format, type) {
-                    var replacer, ret;
-                    if (i < len) {
-                        replacer = obj[i++];
-                    } else {
-                        //we are out of things to replace with so
-                        //just return the match?
-                        return m;
-                    }
-                    if (m === "%s" || m === "%d" || m === "%D") {
-                        //fast path!
-                        ret = replacer + "";
-                    } else if (m === "%Z") {
-                        ret = replacer.toUTCString();
-                    } else if (m === "%j") {
-                        try {
-                            ret = stringify(replacer);
-                        } catch (e) {
-                            throw new Error("stringExtended.format : Unable to parse json from ", replacer);
-                        }
-                    } else {
-                        format = format.replace(/^\[|\]$/g, "");
-                        switch (type) {
-                        case "s":
-                            ret = formatString(replacer, format);
-                            break;
-                        case "d":
-                            ret = formatNumber(replacer, format);
-                            break;
-                        case "j":
-                            ret = formatObject(replacer, format);
-                            break;
-                        case "D":
-                            ret = date.format(replacer, format);
-                            break;
-                        case "Z":
-                            ret = date.format(replacer, format, true);
-                            break;
-                        }
-                    }
-                    return ret;
-                });
-            } else if (isHash(obj)) {
-                return str.replace(INTERP_REGEX, function (m, format, value) {
-                    value = obj[value];
-                    if (!is.isUndefined(value)) {
-                        if (format) {
-                            if (is.isString(value)) {
-                                return formatString(value, format);
-                            } else if (is.isNumber(value)) {
-                                return formatNumber(value, format);
-                            } else if (is.isDate(value)) {
-                                return date.format(value, format);
-                            } else if (is.isObject(value)) {
-                                return formatObject(value, format);
-                            }
-                        } else {
-                            return "" + value;
-                        }
-                    }
-                    return m;
-                });
-            } else {
-                var args = aSlice.call(arguments).slice(1);
-                return format(str, args);
-            }
-        }
-
-        function toArray(testStr, delim) {
-            var ret = [];
-            if (testStr) {
-                if (testStr.indexOf(delim) > 0) {
-                    ret = testStr.replace(/\s+/g, "").split(delim);
-                }
-                else {
-                    ret.push(testStr);
-                }
-            }
-            return ret;
-        }
-
-        function multiply(str, times) {
-            var ret = [];
-            if (times) {
-                for (var i = 0; i < times; i++) {
-                    ret.push(str);
-                }
-            }
-            return ret.join("");
-        }
-
-
-        function style(str, options) {
-            var ret, i, l;
-            if (options) {
-                if (is.isArray(str)) {
-                    ret = [];
-                    for (i = 0, l = str.length; i < l; i++) {
-                        ret.push(style(str[i], options));
-                    }
-                } else if (options instanceof Array) {
-                    ret = str;
-                    for (i = 0, l = options.length; i < l; i++) {
-                        ret = style(ret, options[i]);
-                    }
-                } else if (options in styles) {
-                    ret = '\x1B[' + styles[options] + 'm' + str + '\x1B[0m';
-                }
-            }
-            return ret;
-        }
-
-        function escape(str, except) {
-            return str.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, function (ch) {
-                if (except && arr.indexOf(except, ch) !== -1) {
-                    return ch;
-                }
-                return "\\" + ch;
-            });
-        }
-
-        function trim(str) {
-            return str.replace(/^\s*|\s*$/g, "");
-        }
-
-        function trimLeft(str) {
-            return str.replace(/^\s*/, "");
-        }
-
-        function trimRight(str) {
-            return str.replace(/\s*$/, "");
-        }
-
-        function isEmpty(str) {
-            return str.length === 0;
-        }
-
-
-        var string = {
-            toArray: toArray,
-            pad: pad,
-            truncate: truncate,
-            multiply: multiply,
-            format: format,
-            style: style,
-            escape: escape,
-            trim: trim,
-            trimLeft: trimLeft,
-            trimRight: trimRight,
-            isEmpty: isEmpty
-        };
-        return extended.define(is.isString, string).define(is.isArray, {style: style}).expose(string).expose({characters: characters});
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineString(require("extended"), require("is-extended"), require("date-extended"), require("array-extended"));
-
-        }
-    } else if ("function" === typeof define && define.amd) {
-        define(["extended", "is-extended", "date-extended", "array-extended"], function (extended, is, date, arr) {
-            return defineString(extended, is, date, arr);
-        });
-    } else {
-        this.stringExtended = defineString(this.extended, this.isExtended, this.dateExtended, this.arrayExtended);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-},{"extended":32,"is-extended":39,"date-extended":34,"array-extended":33}],37:[function(require,module,exports){
-(function(process){(function () {
-    "use strict";
-    /*global setImmediate, MessageChannel*/
-
-
-    function definePromise(declare, extended, array, is, fn, args) {
-
-        var forEach = array.forEach,
-            isUndefinedOrNull = is.isUndefinedOrNull,
-            isArray = is.isArray,
-            isFunction = is.isFunction,
-            isBoolean = is.isBoolean,
-            bind = fn.bind,
-            bindIgnore = fn.bindIgnore,
-            argsToArray = args.argsToArray;
-
-        function createHandler(fn, promise) {
-            return function _handler() {
-                try {
-                    when(fn.apply(null, arguments))
-                        .addCallback(promise)
-                        .addErrback(promise);
-                } catch (e) {
-                    promise.errback(e);
-                }
-            };
-        }
-
-        var nextTick;
-        if (typeof setImmediate === "function") {
-            // In IE10, or use https://github.com/NobleJS/setImmediate
-            if (typeof window !== "undefined") {
-                nextTick = setImmediate.bind(window);
-            } else {
-                nextTick = setImmediate;
-            }
-        } else if (typeof process !== "undefined") {
-            // node
-            nextTick = function (cb) {
-                process.nextTick(cb);
-            };
-        } else if (typeof MessageChannel !== "undefined") {
-            // modern browsers
-            // http://www.nonblocking.io/2011/06/windownexttick.html
-            var channel = new MessageChannel();
-            // linked list of tasks (single, with head node)
-            var head = {}, tail = head;
-            channel.port1.onmessage = function () {
-                head = head.next;
-                var task = head.task;
-                delete head.task;
-                task();
-            };
-            nextTick = function (task) {
-                tail = tail.next = {task: task};
-                channel.port2.postMessage(0);
-            };
-        } else {
-            // old browsers
-            nextTick = function (task) {
-                setTimeout(task, 0);
-            };
-        }
-
-
-        //noinspection JSHint
-        var Promise = declare({
-            instance: {
-                __fired: false,
-
-                __results: null,
-
-                __error: null,
-
-                __errorCbs: null,
-
-                __cbs: null,
 
                 constructor: function () {
-                    this.__errorCbs = [];
-                    this.__cbs = [];
-                    fn.bindAll(this, ["callback", "errback", "resolve", "classic", "__resolve", "addCallback", "addErrback"]);
+                    this.__entries = [];
+                    this.__keys = [];
+                    this.__values = [];
                 },
 
-                __resolve: function () {
-                    if (!this.__fired) {
-                        this.__fired = true;
-                        var cbs = this.__error ? this.__errorCbs : this.__cbs,
-                            len = cbs.length, i,
-                            results = this.__error || this.__results;
-                        for (i = 0; i < len; i++) {
-                            this.__callNextTick(cbs[i], results);
-                        }
-
-                    }
+                pushValue: function (key, value) {
+                    this.__keys.push(key);
+                    this.__values.push(value);
+                    this.__entries.push({key: key, value: value});
+                    return value;
                 },
 
-                __callNextTick: function (cb, results) {
-                    nextTick(function () {
-                        cb.apply(this, results);
-                    });
-                },
-
-                addCallback: function (cb) {
-                    if (cb) {
-                        if (isPromiseLike(cb) && cb.callback) {
-                            cb = cb.callback;
-                        }
-                        if (this.__fired && this.__results) {
-                            this.__callNextTick(cb, this.__results);
-                        } else {
-                            this.__cbs.push(cb);
+                remove: function (key) {
+                    var ret = null, map = this.__entries, val, keys = this.__keys, vals = this.__values;
+                    var i = map.length - 1;
+                    for (; i >= 0; i--) {
+                        if (!!(val = map[i]) && val.key === key) {
+                            map.splice(i, 1);
+                            keys.splice(i, 1);
+                            vals.splice(i, 1);
+                            return val.value;
                         }
                     }
-                    return this;
-                },
-
-
-                addErrback: function (cb) {
-                    if (cb) {
-                        if (isPromiseLike(cb) && cb.errback) {
-                            cb = cb.errback;
-                        }
-                        if (this.__fired && this.__error) {
-                            this.__callNextTick(cb, this.__error);
-                        } else {
-                            this.__errorCbs.push(cb);
-                        }
-                    }
-                    return this;
-                },
-
-                callback: function (args) {
-                    if (!this.__fired) {
-                        this.__results = arguments;
-                        this.__resolve();
-                    }
-                    return this.promise();
-                },
-
-                errback: function (args) {
-                    if (!this.__fired) {
-                        this.__error = arguments;
-                        this.__resolve();
-                    }
-                    return this.promise();
-                },
-
-                resolve: function (err, args) {
-                    if (err) {
-                        this.errback(err);
-                    } else {
-                        this.callback.apply(this, argsToArray(arguments, 1));
-                    }
-                    return this;
-                },
-
-                classic: function (cb) {
-                    if ("function" === typeof cb) {
-                        this.addErrback(function (err) {
-                            cb(err);
-                        });
-                        this.addCallback(function () {
-                            cb.apply(this, [null].concat(argsToArray(arguments)));
-                        });
-                    }
-                    return this;
-                },
-
-                then: function (callback, errback) {
-
-                    var promise = new Promise(), errorHandler = promise;
-                    if (isFunction(errback)) {
-                        errorHandler = createHandler(errback, promise);
-                    }
-                    this.addErrback(errorHandler);
-                    if (isFunction(callback)) {
-                        this.addCallback(createHandler(callback, promise));
-                    } else {
-                        this.addCallback(promise);
-                    }
-
-                    return promise.promise();
-                },
-
-                both: function (callback) {
-                    return this.then(callback, callback);
-                },
-
-                promise: function () {
-                    var ret = {
-                        then: bind(this, "then"),
-                        both: bind(this, "both"),
-                        promise: function () {
-                            return ret;
-                        }
-                    };
-                    forEach(["addCallback", "addErrback", "classic"], function (action) {
-                        ret[action] = bind(this, function () {
-                            this[action].apply(this, arguments);
-                            return ret;
-                        });
-                    }, this);
-
                     return ret;
+                },
+
+                "set": function (key, value) {
+                    var ret = null, map = this.__entries, vals = this.__values;
+                    var i = map.length - 1;
+                    for (; i >= 0; i--) {
+                        var val = map[i];
+                        if (val && key === val.key) {
+                            vals[i] = value;
+                            val.value = value;
+                            ret = value;
+                            break;
+                        }
+                    }
+                    if (!ret) {
+                        map.push({key: key, value: value});
+                    }
+                    return ret;
+                },
+
+                find: function (key) {
+                    var ret = null, map = this.__entries, val;
+                    var i = map.length - 1;
+                    for (; i >= 0; i--) {
+                        val = map[i];
+                        if (val && key === val.key) {
+                            ret = val.value;
+                            break;
+                        }
+                    }
+                    return ret;
+                },
+
+                getEntrySet: function () {
+                    return this.__entries;
+                },
+
+                getKeys: function () {
+                    return this.__keys;
+                },
+
+                getValues: function (arr) {
+                    return this.__values;
                 }
-
-
             }
         });
 
+        return _.declare({
 
-        var PromiseList = Promise.extend({
             instance: {
 
-                /*@private*/
-                __results: null,
+                constructor: function () {
+                    this.__map = {};
+                },
 
-                /*@private*/
-                __errors: null,
+                entrySet: function () {
+                    var ret = [], map = this.__map;
+                    for (var i in map) {
+                        if (map.hasOwnProperty(i)) {
+                            ret = ret.concat(map[i].getEntrySet());
+                        }
+                    }
+                    return ret;
+                },
 
-                /*@private*/
-                __promiseLength: 0,
+                put: function (key, value) {
+                    var hash = hashFunction(key);
+                    var bucket = null;
+                    if (!(bucket = this.__map[hash])) {
+                        bucket = (this.__map[hash] = new Bucket());
+                    }
+                    bucket.pushValue(key, value);
+                    return value;
+                },
 
-                /*@private*/
-                __defLength: 0,
+                remove: function (key) {
+                    var hash = hashFunction(key), ret = null;
+                    var bucket = this.__map[hash];
+                    if (bucket) {
+                        ret = bucket.remove(key);
+                    }
+                    return ret;
+                },
 
-                /*@private*/
-                __firedLength: 0,
+                "get": function (key) {
+                    var hash = hashFunction(key), ret = null, bucket;
+                    if (!!(bucket = this.__map[hash])) {
+                        ret = bucket.find(key);
+                    }
+                    return ret;
+                },
 
-                normalizeResults: false,
-
-                constructor: function (defs, normalizeResults) {
-                    this.__errors = [];
-                    this.__results = [];
-                    this.normalizeResults = isBoolean(normalizeResults) ? normalizeResults : false;
-                    this._super(arguments);
-                    if (defs && defs.length) {
-                        this.__defLength = defs.length;
-                        forEach(defs, this.__addPromise, this);
+                "set": function (key, value) {
+                    var hash = hashFunction(key), ret = null, bucket = null, map = this.__map;
+                    if (!!(bucket = map[hash])) {
+                        ret = bucket.set(key, value);
                     } else {
-                        this.__resolve();
+                        ret = (map[hash] = new Bucket()).pushValue(key, value);
                     }
+                    return ret;
                 },
 
-                __addPromise: function (promise, i) {
-                    promise.then(
-                        bind(this, function () {
-                            var args = argsToArray(arguments);
-                            args.unshift(i);
-                            this.callback.apply(this, args);
-                        }),
-                        bind(this, function () {
-                            var args = argsToArray(arguments);
-                            args.unshift(i);
-                            this.errback.apply(this, args);
-                        })
-                    );
+                contains: function (key) {
+                    var hash = hashFunction(key), ret = false, bucket = null;
+                    if (!!(bucket = this.__map[hash])) {
+                        ret = !!(bucket.find(key));
+                    }
+                    return ret;
                 },
 
-                __resolve: function () {
-                    if (!this.__fired) {
-                        this.__fired = true;
-                        var cbs = this.__errors.length ? this.__errorCbs : this.__cbs,
-                            len = cbs.length, i,
-                            results = this.__errors.length ? this.__errors : this.__results;
-                        for (i = 0; i < len; i++) {
-                            this.__callNextTick(cbs[i], results);
+                concat: function (hashTable) {
+                    if (hashTable instanceof this._static) {
+                        var ret = new this._static();
+                        var otherEntrySet = hashTable.entrySet().concat(this.entrySet());
+                        for (var i = otherEntrySet.length - 1; i >= 0; i--) {
+                            var e = otherEntrySet[i];
+                            ret.put(e.key, e.value);
                         }
-
+                        return ret;
+                    } else {
+                        throw new TypeError("When joining hashtables the joining arg must be a HashTable");
                     }
                 },
 
-                __callNextTick: function (cb, results) {
-                    nextTick(function () {
-                        cb.apply(null, [results]);
-                    });
+                filter: function (cb, scope) {
+                    var es = this.entrySet(), ret = new this._static();
+                    es = _.filter(es, cb, scope);
+                    for (var i = es.length - 1; i >= 0; i--) {
+                        var e = es[i];
+                        ret.put(e.key, e.value);
+                    }
+                    return ret;
                 },
 
-                addCallback: function (cb) {
-                    if (cb) {
-                        if (isPromiseLike(cb) && cb.callback) {
-                            cb = bind(cb, "callback");
-                        }
-                        if (this.__fired && !this.__errors.length) {
-                            this.__callNextTick(cb, this.__results);
-                        } else {
-                            this.__cbs.push(cb);
-                        }
-                    }
-                    return this;
+                forEach: function (cb, scope) {
+                    var es = this.entrySet();
+                    _.forEach(es, cb, scope);
                 },
 
-                addErrback: function (cb) {
-                    if (cb) {
-                        if (isPromiseLike(cb) && cb.errback) {
-                            cb = bind(cb, "errback");
-                        }
-                        if (this.__fired && this.__errors.length) {
-                            this.__callNextTick(cb, this.__errors);
-                        } else {
-                            this.__errorCbs.push(cb);
-                        }
-                    }
-                    return this;
+                every: function (cb, scope) {
+                    var es = this.entrySet();
+                    return _.every(es, cb, scope);
                 },
 
-
-                callback: function (i) {
-                    if (this.__fired) {
-                        throw new Error("Already fired!");
-                    }
-                    var args = argsToArray(arguments);
-                    if (this.normalizeResults) {
-                        args = args.slice(1);
-                        args = args.length === 1 ? args.pop() : args;
-                    }
-                    this.__results[i] = args;
-                    this.__firedLength++;
-                    if (this.__firedLength === this.__defLength) {
-                        this.__resolve();
-                    }
-                    return this.promise();
+                map: function (cb, scope) {
+                    var es = this.entrySet();
+                    return _.map(es, cb, scope);
                 },
 
+                some: function (cb, scope) {
+                    var es = this.entrySet();
+                    return _.some(es, cb, scope);
+                },
 
-                errback: function (i) {
-                    if (this.__fired) {
-                        throw new Error("Already fired!");
+                reduce: function (cb, scope) {
+                    var es = this.entrySet();
+                    return _.reduce(es, cb, scope);
+                },
+
+                reduceRight: function (cb, scope) {
+                    var es = this.entrySet();
+                    return _.reduceRight(es, cb, scope);
+                },
+
+                clear: function () {
+                    this.__map = {};
+                },
+
+                keys: function () {
+                    var ret = [], map = this.__map;
+                    for (var i in map) {
+                        //if (map.hasOwnProperty(i)) {
+                        ret = ret.concat(map[i].getKeys());
+                        //}
                     }
-                    var args = argsToArray(arguments);
-                    if (this.normalizeResults) {
-                        args = args.slice(1);
-                        args = args.length === 1 ? args.pop() : args;
+                    return ret;
+                },
+
+                values: function () {
+                    var ret = [], map = this.__map;
+                    for (var i in map) {
+                        //if (map.hasOwnProperty(i)) {
+                        ret = ret.concat(map[i].getValues());
+                        //}
                     }
-                    this.__errors[i] = args;
-                    this.__firedLength++;
-                    if (this.__firedLength === this.__defLength) {
-                        this.__resolve();
-                    }
-                    return this.promise();
+                    return ret;
+                },
+
+                isEmpty: function () {
+                    return this.keys().length === 0;
                 }
-
             }
+
         });
 
-
-        function callNext(list, results, propogate) {
-            var ret = new Promise().callback();
-            forEach(list, function (listItem) {
-                ret = ret.then(propogate ? listItem : bindIgnore(null, listItem));
-                if (!propogate) {
-                    ret = ret.then(function (res) {
-                        results.push(res);
-                        return results;
-                    });
-                }
-            });
-            return ret;
-        }
-
-        function isPromiseLike(obj) {
-            return !isUndefinedOrNull(obj) && (isFunction(obj.then));
-        }
-
-        function wrapThenPromise(p) {
-            var ret = new Promise();
-            p.then(bind(ret, "callback"), bind(ret, "errback"));
-            return  ret.promise();
-        }
-
-        function when(args) {
-            var p;
-            args = argsToArray(arguments);
-            if (!args.length) {
-                p = new Promise().callback(args).promise();
-            } else if (args.length === 1) {
-                args = args.pop();
-                if (isPromiseLike(args)) {
-                    if (args.addCallback && args.addErrback) {
-                        p = new Promise();
-                        args.addCallback(p.callback);
-                        args.addErrback(p.errback);
-                    } else {
-                        p = wrapThenPromise(args);
-                    }
-                } else if (isArray(args) && array.every(args, isPromiseLike)) {
-                    p = new PromiseList(args, true).promise();
-                } else {
-                    p = new Promise().callback(args);
-                }
-            } else {
-                p = new PromiseList(array.map(args, function (a) {
-                    return when(a);
-                }), true).promise();
-            }
-            return p;
-
-        }
-
-        function wrap(fn, scope) {
-            return function _wrap() {
-                var ret = new Promise();
-                var args = argsToArray(arguments);
-                args.push(ret.resolve);
-                fn.apply(scope || this, args);
-                return ret.promise();
-            };
-        }
-
-        function serial(list) {
-            if (isArray(list)) {
-                return callNext(list, [], false);
-            } else {
-                throw new Error("When calling promise.serial the first argument must be an array");
-            }
-        }
-
-
-        function chain(list) {
-            if (isArray(list)) {
-                return callNext(list, [], true);
-            } else {
-                throw new Error("When calling promise.serial the first argument must be an array");
-            }
-        }
-
-
-        function wait(args, fn) {
-            args = argsToArray(arguments);
-            var resolved = false;
-            fn = args.pop();
-            var p = when(args);
-            return function waiter() {
-                if (!resolved) {
-                    args = arguments;
-                    return p.then(bind(this, function doneWaiting() {
-                        resolved = true;
-                        return fn.apply(this, args);
-                    }));
-                } else {
-                    return when(fn.apply(this, arguments));
-                }
-            };
-        }
-
-        function createPromise() {
-            return new Promise();
-        }
-
-        function createPromiseList(promises) {
-            return new PromiseList(promises, true).promise();
-        }
-
-        function createRejected(val) {
-            return createPromise().errback(val);
-        }
-
-        function createResolved(val) {
-            return createPromise().callback(val);
-        }
-
-
-        return extended
-            .define({
-                isPromiseLike: isPromiseLike
-            }).expose({
-                isPromiseLike: isPromiseLike,
-                when: when,
-                wrap: wrap,
-                wait: wait,
-                serial: serial,
-                chain: chain,
-                Promise: Promise,
-                PromiseList: PromiseList,
-                promise: createPromise,
-                defer: createPromise,
-                deferredList: createPromiseList,
-                reject: createRejected,
-                resolve: createResolved
-            });
 
     }
 
     if ("undefined" !== typeof exports) {
         if ("undefined" !== typeof module && module.exports) {
-            module.exports = definePromise(require("declare.js"), require("extended"), require("array-extended"), require("is-extended"), require("function-extended"), require("arguments-extended"));
+            module.exports = defineHt(require("extended")().register("declare", require("declare.js")).register(require("is-extended")).register(require("array-extended")));
+
         }
-    } else if ("function" === typeof define && define.amd) {
-        define(["declare", "extended", "array-extended", "is-extended", "function-extended", "arguments-extended"], function (declare, extended, array, is, fn, args) {
-            return definePromise(declare, extended, array, is, fn, args);
+    } else if ("function" === typeof define) {
+        define(["extended", "declare", "is-extended", "array-extended"], function (extended, declare, is, array) {
+            return defineHt(extended().register("declare", declare).register(is).register(array));
         });
     } else {
-        this.promiseExtended = definePromise(this.declare, this.extended, this.arrayExtended, this.isExtended, this.functionExtended, this.argumentsExtended);
+        this.Ht = defineHt(this.extended().register("declare", this.declare).register(this.isExtended).register(this.arrayExtended));
     }
 
 }).call(this);
@@ -12315,248 +12365,8 @@ exports.parse = function (src) {
 
 
 
-})(require("__browserify_process"))
-},{"declare.js":41,"extended":32,"array-extended":33,"is-extended":39,"function-extended":38,"arguments-extended":53,"__browserify_process":5}],38:[function(require,module,exports){
-(function () {
-    "use strict";
-
-    function defineFunction(extended, is, args) {
-
-        var isArray = is.isArray,
-            isObject = is.isObject,
-            isString = is.isString,
-            isFunction = is.isFunction,
-            argsToArray = args.argsToArray;
-
-        function hitch(scope, method, args) {
-            args = argsToArray(arguments, 2);
-            if ((isString(method) && !(method in scope))) {
-                throw new Error(method + " property not defined in scope");
-            } else if (!isString(method) && !isFunction(method)) {
-                throw new Error(method + " is not a function");
-            }
-            if (isString(method)) {
-                return function () {
-                    var func = scope[method];
-                    if (isFunction(func)) {
-                        var scopeArgs = args.concat(argsToArray(arguments));
-                        return func.apply(scope, scopeArgs);
-                    } else {
-                        return func;
-                    }
-                };
-            } else {
-                if (args.length) {
-                    return function () {
-                        var scopeArgs = args.concat(argsToArray(arguments));
-                        return method.apply(scope, scopeArgs);
-                    };
-                } else {
-
-                    return function () {
-                        return method.apply(scope, arguments);
-                    };
-                }
-            }
-        }
-
-
-        function applyFirst(method, args) {
-            args = argsToArray(arguments, 1);
-            if (!isString(method) && !isFunction(method)) {
-                throw new Error(method + " must be the name of a property or function to execute");
-            }
-            if (isString(method)) {
-                return function () {
-                    var scopeArgs = argsToArray(arguments), scope = scopeArgs.shift();
-                    var func = scope[method];
-                    if (isFunction(func)) {
-                        scopeArgs = args.concat(scopeArgs);
-                        return func.apply(scope, scopeArgs);
-                    } else {
-                        return func;
-                    }
-                };
-            } else {
-                return function () {
-                    var scopeArgs = argsToArray(arguments), scope = scopeArgs.shift();
-                    scopeArgs = args.concat(scopeArgs);
-                    return method.apply(scope, scopeArgs);
-                };
-            }
-        }
-
-
-        function hitchIgnore(scope, method, args) {
-            args = argsToArray(arguments, 2);
-            if ((isString(method) && !(method in scope))) {
-                throw new Error(method + " property not defined in scope");
-            } else if (!isString(method) && !isFunction(method)) {
-                throw new Error(method + " is not a function");
-            }
-            if (isString(method)) {
-                return function () {
-                    var func = scope[method];
-                    if (isFunction(func)) {
-                        return func.apply(scope, args);
-                    } else {
-                        return func;
-                    }
-                };
-            } else {
-                return function () {
-                    return method.apply(scope, args);
-                };
-            }
-        }
-
-
-        function hitchAll(scope) {
-            var funcs = argsToArray(arguments, 1);
-            if (!isObject(scope) && !isFunction(scope)) {
-                throw new TypeError("scope must be an object");
-            }
-            if (funcs.length === 1 && isArray(funcs[0])) {
-                funcs = funcs[0];
-            }
-            if (!funcs.length) {
-                funcs = [];
-                for (var k in scope) {
-                    if (scope.hasOwnProperty(k) && isFunction(scope[k])) {
-                        funcs.push(k);
-                    }
-                }
-            }
-            for (var i = 0, l = funcs.length; i < l; i++) {
-                scope[funcs[i]] = hitch(scope, scope[funcs[i]]);
-            }
-            return scope;
-        }
-
-
-        function partial(method, args) {
-            args = argsToArray(arguments, 1);
-            if (!isString(method) && !isFunction(method)) {
-                throw new Error(method + " must be the name of a property or function to execute");
-            }
-            if (isString(method)) {
-                return function () {
-                    var func = this[method];
-                    if (isFunction(func)) {
-                        var scopeArgs = args.concat(argsToArray(arguments));
-                        return func.apply(this, scopeArgs);
-                    } else {
-                        return func;
-                    }
-                };
-            } else {
-                return function () {
-                    var scopeArgs = args.concat(argsToArray(arguments));
-                    return method.apply(this, scopeArgs);
-                };
-            }
-        }
-
-        function curryFunc(f, execute) {
-            return function () {
-                var args = argsToArray(arguments);
-                return execute ? f.apply(this, arguments) : function () {
-                    return f.apply(this, args.concat(argsToArray(arguments)));
-                };
-            };
-        }
-
-
-        function curry(depth, cb, scope) {
-            var f;
-            if (scope) {
-                f = hitch(scope, cb);
-            } else {
-                f = cb;
-            }
-            if (depth) {
-                var len = depth - 1;
-                for (var i = len; i >= 0; i--) {
-                    f = curryFunc(f, i === len);
-                }
-            }
-            return f;
-        }
-
-        return extended
-            .define(isObject, {
-                bind: hitch,
-                bindAll: hitchAll,
-                bindIgnore: hitchIgnore,
-                curry: function (scope, depth, fn) {
-                    return curry(depth, fn, scope);
-                }
-            })
-            .define(isFunction, {
-                bind: function (fn, obj) {
-                    return hitch.apply(this, [obj, fn].concat(argsToArray(arguments, 2)));
-                },
-                bindIgnore: function (fn, obj) {
-                    return hitchIgnore.apply(this, [obj, fn].concat(argsToArray(arguments, 2)));
-                },
-                partial: partial,
-                applyFirst: applyFirst,
-                curry: function (fn, num, scope) {
-                    return curry(num, fn, scope);
-                },
-                noWrap: {
-                    f: function () {
-                        return this.value();
-                    }
-                }
-            })
-            .define(isString, {
-                bind: function (str, scope) {
-                    return hitch(scope, str);
-                },
-                bindIgnore: function (str, scope) {
-                    return hitchIgnore(scope, str);
-                },
-                partial: partial,
-                applyFirst: applyFirst,
-                curry: function (fn, depth, scope) {
-                    return curry(depth, fn, scope);
-                }
-            })
-            .expose({
-                bind: hitch,
-                bindAll: hitchAll,
-                bindIgnore: hitchIgnore,
-                partial: partial,
-                applyFirst: applyFirst,
-                curry: curry
-            });
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineFunction(require("extended"), require("is-extended"), require("arguments-extended"));
-
-        }
-    } else if ("function" === typeof define && define.amd) {
-        define(["extended", "is-extended", "arguments-extended"], function (extended, is, args) {
-            return defineFunction(extended, is, args);
-        });
-    } else {
-        this.functionExtended = defineFunction(this.extended, this.isExtended, this.argumentsExtended);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-},{"extended":32,"is-extended":39,"arguments-extended":53}],39:[function(require,module,exports){
-(function(Buffer){(function () {
+},{"array-extended":36,"declare.js":39,"extended":40,"is-extended":50}],50:[function(require,module,exports){
+var Buffer=require("__browserify_Buffer").Buffer;(function () {
     "use strict";
 
     function defineIsa(extended) {
@@ -13057,273 +12867,7 @@ exports.parse = function (src) {
 }).call(this);
 
 
-})(require("__browserify_buffer").Buffer)
-},{"extended":32,"__browserify_buffer":28}],40:[function(require,module,exports){
-(function () {
-    "use strict";
-
-    function defineHt(_) {
-
-
-        var hashFunction = function (key) {
-            if (typeof key === "string") {
-                return key;
-            } else if (typeof key === "object") {
-                return  key.hashCode ? key.hashCode() : "" + key;
-            } else {
-                return "" + key;
-            }
-        };
-
-        var Bucket = _.declare({
-
-            instance: {
-
-                constructor: function () {
-                    this.__entries = [];
-                    this.__keys = [];
-                    this.__values = [];
-                },
-
-                pushValue: function (key, value) {
-                    this.__keys.push(key);
-                    this.__values.push(value);
-                    this.__entries.push({key: key, value: value});
-                    return value;
-                },
-
-                remove: function (key) {
-                    var ret = null, map = this.__entries, val, keys = this.__keys, vals = this.__values;
-                    var i = map.length - 1;
-                    for (; i >= 0; i--) {
-                        if (!!(val = map[i]) && val.key === key) {
-                            map.splice(i, 1);
-                            keys.splice(i, 1);
-                            vals.splice(i, 1);
-                            return val.value;
-                        }
-                    }
-                    return ret;
-                },
-
-                "set": function (key, value) {
-                    var ret = null, map = this.__entries, vals = this.__values;
-                    var i = map.length - 1;
-                    for (; i >= 0; i--) {
-                        var val = map[i];
-                        if (val && key === val.key) {
-                            vals[i] = value;
-                            val.value = value;
-                            ret = value;
-                            break;
-                        }
-                    }
-                    if (!ret) {
-                        map.push({key: key, value: value});
-                    }
-                    return ret;
-                },
-
-                find: function (key) {
-                    var ret = null, map = this.__entries, val;
-                    var i = map.length - 1;
-                    for (; i >= 0; i--) {
-                        val = map[i];
-                        if (val && key === val.key) {
-                            ret = val.value;
-                            break;
-                        }
-                    }
-                    return ret;
-                },
-
-                getEntrySet: function () {
-                    return this.__entries;
-                },
-
-                getKeys: function () {
-                    return this.__keys;
-                },
-
-                getValues: function (arr) {
-                    return this.__values;
-                }
-            }
-        });
-
-        return _.declare({
-
-            instance: {
-
-                constructor: function () {
-                    this.__map = {};
-                },
-
-                entrySet: function () {
-                    var ret = [], map = this.__map;
-                    for (var i in map) {
-                        if (map.hasOwnProperty(i)) {
-                            ret = ret.concat(map[i].getEntrySet());
-                        }
-                    }
-                    return ret;
-                },
-
-                put: function (key, value) {
-                    var hash = hashFunction(key);
-                    var bucket = null;
-                    if (!(bucket = this.__map[hash])) {
-                        bucket = (this.__map[hash] = new Bucket());
-                    }
-                    bucket.pushValue(key, value);
-                    return value;
-                },
-
-                remove: function (key) {
-                    var hash = hashFunction(key), ret = null;
-                    var bucket = this.__map[hash];
-                    if (bucket) {
-                        ret = bucket.remove(key);
-                    }
-                    return ret;
-                },
-
-                "get": function (key) {
-                    var hash = hashFunction(key), ret = null, bucket;
-                    if (!!(bucket = this.__map[hash])) {
-                        ret = bucket.find(key);
-                    }
-                    return ret;
-                },
-
-                "set": function (key, value) {
-                    var hash = hashFunction(key), ret = null, bucket = null, map = this.__map;
-                    if (!!(bucket = map[hash])) {
-                        ret = bucket.set(key, value);
-                    } else {
-                        ret = (map[hash] = new Bucket()).pushValue(key, value);
-                    }
-                    return ret;
-                },
-
-                contains: function (key) {
-                    var hash = hashFunction(key), ret = false, bucket = null;
-                    if (!!(bucket = this.__map[hash])) {
-                        ret = !!(bucket.find(key));
-                    }
-                    return ret;
-                },
-
-                concat: function (hashTable) {
-                    if (hashTable instanceof this._static) {
-                        var ret = new this._static();
-                        var otherEntrySet = hashTable.entrySet().concat(this.entrySet());
-                        for (var i = otherEntrySet.length - 1; i >= 0; i--) {
-                            var e = otherEntrySet[i];
-                            ret.put(e.key, e.value);
-                        }
-                        return ret;
-                    } else {
-                        throw new TypeError("When joining hashtables the joining arg must be a HashTable");
-                    }
-                },
-
-                filter: function (cb, scope) {
-                    var es = this.entrySet(), ret = new this._static();
-                    es = _.filter(es, cb, scope);
-                    for (var i = es.length - 1; i >= 0; i--) {
-                        var e = es[i];
-                        ret.put(e.key, e.value);
-                    }
-                    return ret;
-                },
-
-                forEach: function (cb, scope) {
-                    var es = this.entrySet();
-                    _.forEach(es, cb, scope);
-                },
-
-                every: function (cb, scope) {
-                    var es = this.entrySet();
-                    return _.every(es, cb, scope);
-                },
-
-                map: function (cb, scope) {
-                    var es = this.entrySet();
-                    return _.map(es, cb, scope);
-                },
-
-                some: function (cb, scope) {
-                    var es = this.entrySet();
-                    return _.some(es, cb, scope);
-                },
-
-                reduce: function (cb, scope) {
-                    var es = this.entrySet();
-                    return _.reduce(es, cb, scope);
-                },
-
-                reduceRight: function (cb, scope) {
-                    var es = this.entrySet();
-                    return _.reduceRight(es, cb, scope);
-                },
-
-                clear: function () {
-                    this.__map = {};
-                },
-
-                keys: function () {
-                    var ret = [], map = this.__map;
-                    for (var i in map) {
-                        //if (map.hasOwnProperty(i)) {
-                        ret = ret.concat(map[i].getKeys());
-                        //}
-                    }
-                    return ret;
-                },
-
-                values: function () {
-                    var ret = [], map = this.__map;
-                    for (var i in map) {
-                        //if (map.hasOwnProperty(i)) {
-                        ret = ret.concat(map[i].getValues());
-                        //}
-                    }
-                    return ret;
-                },
-
-                isEmpty: function () {
-                    return this.keys().length === 0;
-                }
-            }
-
-        });
-
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineHt(require("extended")().register("declare", require("declare.js")).register(require("is-extended")).register(require("array-extended")));
-
-        }
-    } else if ("function" === typeof define) {
-        define(["extended", "declare", "is-extended", "array-extended"], function (extended, declare, is, array) {
-            return defineHt(extended().register("declare", declare).register(is).register(array));
-        });
-    } else {
-        this.Ht = defineHt(this.extended().register("declare", this.declare).register(this.isExtended).register(this.arrayExtended));
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-},{"extended":32,"declare.js":41,"is-extended":39,"array-extended":33}],42:[function(require,module,exports){
+},{"__browserify_Buffer":47,"extended":40}],51:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -14230,863 +13774,1375 @@ exports.parse = function (src) {
 
 
 
-},{"extended":32,"is-extended":39,"declare.js":41,"string-extended":36,"array-extended":33}],50:[function(require,module,exports){
-module.exports = require("./extender.js");
-},{"./extender.js":54}],51:[function(require,module,exports){
-(function(){"use strict";
-
-var utils = require("./util.js");
-
-var isWhiteSpace = function (str) {
-    return str.replace(/[\s|\n|\r|\t]/g, "").length === 0;
-};
-
-
-var ruleTokens = {
-
-    salience: (function () {
-        var salienceRegexp = /^(salience|priority)\s*:\s*(-?\d+)\s*[,;]?/;
-        return function (src, context) {
-            if (salienceRegexp.test(src)) {
-                var parts = src.match(salienceRegexp),
-                    priority = parseInt(parts[2], 10);
-                if (!isNaN(priority)) {
-                    context.options.priority = priority;
-                } else {
-                    throw new Error("Invalid salience/priority " + parts[2]);
-                }
-                return src.replace(parts[0], "");
-            } else {
-                throw new Error("invalid format");
-            }
-        };
-    })(),
-
-    agendaGroup: (function () {
-        var agendaGroupRegexp = /^(agenda-group|agendaGroup)\s*:\s*([a-zA-Z_$][0-9a-zA-Z_$]*|"[^"]*"|'[^']*')\s*[,;]?/;
-        return function (src, context) {
-            if (agendaGroupRegexp.test(src)) {
-                var parts = src.match(agendaGroupRegexp),
-                    agendaGroup = parts[2];
-                if (agendaGroup) {
-                    context.options.agendaGroup = agendaGroup.replace(/^["']|["']$/g, "");
-                } else {
-                    throw new Error("Invalid agenda-group " + parts[2]);
-                }
-                return src.replace(parts[0], "");
-            } else {
-                throw new Error("invalid format");
-            }
-        };
-    })(),
-
-    autoFocus: (function () {
-        var autoFocusRegexp = /^(auto-focus|autoFocus)\s*:\s*(true|false)\s*[,;]?/;
-        return function (src, context) {
-            if (autoFocusRegexp.test(src)) {
-                var parts = src.match(autoFocusRegexp),
-                    autoFocus = parts[2];
-                if (autoFocus) {
-                    context.options.autoFocus = autoFocus === "true" ? true : false;
-                } else {
-                    throw new Error("Invalid auto-focus " + parts[2]);
-                }
-                return src.replace(parts[0], "");
-            } else {
-                throw new Error("invalid format");
-            }
-        };
-    })(),
-
-    "agenda-group": function () {
-        return this.agendaGroup.apply(this, arguments);
-    },
-
-    "auto-focus": function () {
-        return this.autoFocus.apply(this, arguments);
-    },
-
-    priority: function () {
-        return this.salience.apply(this, arguments);
-    },
-
-    when: (function () {
-        /*jshint evil:true*/
-
-        var ruleRegExp = /^(\$?\w+) *: *(\w+)(.*)/;
-        var joinFunc = function (m, str) {
-            return "; " + str;
-        };
-        var constraintRegExp = /(\{ *(?:["']?\$?\w+["']?\s*:\s*["']?\$?\w+["']? *(?:, *["']?\$?\w+["']?\s*:\s*["']?\$?\w+["']?)*)+ *\})/;
-        var predicateExp = /^(\w+) *\((.*)\)$/m;
-        var parseRules = function (str) {
-            var rules = [];
-            var ruleLines = str.split(";"), l = ruleLines.length, ruleLine;
-            for (var i = 0; i < l && (ruleLine = ruleLines[i].replace(/^\s*|\s*$/g, "").replace(/\n/g, "")); i++) {
-                if (!isWhiteSpace(ruleLine)) {
-                    var rule = [];
-                    if (predicateExp.test(ruleLine)) {
-                        var m = ruleLine.match(predicateExp);
-                        var pred = m[1].replace(/^\s*|\s*$/g, "");
-                        rule.push(pred);
-                        ruleLine = m[2].replace(/^\s*|\s*$/g, "");
-                        if (pred === "or") {
-                            rule = rule.concat(parseRules(ruleLine.replace(/,\s*(\$?\w+\s*:)/, joinFunc)));
-                            rules.push(rule);
-                            continue;
-                        }
-
-                    }
-                    var parts = ruleLine.match(ruleRegExp);
-                    if (parts && parts.length) {
-                        rule.push(parts[2], parts[1]);
-                        var constraints = parts[3].replace(/^\s*|\s*$/g, "");
-                        var hashParts = constraints.match(constraintRegExp);
-                        if (hashParts) {
-                            var hash = hashParts[1], constraint = constraints.replace(hash, "");
-                            if (constraint) {
-                                rule.push(constraint.replace(/^\s*|\s*$/g, ""));
-                            }
-                            if (hash) {
-                                rule.push(eval("(" + hash.replace(/(\$?\w+)\s*:\s*(\$?\w+)/g, '"$1" : "$2"') + ")"));
-                            }
-                        } else if (constraints && !isWhiteSpace(constraints)) {
-                            rule.push(constraints);
-                        }
-                        rules.push(rule);
-                    } else {
-                        throw new Error("Invalid constraint " + ruleLine);
-                    }
-                }
-            }
-            return rules;
-        };
-
-        return function (orig, context) {
-            var src = orig.replace(/^when\s*/, "").replace(/^\s*|\s*$/g, "");
-            if (utils.findNextToken(src) === "{") {
-                var body = utils.getTokensBetween(src, "{", "}", true).join("");
-                src = src.replace(body, "");
-                context.constraints = parseRules(body.replace(/^\{\s*|\}\s*$/g, ""));
-                return src;
-            } else {
-                throw new Error("unexpected token : expected : '{' found : '" + utils.findNextToken(src) + "'");
-            }
-        };
-    })(),
-
-    then: (function () {
-        return function (orig, context) {
-            if (!context.action) {
-                var src = orig.replace(/^then\s*/, "").replace(/^\s*|\s*$/g, "");
-                if (utils.findNextToken(src) === "{") {
-                    var body = utils.getTokensBetween(src, "{", "}", true).join("");
-                    src = src.replace(body, "");
-                    if (!context.action) {
-                        context.action = body.replace(/^\{\s*|\}\s*$/g, "");
-                    }
-                    if (!isWhiteSpace(src)) {
-                        throw new Error("Error parsing then block " + orig);
-                    }
-                    return src;
-                } else {
-                    throw new Error("unexpected token : expected : '{' found : '" + utils.findNextToken(src) + "'");
-                }
-            } else {
-                throw new Error("action already defined for rule" + context.name);
-            }
-
-        };
-    })()
-};
-
-module.exports = {
-    "/": function (orig) {
-        if (orig.match(/^\/\*/)) {
-            // Block Comment parse
-            return orig.replace(/\/\*.*?\*\//, "");
-        } else {
-            return orig;
-        }
-    },
-
-    "define": function (orig, context) {
-        var src = orig.replace(/^define\s*/, "");
-        var name = src.match(/^([a-zA-Z_$][0-9a-zA-Z_$]*)/);
-        if (name) {
-            src = src.replace(name[0], "").replace(/^\s*|\s*$/g, "");
-            if (utils.findNextToken(src) === "{") {
-                name = name[1];
-                var body = utils.getTokensBetween(src, "{", "}", true).join("");
-                src = src.replace(body, "");
-                //should
-                context.define.push({name: name, properties: "(" + body + ")"});
-                return src;
-            } else {
-                throw new Error("unexpected token : expected : '{' found : '" + utils.findNextToken(src) + "'");
-            }
-        } else {
-            throw new Error("missing name");
-        }
-    },
-
-    "global": function (orig, context) {
-        var src = orig.replace(/^global\s*/, "");
-        var name = src.match(/^([a-zA-Z_$][0-9a-zA-Z_$]*\s*)/);
-        if (name) {
-            src = src.replace(name[0], "").replace(/^\s*|\s*$/g, "");
-            if (utils.findNextToken(src) === "=") {
-                name = name[1].replace(/^\s+|\s+$/g, '');
-                var fullbody = utils.getTokensBetween(src, "=", ";", true).join("");
-                var body = fullbody.substring(1, fullbody.length - 1);
-                body = body.replace(/^\s+|\s+$/g, '');
-                context.scope.push({name: name, body: body});
-                src = src.replace(fullbody, "");
-                return src;
-            } else {
-                throw new Error("unexpected token : expected : '=' found : '" + utils.findNextToken(src) + "'");
-            }
-        } else {
-            throw new Error("missing name");
-        }
-    },
-
-    "function": function (orig, context) {
-        var src = orig.replace(/^function\s*/, "");
-        var name = src.match(/^([a-zA-Z_$][0-9a-zA-Z_$]*)\s*/);
-        if (name) {
-            src = src.replace(name[0], "");
-            if (utils.findNextToken(src) === "(") {
-                name = name[1];
-                var params = utils.getParamList(src);
-                src = src.replace(params, "").replace(/^\s*|\s*$/g, "");
-                if (utils.findNextToken(src) === "{") {
-                    var body = utils.getTokensBetween(src, "{", "}", true).join("");
-                    src = src.replace(body, "");
-                    //should
-                    context.scope.push({name: name, body: "function" + params + body});
-                    return src;
-                } else {
-                    throw new Error("unexpected token : expected : '{' found : '" + utils.findNextToken(src) + "'");
-                }
-            } else {
-                throw new Error("unexpected token : expected : '(' found : '" + utils.findNextToken(src) + "'");
-            }
-        } else {
-            throw new Error("missing name");
-        }
-    },
-
-    "rule": function (orig, context, parse) {
-        var src = orig.replace(/^rule\s*/, "");
-        var name = src.match(/^([a-zA-Z_$][0-9a-zA-Z_$]*|"[^"]*"|'[^']*')/);
-        if (name) {
-            src = src.replace(name[0], "").replace(/^\s*|\s*$/g, "");
-            if (utils.findNextToken(src) === "{") {
-                name = name[1].replace(/^["']|["']$/g, "");
-                var rule = {name: name, options: {}, constraints: null, action: null};
-                var body = utils.getTokensBetween(src, "{", "}", true).join("");
-                src = src.replace(body, "");
-                parse(body.replace(/^\{\s*|\}\s*$/g, ""), ruleTokens, rule);
-                context.rules.push(rule);
-                return src;
-            } else {
-                throw new Error("unexpected token : expected : '{' found : '" + utils.findNextToken(src) + "'");
-            }
-        } else {
-            throw new Error("missing name");
-        }
-
-    }
-};
-
-
-})()
-},{"./util.js":52}],53:[function(require,module,exports){
+},{"array-extended":36,"declare.js":39,"extended":40,"is-extended":50,"string-extended":54}],52:[function(require,module,exports){
 (function () {
     "use strict";
+    /*global extended isExtended*/
 
-    function defineArgumentsExtended(extended, is) {
+    function defineObject(extended, is, arr) {
 
-        var pSlice = Array.prototype.slice,
-            isArguments = is.isArguments;
+        var deepEqual = is.deepEqual,
+            isString = is.isString,
+            isHash = is.isHash,
+            difference = arr.difference,
+            hasOwn = Object.prototype.hasOwnProperty,
+            isFunction = is.isFunction;
 
-        function argsToArray(args, slice) {
-            var i = -1, j = 0, l = args.length, ret = [];
-            slice = slice || 0;
-            i += slice;
-            while (++i < l) {
-                ret[j++] = args[i];
+        function _merge(target, source) {
+            var name, s;
+            for (name in source) {
+                if (hasOwn.call(source, name)) {
+                    s = source[name];
+                    if (!(name in target) || (target[name] !== s)) {
+                        target[name] = s;
+                    }
+                }
+            }
+            return target;
+        }
+
+        function _deepMerge(target, source) {
+            var name, s, t;
+            for (name in source) {
+                if (hasOwn.call(source, name)) {
+                    s = source[name];
+                    t = target[name];
+                    if (!deepEqual(t, s)) {
+                        if (isHash(t) && isHash(s)) {
+                            target[name] = _deepMerge(t, s);
+                        } else if (isHash(s)) {
+                            target[name] = _deepMerge({}, s);
+                        } else {
+                            target[name] = s;
+                        }
+                    }
+                }
+            }
+            return target;
+        }
+
+
+        function merge(obj) {
+            if (!obj) {
+                obj = {};
+            }
+            for (var i = 1, l = arguments.length; i < l; i++) {
+                _merge(obj, arguments[i]);
+            }
+            return obj; // Object
+        }
+
+        function deepMerge(obj) {
+            if (!obj) {
+                obj = {};
+            }
+            for (var i = 1, l = arguments.length; i < l; i++) {
+                _deepMerge(obj, arguments[i]);
+            }
+            return obj; // Object
+        }
+
+
+        function extend(parent, child) {
+            var proto = parent.prototype || parent;
+            merge(proto, child);
+            return parent;
+        }
+
+        function forEach(hash, iterator, scope) {
+            if (!isHash(hash) || !isFunction(iterator)) {
+                throw new TypeError();
+            }
+            var objKeys = keys(hash), key;
+            for (var i = 0, len = objKeys.length; i < len; ++i) {
+                key = objKeys[i];
+                iterator.call(scope || hash, hash[key], key, hash);
+            }
+            return hash;
+        }
+
+        function filter(hash, iterator, scope) {
+            if (!isHash(hash) || !isFunction(iterator)) {
+                throw new TypeError();
+            }
+            var objKeys = keys(hash), key, value, ret = {};
+            for (var i = 0, len = objKeys.length; i < len; ++i) {
+                key = objKeys[i];
+                value = hash[key];
+                if (iterator.call(scope || hash, value, key, hash)) {
+                    ret[key] = value;
+                }
+            }
+            return ret;
+        }
+
+        function values(hash) {
+            if (!isHash(hash)) {
+                throw new TypeError();
+            }
+            var objKeys = keys(hash), ret = [];
+            for (var i = 0, len = objKeys.length; i < len; ++i) {
+                ret.push(hash[objKeys[i]]);
             }
             return ret;
         }
 
 
-        return extended
-            .define(isArguments, {
-                toArray: argsToArray
-            })
-            .expose({
-                argsToArray: argsToArray
-            });
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineArgumentsExtended(require("extended"), require("is-extended"));
-
-        }
-    } else if ("function" === typeof define && define.amd) {
-        define(["extended", "is-extended"], function (extended, is) {
-            return defineArgumentsExtended(extended, is);
-        });
-    } else {
-        this.argumentsExtended = defineArgumentsExtended(this.extended, this.isExtended);
-    }
-
-}).call(this);
-
-
-},{"extended":32,"is-extended":39}],54:[function(require,module,exports){
-(function () {
-    /*jshint strict:false*/
-
-
-    /**
-     *
-     * @projectName extender
-     * @github http://github.com/doug-martin/extender
-     * @header
-     * [![build status](https://secure.travis-ci.org/doug-martin/extender.png)](http://travis-ci.org/doug-martin/extender)
-     * # Extender
-     *
-     * `extender` is a library that helps in making chainable APIs, by creating a function that accepts different values and returns an object decorated with functions based on the type.
-     *
-     * ## Why Is Extender Different?
-     *
-     * Extender is different than normal chaining because is does more than return `this`. It decorates your values in a type safe manner.
-     *
-     * For example if you return an array from a string based method then the returned value will be decorated with array methods and not the string methods. This allow you as the developer to focus on your API and not worrying about how to properly build and connect your API.
-     *
-     *
-     * ## Installation
-     *
-     * ```
-     * npm install extender
-     * ```
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/extender/master/extender.js) ([minified](https://raw.github.com/doug-martin/extender/master/extender-min.js))
-     *
-     * **Note** `extender` depends on [`declare.js`](http://doug-martin.github.com/declare.js/).
-     *
-     * ### Requirejs
-     *
-     * To use with requirejs place the `extend` source in the root scripts directory
-     *
-     * ```javascript
-     *
-     * define(["extender"], function(extender){
-     * });
-     *
-     * ```
-     *
-     *
-     * ## Usage
-     *
-     * **`extender.define(tester, decorations)`**
-     *
-     * To create your own extender call the `extender.define` function.
-     *
-     * This function accepts an optional tester which is used to determine a value should be decorated with the specified `decorations`
-     *
-     * ```javascript
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     *
-     * var myExtender = extender.define(isString, {
-     *		multiply: function (str, times) {
-     *			var ret = str;
-     *			for (var i = 1; i < times; i++) {
-     *				ret += str;
-     *			}
-     *			return ret;
-     *		},
-     *		toArray: function (str, delim) {
-     *			delim = delim || "";
-     *			return str.split(delim);
-     *		}
-     *	});
-     *
-     * myExtender("hello").multiply(2).value(); //hellohello
-     *
-     * ```
-     *
-     * If you do not specify a tester function and just pass in an object of `functions` then all values passed in will be decorated with methods.
-     *
-     * ```javascript
-     *
-     * function isUndefined(obj) {
-     *     var undef;
-     *     return obj === undef;
-     * }
-     *
-     * function isUndefinedOrNull(obj) {
-     *	var undef;
-     *     return obj === undef || obj === null;
-     * }
-     *
-     * function isArray(obj) {
-     *     return Object.prototype.toString.call(obj) === "[object Array]";
-     * }
-     *
-     * function isBoolean(obj) {
-     *     var undef, type = typeof obj;
-     *     return !isUndefinedOrNull(obj) && type === "boolean" || type === "Boolean";
-     * }
-     *
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     * var myExtender = extender.define({
-     *	isUndefined : isUndefined,
-     *	isUndefinedOrNull : isUndefinedOrNull,
-     *	isArray : isArray,
-     *	isBoolean : isBoolean,
-     *	isString : isString
-     * });
-     *
-     * ```
-     *
-     * To use
-     *
-     * ```
-     * var undef;
-     * myExtender("hello").isUndefined().value(); //false
-     * myExtender(undef).isUndefined().value(); //true
-     * ```
-     *
-     * You can also chain extenders so that they accept multiple types and decorates accordingly.
-     *
-     * ```javascript
-     * myExtender
-     *     .define(isArray, {
-     *		pluck: function (arr, m) {
-     *			var ret = [];
-     *			for (var i = 0, l = arr.length; i < l; i++) {
-     *				ret.push(arr[i][m]);
-     *			}
-     *			return ret;
-     *		}
-     *	})
-     *     .define(isBoolean, {
-     *		invert: function (val) {
-     *			return !val;
-     *		}
-     *	});
-     *
-     * myExtender([{a: "a"},{a: "b"},{a: "c"}]).pluck("a").value(); //["a", "b", "c"]
-     * myExtender("I love javascript!").toArray(/\s+/).pluck("0"); //["I", "l", "j"]
-     *
-     * ```
-     *
-     * Notice that we reuse the same extender as defined above.
-     *
-     * **Return Values**
-     *
-     * When creating an extender if you return a value from one of the decoration functions then that value will also be decorated. If you do not return any values then the extender will be returned.
-     *
-     * **Default decoration methods**
-     *
-     * By default every value passed into an extender is decorated with the following methods.
-     *
-     * * `value` : The value this extender represents.
-     * * `eq(otherValue)` : Tests strict equality of the currently represented value to the `otherValue`
-     * * `neq(oterValue)` : Tests strict inequality of the currently represented value.
-     * * `print` : logs the current value to the console.
-     *
-     * **Extender initialization**
-     *
-     * When creating an extender you can also specify a constructor which will be invoked with the current value.
-     *
-     * ```javascript
-     * myExtender.define(isString, {
-     *	constructor : function(val){
-     *     //set our value to the string trimmed
-     *		this._value = val.trimRight().trimLeft();
-     *	}
-     * });
-     * ```
-     *
-     * **`noWrap`**
-     *
-     * `extender` also allows you to specify methods that should not have the value wrapped providing a cleaner exit function other than `value()`.
-     *
-     * For example suppose you have an API that allows you to build a validator, rather than forcing the user to invoke the `value` method you could add a method called `validator` which makes more syntactic sense.
-     *
-     * ```
-     *
-     * var myValidator = extender.define({
-     *     //chainable validation methods
-     *     //...
-     *     //end chainable validation methods
-     *
-     *     noWrap : {
-     *         validator : function(){
-     *             //return your validator
-     *         }
-     *     }
-     * });
-     *
-     * myValidator().isNotNull().isEmailAddress().validator(); //now you dont need to call .value()
-     *
-     *
-     * ```
-     * **`extender.extend(extendr)`**
-     *
-     * You may also compose extenders through the use of `extender.extend(extender)`, which will return an entirely new extender that is the composition of extenders.
-     *
-     * Suppose you have the following two extenders.
-     *
-     * ```javascript
-     * var myExtender = extender
-     *        .define({
-     *            isFunction: is.function,
-     *            isNumber: is.number,
-     *            isString: is.string,
-     *            isDate: is.date,
-     *            isArray: is.array,
-     *            isBoolean: is.boolean,
-     *            isUndefined: is.undefined,
-     *            isDefined: is.defined,
-     *            isUndefinedOrNull: is.undefinedOrNull,
-     *            isNull: is.null,
-     *            isArguments: is.arguments,
-     *            isInstanceOf: is.instanceOf,
-     *            isRegExp: is.regExp
-     *        });
-     * var myExtender2 = extender.define(is.array, {
-     *     pluck: function (arr, m) {
-     *         var ret = [];
-     *         for (var i = 0, l = arr.length; i < l; i++) {
-     *             ret.push(arr[i][m]);
-     *         }
-     *         return ret;
-     *     },
-     *
-     *     noWrap: {
-     *         pluckPlain: function (arr, m) {
-     *             var ret = [];
-     *             for (var i = 0, l = arr.length; i < l; i++) {
-     *                 ret.push(arr[i][m]);
-     *             }
-     *             return ret;
-     *         }
-     *     }
-     * });
-     *
-     *
-     * ```
-     *
-     * And you do not want to alter either of them but instead what to create a third that is the union of the two.
-     *
-     *
-     * ```javascript
-     * var composed = extender.extend(myExtender).extend(myExtender2);
-     * ```
-     * So now you can use the new extender with the joined functionality if `myExtender` and `myExtender2`.
-     *
-     * ```javascript
-     * var extended = composed([
-     *      {a: "a"},
-     *      {a: "b"},
-     *      {a: "c"}
-     * ]);
-     * extended.isArray().value(); //true
-     * extended.pluck("a").value(); // ["a", "b", "c"]);
-     *
-     * ```
-     *
-     * **Note** `myExtender` and `myExtender2` will **NOT** be altered.
-     *
-     * **`extender.expose(methods)`**
-     *
-     * The `expose` method allows you to add methods to your extender that are not wrapped or automatically chained by exposing them on the extender directly.
-     *
-     * ```
-     * var isMethods = {
-     *      isFunction: is.function,
-     *      isNumber: is.number,
-     *      isString: is.string,
-     *      isDate: is.date,
-     *      isArray: is.array,
-     *      isBoolean: is.boolean,
-     *      isUndefined: is.undefined,
-     *      isDefined: is.defined,
-     *      isUndefinedOrNull: is.undefinedOrNull,
-     *      isNull: is.null,
-     *      isArguments: is.arguments,
-     *      isInstanceOf: is.instanceOf,
-     *      isRegExp: is.regExp
-     * };
-     *
-     * var myExtender = extender.define(isMethods).expose(isMethods);
-     *
-     * myExtender.isArray([]); //true
-     * myExtender([]).isArray([]).value(); //true
-     *
-     * ```
-     *
-     *
-     * **Using `instanceof`**
-     *
-     * When using extenders you can test if a value is an `instanceof` of an extender by using the instanceof operator.
-     *
-     * ```javascript
-     * var str = myExtender("hello");
-     *
-     * str instanceof myExtender; //true
-     * ```
-     *
-     * ## Examples
-     *
-     * To see more examples click [here](https://github.com/doug-martin/extender/tree/master/examples)
-     */
-    function defineExtender(declare) {
-
-
-        var slice = Array.prototype.slice, undef;
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
+        function keys(hash) {
+            if (!isHash(hash)) {
+                throw new TypeError();
+            }
+            var ret = [];
+            for (var i in hash) {
+                if (hasOwn.call(hash, i)) {
+                    ret.push(i);
                 }
             }
-            return -1;
+            return ret;
         }
 
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
+        function invert(hash) {
+            if (!isHash(hash)) {
+                throw new TypeError();
+            }
+            var objKeys = keys(hash), key, ret = {};
+            for (var i = 0, len = objKeys.length; i < len; ++i) {
+                key = objKeys[i];
+                ret[hash[key]] = key;
+            }
+            return ret;
         }
 
-        var merge = (function merger() {
-            function _merge(target, source, exclude) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
+        function toArray(hash) {
+            if (!isHash(hash)) {
+                throw new TypeError();
             }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                var l = arguments.length;
-                var exclude = arguments[arguments.length - 1];
-                if (isArray(exclude)) {
-                    l--;
-                } else {
-                    exclude = [];
-                }
-                for (var i = 1; i < l; i++) {
-                    _merge(obj, arguments[i], exclude);
-                }
-                return obj; // Object
-            };
-        }());
-
-
-        function extender(supers) {
-            supers = supers || [];
-            var Base = declare({
-                instance: {
-                    constructor: function (value) {
-                        this._value = value;
-                    },
-
-                    value: function () {
-                        return this._value;
-                    },
-
-                    eq: function eq(val) {
-                        return this["__extender__"](this._value === val);
-                    },
-
-                    neq: function neq(other) {
-                        return this["__extender__"](this._value !== other);
-                    },
-                    print: function () {
-                        console.log(this._value);
-                        return this;
-                    }
-                }
-            }), defined = [];
-
-            function addMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        var ret = func.apply(this, args);
-                        return ret !== undef ? this["__extender__"](ret) : this;
-                    };
-                }
-                proto[name] = extendedMethod;
+            var objKeys = keys(hash), key, ret = [];
+            for (var i = 0, len = objKeys.length; i < len; ++i) {
+                key = objKeys[i];
+                ret.push([key, hash[key]]);
             }
-
-            function addNoWrapMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        return func.apply(this, args);
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function decorateProto(proto, decoration, nowrap) {
-                for (var i in decoration) {
-                    if (decoration.hasOwnProperty(i)) {
-                        if (i !== "getters" && i !== "setters") {
-                            if (i === "noWrap") {
-                                decorateProto(proto, decoration[i], true);
-                            } else if (nowrap) {
-                                addNoWrapMethod(proto, i, decoration[i]);
-                            } else {
-                                addMethod(proto, i, decoration[i]);
-                            }
-                        } else {
-                            proto[i] = decoration[i];
-                        }
-                    }
-                }
-            }
-
-            function _extender(obj) {
-                var ret = obj, i, l;
-                if (!(obj instanceof Base)) {
-                    var OurBase = Base;
-                    for (i = 0, l = defined.length; i < l; i++) {
-                        var definer = defined[i];
-                        if (definer[0](obj)) {
-                            OurBase = OurBase.extend({instance: definer[1]});
-                        }
-                    }
-                    ret = new OurBase(obj);
-                    ret["__extender__"] = _extender;
-                }
-                return ret;
-            }
-
-            function always() {
-                return true;
-            }
-
-            function define(tester, decorate) {
-                if (arguments.length) {
-                    if (typeof tester === "object") {
-                        decorate = tester;
-                        tester = always;
-                    }
-                    decorate = decorate || {};
-                    var proto = {};
-                    decorateProto(proto, decorate);
-                    //handle browsers like which skip over the constructor while looping
-                    if (!proto.hasOwnProperty("constructor")) {
-                        if (decorate.hasOwnProperty("constructor")) {
-                            addMethod(proto, "constructor", decorate.constructor);
-                        } else {
-                            proto.constructor = function () {
-                                this._super(arguments);
-                            };
-                        }
-                    }
-                    defined.push([tester, proto]);
-                }
-                return _extender;
-            }
-
-            function extend(supr) {
-                if (supr && supr.hasOwnProperty("__defined__")) {
-                    _extender["__defined__"] = defined = defined.concat(supr["__defined__"]);
-                }
-                merge(_extender, supr, ["define", "extend", "expose", "__defined__"]);
-                return _extender;
-            }
-
-            _extender.define = define;
-            _extender.extend = extend;
-            _extender.expose = function expose() {
-                var methods;
-                for (var i = 0, l = arguments.length; i < l; i++) {
-                    methods = arguments[i];
-                    if (typeof methods === "object") {
-                        merge(_extender, methods, ["define", "extend", "expose", "__defined__"]);
-                    }
-                }
-                return _extender;
-            };
-            _extender["__defined__"] = defined;
-
-
-            return _extender;
+            return ret;
         }
 
-        return {
-            define: function () {
-                return extender().define.apply(extender, arguments);
-            },
-
-            extend: function (supr) {
-                return extender().define().extend(supr);
+        function omit(hash, omitted) {
+            if (!isHash(hash)) {
+                throw new TypeError();
             }
+            if (isString(omitted)) {
+                omitted = [omitted];
+            }
+            var objKeys = difference(keys(hash), omitted), key, ret = {};
+            for (var i = 0, len = objKeys.length; i < len; ++i) {
+                key = objKeys[i];
+                ret[key] = hash[key];
+            }
+            return ret;
+        }
+
+        var hash = {
+            forEach: forEach,
+            filter: filter,
+            invert: invert,
+            values: values,
+            toArray: toArray,
+            keys: keys,
+            omit: omit
         };
 
+
+        var obj = {
+            extend: extend,
+            merge: merge,
+            deepMerge: deepMerge,
+            omit: omit
+        };
+
+        var ret = extended.define(is.isObject, obj).define(isHash, hash).define(is.isFunction, {extend: extend}).expose({hash: hash}).expose(obj);
+        var orig = ret.extend;
+        ret.extend = function __extend() {
+            if (arguments.length === 1) {
+                return orig.extend.apply(ret, arguments);
+            } else {
+                extend.apply(null, arguments);
+            }
+        };
+        return ret;
+
     }
 
     if ("undefined" !== typeof exports) {
         if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtender(require("declare.js"));
+            module.exports = defineObject(require("extended"), require("is-extended"), require("array-extended"));
 
         }
     } else if ("function" === typeof define && define.amd) {
-        define(["declare"], function (declare) {
-            return defineExtender(declare);
+        define(["extended", "is-extended", "array-extended"], function (extended, is, array) {
+            return defineObject(extended, is, array);
         });
     } else {
-        this.extender = defineExtender(this.declare);
+        this.objectExtended = defineObject(this.extended, this.isExtended, this.arrayExtended);
     }
 
 }).call(this);
-},{"declare.js":41}]},{},[1])
+
+
+
+
+
+
+
+},{"array-extended":36,"extended":40,"is-extended":50}],53:[function(require,module,exports){
+var process=require("__browserify_process");(function () {
+    "use strict";
+    /*global setImmediate, MessageChannel*/
+
+
+    function definePromise(declare, extended, array, is, fn, args) {
+
+        var forEach = array.forEach,
+            isUndefinedOrNull = is.isUndefinedOrNull,
+            isArray = is.isArray,
+            isFunction = is.isFunction,
+            isBoolean = is.isBoolean,
+            bind = fn.bind,
+            bindIgnore = fn.bindIgnore,
+            argsToArray = args.argsToArray;
+
+        function createHandler(fn, promise) {
+            return function _handler() {
+                try {
+                    when(fn.apply(null, arguments))
+                        .addCallback(promise)
+                        .addErrback(promise);
+                } catch (e) {
+                    promise.errback(e);
+                }
+            };
+        }
+
+        var nextTick;
+        if (typeof setImmediate === "function") {
+            // In IE10, or use https://github.com/NobleJS/setImmediate
+            if (typeof window !== "undefined") {
+                nextTick = setImmediate.bind(window);
+            } else {
+                nextTick = setImmediate;
+            }
+        } else if (typeof process !== "undefined") {
+            // node
+            nextTick = function (cb) {
+                process.nextTick(cb);
+            };
+        } else if (typeof MessageChannel !== "undefined") {
+            // modern browsers
+            // http://www.nonblocking.io/2011/06/windownexttick.html
+            var channel = new MessageChannel();
+            // linked list of tasks (single, with head node)
+            var head = {}, tail = head;
+            channel.port1.onmessage = function () {
+                head = head.next;
+                var task = head.task;
+                delete head.task;
+                task();
+            };
+            nextTick = function (task) {
+                tail = tail.next = {task: task};
+                channel.port2.postMessage(0);
+            };
+        } else {
+            // old browsers
+            nextTick = function (task) {
+                setTimeout(task, 0);
+            };
+        }
+
+
+        //noinspection JSHint
+        var Promise = declare({
+            instance: {
+                __fired: false,
+
+                __results: null,
+
+                __error: null,
+
+                __errorCbs: null,
+
+                __cbs: null,
+
+                constructor: function () {
+                    this.__errorCbs = [];
+                    this.__cbs = [];
+                    fn.bindAll(this, ["callback", "errback", "resolve", "classic", "__resolve", "addCallback", "addErrback"]);
+                },
+
+                __resolve: function () {
+                    if (!this.__fired) {
+                        this.__fired = true;
+                        var cbs = this.__error ? this.__errorCbs : this.__cbs,
+                            len = cbs.length, i,
+                            results = this.__error || this.__results;
+                        for (i = 0; i < len; i++) {
+                            this.__callNextTick(cbs[i], results);
+                        }
+
+                    }
+                },
+
+                __callNextTick: function (cb, results) {
+                    nextTick(function () {
+                        cb.apply(this, results);
+                    });
+                },
+
+                addCallback: function (cb) {
+                    if (cb) {
+                        if (isPromiseLike(cb) && cb.callback) {
+                            cb = cb.callback;
+                        }
+                        if (this.__fired && this.__results) {
+                            this.__callNextTick(cb, this.__results);
+                        } else {
+                            this.__cbs.push(cb);
+                        }
+                    }
+                    return this;
+                },
+
+
+                addErrback: function (cb) {
+                    if (cb) {
+                        if (isPromiseLike(cb) && cb.errback) {
+                            cb = cb.errback;
+                        }
+                        if (this.__fired && this.__error) {
+                            this.__callNextTick(cb, this.__error);
+                        } else {
+                            this.__errorCbs.push(cb);
+                        }
+                    }
+                    return this;
+                },
+
+                callback: function (args) {
+                    if (!this.__fired) {
+                        this.__results = arguments;
+                        this.__resolve();
+                    }
+                    return this.promise();
+                },
+
+                errback: function (args) {
+                    if (!this.__fired) {
+                        this.__error = arguments;
+                        this.__resolve();
+                    }
+                    return this.promise();
+                },
+
+                resolve: function (err, args) {
+                    if (err) {
+                        this.errback(err);
+                    } else {
+                        this.callback.apply(this, argsToArray(arguments, 1));
+                    }
+                    return this;
+                },
+
+                classic: function (cb) {
+                    if ("function" === typeof cb) {
+                        this.addErrback(function (err) {
+                            cb(err);
+                        });
+                        this.addCallback(function () {
+                            cb.apply(this, [null].concat(argsToArray(arguments)));
+                        });
+                    }
+                    return this;
+                },
+
+                then: function (callback, errback) {
+
+                    var promise = new Promise(), errorHandler = promise;
+                    if (isFunction(errback)) {
+                        errorHandler = createHandler(errback, promise);
+                    }
+                    this.addErrback(errorHandler);
+                    if (isFunction(callback)) {
+                        this.addCallback(createHandler(callback, promise));
+                    } else {
+                        this.addCallback(promise);
+                    }
+
+                    return promise.promise();
+                },
+
+                both: function (callback) {
+                    return this.then(callback, callback);
+                },
+
+                promise: function () {
+                    var ret = {
+                        then: bind(this, "then"),
+                        both: bind(this, "both"),
+                        promise: function () {
+                            return ret;
+                        }
+                    };
+                    forEach(["addCallback", "addErrback", "classic"], function (action) {
+                        ret[action] = bind(this, function () {
+                            this[action].apply(this, arguments);
+                            return ret;
+                        });
+                    }, this);
+
+                    return ret;
+                }
+
+
+            }
+        });
+
+
+        var PromiseList = Promise.extend({
+            instance: {
+
+                /*@private*/
+                __results: null,
+
+                /*@private*/
+                __errors: null,
+
+                /*@private*/
+                __promiseLength: 0,
+
+                /*@private*/
+                __defLength: 0,
+
+                /*@private*/
+                __firedLength: 0,
+
+                normalizeResults: false,
+
+                constructor: function (defs, normalizeResults) {
+                    this.__errors = [];
+                    this.__results = [];
+                    this.normalizeResults = isBoolean(normalizeResults) ? normalizeResults : false;
+                    this._super(arguments);
+                    if (defs && defs.length) {
+                        this.__defLength = defs.length;
+                        forEach(defs, this.__addPromise, this);
+                    } else {
+                        this.__resolve();
+                    }
+                },
+
+                __addPromise: function (promise, i) {
+                    promise.then(
+                        bind(this, function () {
+                            var args = argsToArray(arguments);
+                            args.unshift(i);
+                            this.callback.apply(this, args);
+                        }),
+                        bind(this, function () {
+                            var args = argsToArray(arguments);
+                            args.unshift(i);
+                            this.errback.apply(this, args);
+                        })
+                    );
+                },
+
+                __resolve: function () {
+                    if (!this.__fired) {
+                        this.__fired = true;
+                        var cbs = this.__errors.length ? this.__errorCbs : this.__cbs,
+                            len = cbs.length, i,
+                            results = this.__errors.length ? this.__errors : this.__results;
+                        for (i = 0; i < len; i++) {
+                            this.__callNextTick(cbs[i], results);
+                        }
+
+                    }
+                },
+
+                __callNextTick: function (cb, results) {
+                    nextTick(function () {
+                        cb.apply(null, [results]);
+                    });
+                },
+
+                addCallback: function (cb) {
+                    if (cb) {
+                        if (isPromiseLike(cb) && cb.callback) {
+                            cb = bind(cb, "callback");
+                        }
+                        if (this.__fired && !this.__errors.length) {
+                            this.__callNextTick(cb, this.__results);
+                        } else {
+                            this.__cbs.push(cb);
+                        }
+                    }
+                    return this;
+                },
+
+                addErrback: function (cb) {
+                    if (cb) {
+                        if (isPromiseLike(cb) && cb.errback) {
+                            cb = bind(cb, "errback");
+                        }
+                        if (this.__fired && this.__errors.length) {
+                            this.__callNextTick(cb, this.__errors);
+                        } else {
+                            this.__errorCbs.push(cb);
+                        }
+                    }
+                    return this;
+                },
+
+
+                callback: function (i) {
+                    if (this.__fired) {
+                        throw new Error("Already fired!");
+                    }
+                    var args = argsToArray(arguments);
+                    if (this.normalizeResults) {
+                        args = args.slice(1);
+                        args = args.length === 1 ? args.pop() : args;
+                    }
+                    this.__results[i] = args;
+                    this.__firedLength++;
+                    if (this.__firedLength === this.__defLength) {
+                        this.__resolve();
+                    }
+                    return this.promise();
+                },
+
+
+                errback: function (i) {
+                    if (this.__fired) {
+                        throw new Error("Already fired!");
+                    }
+                    var args = argsToArray(arguments);
+                    if (this.normalizeResults) {
+                        args = args.slice(1);
+                        args = args.length === 1 ? args.pop() : args;
+                    }
+                    this.__errors[i] = args;
+                    this.__firedLength++;
+                    if (this.__firedLength === this.__defLength) {
+                        this.__resolve();
+                    }
+                    return this.promise();
+                }
+
+            }
+        });
+
+
+        function callNext(list, results, propogate) {
+            var ret = new Promise().callback();
+            forEach(list, function (listItem) {
+                ret = ret.then(propogate ? listItem : bindIgnore(null, listItem));
+                if (!propogate) {
+                    ret = ret.then(function (res) {
+                        results.push(res);
+                        return results;
+                    });
+                }
+            });
+            return ret;
+        }
+
+        function isPromiseLike(obj) {
+            return !isUndefinedOrNull(obj) && (isFunction(obj.then));
+        }
+
+        function wrapThenPromise(p) {
+            var ret = new Promise();
+            p.then(bind(ret, "callback"), bind(ret, "errback"));
+            return  ret.promise();
+        }
+
+        function when(args) {
+            var p;
+            args = argsToArray(arguments);
+            if (!args.length) {
+                p = new Promise().callback(args).promise();
+            } else if (args.length === 1) {
+                args = args.pop();
+                if (isPromiseLike(args)) {
+                    if (args.addCallback && args.addErrback) {
+                        p = new Promise();
+                        args.addCallback(p.callback);
+                        args.addErrback(p.errback);
+                    } else {
+                        p = wrapThenPromise(args);
+                    }
+                } else if (isArray(args) && array.every(args, isPromiseLike)) {
+                    p = new PromiseList(args, true).promise();
+                } else {
+                    p = new Promise().callback(args);
+                }
+            } else {
+                p = new PromiseList(array.map(args, function (a) {
+                    return when(a);
+                }), true).promise();
+            }
+            return p;
+
+        }
+
+        function wrap(fn, scope) {
+            return function _wrap() {
+                var ret = new Promise();
+                var args = argsToArray(arguments);
+                args.push(ret.resolve);
+                fn.apply(scope || this, args);
+                return ret.promise();
+            };
+        }
+
+        function serial(list) {
+            if (isArray(list)) {
+                return callNext(list, [], false);
+            } else {
+                throw new Error("When calling promise.serial the first argument must be an array");
+            }
+        }
+
+
+        function chain(list) {
+            if (isArray(list)) {
+                return callNext(list, [], true);
+            } else {
+                throw new Error("When calling promise.serial the first argument must be an array");
+            }
+        }
+
+
+        function wait(args, fn) {
+            args = argsToArray(arguments);
+            var resolved = false;
+            fn = args.pop();
+            var p = when(args);
+            return function waiter() {
+                if (!resolved) {
+                    args = arguments;
+                    return p.then(bind(this, function doneWaiting() {
+                        resolved = true;
+                        return fn.apply(this, args);
+                    }));
+                } else {
+                    return when(fn.apply(this, arguments));
+                }
+            };
+        }
+
+        function createPromise() {
+            return new Promise();
+        }
+
+        function createPromiseList(promises) {
+            return new PromiseList(promises, true).promise();
+        }
+
+        function createRejected(val) {
+            return createPromise().errback(val);
+        }
+
+        function createResolved(val) {
+            return createPromise().callback(val);
+        }
+
+
+        return extended
+            .define({
+                isPromiseLike: isPromiseLike
+            }).expose({
+                isPromiseLike: isPromiseLike,
+                when: when,
+                wrap: wrap,
+                wait: wait,
+                serial: serial,
+                chain: chain,
+                Promise: Promise,
+                PromiseList: PromiseList,
+                promise: createPromise,
+                defer: createPromise,
+                deferredList: createPromiseList,
+                reject: createRejected,
+                resolve: createResolved
+            });
+
+    }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            module.exports = definePromise(require("declare.js"), require("extended"), require("array-extended"), require("is-extended"), require("function-extended"), require("arguments-extended"));
+        }
+    } else if ("function" === typeof define && define.amd) {
+        define(["declare", "extended", "array-extended", "is-extended", "function-extended", "arguments-extended"], function (declare, extended, array, is, fn, args) {
+            return definePromise(declare, extended, array, is, fn, args);
+        });
+    } else {
+        this.promiseExtended = definePromise(this.declare, this.extended, this.arrayExtended, this.isExtended, this.functionExtended, this.argumentsExtended);
+    }
+
+}).call(this);
+
+
+
+
+
+
+
+},{"__browserify_process":48,"arguments-extended":35,"array-extended":36,"declare.js":39,"extended":40,"function-extended":43,"is-extended":50}],54:[function(require,module,exports){
+(function () {
+    "use strict";
+
+    function defineString(extended, is, date, arr) {
+
+        var stringify;
+        if (typeof JSON === "undefined") {
+            /*
+             json2.js
+             2012-10-08
+
+             Public Domain.
+
+             NO WARRANTY EXPRESSED OR IMPLIED. USE AT YOUR OWN RISK.
+             */
+
+            (function () {
+                function f(n) {
+                    // Format integers to have at least two digits.
+                    return n < 10 ? '0' + n : n;
+                }
+
+                var isPrimitive = is.tester().isString().isNumber().isBoolean().tester();
+
+                function toJSON(obj) {
+                    if (is.isDate(obj)) {
+                        return isFinite(obj.valueOf()) ? obj.getUTCFullYear() + '-' +
+                            f(obj.getUTCMonth() + 1) + '-' +
+                            f(obj.getUTCDate()) + 'T' +
+                            f(obj.getUTCHours()) + ':' +
+                            f(obj.getUTCMinutes()) + ':' +
+                            f(obj.getUTCSeconds()) + 'Z'
+                            : null;
+                    } else if (isPrimitive(obj)) {
+                        return obj.valueOf();
+                    }
+                    return obj;
+                }
+
+                var cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
+                    escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
+                    gap,
+                    indent,
+                    meta = {    // table of character substitutions
+                        '\b': '\\b',
+                        '\t': '\\t',
+                        '\n': '\\n',
+                        '\f': '\\f',
+                        '\r': '\\r',
+                        '"': '\\"',
+                        '\\': '\\\\'
+                    },
+                    rep;
+
+
+                function quote(string) {
+                    escapable.lastIndex = 0;
+                    return escapable.test(string) ? '"' + string.replace(escapable, function (a) {
+                        var c = meta[a];
+                        return typeof c === 'string' ? c : '\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
+                    }) + '"' : '"' + string + '"';
+                }
+
+
+                function str(key, holder) {
+
+                    var i, k, v, length, mind = gap, partial, value = holder[key];
+                    if (value) {
+                        value = toJSON(value);
+                    }
+                    if (typeof rep === 'function') {
+                        value = rep.call(holder, key, value);
+                    }
+                    switch (typeof value) {
+                    case 'string':
+                        return quote(value);
+                    case 'number':
+                        return isFinite(value) ? String(value) : 'null';
+                    case 'boolean':
+                    case 'null':
+                        return String(value);
+                    case 'object':
+                        if (!value) {
+                            return 'null';
+                        }
+                        gap += indent;
+                        partial = [];
+                        if (Object.prototype.toString.apply(value) === '[object Array]') {
+                            length = value.length;
+                            for (i = 0; i < length; i += 1) {
+                                partial[i] = str(i, value) || 'null';
+                            }
+                            v = partial.length === 0 ? '[]' : gap ? '[\n' + gap + partial.join(',\n' + gap) + '\n' + mind + ']' : '[' + partial.join(',') + ']';
+                            gap = mind;
+                            return v;
+                        }
+                        if (rep && typeof rep === 'object') {
+                            length = rep.length;
+                            for (i = 0; i < length; i += 1) {
+                                if (typeof rep[i] === 'string') {
+                                    k = rep[i];
+                                    v = str(k, value);
+                                    if (v) {
+                                        partial.push(quote(k) + (gap ? ': ' : ':') + v);
+                                    }
+                                }
+                            }
+                        } else {
+                            for (k in value) {
+                                if (Object.prototype.hasOwnProperty.call(value, k)) {
+                                    v = str(k, value);
+                                    if (v) {
+                                        partial.push(quote(k) + (gap ? ': ' : ':') + v);
+                                    }
+                                }
+                            }
+                        }
+                        v = partial.length === 0 ? '{}' : gap ? '{\n' + gap + partial.join(',\n' + gap) + '\n' + mind + '}' : '{' + partial.join(',') + '}';
+                        gap = mind;
+                        return v;
+                    }
+                }
+
+                stringify = function (value, replacer, space) {
+                    var i;
+                    gap = '';
+                    indent = '';
+                    if (typeof space === 'number') {
+                        for (i = 0; i < space; i += 1) {
+                            indent += ' ';
+                        }
+                    } else if (typeof space === 'string') {
+                        indent = space;
+                    }
+                    rep = replacer;
+                    if (replacer && typeof replacer !== 'function' &&
+                        (typeof replacer !== 'object' ||
+                            typeof replacer.length !== 'number')) {
+                        throw new Error('JSON.stringify');
+                    }
+                    return str('', {'': value});
+                };
+            }());
+        } else {
+            stringify = JSON.stringify;
+        }
+
+
+        var isHash = is.isHash, aSlice = Array.prototype.slice;
+
+        var FORMAT_REGEX = /%((?:-?\+?.?\d*)?|(?:\[[^\[|\]]*\]))?([sjdDZ])/g;
+        var INTERP_REGEX = /\{(?:\[([^\[|\]]*)\])?(\w+)\}/g;
+        var STR_FORMAT = /(-?)(\+?)([A-Z|a-z|\W]?)([1-9][0-9]*)?$/;
+        var OBJECT_FORMAT = /([1-9][0-9]*)$/g;
+
+        function formatString(string, format) {
+            var ret = string;
+            if (STR_FORMAT.test(format)) {
+                var match = format.match(STR_FORMAT);
+                var isLeftJustified = match[1], padChar = match[3], width = match[4];
+                if (width) {
+                    width = parseInt(width, 10);
+                    if (ret.length < width) {
+                        ret = pad(ret, width, padChar, isLeftJustified);
+                    } else {
+                        ret = truncate(ret, width);
+                    }
+                }
+            }
+            return ret;
+        }
+
+        function formatNumber(number, format) {
+            var ret;
+            if (is.isNumber(number)) {
+                ret = "" + number;
+                if (STR_FORMAT.test(format)) {
+                    var match = format.match(STR_FORMAT);
+                    var isLeftJustified = match[1], signed = match[2], padChar = match[3], width = match[4];
+                    if (signed) {
+                        ret = (number > 0 ? "+" : "") + ret;
+                    }
+                    if (width) {
+                        width = parseInt(width, 10);
+                        if (ret.length < width) {
+                            ret = pad(ret, width, padChar || "0", isLeftJustified);
+                        } else {
+                            ret = truncate(ret, width);
+                        }
+                    }
+
+                }
+            } else {
+                throw new Error("stringExtended.format : when using %d the parameter must be a number!");
+            }
+            return ret;
+        }
+
+        function formatObject(object, format) {
+            var ret, match = format.match(OBJECT_FORMAT), spacing = 0;
+            if (match) {
+                spacing = parseInt(match[0], 10);
+                if (isNaN(spacing)) {
+                    spacing = 0;
+                }
+            }
+            try {
+                ret = stringify(object, null, spacing);
+            } catch (e) {
+                throw new Error("stringExtended.format : Unable to parse json from ", object);
+            }
+            return ret;
+        }
+
+
+        var styles = {
+            //styles
+            bold: 1,
+            bright: 1,
+            italic: 3,
+            underline: 4,
+            blink: 5,
+            inverse: 7,
+            crossedOut: 9,
+
+            red: 31,
+            green: 32,
+            yellow: 33,
+            blue: 34,
+            magenta: 35,
+            cyan: 36,
+            white: 37,
+
+            redBackground: 41,
+            greenBackground: 42,
+            yellowBackground: 43,
+            blueBackground: 44,
+            magentaBackground: 45,
+            cyanBackground: 46,
+            whiteBackground: 47,
+
+            encircled: 52,
+            overlined: 53,
+            grey: 90,
+            black: 90
+        };
+
+        var characters = {
+            SMILEY: "☺",
+            SOLID_SMILEY: "☻",
+            HEART: "♥",
+            DIAMOND: "♦",
+            CLOVE: "♣",
+            SPADE: "♠",
+            DOT: "•",
+            SQUARE_CIRCLE: "◘",
+            CIRCLE: "○",
+            FILLED_SQUARE_CIRCLE: "◙",
+            MALE: "♂",
+            FEMALE: "♀",
+            EIGHT_NOTE: "♪",
+            DOUBLE_EIGHTH_NOTE: "♫",
+            SUN: "☼",
+            PLAY: "►",
+            REWIND: "◄",
+            UP_DOWN: "↕",
+            PILCROW: "¶",
+            SECTION: "§",
+            THICK_MINUS: "▬",
+            SMALL_UP_DOWN: "↨",
+            UP_ARROW: "↑",
+            DOWN_ARROW: "↓",
+            RIGHT_ARROW: "→",
+            LEFT_ARROW: "←",
+            RIGHT_ANGLE: "∟",
+            LEFT_RIGHT_ARROW: "↔",
+            TRIANGLE: "▲",
+            DOWN_TRIANGLE: "▼",
+            HOUSE: "⌂",
+            C_CEDILLA: "Ç",
+            U_UMLAUT: "ü",
+            E_ACCENT: "é",
+            A_LOWER_CIRCUMFLEX: "â",
+            A_LOWER_UMLAUT: "ä",
+            A_LOWER_GRAVE_ACCENT: "à",
+            A_LOWER_CIRCLE_OVER: "å",
+            C_LOWER_CIRCUMFLEX: "ç",
+            E_LOWER_CIRCUMFLEX: "ê",
+            E_LOWER_UMLAUT: "ë",
+            E_LOWER_GRAVE_ACCENT: "è",
+            I_LOWER_UMLAUT: "ï",
+            I_LOWER_CIRCUMFLEX: "î",
+            I_LOWER_GRAVE_ACCENT: "ì",
+            A_UPPER_UMLAUT: "Ä",
+            A_UPPER_CIRCLE: "Å",
+            E_UPPER_ACCENT: "É",
+            A_E_LOWER: "æ",
+            A_E_UPPER: "Æ",
+            O_LOWER_CIRCUMFLEX: "ô",
+            O_LOWER_UMLAUT: "ö",
+            O_LOWER_GRAVE_ACCENT: "ò",
+            U_LOWER_CIRCUMFLEX: "û",
+            U_LOWER_GRAVE_ACCENT: "ù",
+            Y_LOWER_UMLAUT: "ÿ",
+            O_UPPER_UMLAUT: "Ö",
+            U_UPPER_UMLAUT: "Ü",
+            CENTS: "¢",
+            POUND: "£",
+            YEN: "¥",
+            CURRENCY: "¤",
+            PTS: "₧",
+            FUNCTION: "ƒ",
+            A_LOWER_ACCENT: "á",
+            I_LOWER_ACCENT: "í",
+            O_LOWER_ACCENT: "ó",
+            U_LOWER_ACCENT: "ú",
+            N_LOWER_TILDE: "ñ",
+            N_UPPER_TILDE: "Ñ",
+            A_SUPER: "ª",
+            O_SUPER: "º",
+            UPSIDEDOWN_QUESTION: "¿",
+            SIDEWAYS_L: "⌐",
+            NEGATION: "¬",
+            ONE_HALF: "½",
+            ONE_FOURTH: "¼",
+            UPSIDEDOWN_EXCLAMATION: "¡",
+            DOUBLE_LEFT: "«",
+            DOUBLE_RIGHT: "»",
+            LIGHT_SHADED_BOX: "░",
+            MEDIUM_SHADED_BOX: "▒",
+            DARK_SHADED_BOX: "▓",
+            VERTICAL_LINE: "│",
+            MAZE__SINGLE_RIGHT_T: "┤",
+            MAZE_SINGLE_RIGHT_TOP: "┐",
+            MAZE_SINGLE_RIGHT_BOTTOM_SMALL: "┘",
+            MAZE_SINGLE_LEFT_TOP_SMALL: "┌",
+            MAZE_SINGLE_LEFT_BOTTOM_SMALL: "└",
+            MAZE_SINGLE_LEFT_T: "├",
+            MAZE_SINGLE_BOTTOM_T: "┴",
+            MAZE_SINGLE_TOP_T: "┬",
+            MAZE_SINGLE_CENTER: "┼",
+            MAZE_SINGLE_HORIZONTAL_LINE: "─",
+            MAZE_SINGLE_RIGHT_DOUBLECENTER_T: "╡",
+            MAZE_SINGLE_RIGHT_DOUBLE_BL: "╛",
+            MAZE_SINGLE_RIGHT_DOUBLE_T: "╢",
+            MAZE_SINGLE_RIGHT_DOUBLEBOTTOM_TOP: "╖",
+            MAZE_SINGLE_RIGHT_DOUBLELEFT_TOP: "╕",
+            MAZE_SINGLE_LEFT_DOUBLE_T: "╞",
+            MAZE_SINGLE_BOTTOM_DOUBLE_T: "╧",
+            MAZE_SINGLE_TOP_DOUBLE_T: "╤",
+            MAZE_SINGLE_TOP_DOUBLECENTER_T: "╥",
+            MAZE_SINGLE_BOTTOM_DOUBLECENTER_T: "╨",
+            MAZE_SINGLE_LEFT_DOUBLERIGHT_BOTTOM: "╘",
+            MAZE_SINGLE_LEFT_DOUBLERIGHT_TOP: "╒",
+            MAZE_SINGLE_LEFT_DOUBLEBOTTOM_TOP: "╓",
+            MAZE_SINGLE_LEFT_DOUBLETOP_BOTTOM: "╙",
+            MAZE_SINGLE_LEFT_TOP: "Γ",
+            MAZE_SINGLE_RIGHT_BOTTOM: "╜",
+            MAZE_SINGLE_LEFT_CENTER: "╟",
+            MAZE_SINGLE_DOUBLECENTER_CENTER: "╫",
+            MAZE_SINGLE_DOUBLECROSS_CENTER: "╪",
+            MAZE_DOUBLE_LEFT_CENTER: "╣",
+            MAZE_DOUBLE_VERTICAL: "║",
+            MAZE_DOUBLE_RIGHT_TOP: "╗",
+            MAZE_DOUBLE_RIGHT_BOTTOM: "╝",
+            MAZE_DOUBLE_LEFT_BOTTOM: "╚",
+            MAZE_DOUBLE_LEFT_TOP: "╔",
+            MAZE_DOUBLE_BOTTOM_T: "╩",
+            MAZE_DOUBLE_TOP_T: "╦",
+            MAZE_DOUBLE_LEFT_T: "╠",
+            MAZE_DOUBLE_HORIZONTAL: "═",
+            MAZE_DOUBLE_CROSS: "╬",
+            SOLID_RECTANGLE: "█",
+            THICK_LEFT_VERTICAL: "▌",
+            THICK_RIGHT_VERTICAL: "▐",
+            SOLID_SMALL_RECTANGLE_BOTTOM: "▄",
+            SOLID_SMALL_RECTANGLE_TOP: "▀",
+            PHI_UPPER: "Φ",
+            INFINITY: "∞",
+            INTERSECTION: "∩",
+            DEFINITION: "≡",
+            PLUS_MINUS: "±",
+            GT_EQ: "≥",
+            LT_EQ: "≤",
+            THEREFORE: "⌠",
+            SINCE: "∵",
+            DOESNOT_EXIST: "∄",
+            EXISTS: "∃",
+            FOR_ALL: "∀",
+            EXCLUSIVE_OR: "⊕",
+            BECAUSE: "⌡",
+            DIVIDE: "÷",
+            APPROX: "≈",
+            DEGREE: "°",
+            BOLD_DOT: "∙",
+            DOT_SMALL: "·",
+            CHECK: "√",
+            ITALIC_X: "✗",
+            SUPER_N: "ⁿ",
+            SQUARED: "²",
+            CUBED: "³",
+            SOLID_BOX: "■",
+            PERMILE: "‰",
+            REGISTERED_TM: "®",
+            COPYRIGHT: "©",
+            TRADEMARK: "™",
+            BETA: "β",
+            GAMMA: "γ",
+            ZETA: "ζ",
+            ETA: "η",
+            IOTA: "ι",
+            KAPPA: "κ",
+            LAMBDA: "λ",
+            NU: "ν",
+            XI: "ξ",
+            OMICRON: "ο",
+            RHO: "ρ",
+            UPSILON: "υ",
+            CHI_LOWER: "φ",
+            CHI_UPPER: "χ",
+            PSI: "ψ",
+            ALPHA: "α",
+            ESZETT: "ß",
+            PI: "π",
+            SIGMA_UPPER: "Σ",
+            SIGMA_LOWER: "σ",
+            MU: "µ",
+            TAU: "τ",
+            THETA: "Θ",
+            OMEGA: "Ω",
+            DELTA: "δ",
+            PHI_LOWER: "φ",
+            EPSILON: "ε"
+        };
+
+        function pad(string, length, ch, end) {
+            string = "" + string; //check for numbers
+            ch = ch || " ";
+            var strLen = string.length;
+            while (strLen < length) {
+                if (end) {
+                    string += ch;
+                } else {
+                    string = ch + string;
+                }
+                strLen++;
+            }
+            return string;
+        }
+
+        function truncate(string, length, end) {
+            var ret = string;
+            if (is.isString(ret)) {
+                if (string.length > length) {
+                    if (end) {
+                        var l = string.length;
+                        ret = string.substring(l - length, l);
+                    } else {
+                        ret = string.substring(0, length);
+                    }
+                }
+            } else {
+                ret = truncate("" + ret, length);
+            }
+            return ret;
+        }
+
+        function format(str, obj) {
+            if (obj instanceof Array) {
+                var i = 0, len = obj.length;
+                //find the matches
+                return str.replace(FORMAT_REGEX, function (m, format, type) {
+                    var replacer, ret;
+                    if (i < len) {
+                        replacer = obj[i++];
+                    } else {
+                        //we are out of things to replace with so
+                        //just return the match?
+                        return m;
+                    }
+                    if (m === "%s" || m === "%d" || m === "%D") {
+                        //fast path!
+                        ret = replacer + "";
+                    } else if (m === "%Z") {
+                        ret = replacer.toUTCString();
+                    } else if (m === "%j") {
+                        try {
+                            ret = stringify(replacer);
+                        } catch (e) {
+                            throw new Error("stringExtended.format : Unable to parse json from ", replacer);
+                        }
+                    } else {
+                        format = format.replace(/^\[|\]$/g, "");
+                        switch (type) {
+                        case "s":
+                            ret = formatString(replacer, format);
+                            break;
+                        case "d":
+                            ret = formatNumber(replacer, format);
+                            break;
+                        case "j":
+                            ret = formatObject(replacer, format);
+                            break;
+                        case "D":
+                            ret = date.format(replacer, format);
+                            break;
+                        case "Z":
+                            ret = date.format(replacer, format, true);
+                            break;
+                        }
+                    }
+                    return ret;
+                });
+            } else if (isHash(obj)) {
+                return str.replace(INTERP_REGEX, function (m, format, value) {
+                    value = obj[value];
+                    if (!is.isUndefined(value)) {
+                        if (format) {
+                            if (is.isString(value)) {
+                                return formatString(value, format);
+                            } else if (is.isNumber(value)) {
+                                return formatNumber(value, format);
+                            } else if (is.isDate(value)) {
+                                return date.format(value, format);
+                            } else if (is.isObject(value)) {
+                                return formatObject(value, format);
+                            }
+                        } else {
+                            return "" + value;
+                        }
+                    }
+                    return m;
+                });
+            } else {
+                var args = aSlice.call(arguments).slice(1);
+                return format(str, args);
+            }
+        }
+
+        function toArray(testStr, delim) {
+            var ret = [];
+            if (testStr) {
+                if (testStr.indexOf(delim) > 0) {
+                    ret = testStr.replace(/\s+/g, "").split(delim);
+                }
+                else {
+                    ret.push(testStr);
+                }
+            }
+            return ret;
+        }
+
+        function multiply(str, times) {
+            var ret = [];
+            if (times) {
+                for (var i = 0; i < times; i++) {
+                    ret.push(str);
+                }
+            }
+            return ret.join("");
+        }
+
+
+        function style(str, options) {
+            var ret, i, l;
+            if (options) {
+                if (is.isArray(str)) {
+                    ret = [];
+                    for (i = 0, l = str.length; i < l; i++) {
+                        ret.push(style(str[i], options));
+                    }
+                } else if (options instanceof Array) {
+                    ret = str;
+                    for (i = 0, l = options.length; i < l; i++) {
+                        ret = style(ret, options[i]);
+                    }
+                } else if (options in styles) {
+                    ret = '\x1B[' + styles[options] + 'm' + str + '\x1B[0m';
+                }
+            }
+            return ret;
+        }
+
+        function escape(str, except) {
+            return str.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, function (ch) {
+                if (except && arr.indexOf(except, ch) !== -1) {
+                    return ch;
+                }
+                return "\\" + ch;
+            });
+        }
+
+        function trim(str) {
+            return str.replace(/^\s*|\s*$/g, "");
+        }
+
+        function trimLeft(str) {
+            return str.replace(/^\s*/, "");
+        }
+
+        function trimRight(str) {
+            return str.replace(/\s*$/, "");
+        }
+
+        function isEmpty(str) {
+            return str.length === 0;
+        }
+
+
+        var string = {
+            toArray: toArray,
+            pad: pad,
+            truncate: truncate,
+            multiply: multiply,
+            format: format,
+            style: style,
+            escape: escape,
+            trim: trim,
+            trimLeft: trimLeft,
+            trimRight: trimRight,
+            isEmpty: isEmpty
+        };
+        return extended.define(is.isString, string).define(is.isArray, {style: style}).expose(string).expose({characters: characters});
+    }
+
+    if ("undefined" !== typeof exports) {
+        if ("undefined" !== typeof module && module.exports) {
+            module.exports = defineString(require("extended"), require("is-extended"), require("date-extended"), require("array-extended"));
+
+        }
+    } else if ("function" === typeof define && define.amd) {
+        define(["extended", "is-extended", "date-extended", "array-extended"], function (extended, is, date, arr) {
+            return defineString(extended, is, date, arr);
+        });
+    } else {
+        this.stringExtended = defineString(this.extended, this.isExtended, this.dateExtended, this.arrayExtended);
+    }
+
+}).call(this);
+
+
+
+
+
+
+
+},{"array-extended":36,"date-extended":37,"extended":40,"is-extended":50}]},{},[1])
 ;

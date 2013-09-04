@@ -1,0 +1,2 @@
+import("./import/import2.nools");
+import("./import/import3.nools");

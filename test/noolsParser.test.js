@@ -1,11 +1,13 @@
 "use strict";
 var it = require("it"),
     assert = require("assert"),
-    noolsParser = require("../lib/parser/nools/nool.parser.js");
+    noolsParser = require("../lib/parser/nools/nool.parser.js"),
+    path = require("path"),
+    fs = require("fs");
 
 it.describe("nools dsl parser", function (it) {
 
-    it.describe("parsing define", function (it) {
+    it.describe("define", function (it) {
         it.should("parse a define statement", function () {
             var parsed = noolsParser.parse("define Test {myProp : 'value'}");
             assert.deepEqual(parsed, {
@@ -16,7 +18,9 @@ it.describe("nools dsl parser", function (it) {
                     }
                 ],
                 "rules": [],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
             parsed = noolsParser.parse("define Test {myFunc : function(){}}");
             //have to test this way because deepEqual cannot include functions
@@ -28,48 +32,10 @@ it.describe("nools dsl parser", function (it) {
                     }
                 ],
                 "rules": [],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
-        });
-
-        it.describe("global", function (it) {
-
-            it.should("parse a function call statement", function () {
-                var parsed = noolsParser.parse("global util = require('util');");
-                assert.equal(parsed.scope[0].name, 'util');
-                assert.equal(parsed.scope[0].body, "require('util')");
-            });
-
-            it.should("parse a member look up", function () {
-                var parsed = noolsParser.parse("global PI = Math.PI;");
-                assert.equal(parsed.scope[0].name, 'PI');
-                assert.equal(parsed.scope[0].body, "Math.PI");
-            });
-
-            it.should("parse a strings", function () {
-                var parsed = noolsParser.parse("global SOME_STRING = 'This is a test';");
-                assert.equal(parsed.scope[0].name, 'SOME_STRING');
-                assert.equal(parsed.scope[0].body, "'This is a test'");
-            });
-
-            it.should("parse a boolean", function () {
-                var parsed = noolsParser.parse("global TRUE = true;");
-                assert.equal(parsed.scope[0].name, 'TRUE');
-                assert.equal(parsed.scope[0].body, "true");
-            });
-
-            it.should("parse numbers", function () {
-                var parsed = noolsParser.parse("global NUM = 1.23;");
-                assert.equal(parsed.scope[0].name, 'NUM');
-                assert.equal(parsed.scope[0].body, "1.23");
-            });
-
-            it.should("parse a new instantiation", function () {
-                var parsed = noolsParser.parse("global NOW = new Date();");
-                assert.equal(parsed.scope[0].name, 'NOW');
-                assert.equal(parsed.scope[0].body, "new Date()");
-            });
-
         });
 
         it.should("throw an error when the define block is missing a name", function () {
@@ -100,7 +66,165 @@ it.describe("nools dsl parser", function (it) {
         });
     });
 
-    it.describe("parsing function", function (it) {
+    it.describe("global", function (it) {
+
+        it.should("parse a function call statement", function () {
+            var parsed = noolsParser.parse("global util = require('util');");
+            assert.equal(parsed.scope[0].name, 'util');
+            assert.equal(parsed.scope[0].body, "require('util')");
+        });
+
+        it.should("resolve relative require paths", function () {
+            var parsed = noolsParser.parse("global util = require('../util');", "./rules/test.nools");
+            assert.equal(parsed.scope[0].name, 'util');
+            assert.equal(parsed.scope[0].body, "require('" + path.resolve("./rules", "../util") + "')");
+        });
+
+        it.should("parse a member look up", function () {
+            var parsed = noolsParser.parse("global PI = Math.PI;");
+            assert.equal(parsed.scope[0].name, 'PI');
+            assert.equal(parsed.scope[0].body, "Math.PI");
+        });
+
+        it.should("parse a strings", function () {
+            var parsed = noolsParser.parse("global SOME_STRING = 'This is a test';");
+            assert.equal(parsed.scope[0].name, 'SOME_STRING');
+            assert.equal(parsed.scope[0].body, "'This is a test'");
+        });
+
+        it.should("parse a boolean", function () {
+            var parsed = noolsParser.parse("global TRUE = true;");
+            assert.equal(parsed.scope[0].name, 'TRUE');
+            assert.equal(parsed.scope[0].body, "true");
+        });
+
+        it.should("parse numbers", function () {
+            var parsed = noolsParser.parse("global NUM = 1.23;");
+            assert.equal(parsed.scope[0].name, 'NUM');
+            assert.equal(parsed.scope[0].body, "1.23");
+        });
+
+        it.should("parse a new instantiation", function () {
+            var parsed = noolsParser.parse("global NOW = new Date();");
+            assert.equal(parsed.scope[0].name, 'NOW');
+            assert.equal(parsed.scope[0].body, "new Date()");
+        });
+
+    });
+
+    if (typeof window === "undefined") {
+        it.describe("import", function (it) {
+
+            var readFileSyncOrig = fs.readFileSync;
+
+            it.afterEach(function () {
+                fs.readFileSync = readFileSyncOrig;
+            });
+
+
+            it.should("parse a relative path and default to process.cwd()", function () {
+                var called = false;
+                fs.readFileSync = function (file, encoding) {
+                    assert.equal(file, path.resolve(process.cwd(), './test.nools'));
+                    assert.equal(encoding, "utf8");
+                    called = true;
+                    return "";
+                };
+                noolsParser.parse('import("./test.nools")');
+                assert.isTrue(called);
+            });
+
+            it.should("parse a relative path and use the file path", function () {
+                var called = false;
+                fs.readFileSync = function (file, encoding) {
+                    assert.equal(file, path.resolve("./rules", './test.nools'));
+                    assert.equal(encoding, "utf8");
+                    called = true;
+                    return "";
+                };
+                noolsParser.parse('import("./test.nools")', "./rules/test.nools");
+                assert.isTrue(called);
+            });
+
+            it.should("parse a absolute path and not change the location ", function () {
+                var called = false;
+                fs.readFileSync = function (file, encoding) {
+                    assert.equal(file, "/rules/test.nools");
+                    assert.equal(encoding, "utf8");
+                    called = true;
+                    return "";
+                };
+                noolsParser.parse('import("/rules/test.nools")', "./rules/test.nools");
+                assert.isTrue(called);
+            });
+
+            it.should("should parse import with optional ';'", function () {
+                var called = false;
+                fs.readFileSync = function (file, encoding) {
+                    assert.equal(file, "/rules/test.nools");
+                    assert.equal(encoding, "utf8");
+                    called = true;
+                    return "";
+                };
+                noolsParser.parse("import('/rules/test.nools');", "./rules/test.nools");
+                assert.isTrue(called);
+            });
+
+            it.should("merge imported nools file into the current file", function () {
+                var source = require.resolve("./rules/import.nools");
+                var parsed = noolsParser.parse(fs.readFileSync(require.resolve("./rules/import.nools"), "utf8"), source);
+                assert.deepEqual(parsed, {
+                    "define": [
+                        {
+                            "name": "Count",
+                            "properties": "({     constructor: function(){         this.called = 0;     } })"
+                        }
+                    ],
+                    "rules": [
+                        {
+                            "name": "orRule",
+                            "options": {},
+                            "constraints": [
+                                ["or", ["String", "s", "s == 'hello'"], ["String", "s", "s == 'world'"]],
+                                ["Count", "count"]
+                            ],
+                            "action": "count.called++;         count.s = s;     "
+                        },
+                        {
+                            "name": "notRule",
+                            "options": {},
+                            "constraints": [
+                                ["not", "String", "s", "s == 'hello'"],
+                                ["Count", "count"]
+                            ],
+                            "action": "count.called++;     "
+                        }
+                    ],
+                    "scope": [],
+                    "loaded": [
+                        require.resolve("./rules/import/import1.nools"),
+                        require.resolve("./rules/import/import2.nools"),
+                        require.resolve("./rules/import/import3.nools")
+                    ],
+                    "file": source
+                });
+            });
+
+            it.should("throw an error if the file location contains more than one", function () {
+                assert.throws(function () {
+                    noolsParser.parse("import('/rules/test.nools', './test.nools')", "./rules/test.nools");
+                });
+            });
+
+            it.should("throw an error if the first token after import is not a (", function () {
+                assert.throws(function () {
+                    noolsParser.parse("import '/rules/test.nools'", "./rules/test.nools");
+                });
+            });
+        });
+    }
+
+    it.describe("function", function (it) {
 
         it.should("parse a function statement", function () {
             var parsed = noolsParser.parse("function myFunc(a, b) {return a + b}");
@@ -131,7 +255,7 @@ it.describe("nools dsl parser", function (it) {
         });
     });
 
-    it.describe("parsing rules", function (it) {
+    it.describe("rule", function (it) {
 
         it.should("parse rules", function () {
             var parsed = noolsParser.parse("rule TestRule {when {c : Clazz c.name eq 'Test' {test : test};} then {console.log(test);}}");
@@ -147,7 +271,9 @@ it.describe("nools dsl parser", function (it) {
                         options: {}
                     }
                 ],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
 
             parsed = noolsParser.parse("rule TestRule {when {$c : Clazz $c.name eq 'Test' {$test : test};} then {console.log($test);}}");
@@ -163,7 +289,9 @@ it.describe("nools dsl parser", function (it) {
                         options: {}
                     }
                 ],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
 
             parsed = noolsParser.parse("rule TestRule {when {c : Clazz c.name eq 'Test' { test : test };} then {console.log(test);}}");
@@ -179,7 +307,9 @@ it.describe("nools dsl parser", function (it) {
                         options: {}
                     }
                 ],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
 
 
@@ -196,7 +326,9 @@ it.describe("nools dsl parser", function (it) {
                         options: {}
                     }
                 ],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
         });
 
@@ -235,7 +367,9 @@ it.describe("nools dsl parser", function (it) {
                         options: {}
                     }
                 ],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
             var parsed2 = noolsParser.parse("rule TestRule { when { not(c : Clazz c.name eq 'Test' {test : test})} then {console.log($test);}}");
             assert.deepEqual(parsed, parsed2);
@@ -253,7 +387,9 @@ it.describe("nools dsl parser", function (it) {
                         options: {}
                     }
                 ],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
         });
 
@@ -283,7 +419,9 @@ it.describe("nools dsl parser", function (it) {
                         "action": "console.log($test);"
                     }
                 ],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
 
             parsed = noolsParser.parse("rule TestRule { when {or($c : Clazz $c.name in ['Test1', 'test2', 'test3'], $c : Clazz $c.name eq 'Test')} then {console.log($test);}}");
@@ -311,7 +449,9 @@ it.describe("nools dsl parser", function (it) {
                         "action": "console.log($test);"
                     }
                 ],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
         });
 
@@ -329,7 +469,9 @@ it.describe("nools dsl parser", function (it) {
                         options: {}
                     }
                 ],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
             var parsed2 = noolsParser.parse("rule TestRule { when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
             assert.deepEqual(parsed, parsed2);
@@ -349,7 +491,9 @@ it.describe("nools dsl parser", function (it) {
                         options: {}
                     }
                 ],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
             var parsed2 = noolsParser.parse("rule 'test rule' { when { c : Clazz c.name eq 'Test' {test : test}} then {console.log($test);}}");
             assert.deepEqual(parsed, parsed2);
@@ -367,7 +511,9 @@ it.describe("nools dsl parser", function (it) {
                         options: {}
                     }
                 ],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
         });
 
@@ -385,7 +531,9 @@ it.describe("nools dsl parser", function (it) {
                         options: {}
                     }
                 ],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
         });
 
@@ -403,7 +551,9 @@ it.describe("nools dsl parser", function (it) {
                         options: {}
                     }
                 ],
-                "scope": []
+                "scope": [],
+                "loaded": [],
+                "file": undefined
             });
         });
 
@@ -423,7 +573,9 @@ it.describe("nools dsl parser", function (it) {
                             options: {priority: 10}
                         }
                     ],
-                    "scope": []
+                    "scope": [],
+                    "loaded": [],
+                    "file": undefined
                 });
             });
 
@@ -441,7 +593,9 @@ it.describe("nools dsl parser", function (it) {
                             options: {priority: 10}
                         }
                     ],
-                    "scope": []
+                    "scope": [],
+                    "loaded": [],
+                    "file": undefined
                 });
             });
 
@@ -459,7 +613,9 @@ it.describe("nools dsl parser", function (it) {
                             options: {priority: 10}
                         }
                     ],
-                    "scope": []
+                    "scope": [],
+                    "loaded": [],
+                    "file": undefined
                 });
             });
 
@@ -477,7 +633,9 @@ it.describe("nools dsl parser", function (it) {
                             options: {priority: 10}
                         }
                     ],
-                    "scope": []
+                    "scope": [],
+                    "loaded": [],
+                    "file": undefined
                 });
             });
 
@@ -512,7 +670,9 @@ it.describe("nools dsl parser", function (it) {
                             options: {agendaGroup: "group1"}
                         }
                     ],
-                    "scope": []
+                    "scope": [],
+                    "loaded": [],
+                    "file": undefined
                 });
             });
 
@@ -530,7 +690,9 @@ it.describe("nools dsl parser", function (it) {
                             options: {agendaGroup: "group1"}
                         }
                     ],
-                    "scope": []
+                    "scope": [],
+                    "loaded": [],
+                    "file": undefined
                 });
             });
 
@@ -548,7 +710,9 @@ it.describe("nools dsl parser", function (it) {
                             options: {agendaGroup: "group one"}
                         }
                     ],
-                    "scope": []
+                    "scope": [],
+                    "loaded": [],
+                    "file": undefined
                 });
             });
 
@@ -567,7 +731,9 @@ it.describe("nools dsl parser", function (it) {
                             options: {agendaGroup: "group one"}
                         }
                     ],
-                    "scope": []
+                    "scope": [],
+                    "loaded": [],
+                    "file": undefined
                 });
             });
         });
@@ -588,7 +754,9 @@ it.describe("nools dsl parser", function (it) {
                             options: {agendaGroup: "group one", autoFocus: true}
                         }
                     ],
-                    "scope": []
+                    "scope": [],
+                    "loaded": [],
+                    "file": undefined
                 });
             });
 
@@ -606,7 +774,9 @@ it.describe("nools dsl parser", function (it) {
                             options: {agendaGroup: "group one", autoFocus: false}
                         }
                     ],
-                    "scope": []
+                    "scope": [],
+                    "loaded": [],
+                    "file": undefined
                 });
             });
 
@@ -624,7 +794,9 @@ it.describe("nools dsl parser", function (it) {
                             options: {agendaGroup: "group one", autoFocus: true}
                         }
                     ],
-                    "scope": []
+                    "scope": [],
+                    "loaded": [],
+                    "file": undefined
                 });
             });
 
@@ -642,7 +814,9 @@ it.describe("nools dsl parser", function (it) {
                             options: {agendaGroup: "group one", autoFocus: false}
                         }
                     ],
-                    "scope": []
+                    "scope": [],
+                    "loaded": [],
+                    "file": undefined
                 });
             });
 
