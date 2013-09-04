@@ -10,13 +10,15 @@ var nools = require(".."),
     uglifyjs = require("uglify-js"),
     program = require('commander');
 
-function uglify(source) {
+function uglify(source, program) {
     try {
-      if (program.no_minification) {
-        return source;
-      } else {
-        return uglifyjs.minify(source, {fromString: true, mangle: false, output: {beautify: true}}).code;
-      }
+        if (program.no_minification) {
+            return source;
+        } else if (program.beautify) {
+            return uglifyjs.minify(source, {fromString: true, mangle: false, compress: false, output: {beautify: true}}).code;
+        } else {
+            return uglifyjs.minify(source, {fromString: true, mangle: false}).code;
+        }
     } catch (e) {
         console.error(e.message);
         console.error(e.stack);
@@ -33,17 +35,16 @@ program.command("compile")
     .option("-n --name [value]", "name of the flow to compile, defaults to the name of the file less the extension")
     .option("-l --nools_location [value]", "location to look for nools when requiring it")
     .option("-u --no_minification", "Do not minify the generated script")
+    .option("-b --beautify", "beautify the generated source")
     .action(function () {
         var files = Array.prototype.slice.call(arguments);
         var program = files.pop();
         var noolsLocation = program["nools_location"] || "nools";
         files.forEach(function (file) {
             var name = program.name || path.basename(file, path.extname(file));
-            console.log(str.format(template, { source: uglify(nools.transpile(path.resolve(process.cwd(), file), {name: name})), noolsLocation: noolsLocation}).replace(/\s+/g, " "));
+            console.log(uglify(str.format(template, { source: nools.transpile(path.resolve(process.cwd(), file), {name: name}), noolsLocation: noolsLocation}), program));
         });
     });
-
-//return uglifyjs.minify(ret.join(""), {fromString: true, mangle: false, output: {beautify: true}}).code;
 
 program.parse(process.argv);
 
