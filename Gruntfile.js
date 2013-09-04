@@ -29,8 +29,8 @@ module.exports = function (grunt) {
                     '<%= grunt.template.today("yyyy-mm-dd") %>\n' +
                     '<%= pkg.homepage ? "* " + pkg.homepage + "\\n" : "" %>' +
                     '* Copyright (c) <%= grunt.template.today("yyyy") %> <%= pkg.author %>;' +
-                    ' Licensed <%= pkg.license %> */\n'
-                //report: 'gzip'
+                    ' Licensed <%= pkg.license %> */\n',
+                report: 'gzip'
             },
             min: {
                 files: {

@@ -65,43 +65,48 @@ it.describe("A Parser", function (it) {
 
         assert.deepEqual(parser.parseConstraint("a =~ /hello/"), [
             ['a', null, 'identifier'],
-            [/hello/, null, 'regexp'],
+            ["/hello/", null, 'regexp'],
+            'like'
+        ]);
+        assert.deepEqual(parser.parseConstraint("a =~ /h\\/ello/"), [
+            ['a', null, 'identifier'],
+            ["/h\\/ello/", null, 'regexp'],
             'like'
         ]);
         assert.deepEqual(parser.parseConstraint("a like /hello/"), [
             ['a', null, 'identifier'],
-            [/hello/, null, 'regexp'],
+            ["/hello/", null, 'regexp'],
             'like'
         ]);
         assert.deepEqual(parser.parseConstraint("a =~ /^hello$/"), [
             ['a', null, 'identifier'],
-            [/^hello$/, null, 'regexp'],
+            ["/^hello$/", null, 'regexp'],
             'like'
         ]);
         assert.deepEqual(parser.parseConstraint("a like /^hello$/"), [
             ['a', null, 'identifier'],
-            [/^hello$/, null, 'regexp'],
+            ["/^hello$/", null, 'regexp'],
             'like'
         ]);
 
         assert.deepEqual(parser.parseConstraint("a !=~ /hello/"), [
             ['a', null, 'identifier'],
-            [/hello/, null, 'regexp'],
+            ["/hello/", null, 'regexp'],
             'notLike'
         ]);
         assert.deepEqual(parser.parseConstraint("a notLike /hello/"), [
             ['a', null, 'identifier'],
-            [/hello/, null, 'regexp'],
+            ["/hello/", null, 'regexp'],
             'notLike'
         ]);
         assert.deepEqual(parser.parseConstraint("a !=~ /^hello$/"), [
             ['a', null, 'identifier'],
-            [/^hello$/, null, 'regexp'],
+            ["/^hello$/", null, 'regexp'],
             'notLike'
         ]);
         assert.deepEqual(parser.parseConstraint("a notLike /^hello$/"), [
             ['a', null, 'identifier'],
-            [/^hello$/, null, 'regexp'],
+            ["/^hello$/", null, 'regexp'],
             'notLike'
         ]);
 
@@ -149,31 +154,60 @@ it.describe("A Parser", function (it) {
         ]);
     });
 
-    it.should("parse valid string expressions with functions", function () {
-
-        assert.deepEqual(parser.parseConstraint("Date()"), ["Date", [null, null, "arguments"], "function"]);
-        assert.deepEqual(parser.parseConstraint("a(b,c,d,e)"), ["a", [
+    it.should("parse regexps and not be greedy", function () {
+        assert.deepEqual(parser.parseConstraint("a =~ /^\\/((?![\\s=])[^[\\/\\n\\\\]*(?:(?:\\\\[\\s\\S]|\\[[^\\]\\n\\\\]*(?:\\\\[\\s\\S][^\\]\\n\\\\]*)*])[^[\\/\\n\\\\]*)*\\/[imgy]{0,4})(?!\\w)/ && b like /^\\/((?![\\s=])[^[\\/\\n\\\\]*(?:(?:\\\\[\\s\\S]|\\[[^\\]\\n\\\\]*(?:\\\\[\\s\\S][^\\]\\n\\\\]*)*])[^[\\/\\n\\\\]*)*\\/[imgy]{0,4})(?!\\w)/"),
             [
                 [
-                    ["b", null, "identifier"],
-                    ["c", null, "identifier"],
+                    ['a', null, 'identifier'],
+                    ['/^\\/((?![\\s=])[^[\\/\\n\\\\]*(?:(?:\\\\[\\s\\S]|\\[[^\\]\\n\\\\]*(?:\\\\[\\s\\S][^\\]\\n\\\\]*)*])[^[\\/\\n\\\\]*)*\\/[imgy]{0,4})(?!\\w)/', null, 'regexp'],
+                    'like'
+                ],
+                [
+                    ['b', null, 'identifier'],
+                    ['/^\\/((?![\\s=])[^[\\/\\n\\\\]*(?:(?:\\\\[\\s\\S]|\\[[^\\]\\n\\\\]*(?:\\\\[\\s\\S][^\\]\\n\\\\]*)*])[^[\\/\\n\\\\]*)*\\/[imgy]{0,4})(?!\\w)/', null, 'regexp'],
+                    'like'
+                ],
+                'and'
+            ]
+        );
+    });
+
+    it.should("parse valid string expressions with functions", function () {
+
+        assert.deepEqual(parser.parseConstraint("Date()"), [
+            ["Date", null, "identifier"],
+            [null, null, "arguments"],
+            "function"
+        ]);
+        assert.deepEqual(parser.parseConstraint("a(b,c,d,e)"), [
+            ["a", null, "identifier"],
+            [
+                [
+                    [
+                        ["b", null, "identifier"],
+                        ["c", null, "identifier"],
+                        "arguments"
+                    ],
+                    ["d", null, "identifier"],
                     "arguments"
                 ],
-                ["d", null, "identifier"],
+                ["e", null, "identifier"],
                 "arguments"
             ],
-            ["e", null, "identifier"],
-            "arguments"
-        ], "function"]);
-        assert.deepEqual(parser.parseConstraint("a(b,c)"), ["a",
+            "function"
+        ]);
+        assert.deepEqual(parser.parseConstraint("a(b,c)"), [
+            ["a", null, "identifier"],
             [
                 ["b", null, "identifier"],
                 ["c", null, "identifier"],
                 "arguments"
-            ], "function"]);
+            ],
+            "function"
+        ]);
         assert.deepEqual(parser.parseConstraint("a(b,c) && e(f,g)"), [
             [
-                "a",
+                ["a", null, "identifier"],
                 [
                     ["b", null, "identifier"],
                     ["c", null, "identifier"],
@@ -182,7 +216,7 @@ it.describe("A Parser", function (it) {
                 "function"
             ],
             [
-                "e",
+                ["e", null, "identifier"],
                 [
                     ["f", null, "identifier"],
                     ["g", null, "identifier"],
@@ -400,7 +434,7 @@ it.describe("A Parser", function (it) {
                 ["name", null, "identifier"],
                 "prop"
             ],
-            [/hello/, null, "regexp"],
+            ["/hello/", null, "regexp"],
             "like"
         ]);
         assert.deepEqual(parser.parseConstraint("a.name like /hello/"), [
@@ -409,7 +443,7 @@ it.describe("A Parser", function (it) {
                 ["name", null, "identifier"],
                 "prop"
             ],
-            [/hello/, null, "regexp"],
+            ["/hello/", null, "regexp"],
             "like"
         ]);
         assert.deepEqual(parser.parseConstraint("a.name =~ /^hello$/"), [
@@ -418,7 +452,7 @@ it.describe("A Parser", function (it) {
                 ["name", null, "identifier"],
                 "prop"
             ],
-            [/^hello$/, null, "regexp"],
+            ["/^hello$/", null, "regexp"],
             "like"
         ]);
         assert.deepEqual(parser.parseConstraint("a.name like /^hello$/"), [
@@ -427,7 +461,7 @@ it.describe("A Parser", function (it) {
                 ["name", null, "identifier"],
                 "prop"
             ],
-            [/^hello$/, null, "regexp"],
+            ["/^hello$/", null, "regexp"],
             "like"
         ]);
 
@@ -521,19 +555,116 @@ it.describe("A Parser", function (it) {
         ]);
         assert.deepEqual(parser.parseConstraint("a.age() eq a.num()"), [
             [
-                ["a", null, "identifier"],
-                ["age", [null, null, "arguments"], "function"],
-                "prop"
+                [
+                    ["a", null, "identifier"],
+                    ["age", null, "identifier"],
+                    "prop"
+                ],
+                [null, null, "arguments"],
+                "function"
             ],
             [
-                ["a", null, "identifier"],
-                ["num", [null, null, "arguments"], "function"],
-                "prop"
+                [
+                    ["a", null, "identifier"],
+                    ["num", null, "identifier"],
+                    "prop"
+                ],
+                [null, null, "arguments"],
+                "function"
             ],
             "eq"
         ]);
-    });
 
+
+        assert.deepEqual(parser.parseConstraint("a['age']() eq a['num']()"), [
+            [
+                [
+                    ["a", null, "identifier"],
+                    ["age", null, "string"],
+                    "propLookup"
+                ],
+                [null, null, "arguments"],
+                "function"
+            ],
+            [
+                [
+                    ["a", null, "identifier"],
+                    ["num", null, "string"],
+                    "propLookup"
+                ],
+                [null, null, "arguments"],
+                "function"
+            ],
+            "eq"
+        ]);
+
+        assert.deepEqual(parser.parseConstraint("a[b]() eq a[c]()"), [
+            [
+                [
+                    ["a", null, "identifier"],
+                    ["b", null, "identifier"],
+                    "propLookup"
+                ],
+                [null, null, "arguments"],
+                "function"
+            ],
+            [
+                [
+                    ["a", null, "identifier"],
+                    ["c", null, "identifier"],
+                    "propLookup"
+                ],
+                [null, null, "arguments"],
+                "function"
+            ],
+            "eq"
+        ]);
+        assert.deepEqual(parser.parseConstraint("a[b]().a.c()['a']()()"), [
+            [
+                [
+                    [
+                        [
+                            [
+                                [
+                                    [
+                                        ["a", null, "identifier"],
+                                        ["b", null, "identifier"],
+                                        "propLookup"
+                                    ],
+                                    [null, null, "arguments"],
+                                    "function"
+                                ],
+                                ["a", null, "identifier"],
+                                "prop"
+                            ],
+                            ["c", null, "identifier"],
+                            "prop"
+                        ],
+                        [null, null, "arguments"],
+                        "function"
+                    ],
+                    ["a", null, "string"],
+                    "propLookup"
+                ],
+                [null, null, "arguments"],
+                "function"
+            ],
+            [null, null, "arguments"],
+            "function"
+        ]);
+
+        assert.deepEqual(parser.parseConstraint("a['flag']"), [
+            ["a", null, "identifier"],
+            ["flag", null, "string"],
+            "propLookup"
+        ]);
+
+        assert.deepEqual(parser.parseConstraint("a[b]"), [
+            ["a", null, "identifier"],
+            ["b", null, "identifier"],
+            "propLookup"
+        ]);
+    });
 
     it.should("parse valid string expressions with boolean operators", function () {
         assert.deepEqual(parser.parseConstraint("a.name == 'bob' && a.age >= 10"), [
@@ -718,12 +849,16 @@ it.describe("A Parser", function (it) {
         for (var i = 0, l = props.length; i < l; i++) {
             assert.deepEqual(parser.parseConstraint('a.name.' + props[i] + '("bob")'), [
                 [
-                    ["a", null, "identifier"],
-                    ["name", null, "identifier"],
+                    [
+                        ["a", null, "identifier"],
+                        ["name", null, "identifier"],
+                        "prop"
+                    ],
+                    [props[i], null, "identifier"],
                     "prop"
                 ],
-                [props[i], ["bob", null, "string"], "function"],
-                "prop"
+                ["bob", null, "string"],
+                "function"
             ]);
         }
 
@@ -869,7 +1004,7 @@ it.describe("A Parser", function (it) {
                         [false, null, "boolean"],
                         "arguments"
                     ],
-                    [/hello/, null, "regexp"],
+                    ["/hello/", null, "regexp"],
                     "arguments"
                 ],
                 ["b", null, "identifier"],

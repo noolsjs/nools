@@ -89,21 +89,26 @@ it.describe("constraint matcher", function (it) {
 
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /hello/"))({a: "hello"}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /world/"))({a: "hello"}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /he\\/llo/ || a =~ /world/"))({a: "he/llo"}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /he\\/llo/ || a =~ /world/"))({a: "world"}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /he\\/llo/ || a =~ /world/"))({a: "a"}));
 
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /^hello world$/"))({a: "hello world"}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /^hello world$/"))({a: "hello world2"}));
-
 
         });
 
         it.should("check notLike operator", function () {
 
-            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a !=~ /hello/"))({a: "hello"}));
-            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !=~ /world/"))({a: "hello"}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /hello/"))({a: "hello"}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /world/"))({a: "hello"}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /he\\/llo/ || a =~ /world/"))({a: "he/llo"}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /he\\/llo/ || a =~ /world/"))({a: "world"}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /he\\/llo/ || a =~ /world/"))({a: "a"}));
 
-            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a !=~ /^hello world$/"))({a: "hello world"}));
-            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !=~ /^hello world$/"))({a: "hello world2"}));
 
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /^hello world$/"))({a: "hello world"}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a =~ /^hello world$/"))({a: "hello world2"}));
 
         });
 
@@ -124,6 +129,8 @@ it.describe("constraint matcher", function (it) {
         it.should("check with member operator", function () {
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq a.world"))({a: {hello: "hello", world: "hello"}}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq a.world"))({a: {hello: "hello", world: "world"}}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a['hello'] eq a['world']"))({a: {hello: "hello", world: "world"}}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a[b] eq a[c]"))({a: {hello: "hello", world: "world"}, b: "hello", c: "world"}));
         });
 
         it.should("check with in operator", function () {

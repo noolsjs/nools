@@ -1,0 +1,5 @@
+define Count{
+    constructor: function(){
+        this.called = 0;
+    }
+}
