@@ -3895,10 +3895,11 @@ module.exports = topLevelTokens;
 
 
 },{"../../extended":10,"./util.js":31,"__browserify_process":48,"fs":45}],31:[function(require,module,exports){
-"use strict";
+var process=require("__browserify_process");"use strict";
 
 var path = require("path");
-var WHITE_SPACE_REG = /[\s|\n|\r|\t]/;
+var WHITE_SPACE_REG = /[\s|\n|\r|\t]/,
+    pathSep = path.sep || ( process.platform === 'win32' ? '\\' : '/' );
 
 var TOKEN_INVERTS = {
     "{": "}",
@@ -3958,7 +3959,7 @@ exports.resolve = function (from, to) {
     if (path.extname(from) !== '') {
         from = path.dirname(from);
     }
-    if (to.split(path.sep).length === 1) {
+    if (to.split(pathSep).length === 1) {
         return to;
     }
     return path.resolve(from, to);
@@ -3985,7 +3986,7 @@ var findNextTokenIndex = exports.findNextTokenIndex = function (str, startIndex,
 exports.findNextToken = function (str, startIndex, endIndex) {
     return str.charAt(findNextTokenIndex(str, startIndex, endIndex));
 };
-},{"path":46}],32:[function(require,module,exports){
+},{"__browserify_process":48,"path":46}],32:[function(require,module,exports){
 (function () {
     "use strict";
     var extd = require("./extended"),
