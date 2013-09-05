@@ -1,3 +1,6 @@
+# 0.1.12
+* Fixed issue in node v0.6 where path.sep is not found.
+
 # 0.1.11
 * Fixed issue [#73](https://github.com/C2FO/nools/issues/73) where requires in dsl would treat a file with a `.` character as a path instead of a module.
 
