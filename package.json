@@ -1,7 +1,7 @@
 {
     "name": "nools",
     "description": "A rules engine for node",
-    "version": "0.1.12",
+    "version": "0.1.13",
     "bin": {
         "nools": "./bin/nools"
     },
