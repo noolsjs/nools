@@ -5,7 +5,7 @@ var it = require("it"),
     nools = require("../index");
 
 it.describe("nools", function (it) {
-    it.describe("#flow", function (it) {
+    it.describe(".flow", function (it) {
         it.should("create a flow", function () {
             var flow = nools.flow("nools flow");
             assert.isNotNull(flow);
@@ -15,7 +15,7 @@ it.describe("nools", function (it) {
         });
     });
 
-    it.describe("#deleteFlow", function (it) {
+    it.describe(".deleteFlow", function (it) {
         it.should("delete a flow by name", function () {
             var flow = nools.flow("delete nools flow");
             assert.isNotNull(flow);
@@ -39,6 +39,32 @@ it.describe("nools", function (it) {
             assert.isUndefined(nools.getFlow("delete nools flow"));
 
         });
+    });
+
+    it.describe(".hasFlow", function (it) {
+
+        it.should("return true if the flow exists", function () {
+            var name = "has flow",
+                flow = nools.flow(name);
+            assert.isTrue(nools.hasFlow(name));
+        });
+
+        it.should("return false if the flow does not exists", function () {
+            assert.isFalse(nools.hasFlow(new Date().toString()));
+        });
+    });
+
+    it.describe(".deleteFlows", function (it) {
+
+        it.should("deleteAllFlows", function () {
+            var name = "delete nools flows";
+            nools.flow(name);
+            assert.isTrue(nools.hasFlow(name));
+            debugger;
+            assert.equal(nools.deleteFlows(), nools);
+            assert.isFalse(nools.hasFlow(name));
+        });
+
     });
 });
 
@@ -217,35 +243,120 @@ it.describe("Flow", function (it) {
             this.called = 0;
         }, called = new Count();
 
-        var flow = nools.flow("hello world flow 3", function (flow) {
-            flow.rule("hello rule", [
-                ["or",
-                    [String, "s", "s == 'hello'"],
-                    [String, "s", "s == 'world'"]
-                ],
-                [Count, "called", null]
-            ], function (facts) {
-                facts.called.called++;
+        it.describe("or rule with two conditions of the same type", function (it) {
+            var flow;
+            it.beforeAll(function () {
+                flow = nools.flow("or condition", function (flow) {
+                    flow.rule("hello rule", [
+                        ["or",
+                            [String, "s", "s == 'hello'"],
+                            [String, "s", "s == 'world'"]
+                        ],
+                        [Count, "called", null]
+                    ], function (facts) {
+                        facts.called.called++;
+                    });
+                });
+            });
+
+            it.should("should match if one constraints matches", function () {
+                return flow.getSession("world", called).match().then(function () {
+                    assert.equal(called.called, 1);
+                    called.called = 0;
+                    return flow.getSession("hello", called).match().then(function () {
+                        assert.equal(called.called, 1);
+                    });
+                });
+            });
+
+            it.should("not call when a a constraint does not match", function () {
+                called.called = 0;
+                return flow.getSession("hello", "world", "test", called).match().then(function () {
+                    assert.equal(called.called, 2);
+                });
             });
         });
 
-        it.should("call when a string equals 'hello'", function () {
-            return flow.getSession("world", called).match().then(function () {
-                assert.equal(called.called, 1);
+        it.describe("or rule with three conditions", function (it) {
+            var flow;
+
+            it.beforeAll(function () {
+                flow = nools.flow("or condition three constraints", function (flow) {
+                    flow.rule("hello rule", [
+                        ["or",
+                            [String, "s", "s == 'hello'"],
+                            [String, "s", "s == 'world'"],
+                            [String, "s", "s == 'hello world'"]
+                        ],
+                        [Count, "called", null]
+                    ], function (facts) {
+                        facts.called.called++;
+                    });
+                });
             });
+
+            it.should("should match if one constraints matches", function () {
+                called.called = 0;
+                return flow.getSession("world", called).match().then(function () {
+                    assert.equal(called.called, 1);
+                    called.called = 0;
+                    return flow.getSession("hello", called).match().then(function () {
+                        assert.equal(called.called, 1);
+                        called.called = 0;
+                        return flow.getSession("hello world", called).match().then(function () {
+                            assert.equal(called.called, 1);
+                        });
+                    });
+                });
+            });
+
+            it.should("not call when none constraints match", function () {
+                called.called = 0;
+                return flow.getSession("hello", "world", "hello world", "test", called).match().then(function () {
+                    assert.equal(called.called, 3);
+                });
+            });
+
         });
 
-        it.should("call when a string equals 'world'", function () {
-            called = new Count();
-            return flow.getSession("hello", called).match().then(function () {
-                assert.equal(called.called, 1);
-            });
-        });
+        it.describe("or rule with different types", function (it) {
+            var flow;
 
-        it.should(" not call when a string that does equal 'hello' or 'world", function () {
-            called = new Count();
-            return flow.getSession("hello", "world", "test", called).match().then(function () {
-                assert.equal(called.called, 2);
+            it.beforeAll(function () {
+                flow = nools.flow("or condition different types", function (flow) {
+                    flow.rule("hello rule", [
+                        ["or",
+                            [String, "s", "s == 'hello'"],
+                            [String, "s", "s == 'world'"],
+                            [Number, "n", "n == 1"]
+                        ],
+                        [Count, "called", null]
+                    ], function (facts) {
+                        facts.called.called++;
+                    });
+                });
+            });
+
+            it.should("should match if one constraints matches", function () {
+                called.called = 0;
+                return flow.getSession("world", called).match().then(function () {
+                    assert.equal(called.called, 1);
+                    called.called = 0;
+                    return flow.getSession("hello", called).match().then(function () {
+                        assert.equal(called.called, 1);
+                        called.called = 0;
+                        return flow.getSession(1, called).match().then(function () {
+                            assert.equal(called.called, 1);
+                        });
+                    });
+                });
+            });
+
+            it.should("not call when none constraints match", function () {
+                called.called = 0;
+                return flow.getSession("hello", "world", 1, "test", called).match().then(function () {
+                    assert.equal(called.called, 3);
+                });
             });
 
         });
@@ -630,7 +741,7 @@ it.describe("Flow", function (it) {
                 } else {
                     session.assert(new Message("hello"));
                 }
-            }, 10);
+            }, 50);
             session.assert(called);
             return session.matchUntilHalt().then(function (err) {
                 assert.isUndefinedOrNull(err);

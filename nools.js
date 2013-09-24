@@ -25,7 +25,7 @@
 
 },{"../":2}],2:[function(require,module,exports){
 module.exports = exports = require("./lib");
-},{"./lib":11}],3:[function(require,module,exports){
+},{"./lib":14}],3:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     indexOf = extd.indexOf,
@@ -278,7 +278,7 @@ module.exports = declare(EventEmitter, {
     }
 
 });
-},{"./extended":10,"events":44}],4:[function(require,module,exports){
+},{"./extended":11,"events":47}],4:[function(require,module,exports){
 /*jshint evil:true*/
 "use strict";
 var extd = require("../extended"),
@@ -335,7 +335,7 @@ var createDefined = (function () {
 
 exports.createFunction = createFunction;
 exports.createDefined = createDefined;
-},{"../extended":10}],5:[function(require,module,exports){
+},{"../extended":11}],5:[function(require,module,exports){
 var Buffer=require("__browserify_Buffer").Buffer;/*jshint evil:true*/
 "use strict";
 var extd = require("../extended"),
@@ -526,7 +526,7 @@ exports.transpile = require("./transpile").transpile;
 
 
 
-},{"../constraintMatcher.js":8,"../extended":10,"../parser":28,"../rule":33,"./common":4,"./transpile":6,"__browserify_Buffer":47}],6:[function(require,module,exports){
+},{"../constraintMatcher.js":8,"../extended":11,"../parser":31,"../rule":36,"./common":4,"./transpile":6,"__browserify_Buffer":50}],6:[function(require,module,exports){
 var Buffer=require("__browserify_Buffer").Buffer;var extd = require("../extended"),
     forEach = extd.forEach,
     indexOf = extd.indexOf,
@@ -678,7 +678,7 @@ exports.transpile = function (flowObj, options) {
 
 
 
-},{"../constraintMatcher":8,"../extended":10,"../parser":28,"__browserify_Buffer":47}],7:[function(require,module,exports){
+},{"../constraintMatcher":8,"../extended":11,"../parser":31,"__browserify_Buffer":50}],7:[function(require,module,exports){
 "use strict";
 
 var extd = require("./extended"),
@@ -852,7 +852,7 @@ Constraint.extend({
 
 
 
-},{"./constraintMatcher":8,"./extended":10}],8:[function(require,module,exports){
+},{"./constraintMatcher":8,"./extended":11}],8:[function(require,module,exports){
 "use strict";
 
 var extd = require("./extended"),
@@ -1225,7 +1225,7 @@ exports.getIdentifiers = function (constraint) {
 
 
 
-},{"./constraint":7,"./extended":10}],9:[function(require,module,exports){
+},{"./constraint":7,"./extended":11}],9:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     declare = extd.declare,
@@ -1306,7 +1306,108 @@ var Context = declare({
 
 
 
-},{"./extended":10}],10:[function(require,module,exports){
+},{"./extended":11}],10:[function(require,module,exports){
+var extd = require("./extended"),
+    Promise = extd.Promise,
+    nextTick = require("./nextTick"),
+    isPromiseLike = extd.isPromiseLike;
+
+Promise.extend({
+    instance: {
+
+        looping: false,
+
+        constructor: function (flow, matchUntilHalt) {
+            this._super([]);
+            this.flow = flow;
+            this.agenda = flow.agenda;
+            this.rootNode = flow.rootNode;
+            this.matchUntilHalt = !!(matchUntilHalt);
+            extd.bindAll(this, ["onAlter", "callNext"]);
+        },
+
+        halt: function () {
+            this.__halted = true;
+            if (!this.looping) {
+                this.callback();
+            }
+        },
+
+        onAlter: function () {
+            this.flowAltered = true;
+            if (!this.looping && this.matchUntilHalt && !this.__halted) {
+                this.callNext();
+            }
+        },
+
+        setup: function () {
+            var flow = this.flow;
+            this.rootNode.resetCounter();
+            flow.on("assert", this.onAlter);
+            flow.on("modify", this.onAlter);
+            flow.on("retract", this.onAlter);
+        },
+
+        tearDown: function () {
+            var flow = this.flow;
+            flow.removeListener("assert", this.onAlter);
+            flow.removeListener("modify", this.onAlter);
+            flow.removeListener("retract", this.onAlter);
+        },
+
+        __handleAsyncNext: function (next) {
+            var self = this;
+            return next.addCallback(function () {
+                self.looping = false;
+                if (self.flowAltered) {
+                    self.rootNode.incrementCounter();
+                    self.flowAltered = false;
+                    if (!self.__halted) {
+                        self.callNext();
+                    } else {
+                        self.callback();
+                    }
+                } else if (!self.matchUntilHalt || self.__halted) {
+                    self.callback();
+                }
+                self = null;
+            }).addErrback(this.errback);
+        },
+
+        __handleSyncNext: function (next) {
+            this.looping = false;
+            if (this.flowAltered) {
+                this.rootNode.incrementCounter();
+                this.flowAltered = false;
+            }
+            if (next && !this.__halted) {
+                nextTick(this.callNext);
+            } else if (!this.matchUntilHalt || this.__halted) {
+                this.callback();
+            }
+            return next;
+        },
+
+        callback: function () {
+            this.tearDown();
+            this._super(arguments);
+        },
+
+
+        callNext: function () {
+            this.looping = true;
+            var next = this.agenda.fireNext();
+            return isPromiseLike(next) ? this.__handleAsyncNext(next) : this.__handleSyncNext(next);
+        },
+
+        execute: function () {
+            this.setup();
+            this.callNext();
+            return this;
+        }
+    }
+}).as(module);
+},{"./extended":11,"./nextTick":16}],11:[function(require,module,exports){
 module.exports = require("extended")()
     .register(require("array-extended"))
     .register(require("date-extended"))
@@ -1321,51 +1422,30 @@ module.exports = require("extended")()
     .register("LinkedList", require("./linkedList"));
 
 
-},{"./linkedList":12,"array-extended":36,"date-extended":37,"declare.js":39,"extended":40,"function-extended":43,"ht":49,"is-extended":50,"leafy":51,"object-extended":52,"promise-extended":53,"string-extended":54}],11:[function(require,module,exports){
-/**
- *
- * @projectName nools
- * @github https://github.com/C2FO/nools
- * @includeDoc [Examples] ../docs-md/examples.md
- * @includeDoc [Change Log] ../History.md
- * @header [../readme.md]
- */
-
-
-
-
+},{"./linkedList":15,"array-extended":39,"date-extended":40,"declare.js":42,"extended":43,"function-extended":46,"ht":52,"is-extended":53,"leafy":54,"object-extended":55,"promise-extended":56,"string-extended":57}],12:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
-    fs = require("fs"),
-    path = require("path"),
     bind = extd.bind,
-    forEach = extd.forEach,
     declare = extd.declare,
-    Promise = extd.Promise,
     nodes = require("./nodes"),
     EventEmitter = require("events").EventEmitter,
-    rule = require("./rule"),
     wm = require("./workingMemory"),
     WorkingMemory = wm.WorkingMemory,
-    InitialFact = require("./pattern").InitialFact,
-    compile = require("./compile"),
-    nextTick = require("./nextTick"),
+    ExecutionStragegy = require("./executionStrategy"),
     AgendaTree = require("./agenda");
 
-var nools = {};
-
-
-var Flow = declare(EventEmitter, {
+module.exports = declare(EventEmitter, {
 
     instance: {
 
         name: null,
 
+        executionStrategy: null,
+
         constructor: function (name) {
             this.env = null;
             this.name = name;
             this.__rules = {};
-            this.__wmAltered = false;
             this.workingMemory = new WorkingMemory();
             this.agenda = new AgendaTree(this);
             this.agenda.on("fire", bind(this, "emit", "fire"));
@@ -1379,7 +1459,10 @@ var Flow = declare(EventEmitter, {
         },
 
         halt: function () {
-            this.__halted = true;
+            var strategy = this.executionStrategy;
+            if (strategy.matchUntilHalt) {
+                strategy.halt();
+            }
             return this;
         },
 
@@ -1390,7 +1473,6 @@ var Flow = declare(EventEmitter, {
         },
 
         assert: function (fact) {
-            this.__wmAltered = true;
             this.rootNode.assertFact(this.workingMemory.assertFact(fact));
             this.emit("assert", fact);
             return fact;
@@ -1399,7 +1481,6 @@ var Flow = declare(EventEmitter, {
         // This method is called to remove an existing fact from working memory
         retract: function (fact) {
             //fact = this.workingMemory.getFact(fact);
-            this.__wmAltered = true;
             this.rootNode.retractFact(this.workingMemory.retractFact(fact));
             this.emit("retract", fact);
             return fact;
@@ -1409,7 +1490,6 @@ var Flow = declare(EventEmitter, {
         // retract followed by an assert.
         modify: function (fact, cb) {
             //fact = this.workingMemory.getFact(fact);
-            this.__wmAltered = true;
             this.rootNode.retractFact(this.workingMemory.retractFact(fact));
             if ("function" === typeof cb) {
                 cb.call(fact, fact);
@@ -1431,76 +1511,25 @@ var Flow = declare(EventEmitter, {
             this.rootNode.assertRule(rule);
         },
 
-        __loop: function (looper, cb) {
-            var ret = new Promise(), rootNode = this.rootNode;
-            if (rootNode) {
-                rootNode.resetCounter();
-                (function fire() {
-                    nextTick(function () {
-                        looper(ret, fire);
-                    });
-                })();
-            } else {
-                ret.callback();
-            }
-            ret.classic(cb);
-            return ret;
-        },
-
-        __callNext: function () {
-            var rootNode = this.rootNode;
-            var next = this.agenda.fireNext();
-            if (extd.isPromiseLike(next)) {
-                var self = this;
-                return next.addCallback(function () {
-                    if (self.__wmAltered) {
-                        rootNode.incrementCounter();
-                        self.__wmAltered = false;
-                    }
-                });
-            } else {
-                if (this.__wmAltered) {
-                    rootNode.incrementCounter();
-                    this.__wmAltered = false;
-                }
-                return next;
-            }
-        },
-
-
         matchUntilHalt: function (cb) {
-            this.__halted = false;
-            var self = this;
-            return this.__loop(function (ret, fire) {
-                if (!self.__halted) {
-                    var next = self.__callNext();
-                    if (extd.isBoolean(next)) {
-                        fire();
-                    } else {
-                        next.addCallback(fire).addErrback(ret.errback);
-                    }
-                } else {
-                    ret.callback();
-                }
-            }, cb);
+            return (this.executionStrategy = new ExecutionStragegy(this, true)).execute().classic(cb).promise();
         },
 
         match: function (cb) {
-            var self = this;
-            return this.__loop(function (ret, fire) {
-                var next = self.__callNext();
-                if (extd.isBoolean(next)) {
-                    next ? fire() : ret.callback();
-                } else {
-                    next.addCallback(function (fired) {
-                        return fired ? fire() : ret.callback();
-                    }).addErrback(ret.errback);
-                }
-            }, cb);
+            return (this.executionStrategy = new ExecutionStragegy(this)).execute().classic(cb).promise();
         }
 
     }
 });
+},{"./agenda":3,"./executionStrategy":10,"./extended":11,"./nodes":20,"./workingMemory":37,"events":47}],13:[function(require,module,exports){
+"use strict";
+var extd = require("./extended"),
+    instanceOf = extd.instanceOf,
+    forEach = extd.forEach,
+    declare = extd.declare,
+    InitialFact = require("./pattern").InitialFact,
+    rule = require("./rule"),
+    Flow = require("./flow");
 
 var flows = {};
 var FlowContainer = declare({
@@ -1559,9 +1588,56 @@ var FlowContainer = declare({
             });
         }
 
+    },
+
+    "static": {
+        getFlow: function (name) {
+            return flows[name];
+        },
+
+        hasFlow: function (name) {
+            return extd.has(flows, name);
+        },
+
+        deleteFlow: function (name) {
+            if (instanceOf(name, FlowContainer)) {
+                name = name.name;
+            }
+            delete flows[name];
+            return FlowContainer;
+        },
+
+        deleteFlows: function () {
+            for (var name in flows) {
+                if (name in flows) {
+                    delete flows[name];
+                }
+            }
+            return FlowContainer;
+        },
+
+        create: function (name, cb) {
+            return new FlowContainer(name, cb);
+        }
     }
 
-}).as(nools, "Flow");
+}).as(module);
+},{"./extended":11,"./flow":12,"./pattern":35,"./rule":36}],14:[function(require,module,exports){
+/**
+ *
+ * @projectName nools
+ * @github https://github.com/C2FO/nools
+ * @includeDoc [Examples] ../docs-md/examples.md
+ * @includeDoc [Change Log] ../History.md
+ * @header [../readme.md]
+ */
+
+"use strict";
+var extd = require("./extended"),
+    fs = require("fs"),
+    path = require("path"),
+    compile = require("./compile"),
+    FlowContainer = require("./flowContainer");
 
 function isNoolsFile(file) {
     return (/\.nools$/).test(file);
@@ -1577,24 +1653,24 @@ function parse(source) {
     return ret;
 }
 
-nools.getFlow = function (name) {
-    return flows[name];
+exports.Flow = FlowContainer;
+
+exports.getFlow = FlowContainer.getFlow;
+exports.hasFlow = FlowContainer.hasFlow;
+
+exports.deleteFlow = function (name) {
+    FlowContainer.deleteFlow(name);
+    return this;
 };
 
-nools.deleteFlow = function (name) {
-    if (extd.instanceOf(name, FlowContainer)) {
-        name = name.name;
-    }
-    delete flows[name];
-    return nools;
+exports.deleteFlows = function () {
+    FlowContainer.deleteFlows();
+    return this;
 };
 
+exports.flow = FlowContainer.create;
 
-nools.flow = function (name, cb) {
-    return new FlowContainer(name, cb);
-};
-
-nools.compile = function (file, options, cb) {
+exports.compile = function (file, options, cb) {
     if (extd.isFunction(options)) {
         cb = options;
         options = {};
@@ -1612,7 +1688,7 @@ nools.compile = function (file, options, cb) {
     return  compile.compile(file, options, cb, FlowContainer);
 };
 
-nools.transpile = function (file, options) {
+exports.transpile = function (file, options) {
     options = options || {};
     if (extd.isString(file)) {
         options.name = options.name || (isNoolsFile(file) ? path.basename(file, path.extname(file)) : null);
@@ -1621,10 +1697,8 @@ nools.transpile = function (file, options) {
     return compile.transpile(file, options);
 };
 
-nools.parse = parse;
-
-module.exports = nools;
-},{"./agenda":3,"./compile":5,"./extended":10,"./nextTick":13,"./nodes":17,"./pattern":32,"./rule":33,"./workingMemory":34,"events":44,"fs":45,"path":46}],12:[function(require,module,exports){
+exports.parse = parse;
+},{"./compile":5,"./extended":11,"./flowContainer":13,"fs":48,"path":49}],15:[function(require,module,exports){
 var declare = require("declare.js");
 declare({
 
@@ -1679,7 +1753,7 @@ declare({
 
 }).as(module);
 
-},{"declare.js":39}],13:[function(require,module,exports){
+},{"declare.js":42}],16:[function(require,module,exports){
 var process=require("__browserify_process");/*global setImmediate, window, MessageChannel*/
 var extd = require("./extended");
 var nextTick;
@@ -1717,7 +1791,7 @@ if (typeof setImmediate === "function") {
 }
 
 module.exports = nextTick;
-},{"./extended":10,"__browserify_process":48}],14:[function(require,module,exports){
+},{"./extended":11,"__browserify_process":51}],17:[function(require,module,exports){
 var AlphaNode = require("./alphaNode");
 
 AlphaNode.extend({
@@ -1745,7 +1819,7 @@ AlphaNode.extend({
         }
     }
 }).as(module);
-},{"./alphaNode":15}],15:[function(require,module,exports){
+},{"./alphaNode":18}],18:[function(require,module,exports){
 "use strict";
 var Node = require("./node");
 
@@ -1765,7 +1839,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./node":21}],16:[function(require,module,exports){
+},{"./node":24}],19:[function(require,module,exports){
 var AlphaNode = require("./alphaNode");
 
 AlphaNode.extend({
@@ -1786,7 +1860,7 @@ AlphaNode.extend({
         }
     }
 }).as(module);
-},{"./alphaNode":15}],17:[function(require,module,exports){
+},{"./alphaNode":18}],20:[function(require,module,exports){
 "use strict";
 var extd = require("../extended"),
     forEach = extd.forEach,
@@ -2005,7 +2079,7 @@ declare({
 
 
 
-},{"../constraint":7,"../extended":10,"../pattern.js":32,"./aliasNode":14,"./equalityNode":16,"./joinNode":18,"./leftAdapterNode":20,"./notNode":22,"./propertyNode":23,"./rightAdapterNode":24,"./terminalNode":25,"./typeNode":26}],18:[function(require,module,exports){
+},{"../constraint":7,"../extended":11,"../pattern.js":35,"./aliasNode":17,"./equalityNode":19,"./joinNode":21,"./leftAdapterNode":23,"./notNode":25,"./propertyNode":26,"./rightAdapterNode":27,"./terminalNode":28,"./typeNode":29}],21:[function(require,module,exports){
 var extd = require("../extended"),
     values = extd.hash.values,
     indexOf = extd.indexOf,
@@ -2145,7 +2219,7 @@ Node.extend({
     }
 
 }).as(module);
-},{"../extended":10,"./joinReferenceNode":19,"./node":21}],19:[function(require,module,exports){
+},{"../extended":11,"./joinReferenceNode":22,"./node":24}],22:[function(require,module,exports){
 var Node = require("./node");
 Node.extend({
 
@@ -2243,7 +2317,7 @@ Node.extend({
     }
 
 }).as(module);
-},{"./node":21}],20:[function(require,module,exports){
+},{"./node":24}],23:[function(require,module,exports){
 var Node = require("./node");
 
 Node.extend({
@@ -2278,7 +2352,7 @@ Node.extend({
     }
 
 }).as(module);
-},{"./node":21}],21:[function(require,module,exports){
+},{"./node":24}],24:[function(require,module,exports){
 var extd = require("../extended"),
     forEach = extd.forEach,
     indexOf = extd.indexOf,
@@ -2404,7 +2478,7 @@ declare({
 
 }).as(module);
 
-},{"../context":9,"../extended":10}],22:[function(require,module,exports){
+},{"../context":9,"../extended":11}],25:[function(require,module,exports){
 var JoinNode = require("./joinNode"),
     Context = require("../context"),
     extd = require("../extended"),
@@ -2589,7 +2663,7 @@ JoinNode.extend({
         }
     }
 }).as(module);
-},{"../context":9,"../extended":10,"./joinNode":18}],23:[function(require,module,exports){
+},{"../context":9,"../extended":11,"./joinNode":21}],26:[function(require,module,exports){
 var AlphaNode = require("./alphaNode"),
     Context = require("../context"),
     extd = require("../extended");
@@ -2624,7 +2698,7 @@ AlphaNode.extend({
 
 
 
-},{"../context":9,"../extended":10,"./alphaNode":15}],24:[function(require,module,exports){
+},{"../context":9,"../extended":11,"./alphaNode":18}],27:[function(require,module,exports){
 var Node = require("./node");
 
 Node.extend({
@@ -2659,7 +2733,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./node":21}],25:[function(require,module,exports){
+},{"./node":24}],28:[function(require,module,exports){
 var Node = require("./node"),
     extd = require("../extended"),
     bind = extd.bind,
@@ -2738,7 +2812,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"../extended":10,"./node":21}],26:[function(require,module,exports){
+},{"../extended":11,"./node":24}],29:[function(require,module,exports){
 var AlphaNode = require("./alphaNode"),
     Context = require("../context");
 
@@ -2778,7 +2852,7 @@ AlphaNode.extend({
         }
     }
 }).as(module);
-},{"../context":9,"./alphaNode":15}],27:[function(require,module,exports){
+},{"../context":9,"./alphaNode":18}],30:[function(require,module,exports){
 var process=require("__browserify_process");/* parser generated by jison 0.4.6 */
 /*
   Returns a Parser object of the following structure:
@@ -3525,7 +3599,7 @@ if (typeof module !== 'undefined' && require.main === module) {
   exports.main(process.argv.slice(1));
 }
 }
-},{"__browserify_process":48,"fs":45,"path":46}],28:[function(require,module,exports){
+},{"__browserify_process":51,"fs":48,"path":49}],31:[function(require,module,exports){
 (function () {
     "use strict";
     var constraintParser = require("./constraint/parser"),
@@ -3543,7 +3617,7 @@ if (typeof module !== 'undefined' && require.main === module) {
         return noolParser.parse(source, file);
     };
 })();
-},{"./constraint/parser":27,"./nools/nool.parser":29}],29:[function(require,module,exports){
+},{"./constraint/parser":30,"./nools/nool.parser":32}],32:[function(require,module,exports){
 "use strict";
 
 var tokens = require("./tokens.js"),
@@ -3583,7 +3657,7 @@ exports.parse = function (src, file) {
 };
 
 
-},{"../../extended":10,"./tokens.js":30,"./util.js":31}],30:[function(require,module,exports){
+},{"../../extended":11,"./tokens.js":33,"./util.js":34}],33:[function(require,module,exports){
 var process=require("__browserify_process");"use strict";
 
 var utils = require("./util.js"),
@@ -3683,7 +3757,7 @@ var ruleTokens = {
                         rule.push(pred);
                         ruleLine = m[2].replace(/^\s*|\s*$/g, "");
                         if (pred === "or") {
-                            rule = rule.concat(parseRules(ruleLine.replace(/,\s*(\$?\w+\s*:)/, joinFunc)));
+                            rule = rule.concat(parseRules(ruleLine.replace(/,\s*(\$?\w+\s*:)/g, joinFunc)));
                             rules.push(rule);
                             continue;
                         }
@@ -3894,7 +3968,7 @@ var topLevelTokens = {
 module.exports = topLevelTokens;
 
 
-},{"../../extended":10,"./util.js":31,"__browserify_process":48,"fs":45}],31:[function(require,module,exports){
+},{"../../extended":11,"./util.js":34,"__browserify_process":51,"fs":48}],34:[function(require,module,exports){
 var process=require("__browserify_process");"use strict";
 
 var path = require("path");
@@ -3986,7 +4060,7 @@ var findNextTokenIndex = exports.findNextTokenIndex = function (str, startIndex,
 exports.findNextToken = function (str, startIndex, endIndex) {
     return str.charAt(findNextTokenIndex(str, startIndex, endIndex));
 };
-},{"__browserify_process":48,"path":46}],32:[function(require,module,exports){
+},{"__browserify_process":51,"path":49}],35:[function(require,module,exports){
 (function () {
     "use strict";
     var extd = require("./extended"),
@@ -4081,7 +4155,7 @@ exports.findNextToken = function (str, startIndex, endIndex) {
 })();
 
 
-},{"./constraint":7,"./constraintMatcher":8,"./extended":10}],33:[function(require,module,exports){
+},{"./constraint":7,"./constraintMatcher":8,"./extended":11}],36:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     isArray = extd.isArray,
@@ -4268,7 +4342,7 @@ exports.createRule = createRule;
 
 
 
-},{"./extended":10,"./parser":28,"./pattern":32}],34:[function(require,module,exports){
+},{"./extended":11,"./parser":31,"./pattern":35}],37:[function(require,module,exports){
 "use strict";
 var declare = require("declare.js");
 
@@ -4334,7 +4408,7 @@ declare({
 }).as(exports, "WorkingMemory");
 
 
-},{"declare.js":39}],35:[function(require,module,exports){
+},{"declare.js":42}],38:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -4379,7 +4453,7 @@ declare({
 }).call(this);
 
 
-},{"extended":40,"is-extended":50}],36:[function(require,module,exports){
+},{"extended":43,"is-extended":53}],39:[function(require,module,exports){
 (function () {
     "use strict";
     /*global define*/
@@ -5049,7 +5123,7 @@ declare({
 
 
 
-},{"arguments-extended":35,"extended":40,"is-extended":50}],37:[function(require,module,exports){
+},{"arguments-extended":38,"extended":43,"is-extended":53}],40:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -5997,7 +6071,7 @@ declare({
 
 
 
-},{"array-extended":36,"extended":40,"is-extended":50}],38:[function(require,module,exports){
+},{"array-extended":39,"extended":43,"is-extended":53}],41:[function(require,module,exports){
 (function () {
 
     /**
@@ -6924,9 +6998,9 @@ declare({
 
 
 
-},{}],39:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 module.exports = require("./declare.js");
-},{"./declare.js":38}],40:[function(require,module,exports){
+},{"./declare.js":41}],43:[function(require,module,exports){
 (function () {
     "use strict";
     /*global extender is, dateExtended*/
@@ -7025,7 +7099,7 @@ module.exports = require("./declare.js");
 
 
 
-},{"extender":42}],41:[function(require,module,exports){
+},{"extender":45}],44:[function(require,module,exports){
 (function () {
     /*jshint strict:false*/
 
@@ -7566,9 +7640,9 @@ module.exports = require("./declare.js");
     }
 
 }).call(this);
-},{"declare.js":39}],42:[function(require,module,exports){
+},{"declare.js":42}],45:[function(require,module,exports){
 module.exports = require("./extender.js");
-},{"./extender.js":41}],43:[function(require,module,exports){
+},{"./extender.js":44}],46:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -7807,7 +7881,7 @@ module.exports = require("./extender.js");
 
 
 
-},{"arguments-extended":35,"extended":40,"is-extended":50}],44:[function(require,module,exports){
+},{"arguments-extended":38,"extended":43,"is-extended":53}],47:[function(require,module,exports){
 var process=require("__browserify_process");if (!process.EventEmitter) process.EventEmitter = function () {};
 
 var EventEmitter = exports.EventEmitter = process.EventEmitter;
@@ -8003,10 +8077,10 @@ EventEmitter.listenerCount = function(emitter, type) {
   return ret;
 };
 
-},{"__browserify_process":48}],45:[function(require,module,exports){
+},{"__browserify_process":51}],48:[function(require,module,exports){
 // nothing to see here... no file methods for the browser
 
-},{}],46:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 var process=require("__browserify_process");function filter (xs, fn) {
     var res = [];
     for (var i = 0; i < xs.length; i++) {
@@ -8185,7 +8259,7 @@ exports.relative = function(from, to) {
 
 exports.sep = '/';
 
-},{"__browserify_process":48}],47:[function(require,module,exports){
+},{"__browserify_process":51}],50:[function(require,module,exports){
 require=(function(e,t,n,r){function i(r){if(!n[r]){if(!t[r]){if(e)return e(r);throw new Error("Cannot find module '"+r+"'")}var s=n[r]={exports:{}};t[r][0](function(e){var n=t[r][1][e];return i(n?n:e)},s,s.exports)}return n[r].exports}for(var s=0;s<r.length;s++)i(r[s]);return i})(typeof require!=="undefined"&&require,{1:[function(require,module,exports){
 // UTILITY
 var util = require('util');
@@ -12047,7 +12121,7 @@ SlowBuffer.prototype.writeDoubleBE = Buffer.prototype.writeDoubleBE;
 },{}]},{},[])
 ;;module.exports=require("buffer-browserify")
 
-},{}],48:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -12101,7 +12175,7 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],49:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -12366,7 +12440,7 @@ process.chdir = function (dir) {
 
 
 
-},{"array-extended":36,"declare.js":39,"extended":40,"is-extended":50}],50:[function(require,module,exports){
+},{"array-extended":39,"declare.js":42,"extended":43,"is-extended":53}],53:[function(require,module,exports){
 var Buffer=require("__browserify_Buffer").Buffer;(function () {
     "use strict";
 
@@ -12868,7 +12942,7 @@ var Buffer=require("__browserify_Buffer").Buffer;(function () {
 }).call(this);
 
 
-},{"__browserify_Buffer":47,"extended":40}],51:[function(require,module,exports){
+},{"__browserify_Buffer":50,"extended":43}],54:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -13775,7 +13849,7 @@ var Buffer=require("__browserify_Buffer").Buffer;(function () {
 
 
 
-},{"array-extended":36,"declare.js":39,"extended":40,"is-extended":50,"string-extended":54}],52:[function(require,module,exports){
+},{"array-extended":39,"declare.js":42,"extended":43,"is-extended":53,"string-extended":57}],55:[function(require,module,exports){
 (function () {
     "use strict";
     /*global extended isExtended*/
@@ -13993,7 +14067,7 @@ var Buffer=require("__browserify_Buffer").Buffer;(function () {
 
 
 
-},{"array-extended":36,"extended":40,"is-extended":50}],53:[function(require,module,exports){
+},{"array-extended":39,"extended":43,"is-extended":53}],56:[function(require,module,exports){
 var process=require("__browserify_process");(function () {
     "use strict";
     /*global setImmediate, MessageChannel*/
@@ -14498,7 +14572,7 @@ var process=require("__browserify_process");(function () {
 
 
 
-},{"__browserify_process":48,"arguments-extended":35,"array-extended":36,"declare.js":39,"extended":40,"function-extended":43,"is-extended":50}],54:[function(require,module,exports){
+},{"__browserify_process":51,"arguments-extended":38,"array-extended":39,"declare.js":42,"extended":43,"function-extended":46,"is-extended":53}],57:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -15145,5 +15219,5 @@ var process=require("__browserify_process");(function () {
 
 
 
-},{"array-extended":36,"date-extended":37,"extended":40,"is-extended":50}]},{},[1])
+},{"array-extended":39,"date-extended":40,"extended":43,"is-extended":53}]},{},[1])
 ;
