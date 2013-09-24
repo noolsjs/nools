@@ -195,6 +195,8 @@
 <li><a href="#firing">Firing</a> </li>
 <li><a href="#disposing">Disposing</a></li>
 <li><a href="#removing-flow">Removing A Flow</a></li>
+<li><a href="#removing-flows">Removing All Flows</a></li>
+<li><a href="#checking-for-flow">Checking If A Flow Exists</a></li>
 <li><a href="#agenda-groups">Agenda Group</a><ul>
 <li><a href="#agenda-groups-focus">Focus</a></li>
 <li><a href="#agenda-groups-auto-focus">Auto Focus</a></li>
@@ -514,6 +516,20 @@ nools.getFlow(&quot;flow&quot;); //undefined</code></pre>
 nools.deleteFlow(myFlow); //returns nools for chaining
 
 nools.getFlow(&quot;flow&quot;); //undefined</code></pre>
+<p><a name="removing-flows"></a></p>
+<h1>Removing All Flows</h1>
+<p>To remove all flow from <code>nools</code> use the <code>deleteFlows</code> function.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var myFlow = nools.flow(&quot;flow&quot;);
+
+nools.deleteFlows(); //returns nools for chaining
+
+nools.getFlow(&quot;flow&quot;); //undefined</code></pre>
+<p><a name="checking-for-flow"></a></p>
+<h1>Checking If A Flow Exists</h1>
+<p>To check if a flow currently is registering with <code>nools</code> use the <code>hasFlow</code> function;</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var myFlow = nools.flow(&quot;flow&quot;);
+
+nools.hasFlow(&quot;flow&quot;); //true</code></pre>
 <p><a name="agenda-groups"></a></p>
 <h2>Agenda Groups</h2>
 <p>Agenda groups allow for logical groups of rules within a flow.</p>
