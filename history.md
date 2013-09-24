@@ -1,3 +1,8 @@
+#0.1.13
+* Fixed issue [#68](https://github.com/C2FO/nools/issues/68) where `matchUntilHalt` uses a lot of CPU
+* Fixed issue [#45](https://github.com/C2FO/nools/issues/45), now compiled rules support `or` constraint with more than 2 inner constraints.
+* Added new feature to address [#76](https://github.com/C2FO/nools/issues/76), now you can use `deleteFlows` to dispose all flows, or use `hasFlow` to check if a flow is already registred with `nools`.
+
 # 0.1.12
 * Fixed issue in node v0.6 where path.sep is not found.
 

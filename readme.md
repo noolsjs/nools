@@ -23,6 +23,8 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
     * [Firing](#firing) 
     * [Disposing](#disposing)
     * [Removing A Flow](#removing-flow)
+    * [Removing All Flows](#removing-flows)
+    * [Checking If A Flow Exists](#checking-for-flow)
     * [Agenda Group](#agenda-groups)
       * [Focus](#agenda-groups-focus)
       * [Auto Focus](#agenda-groups-auto-focus)
@@ -437,6 +439,33 @@ var myFlow = nools.flow("flow");
 nools.deleteFlow(myFlow); //returns nools for chaining
 
 nools.getFlow("flow"); //undefined
+```
+
+<a name="removing-flows"></a>
+# Removing All Flows
+
+To remove all flow from `nools` use the `deleteFlows` function.
+
+```javascript
+var myFlow = nools.flow("flow");
+
+nools.deleteFlows(); //returns nools for chaining
+
+nools.getFlow("flow"); //undefined
+
+```
+
+
+<a name="checking-for-flow"></a>
+# Checking If A Flow Exists
+
+To check if a flow currently is registering with `nools` use the `hasFlow` function;
+
+```javascript
+var myFlow = nools.flow("flow");
+
+nools.hasFlow("flow"); //true
+
 ```
 
 <a name="agenda-groups"></a>

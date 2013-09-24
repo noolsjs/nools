@@ -53,7 +53,6 @@ it.describe("Flow dsl", function (it) {
 
             });
         });
-
     });
 
     it.describe("scoped functions", function (it) {
