@@ -1,3 +1,7 @@
+#0.1.14
+* Fixed issue with async actions and early match termination.
+
+
 #0.1.13
 * Fixed issue [#68](https://github.com/C2FO/nools/issues/68) where `matchUntilHalt` uses a lot of CPU
 * Fixed issue [#45](https://github.com/C2FO/nools/issues/45), now compiled rules support `or` constraint with more than 2 inner constraints.
