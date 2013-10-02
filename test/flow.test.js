@@ -60,7 +60,6 @@ it.describe("nools", function (it) {
             var name = "delete nools flows";
             nools.flow(name);
             assert.isTrue(nools.hasFlow(name));
-            debugger;
             assert.equal(nools.deleteFlows(), nools);
             assert.isFalse(nools.hasFlow(name));
         });
@@ -688,6 +687,48 @@ it.describe("Flow", function (it) {
                     assert.deepEqual(fired2, ["Hello4", "Hello3", "Hello2", "Hello1"]);
                 });
         });
+    });
+
+    it.describe("async actions", function (it) {
+
+        var flow;
+
+        it.timeout(2000);
+
+        function Message(m) {
+            this.message = m;
+        }
+
+
+        it.beforeAll(function () {
+            flow = nools.flow("async flow", function () {
+                this.rule("Hello", [Message, "m", "m.message == 'hello'"], function (facts, engine, next) {
+                    setTimeout(function () {
+                        next();
+                    }, 500);
+                });
+
+                this.rule("Goodbye", [Message, "m", "m.message == 'hello goodbye'"], function (facts, engine, next) {
+                    setTimeout(function () {
+                        next();
+                    }, 500);
+                });
+
+            });
+        });
+
+        it.should("fire all rules", function () {
+            var fired = [];
+            var session = flow.getSession(new Message("hello"), new Message("hello goodbye"))
+                .on("fire", function (name) {
+                    debugger;
+                    fired.push(name);
+                });
+            return session.match().then(function () {
+                assert.deepEqual(fired, ["Goodbye", "Hello"]);
+            })
+        });
+
     });
 
     it.describe("#matchUntilHalt", function (it) {
