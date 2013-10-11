@@ -1,0 +1,42 @@
+
+rule "terminate group" {
+    salience: -100
+    when {}
+    then{
+        console.log("Validation complete." );
+        halt();
+    }
+}
+
+rule "duplicate in cell row" {
+    when{
+        $c: Cell $c.value !== null {$v: value};
+        $cr: CellRow $c in $cr.cells;
+        $e: Cell $e != $c && $e.value == $v && $e.cellRow == $cr;
+    }
+    then{
+        console.log( "cell " + $c.toString() + " has a duplicate in row " + $cr.getNumber() );
+    }
+}
+
+rule "duplicate in cell col" {
+    when{
+        $c: Cell $c.value !== null {$v: value};
+        $cc: CellCol $c in $cc.cells;
+        $e: Cell $e != $c && $e.value == $v && $e.cellCol == $cc;
+    }
+    then {
+        console.log( "cell " + $c.toString() + " has a duplicate in col " + $cc.getNumber() );
+    }
+}
+
+rule "duplicate in cell sqr" {
+    when{
+        $c: Cell $c.value !== null {$v: value};
+        $cs: CellSqr $c in $cs.cells;
+        $e: Cell $e != $c && $e.value == $v && $e.cellSqr == $cs
+    }
+    then{
+        System.out.println( "cell " + $c.toString() + " has duplicate in its square of nine." );
+    }
+}

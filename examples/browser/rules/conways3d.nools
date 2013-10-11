@@ -71,6 +71,8 @@ rule Transition {
             if(cell.transition()){
                 emit("cell-transition", cell);
                 transitioned = true;
+            }else{
+                retract(cell);
             }
         });
         emit("evaluate");

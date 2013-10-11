@@ -428,7 +428,7 @@ it.describe("Rule",function (it) {
             });
         });
 
-        it.should("should create a composite rule", function () {
+        it.should("create a composite rule", function () {
             var rule = rules.createRule("My Rule", [
                 ["string", "s"],
                 ["string", "s2", "s2 == s"]
@@ -455,7 +455,7 @@ it.describe("Rule",function (it) {
             assert.strictEqual(rule.cb, cb);
         });
 
-        it.should("should create a not pattern", function () {
+        it.should("create a not pattern", function () {
             var rule = rules.createRule("My Rule", [
                 ["string", "s"],
                 ["not", "string", "s2", "s2 == s"]
@@ -482,7 +482,7 @@ it.describe("Rule",function (it) {
             assert.strictEqual(rule.cb, cb);
         });
 
-        it.should("should create a or pattern", function () {
+        it.should("create a or pattern", function () {
             var ruleArr = rules.createRule("My Rule", [
                 ["string", "s"],
                 ["or",
@@ -512,6 +512,66 @@ it.describe("Rule",function (it) {
                 assert.instanceOf(constrnts[1], constraints[i === 0 ? "ReferenceConstraint" : "EqualityConstraint"]);
                 assert.strictEqual(rule.cb, cb);
             }
+        });
+
+        it.should("include reference store in constraints", function () {
+            var ruleArr = rules.createRule("My Rule", [
+                ["Hash", "h", {name: "name"}],
+                ["string", "s2", "s2 == name", {length: "length"}]
+            ], cb);
+            assert.isNotNull(ruleArr);
+            assert.lengthOf(ruleArr, 1);
+
+            var rule = ruleArr[0];
+            assert.equal(rule.name, "My Rule");
+            assert.isNotNull(rule.pattern);
+            var pattern = rule.pattern;
+            assert.instanceOf(pattern, patterns.CompositePattern);
+            assert.instanceOf(pattern.leftPattern, patterns.ObjectPattern);
+            assert.instanceOf(pattern.rightPattern, patterns.ObjectPattern);
+            assert.equal(pattern.leftPattern.alias, "h");
+            assert.equal(pattern.rightPattern.alias, "s2");
+            var constrnts = pattern.leftPattern.constraints;
+            assert.lengthOf(constrnts, 3);
+            assert.instanceOf(constrnts[0], constraints.ObjectConstraint);
+            assert.instanceOf(constrnts[1], constraints.TrueConstraint);
+            assert.instanceOf(constrnts[2], constraints.HashConstraint);
+            constrnts = pattern.rightPattern.constraints;
+            assert.lengthOf(constrnts, 3);
+            assert.instanceOf(constrnts[0], constraints.ObjectConstraint);
+            assert.instanceOf(constrnts[1], constraints.ReferenceConstraint);
+            assert.instanceOf(constrnts[2], constraints.HashConstraint);
+            assert.strictEqual(rule.cb, cb);
+        });
+
+        it.should("should include from constraints", function () {
+            var ruleArr = rules.createRule("My Rule", [
+                ["Hash", "h", {name: "name"}],
+                ["string", "s2", "s2 == name", {length: "length"}, "from name"]
+            ], cb);
+            assert.isNotNull(ruleArr);
+            assert.lengthOf(ruleArr, 1);
+
+            var rule = ruleArr[0];
+            assert.equal(rule.name, "My Rule");
+            assert.isNotNull(rule.pattern);
+            var pattern = rule.pattern;
+            assert.instanceOf(pattern, patterns.CompositePattern);
+            assert.instanceOf(pattern.leftPattern, patterns.ObjectPattern);
+            assert.instanceOf(pattern.rightPattern, patterns.FromPattern);
+            assert.equal(pattern.leftPattern.alias, "h");
+            assert.equal(pattern.rightPattern.alias, "s2");
+            var constrnts = pattern.leftPattern.constraints;
+            assert.lengthOf(constrnts, 3);
+            assert.instanceOf(constrnts[0], constraints.ObjectConstraint);
+            assert.instanceOf(constrnts[1], constraints.TrueConstraint);
+            assert.instanceOf(constrnts[2], constraints.HashConstraint);
+            constrnts = pattern.rightPattern.constraints;
+            assert.lengthOf(constrnts, 3);
+            assert.instanceOf(constrnts[0], constraints.ObjectConstraint);
+            assert.instanceOf(constrnts[1], constraints.ReferenceConstraint);
+            assert.instanceOf(constrnts[2], constraints.HashConstraint);
+            assert.equal(pattern.rightPattern.from, "name");
         });
     });
 
