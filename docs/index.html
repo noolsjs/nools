@@ -191,7 +191,12 @@
 <li>Flows<ul>
 <li><a href="#flow">Defining A Flow</a> </li>
 <li><a href="#session">Sessions</a> </li>
-<li><a href="#facts">Facts</a> </li>
+<li><a href="#facts">Facts</a><ul>
+<li><a href="#facts-assert">Assert</a></li>
+<li><a href="#facts-retract">Retract</a></li>
+<li><a href="#facts-modify">Modify</a></li>
+</ul>
+</li>
 <li><a href="#firing">Firing</a> </li>
 <li><a href="#disposing">Disposing</a></li>
 <li><a href="#removing-flow">Removing A Flow</a></li>
@@ -208,7 +213,12 @@
 <li><a href="#rule-structure">Structure</a></li>
 <li><a href="#rule-salience">Salience</a></li>
 <li><a href="#rule-scope">Scope</a></li>
-<li><a href="#constraints">Constraints</a></li>
+<li><a href="#constraints">Constraints</a><ul>
+<li><a href="#not-constraint">Not</a></li>
+<li><a href="#or-constraint">Or</a></li>
+<li><a href="#from-constraint">From</a></li>
+</ul>
+</li>
 <li><a href="#action">Actions</a></li>
 <li><a href="#globals">Globals</a></li>
 <li><a href="#import">Import</a></li>
@@ -217,8 +227,12 @@
 <li><a href="#browser-support">Browser Support</a></li>
 <li><a href="#fib">Fibonacci</a></li>
 </ul>
-<p>The <a href="https://github.com/C2FO/nools/tree/master/examples">examples</a> and <a href="https://github.com/C2FO/nools/tree/master/test">tests</a> are a
-great place to get started. You can ask your questions on the <a href="https://groups.google.com/forum/#!forum/nools">Nools Google group</a>.</p>
+<h2>Resources</h2>
+<ul>
+<li><a href="https://groups.google.com/forum/#!forum/nools">Nools Google group</a></li>
+<li><a href="http://c2fo.github.io/nools/examples.html">Examples</a></li>
+<li><a href="https://github.com/C2FO/nools/tree/master/test">Tests</a></li>
+</ul>
 <p><a name="flow"></a></p>
 <h2>Defining a flow</h2>
 <p>When using nools you define a <strong>flow</strong> which acts as a container for rules that can later be used to get
@@ -375,13 +389,18 @@ var flow = nools.compile(noolsSource, {
 <p><a name="facts"></a></p>
 <h2>Working with facts</h2>
 <p>Facts are items that the rules should try to match.</p>
-<p>To add facts to the session use <strong>assert</strong> method.</p>
+<p><a name="facts-assert"></a></p>
+<h3>Assert</h3>
+<p>To add facts to the session use <code>assert</code> method.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">session.assert(new Message(&quot;hello&quot;));
 session.assert(new Message(&quot;hello world&quot;));
 session.assert(new Message(&quot;goodbye&quot;));</code></pre>
 <p>As a convenience any object passed into <strong>getSession</strong> will also be asserted.</p>
+<p><strong>Note</strong> assert is typically used pre engine execution and during the execution of the rules.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">flow.getSession(new Message(&quot;hello&quot;), new Message(&quot;hello world&quot;), new Message(&quot;goodbye&quot;));</code></pre>
-<p>To retract facts from the session use the <strong>retract</strong> method.</p>
+<p><a name="facts-retract"></a></p>
+<h3>Retract</h3>
+<p>To remove facts from the session use the <code>retract</code> method.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">var m = new Message(&quot;hello&quot;);
 
 //assert the fact into the engine
@@ -389,7 +408,10 @@ session.assert(m);
 
 //remove the fact from the engine
 session.retract(m);</code></pre>
-<p>To modify a fact use the <strong>modify</strong> method.</p>
+<p><strong>Note</strong> <code>retract</code> is typically used during the execution of the rules.</p>
+<p><a name="facts-modify"></a></p>
+<h3>Modify</h3>
+<p>To modify a fact use the <code>modify</code> method.</p>
 <p><strong>Note</strong> modify will not work with immutable objects (i.e. strings). </p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">
 var m = new Message(&quot;hello&quot;);
@@ -399,8 +421,7 @@ session.assert(m);
 m.message = &quot;hello goodbye&quot;;
 
 session.modify(m);</code></pre>
-<p><strong>assert</strong> is typically used pre engine execution and during the execution of the rules.</p>
-<p><strong>modify</strong> and <strong>retract</strong> are typically used during the execution of the rules.</p>
+<p><strong>Note</strong> <code>modify</code> is typically used during the execution of the rules.</p>
 <p><a name="firing"></a></p>
 <h2>Firing the rules</h2>
 <p>When you get a session from a <strong>flow</strong> no rules will be fired until the <strong>match</strong> method is called.</p>
@@ -771,6 +792,38 @@ this.rule(&quot;Hello2&quot;, {salience: 9}, [Message, &quot;m&quot;, &quot;m.na
 
 this.rule(&quot;Hello1&quot;, {salience: 10}, [Message, &quot;m&quot;, &quot;m.name == &#39;Hello&#39;&quot;], function (facts) {
 });</code></pre>
+<p>Or using the DSL</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">rule Hello4 {
+    salience: 7;
+    when {
+        m: Message m.name == &#39;hello&#39;;
+    }
+    then {}
+}
+
+rule Hello3 {
+    salience: 8;
+    when {
+        m: Message m.name == &#39;hello&#39;;
+    }
+    then {}
+}
+
+rule Hello2 {
+    salience: 9;
+    when {
+        m: Message m.name == &#39;hello&#39;;
+    }
+    then {}
+}
+
+rule Hello1 {
+    salience: 10;
+    when {
+        m: Message m.name == &#39;hello&#39;;
+    }
+    then {}
+}</code></pre>
 <p>In the above flow we define four rules each with a different salience, when a single message is asserted they will fire in order of salience (highest to lowest).</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">var fired = [];
 flow1
@@ -916,6 +969,75 @@ var flow = nools.compile(__dirname + &quot;/rules/provided-scope.nools&quot;, {s
 <li><p>Reference(optional) - An object where the keys are properties on the current object, and values are aliases to use. The alias may be used in succeeding patterns.</p>
 </li>
 </ol>
+<p><a name="not-constraint"></a></p>
+<h4>Not Constraint</h4>
+<p>The <code>not</code> constraint allow you to check that particular <code>fact</code> does <strong>not</strong> exist.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">
+[
+    [Number, &quot;n1&quot;],
+    [&quot;not&quot;, Number, &quot;n2&quot;, &quot;n1 &gt; n2&quot;]
+]</code></pre>
+<p>Or using the DSL.</p>
+<pre class='prettyprint linenums lang-js'><code>
+when {
+    n1: Number;
+    not(n2: Number n1 &gt; n2);
+}</code></pre>
+<p>The previous example will check that for all numbers in the <code>workingMemory</code> there is <strong>not</strong> one that is greater than <code>n1</code>.</p>
+<p><a name="or-constraint"></a></p>
+<h4>Or Constraint</h4>
+<p>The <code>or</code> constraint can be used to check for either one fact or another.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">
+[
+    [&quot;or&quot;,
+        [String, &quot;s&quot;, &quot;s == &#39;hello&#39;&quot;],
+        [String, &quot;s&quot;, &quot;s == &#39;world&#39;&quot;]
+    ]
+]</code></pre>
+<p>Using the DSL.</p>
+<pre class='prettyprint linenums lang-js'><code>when {
+    or(
+        s : String s == &#39;hello&#39;,
+        s : String s == &#39;world&#39;
+    );
+}</code></pre>
+<p>The previous example will evaluate to <code>true</code> if you have a string in <code>workingMemory</code> that equals <code>hello</code> or `world.</p>
+<p><a name="from-constraint"></a></p>
+<h4>From Constraint</h4>
+<p>The <code>from</code> modifier allows for the checking of facts that are not necessarily in the <code>workingMemory</code> but instead exist as a property on a fact.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">[
+    [Person, &quot;p&quot;],
+    [Address, &quot;a&quot;, &quot;a.zipcode == 88847&quot;, &quot;from p.address&quot;],
+    [String, &quot;first&quot;, &quot;first == &#39;bob&#39;&quot;, &quot;from p.firstName&quot;],
+    [String, &quot;last&quot;, &quot;last == &#39;yukon&#39;&quot;, &quot;from p.lastName&quot;]
+]</code></pre>
+<p>Or using the DSL.</p>
+<pre class='prettyprint linenums lang-js'><code>when {
+    p: Person:
+    a: Address a.zipcode == 88847 from p.address;
+    first: String first == &#39;bob&#39; from p.firstName;
+    last: String last == &#39;yukon&#39; from p.lastName;
+}</code></pre>
+<p>The above example will used the address, firstName and lastName from the <code>person</code> fact.</p>
+<p>You can also use the <code>from</code> modifier to check facts that create a graph.</p>
+<p>For example assume the person object from above has friends that are also of type <code>Person</code>.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">[
+    [Person, &quot;p&quot;],
+    [Person, &quot;friend&quot;, &quot;friend.firstName != p.firstName&quot;, &quot;from p.friends&quot;],
+    [String, &quot;first&quot;, &quot;first =~ /^a/&quot;, &quot;from friend.firstName&quot;]
+]</code></pre>
+<p>Or using the DSL.</p>
+<pre class='prettyprint linenums lang-js'><code>when {
+    p: Person;
+    friend: Person friend.firstName != p.firstName;
+    first: String first =~ /^a/ from friend.firstName;
+}</code></pre>
+<p>The above example will pull the <code>friend</code> fact from the friends array property on fact <code>p</code>, and first from the <code>friend</code>&#39;s <code>firstName</code>.</p>
+<p>You could achieve the same thing using the following code if you assert all friends into working memory.</p>
+<pre class='prettyprint linenums lang-js'><code>when {
+    p: Person;
+    friend: Person friend in p.friends &amp;&amp; friend.firstName != p.firstName &amp;&amp; p.firstName =~ /^a/;
+}</code></pre>
 <p><a name="action"></a></p>
 <h3>Action</h3>
 <p>The action is a function that should be fired when all patterns in the rule match. The action is called in the scope

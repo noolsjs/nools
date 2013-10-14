@@ -1,6 +1,8 @@
 "use strict";
 var it = require("it"),
-    assert = require("assert"), parser = require("../lib/parser"), constraintMatcher = require("../lib/constraintMatcher");
+    assert = require("assert"),
+    parser = require("../lib/parser"),
+    constraintMatcher = require("../lib/constraintMatcher");
 
 it.describe("constraint matcher", function (it) {
 

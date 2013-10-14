@@ -829,7 +829,7 @@ rule visit_2j_2 {
 //    ; (write edge_label <bp> <p3> <n3> <id> (crlf))
 //    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name <n1> ^l_id <id>)
 //    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name <n2> ^l_id <id>))
-rule visit_2j_0 {
+rule visit_2j_3 {
     when {
         s : Stage s.value == 'VISITING_2J';
         j : Junction j.visited == 'now' {name : name, basePoint : basePoint, p1 : p1, p2 : p2};
@@ -922,7 +922,7 @@ rule start_checking {
 //    -->
 //    (modify 1 ^value remove_label)
 //    (make illegal ^bp <bp> ^l_id <id>))
-rule checking1 {
+rule checking {
     when {
         stage : Stage stage.value == 'CHECKING';
         junction : Junction junction.visited == 'check' {basePoint : basePoint};

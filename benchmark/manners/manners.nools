@@ -106,7 +106,6 @@ rule findSeating {
             not(chosen : Chosen chosen.id == sid && chosen.guestName == leftGuestName && chosen.hobby == rightGuestHobby);
         }
         then {
-            console.log("findSeating");
             assert(new Seating({
                         id : countValue,
                         pid : sid,
@@ -132,7 +131,6 @@ rule makePath {
             not( p2 : Path p2.id == sid && p2.guestName == pathGuestName);
         }
         then {
-            console.log("makePath");
             assert(new Path({id : sid, seat : pathSeat, guestName : pathGuestName}));
         }
 }
@@ -143,7 +141,6 @@ rule pathDone {
             s : Seating s.path == false;
         }
         then {
-            console.log("pathDone");
             modify(s, function(){
                 this.path = true;
             });
@@ -171,7 +168,6 @@ rule continue {
             c : Context c.state == 'check';
         }
         then {
-            console.log("continue");
             modify(c, function(){this.state = 'assign'});
         }
 }
