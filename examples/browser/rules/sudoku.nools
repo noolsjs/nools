@@ -1,0 +1,377 @@
+
+rule "terminate group" {
+    salience: -100;
+    agenda-group: "validate";
+    when {
+        $state: String $state == "validate";
+    }
+    then{
+        console.log("Validation complete." );
+        retract($state);
+        halt();
+    }
+}
+
+
+
+rule "duplicate in cell col" {
+    agenda-group: "validate";
+    when{
+        $c: Cell $c.value;
+        $e: Cell $e.value == $c.value from $c.exCells;
+    }
+    then {
+        emit("invalid", $c);
+        emit("invalid", $e);
+    }
+}
+
+
+rule "halt after setup" {
+    when{
+        $ctr: Counter $ctr.count == 0;
+    }
+    then{
+        console.log("halt after setup");
+        halt();
+    }
+}
+
+
+rule "emergency halt 2" {
+    salience: 100;
+    when{
+        $c: Cell !$c.value && $c.count == 0;
+    }
+    then{
+        console.log("emergency halt cell without a value and no free values");
+        halt();
+        //process.exit();
+    }
+
+}
+
+// A Setting object is inserted to define the value of a Cell.
+// Rule "set a value" updates the cell and all cell groups containing it.
+rule "set a value"{
+    when{
+        // a Setting with row and column number, and a value
+        $s: Setting {rowNo: $rn, colNo: $cn, value: $v};
+
+        // a matching Cell, with no value set
+        $c: Cell $c.rowNo == $rn && $c.colNo == $cn && !$c.value {cellRow: $cr, cellCol: $cc, cellSqr: $cs};
+    }
+    then {
+        // modify the Cell by setting its value
+        modify( $c, function(){ this.blockExcept(); this.value = $v;});
+        emit("set-value", $c);
+        console.log( "set cell " + $c.toString() );
+        modify( $cr, function(){ this.blockValue( $v ) });
+        modify( $cc, function(){ this.blockValue( $v ) });
+        modify( $cs, function(){ this.blockValue( $v ) });
+    }
+}
+
+
+// Rule for removing a value from all cells that are siblings
+// in one of the three cell groups.
+rule "eliminate a value from Cell" {
+    salience: 1;
+    when{
+        // a Setting with row and column number, and a value
+        $s: Setting {rowNo: $rn, colNo: $cn, value: $v};
+
+        // the matching Cell, with the value already set
+        $mc : Cell $mc.rowNo == $rn && $mc.colNo == $cn && $mc.value == $v {exCells: $exCells};
+
+        // for all Cells that are in cahoots with the updated cell
+        $c: Cell $v in $c.free from $exCells;
+    }
+    then{
+        console.log( "clear " + $v + " from cell " + $c.posAsString() + " because of " + $mc.posAsString() );
+        // modify a related Cell by blocking the assigned value
+        modify( $c, function(){ this.blockValue( $v ); });
+    }
+}
+
+//Rule for elimination the Setting fact.
+rule "retract setting"{
+    when {
+        // a Setting with row and column number, and a value
+        $s: Setting {rowNo: $rn, colNo: $cn, value: $v};
+
+        // the matching Cell, with the value already set
+        $c: Cell $c.rowNo == $rn && $c.colNo == $cn && $c.value == $v;
+
+        // This is the negation of the last pattern in the previous rule.
+        // Now the Setting fact can be safely retracted.
+        not( $x: Cell $v in $x.free && $x in $c.exCells);
+        // count down
+        $ctr: Counter {count: $count};
+
+    }
+    then{
+        console.log("retracting " + $s.toString());
+        // Discard the Setter fact.
+        retract( $s );
+        console.log("COUNT = %s", $count);
+        modify( $ctr, function(){ this.count = $count - 1;});
+        console.log( "done setting cell " + $c.toString() );
+    }
+}
+
+
+// Detect a set of candidate values with cardinality 1 for some Cell.
+// This is the value to be set.
+rule "single"{
+    when {
+        // There is currently no setting under way.
+        not($ns: Setting);
+
+        // One element in the "free" set.
+        $c: Cell $c.count == 1 {rowNo: $rn, colNo: $cn};
+    }
+    then {
+        var i  = $c.freeValue();
+        console.log( "single " + i + " at " + $c.posAsString() );
+        // Insert another Setter fact.
+        assert( new Setting( $rn, $cn, i ) );
+    }
+}
+
+// Detect a set of candidate values with a value that is the only one
+// in one of its groups. This is the value to be set.
+rule "hidden single" {
+    when{
+        // There is currently no setting under way.
+        not($ns: Setting);
+        not($nc: Cell $nc.count == 1 );
+
+        // Some integer.
+        $i: Number;
+
+        // The "free" set contains this number.
+        $c: Cell  $c.count > 1 && $i in $c.free {rowNo: $rn, colNo: $cn};
+
+        // We have a cell group containing this cell $c
+        $cg: CellGroup $c in $cg.cells;
+        // but no other cell from that group contains $i
+        not ($nc2: Cell $nc2 != $c && $i in $nc2.free from $cg.cells);
+    }
+    then {
+        console.log( "hidden single " + $i + " at " + $c.posAsString() );
+        // Insert another Setter fact.
+        assert( new Setting( $rn, $cn, $i ) );
+    }
+}
+
+
+// A "naked pair" is two cells in some cell group with their sets of
+// permissible values being equal with cardinality 2. These two values
+// can be removed from all other candidate lists in the group.
+rule "naked pair" {
+    when {
+        // There is currently no setting under way.
+        not($ns: Setting);
+        not($nc: Cell $nc.count == 1 );
+
+
+        // One cell with two candidates.
+        $c1: Cell $c1.count == 2 {free: $f1, cellRow: $r1, rowNo: $rn1, colNo: $cn1, cellSqr: $b1};
+
+        // The containing cell group.
+        $cg: CellGroup  $cg.count > 2 && $c1 in $cg.cells;
+
+        // Another cell with two candidates, not the one we already have.
+        $c2: Cell( $c2 != $c1 && deepEqual($c2.free, $f1) ) from $cg.cells;
+
+        // Get one of the "naked pair".
+        $v: Number from $c1.free;
+
+        // Get some other cell with a candidate equal to one from the pair.
+        $c3: Cell $c3 != $c1 && $c3 != $c2 && $c3.count > 1 &&  $v in $c3.free from $cg.cells;
+    }
+    then{
+        console.log( "remove " + $v + " from " + $c3.posAsString() + " due to naked pair at " + $c1.posAsString() + ":[" + $f1.join(",") + "] and " + $c2.posAsString() + ":[" + $c2.free.join(",") + "]" );
+        // Remove the value.
+        modify( $c3, function(){ this.blockValue( $v ); });
+    }
+}
+
+// If two cells within the same cell group contain candidate sets with more than
+// two values, with two values being in both of them but in none of the other
+// cells, then we have a "hidden pair". We can remove all other candidates from
+// these two cells.
+//
+rule "hidden pair in row" {
+    when{
+        // There is currently no setting under way.
+        not($ns: Setting);
+        not($nc: Cell $nc.count == 1 );
+
+        // Establish a pair of Integer facts
+        $i1: Number;
+        $i2: Number $i2 > $i1;
+
+        // Look for a Cell with these two among its candidates. (The upper bound on
+        // the number of candidates avoids a lot of useless work during startup.)
+        $c1: Cell $c1.count > 2 && $c1.count < 9 && $i1 in $c1.free && $i2 in $c1.free {rowNo: $rn1, colNo: $cn1, cellRow: $cellRow};
+
+        // Get another one from the same row, with the same pair among its candidates,
+        $c2: Cell $c2 != $c1 && $c2.cellRow == $cellRow && $c2.count > 2 && $i1 in $c2.free && $i2 in $c2.free;
+
+        // Assertain that no other cell in the group has one of these two values.
+        not($nc2: Cell $nc2 != $c1 && $nc2 != $c2 && ($i1 in $nc2.free || $i2 in $nc2.free ) from $cellRow.cells)
+     }
+    then{
+        console.log( "hidden pair in row at " + $c1.posAsString() + " and " + $c2.posAsString() );
+        // Set the candidate lists of these two Cells to the "hidden pair".
+        modify( $c1, function(){this.blockExcept([$i1, $i2]) });
+        modify( $c2, function(){this.blockExcept([$i1, $i2]) });
+    }
+}
+
+rule "hidden pair in column"{
+    when{
+        not($ns: Setting);
+        not($nc: Cell $nc.count == 1 );
+
+        $i1: Number;
+        $i2: Number $i2 > $i1;
+
+        $c1: Cell $c1.count > 2 && $c1.count < 9 && $i1 in $c1.free && $i2 in $c1.free {rowNo: $rn1, colNo: $cn1, cellCol: $cellCol};
+        $c2: Cell $c2 != $c1 && $c2.cellCol == $cellCol && $c2.count > 2 && $i1 in $c2.free && $i2 in $c2.free;
+        not($nc2: Cell $nc2 != $c1 && $nc2 != $c2 && ($i1 in $nc2.free || $i2 in $nc2.free ) from $cellCol.cells)
+    }
+    then{
+        console.log( "hidden pair in column at " + $c1.posAsString() + " and " + $c2.posAsString() );
+        modify( $c1, function(){this.blockExcept([$i1, $i2]) });
+        modify( $c2, function(){this.blockExcept([$i1, $i2]) });
+    }
+}
+
+rule "hidden pair in square" {
+    when{
+        not($ns: Setting);
+        not($nc: Cell $nc.count == 1 );
+
+        $i1: Number;
+        $i2: Number $i2 > $i1;
+
+        $c1: Cell $c1.count > 2 && $c1.count < 9 && $i1 in $c1.free && $i2 in $c1.free {rowNo: $rn1, colNo: $cn1, cellSqr: $cellSqr};
+        $c2: Cell $c2 != $c1 && $c2.cellSqr == $cellSqr && $c2.count > 2 && $i1 in $c2.free && $i2 in $c2.free;
+
+        not($nc2: Cell $nc2 != $c1 && $nc2 != $c2 && ($i1 in $nc2.free || $i2 in $nc2.free ) from $cellSqr.cells)
+    }
+    then{
+        console.log( "hidden pair in square " + $c1.posAsString() + " and " + $c2.posAsString() );
+        modify( $c1, function(){this.blockExcept([$i1, $i2]) });
+        modify( $c2, function(){this.blockExcept([$i1, $i2]) });
+    }
+}
+
+
+rule "X-wings in rows" {
+    when{
+        not($ns: Setting);
+        not($nc: Cell $nc.count == 1 );
+
+        $i: Number;
+
+        $ca1: Cell $ca1.count > 1 && $i in $ca1.free {cellRow: $ra, rowNo: $rano, cellCol: $c1,colNo: $c1no};
+        $cb1: Cell $cb1.count > 1 && $i in $cb1.free && $cb1.rowNo > $rano && $cb1.cellCol == $c1 {cellRow: $rb, rowNo: $rbno};
+        not($nc2: Cell $nc2 != $ca1 && $nc2 != $cb1 && $i in $nc2.free from $c1.cells);
+
+        $ca2: Cell $ca2.count > 1 && $1 in $ca2.free && $ca2.cellRow == $ra && $ca2.colNo > $c1no {cellCol: $c2, colNo: $c2no};
+        $cb2: Cell $cb2.count > 1 && $i in $cb2.free && $cb2.cellRow == $rb && $cb2.cellCol == $c2;
+        not($nc3: Cell $nc3 != $ca2 && $nc3 != $cb2 && $i in $nc3.free from $c2.cells);
+
+        $cx: Cell ($cx.rowNo == $rano || $cx.rowNo == $rbno) && $cx.colNo != $c1no && $cx.colNo != $c2no && $cx.count > 1 && $i in $cx.free;
+    }
+    then{
+
+            console.log( "X-wing with " + $i + " in rows " +
+                $ca1.posAsString() + " - " + $cb1.posAsString() +
+                $ca2.posAsString() + " - " + $cb2.posAsString() + ", remove from " + $cx.posAsString() );
+
+       modify( $cx, function(){ this.blockValue( $i ) });
+    }
+}
+
+rule "X-wings in columns"{
+    when{
+        not($ns: Setting);
+        not($nc: Cell $nc.count == 1 );
+
+        $i: Number;
+
+
+        $ca1: Cell $ca1.count > 1 && $i in $ca1.free {cellRow: $ra, rowNo: $rano, cellCol: $c1,colNo: $c1no};
+
+        $ca2: Cell $ca2.count > 1 && $i in $ca2.free && $ca2.colNo > $c1No && $ca2.cellRow == $ra  {cellCol: $c2, colNo: $c2no};
+        not( $nc2: Cell $nc2 != $ca1 && $nc2 != $ca2 && $i in $nc2.free from $ra.cells);
+
+        $cb1: Cell $cb1.count > 1 && $i in  $cb1.free && $cb1.cellCol == $c1 && $cb1.rowNo > $rano {cellRow: $rb,  rowNo: $rbno};
+        $cb2: Cell $cb2.count > 1 && $i in $cb2.free && $cb2.cellCol == $c2 && $cb2.cellRow == $rb;
+        not($nc3: Cell $nc3 != $cb1 && $nc3 != $cb2 && $i in $nc3.free from $rb.cells);
+
+        $cx: Cell ($cx.colNo == $c1no || $cx.colNo == $c2no) && $cx.rowNo != $rano && $cx.rowNo != $rbno && $cx.count > 1 && $i in $cx.free;
+    }
+    then{
+
+            console.log( "X-wing with " + $i + " in columns " +
+                $ca1.posAsString() + " - " + $ca2.posAsString() +
+                $cb1.posAsString() + " - " + $cb2.posAsString() + ", remove from " + $cx.posAsString()  );
+
+        modify( $cx, function(){this.blockValue( $i ) });
+    }
+}
+
+rule "intersection removal column" {
+    when {
+        not($ns: Setting);
+        not($nc: Cell $nc.count == 1 );
+
+        $i: Number;
+
+        // occurs in a Cell
+        $c: Cell $i in $c.free {cellSqr: $cs, cellCol: $cc};
+        // but not in another cell of the same square and a different column
+        not($nc2: Cell $nc2 != $c && $i in $nc2.free && $nc2.cellSqr == $cs && $nc2.cellCol != $cc );
+
+        // but there is a cell in the same column and another sqstuare containing this value
+        $cx: Cell $cx.count > 1 && $i in $cx.free && $cx.cellCol == $cc && $cx.cellSqr != $cs;
+    }
+    then{
+        // remove the value from that other cell
+        //if (explain) {
+            console.log( "column elimination due to " + $c.posAsString() +
+                            ": remove " + $i + " from " + $cx.posAsString() );
+        //}
+        modify( $cx, function(){this.blockValue( $i ) });
+    }
+}
+
+rule "intersection removal row"{
+    when{
+        not($ns: Setting);
+        not($nc: Cell $nc.count == 1 );
+
+        $i: Number;
+        // occurs in a Cell
+        $c: Cell $i in  $c.free {cellSqr: $cs, cellRow: $cr};
+        // but not in another cell of the same square and a different row
+        not($nc2: Cell $nc2 != $c && $i in $nc2.free && $nc2.cellSqr == $cs && $nc2.cellRow != $cr);
+
+        // but there is a cell in the same row and another square containing this value
+        $cx: Cell  $cx.count > 1 && $i in $cx.free && $cx.cellRow == $cr && $cx.cellSqr != $cs;
+    }
+    then {
+        // remove the value from that other cell
+        //if (explain) {
+            console.log( "row elimination due to " + $c.posAsString() +
+                                ": remove " + $i + " from " + $cx.posAsString() );
+        //}
+        modify( $cx, function(){ this.blockValue( $i ) });
+    }
+}
