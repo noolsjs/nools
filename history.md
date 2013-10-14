@@ -1,3 +1,18 @@
+#0.2.0 / 2013-10-14
+
+* Nools now supports true modify!!!
+   * This is a major leap forward for `nools` opening the door for more complex actions and expressions in the rules.
+* Added support from for `from` conditions in the `rhs`.
+* Fixed issue [#81](https://github.com/C2FO/nools/issues/81).
+* Fixed issue [#82](https://github.com/C2FO/nools/issues/82).
+* Added new `sudoku` web example.
+* Added [Send More Money](http://en.wikipedia.org/wiki/Verbal_arithmetic) benchmark see [#78](https://github.com/C2FO/nools/issues/78).
+
+
+#0.1.14
+* Fixed issue with async actions and early match termination.
+
+
 #0.1.13
 * Fixed issue [#68](https://github.com/C2FO/nools/issues/68) where `matchUntilHalt` uses a lot of CPU
 * Fixed issue [#45](https://github.com/C2FO/nools/issues/45), now compiled rules support `or` constraint with more than 2 inner constraints.

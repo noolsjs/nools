@@ -48,118 +48,95 @@
 <script type="text/javascript">
 
     (function () {
-        var session, statsListener,
-                matchPromise = promise(),
-                validateFlow = null,
-                sudokuFlow = null,
+        var flow = null,
                 currPattern = sudokuExamples["Simple"];
 
 
         var grid = $("#grid"), cells = [], rows = 9, cols = 9;
 
-        function setCellValue(cell, value, isValid) {
-            isValid = arguments.length === 2 ? true : isValid;
-            cell.value(value);
-            cell.el.text("number" === typeof value ? value : '');
-            cell.el[isValid ? "removeClass" : "addClass"]("error");
-            return cell;
-        }
-
-        function promise() {
-            return {
-                then: function (cb) {
-                    return cb() || this;
-                }
-            }
-        }
-
-
         $(document).ready(function () {
+
             $.ajax({
-                url: "./rules/sudokuValidate.nools"
-            }).then(function (validateNools) {
+                url: "./rules/sudoku.nools"
+            }).then(function (flowStr) {
+                        //var flowStr = res;
+                        // flow = nools.compile(res, {name: "conways2d", define: {Cell: Cell}, scope: { loop: loop}});
+                        //validateFlow = nools.compile(validateNools, {name: 'validate', define: {Cell: Cell}});
+                        flow = nools.compile(flowStr, {name: 'sudoku', define: {
+                            SetOfNine: SetOfNine,
+                            CellGroup: CellGroup,
+                            CellFile: CellFile,
+                            Cell: Cell,
+                            CellCol: CellCol,
+                            CellRow: CellRow,
+                            CellSqr: CellSqr,
+                            Counter: Counter,
+                            Setting: Setting,
+                            Stepping: Stepping
 
-                        $.ajax({
-                            url: "./rules/sudoku.nools"
-                        }).then(function (sudokuNools) {
-                                    //var flowStr = res;
-                                    // flow = nools.compile(res, {name: "conways2d", define: {Cell: Cell}, scope: { loop: loop}});
-                                    //validateFlow = nools.compile(validateNools, {name: 'validate', define: {Cell: Cell}});
-                                    sudokuFlow = nools.compile(sudokuNools, {name: 'sudoku', define: {
-                                        SetOfNine: SetOfNine,
-                                        CellGroup: CellGroup,
-                                        CellFile: CellFile,
-                                        Cell: Cell,
-                                        CellCol: CellCol,
-                                        CellRow: CellRow,
-                                        CellSqr: CellSqr,
-                                        Counter: Counter,
-                                        Setting: Setting,
-                                        Stepping: Stepping
+                        }});
+                        var sud = new Sudoku(flow, stats());
+                        var $select = $("#patterns");
+                        $select.append($('<option/>', {
+                            value: i,
+                            text: i
+                        }));
+                        for (var i in sudokuExamples) {
+                            $select.append($('<option/>', {
+                                value: i,
+                                text: i
+                            }));
+                        }
+                        $select.on("change", function () {
+                            currPattern = sudokuExamples[$(this).val()];
+                            sud.setCellValues(currPattern).then(function () {
+                                return sud.validate();
+                            });
+                        });
+                        $select.val("Simple").trigger("change");
 
-                                    }});
-                                    var sud = new Sudoku(sudokuFlow);
-                                    statsListener = stats();
-                                    var $select = $("#patterns");
-                                    $select.append($('<option/>', {
-                                        value: i,
-                                        text: i
-                                    }));
-                                    for (var i in sudokuExamples) {
-                                        $select.append($('<option/>', {
-                                            value: i,
-                                            text: i
-                                        }));
-                                    }
-                                    $select.on("change", function () {
-                                        currPattern = sudokuExamples[$(this).val()];
-                                        sud.setCellValues(currPattern);
-                                    });
-                                    $select.val("Simple").trigger("change");
+                        $("form").on("submit", function () {
+                            sud.solve();
+                            return false;
+                        });
 
-                                    $("form").on("submit", function () {
-                                        sud.solve();
-                                        return false;
-                                    });
+                        $("#step").on("click", function () {
+                            sud.step();
+                        });
 
-                                    $("#step").on("click", function () {
-                                        sud.step();
-                                    });
+                        $("#stop").on("click", function () {
+                            sud.solve();
+                        });
 
-                                    $("#stop").on("click", function () {
-                                        sud.solve();
-                                    });
+                        $("#clear").on("click", function () {
+                            sud.clear();
+                        });
 
-                                    $("#clear").on("click", function () {
-                                        sud.clear();
-                                    });
+                        $("#edit").on("click", function () {
+                            $("#editor-dialog").dialog("open");
+                            return false;
+                        });
 
-                                    $("#edit").on("click", function () {
-                                        $("#editor-dialog").dialog("open");
-                                        return false;
-                                    });
+                        $("#editor-dialog").dialog({
+                            autoOpen: false,
+                            modal: true,
+                            width: window.innerWidth * 0.9,
+                            height: window.innerHeight * 0.9,
+                            open: function () {
+                                (editor = ace.edit("editor").getSession()).setValue(flowStr);
+                            },
+                            buttons: {
+                                "Save": function () {
+                                    $(this).dialog("close");
+                                    nools.deleteFlow("sudoku");
+                                    flow = nools.compile((flowStr = editor.getValue()), {name: "sudoku", define: {Cell: Cell}, scope: { loop: loop}});
+                                },
+                                Cancel: function () {
+                                    $(this).dialog("close");
+                                }
+                            }
+                        });
 
-                                    $("#editor-dialog").dialog({
-                                        autoOpen: false,
-                                        modal: true,
-                                        width: window.innerWidth * 0.9,
-                                        height: window.innerHeight * 0.9,
-                                        open: function () {
-                                            (editor = ace.edit("editor").getSession()).setValue(flowStr);
-                                        },
-                                        buttons: {
-                                            "Save": function () {
-                                                $(this).dialog("close");
-                                                nools.deleteFlow("sudoku");
-                                                flow = nools.compile((flowStr = editor.getValue()), {name: "sudoku", define: {Cell: Cell}, scope: { loop: loop}});
-                                            },
-                                            Cancel: function () {
-                                                $(this).dialog("close");
-                                            }
-                                        }
-                                    });
-
-                                });
                     });
         });
     }());

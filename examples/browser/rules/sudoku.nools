@@ -1,8 +1,34 @@
 
-rule "halt after setup" {
-//   salience: 9;
+rule "terminate group" {
+    salience: -100;
+    agenda-group: "validate";
+    when {
+        $state: String $state == "validate";
+    }
+    then{
+        console.log("Validation complete." );
+        retract($state);
+        halt();
+    }
+}
+
+
+
+rule "duplicate in cell col" {
+    agenda-group: "validate";
     when{
-//        not($s: Setting);
+        $c: Cell $c.value;
+        $e: Cell $e.value == $c.value from $c.exCells;
+    }
+    then {
+        emit("invalid", $c);
+        emit("invalid", $e);
+    }
+}
+
+
+rule "halt after setup" {
+    when{
         $ctr: Counter $ctr.count == 0;
     }
     then{
@@ -11,20 +37,6 @@ rule "halt after setup" {
     }
 }
 
-//rule "emergency halt" {
-//    salience: -100;
-//    when{
-//        $s: Stepping;
-//    }
-//    then{
-//        console.log("emergency halt");
-//        modify($s, function(){
-//            this.emergency = true;
-//        });
-//        halt();
-//    }
-//
-//}
 
 rule "emergency halt 2" {
     salience: 100;
@@ -84,7 +96,6 @@ rule "eliminate a value from Cell" {
 
 //Rule for elimination the Setting fact.
 rule "retract setting"{
-//    salience: 8;
     when {
         // a Setting with row and column number, and a value
         $s: Setting {rowNo: $rn, colNo: $cn, value: $v};
@@ -113,7 +124,6 @@ rule "retract setting"{
 // Detect a set of candidate values with cardinality 1 for some Cell.
 // This is the value to be set.
 rule "single"{
-//    salience: 7;
     when {
         // There is currently no setting under way.
         not($ns: Setting);
@@ -132,7 +142,6 @@ rule "single"{
 // Detect a set of candidate values with a value that is the only one
 // in one of its groups. This is the value to be set.
 rule "hidden single" {
-//    salience: 6;
     when{
         // There is currently no setting under way.
         not($ns: Setting);
@@ -161,7 +170,6 @@ rule "hidden single" {
 // permissible values being equal with cardinality 2. These two values
 // can be removed from all other candidate lists in the group.
 rule "naked pair" {
-//    salience: 5;
     when {
         // There is currently no setting under way.
         not($ns: Setting);
@@ -196,7 +204,6 @@ rule "naked pair" {
 // these two cells.
 //
 rule "hidden pair in row" {
-//    salience: 4;
     when{
         // There is currently no setting under way.
         not($ns: Setting);
@@ -225,7 +232,6 @@ rule "hidden pair in row" {
 }
 
 rule "hidden pair in column"{
-//    salience: 3;
     when{
         not($ns: Setting);
         not($nc: Cell $nc.count == 1 );
@@ -245,7 +251,6 @@ rule "hidden pair in column"{
 }
 
 rule "hidden pair in square" {
-//    salience: 2;
     when{
         not($ns: Setting);
         not($nc: Cell $nc.count == 1 );
@@ -323,7 +328,6 @@ rule "X-wings in columns"{
 }
 
 rule "intersection removal column" {
-//    salience: -1;
     when {
         not($ns: Setting);
         not($nc: Cell $nc.count == 1 );
@@ -349,7 +353,6 @@ rule "intersection removal column" {
 }
 
 rule "intersection removal row"{
-//  salience: -2;
     when{
         not($ns: Setting);
         not($nc: Cell $nc.count == 1 );
@@ -372,15 +375,3 @@ rule "intersection removal row"{
         modify( $cx, function(){ this.blockValue( $i ) });
     }
 }
-////
-////// Y-wing
-////// $c1: Cell( count == 2 ) contains a, b
-////// $c2: Cell( count == 2 ) contains a, c
-////// $c3: Cell( count == 2 ) contains b, c
-////// //g12: CellGroup() contains $c1, $c2
-////// //g1e: CellGroup() contains $c1, $c3
-////
-////// $cx: Cell( count > 1 ) contains c
-//////  // //g12: CellGroup() contains $c1, $c2
-////
-////

@@ -77,7 +77,7 @@
             value: null,
             cellRow: null,
             cellCol: null,
-            CellSqr: null,
+            cellSqr: null,
             exCells: null,
             el: null,
 
@@ -102,7 +102,7 @@
             },
 
             valueAsString: function () {
-                return this.value === null ? " " : this.value;
+                return this.value === null ? " ": this.value;
             },
 
             posAsString: function () {
@@ -181,12 +181,13 @@
     var Sudoku = declare({
         instance: {
 
-            constructor: function (flow) {
+            constructor: function (flow, statsListener) {
                 this.rows = [];
                 this.cols = [];
                 this.sqrs = [];
                 this.cells = [];
                 this.flow = flow;
+                this.statsListener = statsListener;
                 this.session = null;
                 this.stepping = null;
             },
@@ -233,7 +234,7 @@
             },
 
             setCellValue: function setCellValue(cell) {
-                cell.el.text(cell.value ? cell.value : "");
+                cell.el.text(cell.value ? cell.value: "");
                 return cell;
             },
 
@@ -280,7 +281,7 @@
 
             setCellValues: function (cellValues) {
                 this.stop();
-                var session = (this.session = this.flow.getSession())
+                var session = (this.session = this.statsListener.listen(this.flow.getSession()))
                     .on("set-value", this.setCellValue);
 
                 var s000 = new Setting(0, 0, 0);
@@ -336,6 +337,18 @@
                     }
                     console.log(print.join(""));
                 }
+            },
+
+            setInvalidCellValue: function setCellValue(cell) {
+                cell.el.addClass("error");
+                return cell;
+            },
+
+            validate: function () {
+                this.session.assert("validate");
+                return this.session.focus("validate")
+                    .on("invalid", this.setInvalidCellValue)
+                    .matchUntilHalt();
             }
 
         }
