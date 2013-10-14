@@ -25,45 +25,16 @@
 
 },{"../":2}],2:[function(require,module,exports){
 module.exports = exports = require("./lib");
-},{"./lib":14}],3:[function(require,module,exports){
+},{"./lib":15}],3:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
-    indexOf = extd.indexOf,
+//indexOf = extd.indexOf,
     declare = extd.declare,
     AVLTree = extd.AVLTree,
     LinkedList = extd.LinkedList,
-    EventEmitter = require("events").EventEmitter;
+    EventEmitter = require("events").EventEmitter,
+    sortAgenda = require("./conflict").strategy(["salience", "activationRecency"]);
 
-var sortAgenda = function (a, b) {
-    /*jshint noempty:false*/
-    if (a === b) {
-        return 0;
-    }
-    var ret;
-    var p1 = a.rule.priority, p2 = b.rule.priority;
-    if (p1 !== p2) {
-        ret = p1 - p2;
-    } else if (a.counter !== b.counter) {
-        ret = a.counter - b.counter;
-    }
-    if (!ret) {
-
-        var i = 0;
-        var aMatchRecency = a.match.recency,
-            bMatchRecency = b.match.recency, aLength = aMatchRecency.length - 1, bLength = bMatchRecency.length - 1;
-        while (aMatchRecency[i] === bMatchRecency[i] && i < aLength && i < bLength && i++) {
-        }
-        ret = aMatchRecency[i] - bMatchRecency[i];
-        if (!ret) {
-            ret = aLength - bLength;
-        }
-        //   }
-    }
-    if (!ret) {
-        ret = a.recency - b.recency;
-    }
-    return ret > 0 ? 1 : -1;
-};
 
 var FactHash = declare({
     instance: {
@@ -75,60 +46,33 @@ var FactHash = declare({
         clear: function () {
             this.memoryValues.clear();
             this.memory = {};
-            this.memory.length = this.memoryValues.length = 0;
-        },
-
-        get: function (k) {
-            var node = this.memory[k.id];
-            return node ? node.data : [];
         },
 
 
         remove: function (v) {
-            var facts = v.match.facts,
-                l = facts.length,
-                mv = this.memoryValues,
-                m = this.memory,
-                i = -1,
-                arr, index, node, fId;
-            while (++i < l) {
-                fId = facts[i].id;
-                node = m[fId];
-                arr = node.data;
-                index = indexOf(arr, v);
-                arr.splice(index, 1);
-                if (arr.length === 0) {
-                    mv.remove(node);
-                    delete m[fId];
-                }
+            var hashCode = v.hashCode,
+                memory = this.memory,
+                ret = memory[hashCode];
+            if (ret) {
+                this.memoryValues.remove(ret);
+                delete memory[hashCode];
             }
+            return ret;
         },
 
         insert: function (insert) {
-            var facts = insert.match.facts,
-                mv = this.memoryValues,
-                m = this.memory,
-                l = facts.length,
-                i = -1,
-                node, o, arr, fId;
-            while (++i < l) {
-                o = facts[i];
-                fId = o.id;
-                node = m[o.id];
-                if (!node) {
-                    m[fId] = mv.push((arr = []));
-                } else {
-                    arr = node.data;
-                }
-                arr.push(insert);
+            var hashCode = insert.hashCode;
+            if (hashCode in this.memory) {
+                throw new Error("Activation already in agenda " + insert.rule.name + " agenda");
             }
+            this.memoryValues.push((this.memory[hashCode] = insert));
         }
     }
 
 });
 
 
-var REVERSE_ORDER = AVLTree.REVERSE_ORDER, DEFAULT_AGENDA_GROUP = "main";
+var DEFAULT_AGENDA_GROUP = "main";
 module.exports = declare(EventEmitter, {
 
     instance: {
@@ -222,30 +166,27 @@ module.exports = declare(EventEmitter, {
             return v;
         },
 
-        removeByFact: function (node, fact) {
-            var rule = this.rules[node.name], tree = rule.tree, factTable = rule.factTable;
-            var ma = this.getAgendaGroup(node.rule.agendaGroup);
-            var remove = factTable.get(fact) || [];
-            var i = remove.length, r;
-            while (--i > -1) {
-                r = remove[i];
-                factTable.remove(r);
-                tree.remove(r);
-                ma.remove(r);
+        peek: function () {
+            var tree = this.getFocusedAgenda(), root = tree.__root;
+            while (root.right) {
+                root = root.right;
             }
-            remove.length = 0;
+            return root.data;
         },
 
-        retract: function (node, cb) {
-            var rule = this.rules[node.name], tree = rule.tree, factTable = rule.factTable;
-            var ma = this.getAgendaGroup(node.rule.agendaGroup);
-            tree.traverse(tree.__root, REVERSE_ORDER, function (v) {
-                if (cb(v)) {
-                    factTable.remove(v);
-                    ma.remove(v);
-                    tree.remove(v);
-                }
-            });
+        modify: function (node, context) {
+            this.retract(node, context);
+            this.insert(node, context);
+        },
+
+        retract: function (node, retract) {
+            var rule = this.rules[node.name];
+            retract.rule = node;
+            var activation = rule.factTable.remove(retract);
+            if (activation) {
+                this.getAgendaGroup(node.rule.agendaGroup).remove(activation);
+                rule.tree.remove(activation);
+            }
         },
 
         insert: function (node, insert) {
@@ -278,7 +219,7 @@ module.exports = declare(EventEmitter, {
     }
 
 });
-},{"./extended":11,"events":47}],4:[function(require,module,exports){
+},{"./conflict":7,"./extended":12,"events":50}],4:[function(require,module,exports){
 /*jshint evil:true*/
 "use strict";
 var extd = require("../extended"),
@@ -335,7 +276,7 @@ var createDefined = (function () {
 
 exports.createFunction = createFunction;
 exports.createDefined = createDefined;
-},{"../extended":11}],5:[function(require,module,exports){
+},{"../extended":12}],5:[function(require,module,exports){
 var Buffer=require("__browserify_Buffer").Buffer;/*jshint evil:true*/
 "use strict";
 var extd = require("../extended"),
@@ -526,7 +467,7 @@ exports.transpile = require("./transpile").transpile;
 
 
 
-},{"../constraintMatcher.js":8,"../extended":11,"../parser":31,"../rule":36,"./common":4,"./transpile":6,"__browserify_Buffer":50}],6:[function(require,module,exports){
+},{"../constraintMatcher.js":9,"../extended":12,"../parser":34,"../rule":39,"./common":4,"./transpile":6,"__browserify_Buffer":53}],6:[function(require,module,exports){
 var Buffer=require("__browserify_Buffer").Buffer;var extd = require("../extended"),
     forEach = extd.forEach,
     indexOf = extd.indexOf,
@@ -678,16 +619,73 @@ exports.transpile = function (flowObj, options) {
 
 
 
-},{"../constraintMatcher":8,"../extended":11,"../parser":31,"__browserify_Buffer":50}],7:[function(require,module,exports){
+},{"../constraintMatcher":9,"../extended":12,"../parser":34,"__browserify_Buffer":53}],7:[function(require,module,exports){
+var map = require("./extended").map;
+
+function salience(a, b) {
+    return a.rule.priority - b.rule.priority;
+}
+
+function bucketCounter(a, b) {
+    return a.counter - b.counter;
+}
+
+function factRecency(a, b) {
+    /*jshint noempty: false*/
+    var i = 0;
+    var aMatchRecency = a.match.recency,
+        bMatchRecency = b.match.recency, aLength = aMatchRecency.length - 1, bLength = bMatchRecency.length - 1;
+    while (aMatchRecency[i] === bMatchRecency[i] && i < aLength && i < bLength && i++) {
+    }
+    var ret = aMatchRecency[i] - bMatchRecency[i];
+    if (!ret) {
+        ret = aLength - bLength;
+    }
+    return ret;
+}
+
+function activationRecency(a, b) {
+    return a.recency - b.recency;
+}
+
+var strategies = {
+    salience: salience,
+    bucketCounter: bucketCounter,
+    factRecency: factRecency,
+    activationRecency: activationRecency
+};
+
+exports.strategies = strategies;
+exports.strategy = function (strats) {
+    strats = map(strats, function (s) {
+        return strategies[s];
+    });
+    var stratsLength = strats.length;
+
+    return function (a, b) {
+        var i = -1, ret = 0;
+        var equal = (a === b) || (a.name === b.name && a.hashCode === b.hashCode);
+        if (!equal) {
+            while (++i < stratsLength && !ret) {
+                ret = strats[i](a, b);
+            }
+            ret = ret > 0 ? 1: -1;
+        }
+        return ret;
+    };
+};
+},{"./extended":12}],8:[function(require,module,exports){
 "use strict";
 
 var extd = require("./extended"),
+    deepEqual = extd.deepEqual,
     merge = extd.merge,
     instanceOf = extd.instanceOf,
     filter = extd.filter,
     declare = extd.declare,
     constraintMatcher;
 
+var id = 0;
 var Constraint = declare({
 
     instance: {
@@ -695,6 +693,7 @@ var Constraint = declare({
             if (!constraintMatcher) {
                 constraintMatcher = require("./constraintMatcher");
             }
+            this.id = id++;
             this.type = type;
             this.constraint = constraint;
         },
@@ -849,10 +848,35 @@ Constraint.extend({
     }
 }).as(exports, "HashConstraint");
 
+Constraint.extend({
+    instance: {
+        constructor: function (prop, constraints) {
+            this.type = "from";
+            this.prop = prop;
+            this.constraints = constraints;
+        },
+
+        equal: function (constraint) {
+            return instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias") && deepEqual(this.constraints, constraint.constraints);
+        },
+
+        "assert": function () {
+            return true;
+        },
+
+        getters: {
+            variables: function () {
+                return this.constraint;
+            }
+        }
+
+    }
+}).as(exports, "FromConstraint");
 
 
 
-},{"./constraintMatcher":8,"./extended":11}],8:[function(require,module,exports){
+
+},{"./constraintMatcher":9,"./extended":12}],9:[function(require,module,exports){
 "use strict";
 
 var extd = require("./extended"),
@@ -1225,9 +1249,10 @@ exports.getIdentifiers = function (constraint) {
 
 
 
-},{"./constraint":7,"./extended":11}],9:[function(require,module,exports){
+},{"./constraint":8,"./extended":12}],10:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
+    isBoolean = extd.isBoolean,
     declare = extd.declare,
     merge = extd.merge,
     union = extd.union,
@@ -1294,7 +1319,19 @@ var Context = declare({
         },
 
         isMatch: function (isMatch) {
-            this.match.isMatch = isMatch;
+            if (isBoolean(isMatch)) {
+                this.match.isMatch = isMatch;
+            } else {
+                return this.match.isMatch;
+            }
+            return this;
+        },
+
+        mergeMatch: function (merge) {
+            var match = this.match = this.match.merge(merge);
+            this.factHash = match.factHash;
+            this.hashCode = match.hashCode;
+            this.factIds = match.factIds;
             return this;
         },
 
@@ -1306,7 +1343,7 @@ var Context = declare({
 
 
 
-},{"./extended":11}],10:[function(require,module,exports){
+},{"./extended":12}],11:[function(require,module,exports){
 var extd = require("./extended"),
     Promise = extd.Promise,
     nextTick = require("./nextTick"),
@@ -1411,22 +1448,59 @@ Promise.extend({
         }
     }
 }).as(module);
-},{"./extended":11,"./nextTick":16}],11:[function(require,module,exports){
+},{"./extended":12,"./nextTick":17}],12:[function(require,module,exports){
+var arr = require("array-extended"),
+    map = arr.map;
+
+function plucked(prop) {
+    var exec = prop.match(/(\w+)\(\)$/);
+    if (exec) {
+        prop = exec[1];
+        return function (item) {
+            return item[prop]();
+        };
+    } else {
+        return function (item) {
+            return item[prop];
+        };
+    }
+}
+
+function plucker(prop) {
+    prop = prop.split(".");
+    if (prop.length === 1) {
+        return plucked(prop[0]);
+    } else {
+        var pluckers = map(prop, function (prop) {
+            return plucked(prop);
+        });
+        var l = pluckers.length;
+        return function (item) {
+            var i = -1, res = item;
+            while (++i < l) {
+                res = pluckers[i](res);
+            }
+            return res;
+        };
+    }
+}
+
 module.exports = require("extended")()
-    .register(require("array-extended"))
+    .register(arr)
     .register(require("date-extended"))
     .register(require("object-extended"))
     .register(require("string-extended"))
     .register(require("promise-extended"))
     .register(require("function-extended"))
     .register(require("is-extended"))
+    .register("plucker", plucker)
     .register("HashTable", require("ht"))
     .register("declare", require("declare.js"))
     .register(require("leafy"))
     .register("LinkedList", require("./linkedList"));
 
 
-},{"./linkedList":15,"array-extended":39,"date-extended":40,"declare.js":42,"extended":43,"function-extended":46,"ht":52,"is-extended":53,"leafy":54,"object-extended":55,"promise-extended":56,"string-extended":57}],12:[function(require,module,exports){
+},{"./linkedList":16,"array-extended":42,"date-extended":43,"declare.js":45,"extended":46,"function-extended":49,"ht":55,"is-extended":56,"leafy":57,"object-extended":58,"promise-extended":59,"string-extended":60}],13:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     bind = extd.bind,
@@ -1494,12 +1568,11 @@ module.exports = declare(EventEmitter, {
         // retract followed by an assert.
         modify: function (fact, cb) {
             //fact = this.workingMemory.getFact(fact);
-            this.rootNode.retractFact(this.workingMemory.retractFact(fact));
             if ("function" === typeof cb) {
                 cb.call(fact, fact);
             }
+            this.rootNode.modifyFact(this.workingMemory.modifyFact(fact));
             this.emit("modify", fact);
-            this.rootNode.assertFact(this.workingMemory.assertFact(fact));
             return fact;
         },
 
@@ -1525,7 +1598,7 @@ module.exports = declare(EventEmitter, {
 
     }
 });
-},{"./agenda":3,"./executionStrategy":10,"./extended":11,"./nodes":20,"./workingMemory":37,"events":47}],13:[function(require,module,exports){
+},{"./agenda":3,"./executionStrategy":11,"./extended":12,"./nodes":23,"./workingMemory":40,"events":50}],14:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     instanceOf = extd.instanceOf,
@@ -1626,7 +1699,7 @@ var FlowContainer = declare({
     }
 
 }).as(module);
-},{"./extended":11,"./flow":12,"./pattern":35,"./rule":36}],14:[function(require,module,exports){
+},{"./extended":12,"./flow":13,"./pattern":38,"./rule":39}],15:[function(require,module,exports){
 /**
  *
  * @projectName nools
@@ -1702,7 +1775,7 @@ exports.transpile = function (file, options) {
 };
 
 exports.parse = parse;
-},{"./compile":5,"./extended":11,"./flowContainer":13,"fs":48,"path":49}],15:[function(require,module,exports){
+},{"./compile":5,"./extended":12,"./flowContainer":14,"fs":51,"path":52}],16:[function(require,module,exports){
 var declare = require("declare.js");
 declare({
 
@@ -1737,7 +1810,7 @@ declare({
             } else {
                 this.tail = node.prev;
             }
-            node.data = node.prev = node.next = null;
+            //node.data = node.prev = node.next = null;
             this.length--;
         },
 
@@ -1757,7 +1830,7 @@ declare({
 
 }).as(module);
 
-},{"declare.js":42}],16:[function(require,module,exports){
+},{"declare.js":45}],17:[function(require,module,exports){
 var process=require("__browserify_process");/*global setImmediate, window, MessageChannel*/
 var extd = require("./extended");
 var nextTick;
@@ -1795,7 +1868,7 @@ if (typeof setImmediate === "function") {
 }
 
 module.exports = nextTick;
-},{"./extended":11,"__browserify_process":51}],17:[function(require,module,exports){
+},{"./extended":12,"__browserify_process":54}],18:[function(require,module,exports){
 var AlphaNode = require("./alphaNode");
 
 AlphaNode.extend({
@@ -1814,8 +1887,12 @@ AlphaNode.extend({
             return this.__propagate("assert", context.set(this.alias, context.fact.object));
         },
 
-        retract: function (assertable) {
-            this.propagateRetract(assertable.fact);
+        modify: function (context) {
+            return this.__propagate("modify", context.set(this.alias, context.fact.object));
+        },
+
+        retract: function (context) {
+            return this.__propagate("retract", context.set(this.alias, context.fact.object));
         },
 
         equal: function (other) {
@@ -1823,7 +1900,7 @@ AlphaNode.extend({
         }
     }
 }).as(module);
-},{"./alphaNode":18}],18:[function(require,module,exports){
+},{"./alphaNode":19}],19:[function(require,module,exports){
 "use strict";
 var Node = require("./node");
 
@@ -1843,20 +1920,55 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./node":24}],19:[function(require,module,exports){
+},{"./node":27}],20:[function(require,module,exports){
 var AlphaNode = require("./alphaNode");
+
+function createContextHash(context) {
+    var ret = [],
+        paths = context.paths,
+        i = -1,
+        l = paths.length;
+    while (++i < l) {
+        ret.push(paths[i].id);
+    }
+    ret.push(context.hashCode);
+    return ret.join(":");
+
+}
 
 AlphaNode.extend({
     instance: {
 
         constructor: function () {
+            this.memory = {};
             this._super(arguments);
         },
 
         assert: function (context) {
-            if (this.constraint.assert(context.factHash)) {
+            var hashCode = createContextHash(context);
+            if ((this.memory[hashCode] = this.constraint.assert(context.factHash))) {
                 this.__propagate("assert", context);
             }
+        },
+
+        modify: function (context) {
+            var memory = this.memory,
+                hashCode = createContextHash(context),
+                wasMatch = memory[hashCode];
+            if ((memory[hashCode] = this.constraint.assert(context.factHash))) {
+                this.__propagate(wasMatch ? "modify": "assert", context);
+            } else if (wasMatch) {
+                this.__propagate("retract", context);
+            }
+        },
+
+        retract: function (context) {
+            var hashCode = createContextHash(context),
+                memory = this.memory;
+            if (memory[hashCode]) {
+                this.__propagate("retract", context);
+            }
+            memory[hashCode] = null;
         },
 
         toString: function () {
@@ -1864,7 +1976,392 @@ AlphaNode.extend({
         }
     }
 }).as(module);
-},{"./alphaNode":18}],20:[function(require,module,exports){
+},{"./alphaNode":19}],21:[function(require,module,exports){
+var Node = require("./joinNode"),
+    extd = require("../extended"),
+    constraint = require("../constraint"),
+    EqualityConstraint = constraint.EqualityConstraint,
+    HashConstraint = constraint.HashConstraint,
+    ReferenceConstraint = constraint.ReferenceConstraint,
+    Context = require("../context"),
+    plucker = extd.plucker,
+    isEmpty = extd.isEmpty,
+    forEach = extd.forEach,
+    isArray = extd.isArray;
+
+var DEFAULT_MATCH = {
+    isMatch: function () {
+        return false;
+    }
+};
+
+
+Node.extend({
+    instance: {
+
+        constructor: function (pattern, wm) {
+            this._super(arguments);
+            this.workingMemory = wm;
+            this.fromMemory = {};
+            this.pattern = pattern;
+            this.type = pattern.get("constraints")[0];
+            this.alias = pattern.get("alias");
+            this.plucker = plucker(this.from = pattern.from);
+            var eqConstraints = this.__equalityConstraints = [];
+            var vars = [];
+            forEach(this.constraints = this.pattern.get("constraints").slice(1), function (c) {
+                if (c instanceof EqualityConstraint || c instanceof ReferenceConstraint) {
+                    eqConstraints.push(c);
+                } else if (c instanceof HashConstraint) {
+                    vars = vars.concat(c.get("variables"));
+                }
+            });
+            this.__variables = vars;
+        },
+
+        __createMatches: function (context) {
+            var fh = context.factHash, o = this.plucker(fh);
+            if (isArray(o)) {
+                for (var i = 0, l = o.length; i < l; i++) {
+                    this.__checkMatch(context, o[i], true);
+                }
+            } else {
+                this.__checkMatch(context, o, true);
+            }
+        },
+
+        __checkMatch: function (context, o, propogate) {
+            var newContext;
+            if ((newContext = this.__createMatch(context, o)).isMatch() && propogate) {
+                this.__propagate("assert", newContext.clone());
+            }
+            return newContext;
+        },
+
+        __createMatch: function (lc, o) {
+            if (this.type.assert(o)) {
+                var createdFact = this.workingMemory.getFactHandle(o, true),
+                    createdContext,
+                    rc = new Context(createdFact)
+                        .set(this.alias, o),
+                    createdFactId = createdFact.id;
+                var fh = rc.factHash, lcFh = lc.factHash;
+                for (var key in lcFh) {
+                    fh[key] = lcFh[key];
+                }
+                var eqConstraints = this.__equalityConstraints, vars = this.__variables, i = -1, l = eqConstraints.length;
+                while (++i < l) {
+                    if (!eqConstraints[i].assert(fh)) {
+                        createdContext = DEFAULT_MATCH;
+                        break;
+                    }
+                }
+                var fm = this.fromMemory[createdFactId];
+                if (!fm) {
+                    fm = this.fromMemory[createdFactId] = {};
+                }
+                if (!createdContext) {
+                    var prop;
+                    i = -1;
+                    l = vars.length;
+                    while (++i < l) {
+                        prop = vars[i];
+                        fh[prop] = o[prop];
+                    }
+                    lc.fromMatches[createdFact.id] = createdContext = rc.clone(createdFact, null, lc.match.merge(rc.match));
+                }
+                fm[lc.hashCode] = [lc, createdContext];
+                return createdContext;
+            }
+            return DEFAULT_MATCH;
+        },
+
+        retractRight: function () {
+            throw new Error("Shouldnt have gotten here");
+        },
+
+        removeFromFromMemory: function (context) {
+            var factId = context.fact.id;
+            var fm = this.fromMemory[factId];
+            if (fm) {
+                var entry;
+                for (var i in fm) {
+                    entry = fm[i];
+                    if (entry[1] === context) {
+                        delete fm[i];
+                        if (isEmpty(fm)) {
+                            delete this.fromMemory[factId];
+                        }
+                        break;
+                    }
+                }
+            }
+
+        },
+
+        retractLeft: function (context) {
+            var ctx = this.removeFromLeftMemory(context);
+            if (ctx) {
+                ctx = ctx.data;
+                var fromMatches = ctx.fromMatches;
+                for (var i in fromMatches) {
+                    this.removeFromFromMemory(fromMatches[i]);
+                    this.__propagate("retract", fromMatches[i].clone());
+                }
+            }
+        },
+
+        modifyLeft: function (context) {
+            var ctx = this.removeFromLeftMemory(context), newContext, i, l, factId, fact;
+            if (ctx) {
+                this.__addToLeftMemory(context);
+
+                var leftContext = ctx.data,
+                    fromMatches = (context.fromMatches = {}),
+                    rightMatches = leftContext.fromMatches,
+                    o = this.plucker(context.factHash);
+
+                if (isArray(o)) {
+                    for (i = 0, l = o.length; i < l; i++) {
+                        newContext = this.__checkMatch(context, o[i], false);
+                        if (newContext.isMatch()) {
+                            factId = newContext.fact.id;
+                            if (factId in rightMatches) {
+                                this.__propagate("modify", newContext.clone());
+                            } else {
+                                this.__propagate("assert", newContext.clone());
+                            }
+                        }
+                    }
+                } else {
+                    newContext = this.__checkMatch(context, o, false);
+                    if (newContext.isMatch()) {
+                        factId = newContext.fact.id;
+                        if (factId in rightMatches) {
+                            this.__propagate("modify", newContext.clone());
+                        } else {
+                            this.__propagate("assert", newContext.clone());
+                        }
+                    }
+                }
+                for (i in rightMatches) {
+                    if (!(i in fromMatches)) {
+                        this.removeFromFromMemory(rightMatches[i]);
+                        this.__propagate("retract", rightMatches[i].clone());
+                    }
+                }
+            } else {
+                this.assertLeft(context);
+            }
+            fact = context.fact;
+            factId = fact.id;
+            var fm = this.fromMemory[factId];
+            this.fromMemory[factId] = {};
+            if (fm) {
+                var lc, entry, cc, createdIsMatch, factObject = fact.object;
+                for (i in fm) {
+                    entry = fm[i];
+                    lc = entry[0];
+                    cc = entry[1];
+                    createdIsMatch = cc.isMatch();
+                    if (lc.hashCode !== context.hashCode) {
+                        newContext = this.__createMatch(lc, factObject, false);
+                        if (createdIsMatch) {
+                            this.__propagate("retract", cc.clone());
+                        }
+                        if (newContext.isMatch()) {
+                            this.__propagate(createdIsMatch ? "modify": "assert", newContext.clone());
+                        }
+
+                    }
+                }
+            }
+        },
+
+        assertLeft: function (context) {
+            this.__addToLeftMemory(context);
+            context.fromMatches = {};
+            this.__createMatches(context);
+        },
+
+        assertRight: function () {
+            throw new Error("Shouldnt have gotten here");
+        },
+
+
+        toString: function () {
+            return "FromNode" + this.__count;
+        }
+
+    }
+}).as(module);
+},{"../constraint":8,"../context":10,"../extended":12,"./joinNode":24}],22:[function(require,module,exports){
+var Node = require("./joinNode"),
+    extd = require("../extended"),
+    constraint = require("../constraint"),
+    EqualityConstraint = constraint.EqualityConstraint,
+    HashConstraint = constraint.HashConstraint,
+    ReferenceConstraint = constraint.ReferenceConstraint,
+    Context = require("../context"),
+    plucker = extd.plucker,
+    forEach = extd.forEach,
+    isArray = extd.isArray;
+
+Node.extend({
+    instance: {
+
+        constructor: function (pattern, workingMemory) {
+            this._super(arguments);
+            this.workingMemory = workingMemory;
+            this.pattern = pattern;
+            this.type = pattern.get("constraints")[0];
+            this.alias = pattern.get("alias");
+            this.plucker = plucker(this.from = pattern.from);
+            this.fromMemory = {};
+            var eqConstraints = this.__equalityConstraints = [];
+            var vars = [];
+            forEach(this.constraints = this.pattern.get("constraints").slice(1), function (c) {
+                if (c instanceof EqualityConstraint || c instanceof ReferenceConstraint) {
+                    eqConstraints.push(c);
+                } else if (c instanceof HashConstraint) {
+                    vars = vars.concat(c.get("variables"));
+                }
+            });
+            this.__variables = vars;
+
+        },
+
+        retractLeft: function (context) {
+            var ctx = this.removeFromLeftMemory(context);
+            if (ctx) {
+                ctx = ctx.data;
+                if (!ctx.blocked) {
+                    this.__propagate("retract", ctx.clone());
+                }
+            }
+        },
+
+        __modify: function (context, leftContext) {
+            var leftContextBlocked = leftContext.blocked;
+            var fh = context.factHash, o = this.plucker(fh);
+            if (isArray(o)) {
+                for (var i = 0, l = o.length; i < l; i++) {
+                    if (this.__isMatch(context, o[i], true)) {
+                        context.blocked = true;
+                        break;
+                    }
+                }
+            } else {
+                context.blocked = this.__isMatch(context, o, true);
+            }
+            var newContextBlocked = context.blocked;
+            if (!newContextBlocked) {
+                if (leftContextBlocked) {
+                    this.__propagate("assert", context.clone());
+                } else {
+                    this.__propagate("modify", context.clone());
+                }
+            } else if (!leftContextBlocked) {
+                this.__propagate("retract", leftContext.clone());
+            }
+
+        },
+
+        modifyLeft: function (context) {
+            var ctx = this.removeFromLeftMemory(context);
+            if (ctx) {
+                this.__addToLeftMemory(context);
+                this.__modify(context, ctx.data);
+            } else {
+                throw new Error();
+            }
+            var fm = this.fromMemory[context.fact.id];
+            this.fromMemory[context.fact.id] = {};
+            if (fm) {
+                for (var i in fm) {
+                    // update any contexts associated with this fact
+                    if (i !== context.hashCode) {
+                        var lc = fm[i];
+                        ctx = this.removeFromLeftMemory(lc);
+                        if (ctx) {
+                            lc = lc.clone();
+                            lc.blocked = false;
+                            this.__addToLeftMemory(lc);
+                            this.__modify(lc, ctx.data);
+                        }
+                    }
+                }
+            }
+        },
+
+        __findMatches: function (context) {
+            var fh = context.factHash, o = this.plucker(fh), isMatch = false;
+            if (isArray(o)) {
+                for (var i = 0, l = o.length; i < l; i++) {
+                    if (this.__isMatch(context, o[i], true)) {
+                        context.blocked = true;
+                        return;
+                    }
+                }
+                this.__propagate("assert", context.clone());
+            } else if (!(context.blocked = this.__isMatch(context, o, true))) {
+                this.__propagate("assert", context.clone());
+            }
+            return isMatch;
+        },
+
+        __isMatch: function (oc, o, add) {
+            var ret = false;
+            if (this.type.assert(o)) {
+                var createdFact = this.workingMemory.getFactHandle(o);
+                var context = new Context(createdFact, null)
+                    .mergeMatch(oc.match)
+                    .set(this.alias, o);
+                if (add) {
+                    var fm = this.fromMemory[createdFact.id];
+                    if (!fm) {
+                        fm = this.fromMemory[createdFact.id] = {};
+                    }
+                    fm[oc.hashCode] = oc;
+                }
+                var fh = context.factHash;
+                var eqConstraints = this.__equalityConstraints;
+                for (var i = 0, l = eqConstraints.length; i < l; i++) {
+                    if (eqConstraints[i].assert(fh)) {
+                        ret = true;
+                    } else {
+                        ret = false;
+                        break;
+                    }
+                }
+            }
+            return ret;
+        },
+
+        removeFromLeftMemory: function () {
+            return this._super(arguments);
+        },
+
+        assertLeft: function (context) {
+            this.__addToLeftMemory(context);
+            this.__findMatches(context);
+        },
+
+        assertRight: function () {
+            throw new Error("Shouldnt have gotten here");
+        },
+
+        retractRight: function () {
+            throw new Error("Shouldnt have gotten here");
+        },
+
+        toString: function () {
+            return "FromNode" + this.__count;
+        }
+
+    }
+}).as(module);
+},{"../constraint":8,"../context":10,"../extended":12,"./joinNode":24}],23:[function(require,module,exports){
 "use strict";
 var extd = require("../extended"),
     forEach = extd.forEach,
@@ -1872,6 +2369,8 @@ var extd = require("../extended"),
     declare = extd.declare,
     pattern = require("../pattern.js"),
     ObjectPattern = pattern.ObjectPattern,
+    FromPattern = pattern.FromPattern,
+    FromNotPattern = pattern.FromNotPattern,
     NotPattern = pattern.NotPattern,
     CompositePattern = pattern.CompositePattern,
     InitialFactPattern = pattern.InitialFactPattern,
@@ -1882,6 +2381,8 @@ var extd = require("../extended"),
     EqualityNode = require("./equalityNode"),
     JoinNode = require("./joinNode"),
     NotNode = require("./notNode"),
+    FromNode = require("./fromNode"),
+    FromNotNode = require("./fromNotNode"),
     LeftAdapterNode = require("./leftAdapterNode"),
     RightAdapterNode = require("./rightAdapterNode"),
     TypeNode = require("./typeNode"),
@@ -1902,6 +2403,7 @@ declare({
                 recency: 0
             };
             this.agendaTree = agendaTree;
+            this.workingMemory = wm;
         },
 
         assertRule: function (rule) {
@@ -1930,6 +2432,13 @@ declare({
             var typeNodes = this.typeNodes, i = typeNodes.length - 1;
             for (; i >= 0; i--) {
                 typeNodes[i].retract(fact);
+            }
+        },
+
+        modifyFact: function (fact) {
+            var typeNodes = this.typeNodes, i = typeNodes.length - 1;
+            for (; i >= 0; i--) {
+                typeNodes[i].modify(fact);
             }
         },
 
@@ -1996,17 +2505,22 @@ declare({
         },
 
         __createAdapterNode: function (rule, side) {
-            return (side === "left" ? new LeftAdapterNode() : new RightAdapterNode()).addRule(rule);
+            return (side === "left" ? new LeftAdapterNode(): new RightAdapterNode()).addRule(rule);
         },
 
         __createJoinNode: function (rule, pattern, outNode, side) {
             var joinNode;
             if (pattern.rightPattern instanceof NotPattern) {
                 joinNode = new NotNode();
+            } else if (pattern.rightPattern instanceof FromNotPattern) {
+                joinNode = new FromNotNode(pattern.rightPattern, this.workingMemory);
+            } else if (pattern.rightPattern instanceof FromPattern) {
+                joinNode = new FromNode(pattern.rightPattern, this.workingMemory);
             } else {
                 joinNode = new JoinNode();
                 this.joinNodes.push(joinNode);
             }
+            joinNode["__rule__"] = rule;
             var parentNode = joinNode;
             if (outNode instanceof JoinNode) {
                 var adapterNode = this.__createAdapterNode(rule, side);
@@ -2019,10 +2533,15 @@ declare({
 
         __addToNetwork: function (rule, pattern, outNode, side) {
             if (pattern instanceof ObjectPattern) {
-                if (pattern instanceof NotPattern && (!side || side === "left")) {
-                    return this.__createBetaNode(rule, new CompositePattern(new InitialFactPattern(), pattern), outNode, side);
+                if ((pattern instanceof NotPattern || pattern instanceof FromPattern || pattern instanceof FromNotPattern) && (!side || side === "left")) {
+                    if (pattern instanceof FromNotPattern) {
+                        this.__createBetaNode(rule, new CompositePattern(new InitialFactPattern(), pattern), outNode, side);
+                    } else {
+                        this.__createBetaNode(rule, new CompositePattern(new InitialFactPattern(), pattern), outNode, side);
+                    }
+                } else {
+                    this.__createAlphaNode(rule, pattern, outNode, side);
                 }
-                this.__createAlphaNode(rule, pattern, outNode, side);
             } else if (pattern instanceof CompositePattern) {
                 this.__createBetaNode(rule, pattern, outNode, side);
             }
@@ -2038,36 +2557,41 @@ declare({
 
 
         __createAlphaNode: function (rule, pattern, outNode, side) {
-            var constraints = pattern.get("constraints");
-            var typeNode = this.__createTypeNode(rule, pattern);
-            var aliasNode = this.__createAliasNode(rule, pattern);
-            typeNode.addOutNode(aliasNode, pattern);
-            aliasNode.addParentNode(typeNode);
-            var parentNode = aliasNode;
-            var i = constraints.length - 1;
-            for (; i > 0; i--) {
-                var constraint = constraints[i], node;
-                if (constraint instanceof HashConstraint) {
-                    node = this.__createPropertyNode(rule, constraint);
-                } else if (constraint instanceof ReferenceConstraint) {
-                    outNode.constraint.addConstraint(constraint);
-                    continue;
-                } else {
-                    node = this.__createEqualityNode(rule, constraint);
+            var typeNode, parentNode;
+            if (!(pattern instanceof FromPattern)) {
+
+                var constraints = pattern.get("constraints");
+                typeNode = this.__createTypeNode(rule, pattern);
+                var aliasNode = this.__createAliasNode(rule, pattern);
+                typeNode.addOutNode(aliasNode, pattern);
+                aliasNode.addParentNode(typeNode);
+                parentNode = aliasNode;
+                var i = constraints.length - 1;
+                for (; i > 0; i--) {
+                    var constraint = constraints[i], node;
+                    if (constraint instanceof HashConstraint) {
+                        node = this.__createPropertyNode(rule, constraint);
+                    } else if (constraint instanceof ReferenceConstraint) {
+                        outNode.constraint.addConstraint(constraint);
+                        continue;
+                    } else {
+                        node = this.__createEqualityNode(rule, constraint);
+                    }
+                    parentNode.addOutNode(node, pattern);
+                    node.addParentNode(parentNode);
+                    parentNode = node;
                 }
-                parentNode.addOutNode(node, pattern);
-                node.addParentNode(parentNode);
-                parentNode = node;
+
+                if (outNode instanceof JoinNode) {
+                    var adapterNode = this.__createAdapterNode(rule, side);
+                    adapterNode.addParentNode(parentNode);
+                    parentNode.addOutNode(adapterNode, pattern);
+                    parentNode = adapterNode;
+                }
+                outNode.addParentNode(parentNode);
+                parentNode.addOutNode(outNode, pattern);
+                return typeNode;
             }
-            if (outNode instanceof JoinNode) {
-                var adapterNode = this.__createAdapterNode(rule, side);
-                adapterNode.addParentNode(parentNode);
-                parentNode.addOutNode(adapterNode, pattern);
-                parentNode = adapterNode;
-            }
-            outNode.addParentNode(parentNode);
-            parentNode.addOutNode(outNode, pattern);
-            return typeNode;
         },
 
         print: function () {
@@ -2083,12 +2607,12 @@ declare({
 
 
 
-},{"../constraint":7,"../extended":11,"../pattern.js":35,"./aliasNode":17,"./equalityNode":19,"./joinNode":21,"./leftAdapterNode":23,"./notNode":25,"./propertyNode":26,"./rightAdapterNode":27,"./terminalNode":28,"./typeNode":29}],21:[function(require,module,exports){
+},{"../constraint":8,"../extended":12,"../pattern.js":38,"./aliasNode":18,"./equalityNode":20,"./fromNode":21,"./fromNotNode":22,"./joinNode":24,"./leftAdapterNode":26,"./notNode":28,"./propertyNode":29,"./rightAdapterNode":30,"./terminalNode":31,"./typeNode":32}],24:[function(require,module,exports){
 var extd = require("../extended"),
     values = extd.hash.values,
-    indexOf = extd.indexOf,
     Node = require("./node"),
-    JoinReferenceNode = require("./joinReferenceNode");
+    JoinReferenceNode = require("./joinReferenceNode"),
+    LinkedList = require("../linkedList");
 
 Node.extend({
 
@@ -2098,22 +2622,26 @@ Node.extend({
             this.constraint = new JoinReferenceNode();
             this.leftMemory = {};
             this.rightMemory = {};
-            this.leftTuples = [];
-            this.rightTuples = [];
+            this.leftTuples = new LinkedList();
+            this.rightTuples = new LinkedList();
         },
 
         dispose: function () {
             this.leftMemory = {};
             this.rightMemory = {};
+            this.leftTuples.clear();
+            this.rightTuples.clear();
         },
 
         disposeLeft: function (fact) {
             this.leftMemory = {};
+            this.leftTuples.clear();
             this.propagateDispose(fact);
         },
 
         disposeRight: function (fact) {
             this.rightMemory = {};
+            this.rightTuples.clear();
             this.propagateDispose(fact);
         },
 
@@ -2125,111 +2653,263 @@ Node.extend({
             return "JoinNode " + this.__count;
         },
 
-        retractResolve: function (match) {
-            var es = values(this.leftMemory), j = es.length, leftTuples = this.leftTuples;
-            while (--j > -1) {
-                var contexts = es[j], i = contexts.length, context;
-                while (--i > -1) {
-                    context = contexts[i];
-                    if (this.resolve(context.match, match)) {
-                        leftTuples.splice(indexOf(leftTuples, context), 1);
-                        contexts.splice(i, 1);
-                        break;
-                    }
-                }
-            }
-            this._propagateRetractResolve(match);
-        },
-
-        retractLeft: function (fact) {
-            var contexts = this.leftMemory[fact.id], tuples = this.leftTuples, i, l;
-            if (contexts) {
-                i = -1;
-                l = contexts.length;
-                while (++i < l) {
-                    tuples.splice(indexOf(tuples, contexts[i]), 1);
-                }
-                delete this.leftMemory[fact.id];
-            } else {
-                var tuple;
-                for (i = 0; i < tuples.length; i++) {
-                    tuple = tuples[i];
-                    if (indexOf(tuple.factIds, fact.id) !== -1) {
-                        tuples.splice(i, 1);
-                    }
-                }
-            }
-            this.propagateRetract(fact);
-        },
-
-        retractRight: function (fact) {
-            var context = this.rightMemory[fact.id], tuples = this.rightTuples;
+        retractLeft: function (context) {
+            context = this.removeFromLeftMemory(context);
             if (context) {
-                tuples.splice(indexOf(tuples, context), 1);
-                delete this.rightMemory[fact.id];
-            } else {
-                var tuple;
-                for (var i = 0; i < tuples.length; i++) {
-                    tuple = tuples[i];
-                    if (indexOf(tuple.factIds, fact.id) !== -1) {
-                        tuples.splice(i, 1);
-                    }
+                context = context.data;
+                var rightMathces = values(context.rightMatches),
+                    i = -1,
+                    l = rightMathces.length;
+                while (++i < l) {
+                    this.__propagate("retract", rightMathces[i]);
                 }
+            }else{
+                throw new Error();
             }
-            this.propagateRetract(fact);
+            return this;
+        },
+
+        retractRight: function (context) {
+            context = this.removeFromRightMemory(context);
+            if (context) {
+                context = context.data;
+                var leftMatches = values(context.leftMatches),
+                    i = -1,
+                    l = leftMatches.length;
+                while (++i < l) {
+                    this.__propagate("retract", leftMatches[i]);
+                }
+            }else{
+                throw new Error();
+            }
+            return this;
+        },
+
+        propagateFromLeft: function (context, constraint, rm) {
+            var mr;
+            if ((mr = constraint.setRightContext(rm).match()).isMatch) {
+                this.__propagate("assert", this.__addToMemoryMatches(rm, context, context.clone(null, null, mr)));
+            }
+            return this;
+        },
+
+        propagateFromRight: function (context, constraint, lm) {
+            var mr;
+            if ((mr = constraint.setLeftContext(lm).match()).isMatch) {
+                this.__propagate("assert", this.__addToMemoryMatches(context, lm, context.clone(null, null, mr)));
+            }
+            return this;
         },
 
         assertLeft: function (context) {
-            this.__addToLeftMemory(context);
-            var rm = this.rightTuples, i = -1, l = rm.length, thisConstraint = this.constraint, mr;
-            thisConstraint.setLeftContext(context);
-            while (++i < l) {
-                if ((mr = thisConstraint.setRightContext(rm[i]).match()).isMatch) {
-                    this.__propagate("assert", context.clone(null, null, mr));
+            if (this.__addToLeftMemory(context)) {
+                var rm = this.rightTuples, node = {next: rm.head}, thisConstraint = this.constraint;
+                if (rm.length) {
+                    thisConstraint.setLeftContext(context);
+                    while ((node = node.next)) {
+                        this.propagateFromLeft(context, thisConstraint, node.data);
+                    }
+                    thisConstraint.clearContexts();
                 }
+            } else {
+                this.modifyLeft(context);
             }
-            thisConstraint.clearContexts();
         },
 
         assertRight: function (context) {
-            var fact = context.fact;
-            this.rightMemory[fact.id] = context;
-            this.rightTuples.push(context);
-            var fl = this.leftTuples, i = -1, l = fl.length, thisConstraint = this.constraint, mr;
-            thisConstraint.setRightContext(context);
-            while (++i < l) {
-                if ((mr = thisConstraint.setLeftContext(fl[i]).match()).isMatch) {
-                    this.__propagate("assert", context.clone(null, null, mr));
+            if (this.__addToRightMemory(context)) {
+                var lm = this.leftTuples;
+                if (lm.length) {
+                    var node = {next: lm.head}, thisConstraint = this.constraint;
+                    thisConstraint.setRightContext(context);
+                    while ((node = node.next)) {
+                        this.propagateFromRight(context, thisConstraint, node.data);
+                    }
+                    thisConstraint.clearContexts();
                 }
+            } else {
+                this.modifyRight(context);
             }
-            thisConstraint.clearContexts();
         },
 
-        _propagateRetractResolve: function (context) {
-            this.__propagate("retractResolve", context);
+        modifyLeft: function (context) {
+            var previousContext;
+            if ((previousContext = this.removeFromLeftMemory(context))) {
+                previousContext = previousContext.data;
+                this.__addToLeftMemory(context);
+                var rm = this.rightTuples, l = rm.length;
+                if (!l) {
+                    this.propagateRetract(context);
+                } else {
+                    var thisConstraint = this.constraint,
+                        node = {next: rm.head},
+                        rightMatches = previousContext.rightMatches;
+                    thisConstraint.setLeftContext(context);
+                    while ((node = node.next)) {
+                        this.propagateAssertModifyFromLeft(context, rightMatches, thisConstraint, node.data);
+                    }
+                    thisConstraint.clearContexts();
+
+                }
+            } else {
+                throw new Error();
+            }
+
         },
+
+        modifyRight: function (context) {
+            var previousContext;
+            if ((previousContext = this.removeFromRightMemory(context))) {
+                previousContext = previousContext.data;
+                this.__addToRightMemory(context);
+                var lm = this.leftTuples;
+                if (!lm.length) {
+                    this.propagateRetract(context);
+                } else {
+                    var thisConstraint = this.constraint,
+                        leftMatches = previousContext.leftMatches,
+                        node = {next: lm.head};
+                    thisConstraint.setRightContext(context);
+                    while ((node = node.next)) {
+                        this.propagateAssertModifyFromRight(context, leftMatches, thisConstraint, node.data);
+                    }
+                    thisConstraint.clearContexts();
+                }
+            }  else {
+                throw new Error();
+            }
+
+        },
+
+        propagateAssertModifyFromLeft: function (context, rightMatches, constraint, rm) {
+            var factId = rm.hashCode, mr;
+            if (factId in rightMatches) {
+                mr = constraint.setRightContext(rm).match();
+                var mrIsMatch = mr.isMatch;
+                if (!mrIsMatch) {
+                    this.__propagate("retract", rightMatches[factId].clone());
+                } else {
+                    this.__propagate("modify", this.__addToMemoryMatches(rm, context, context.clone(null, null, mr)));
+                }
+            } else {
+                this.propagateFromLeft(context, constraint, rm);
+            }
+        },
+
+        propagateAssertModifyFromRight: function (context, leftMatches, constraint, lm) {
+            var factId = lm.hashCode, mr;
+            if (factId in leftMatches) {
+                mr = constraint.setLeftContext(lm).match();
+                var mrIsMatch = mr.isMatch;
+                if (!mrIsMatch) {
+                    this.__propagate("retract", leftMatches[factId].clone());
+                } else {
+                    this.__propagate("modify", this.__addToMemoryMatches(context, lm, context.clone(null, null, mr)));
+                }
+            } else {
+                this.propagateFromRight(context, constraint, lm);
+            }
+        },
+
+        removeFromRightMemory: function (context) {
+            var hashCode = context.hashCode, ret;
+            context = this.rightMemory[hashCode] || null;
+            var tuples = this.rightTuples;
+            if (context) {
+                var leftMemory = this.leftMemory;
+                ret = context.data;
+                var leftMatches = ret.leftMatches;
+                tuples.remove(context);
+                for (var i in leftMatches) {
+                    delete leftMemory[i].data.rightMatches[hashCode];
+                }
+                delete this.rightMemory[hashCode];
+            }
+            return context;
+        },
+
+        removeFromLeftMemory: function (context) {
+            var hashCode = context.hashCode;
+            context = this.leftMemory[hashCode] || null;
+            if (context) {
+                var rightMemory = this.rightMemory;
+                var rightMatches = context.data.rightMatches;
+                this.leftTuples.remove(context);
+                for (var i in rightMatches) {
+                    delete rightMemory[i].data.leftMatches[hashCode];
+                }
+                delete this.leftMemory[hashCode];
+            }
+            return context;
+        },
+
+        getRightMemoryMatches: function (context) {
+            var lm = this.leftMemory[context.hashCode], ret = {};
+            if (lm) {
+                ret = lm.rightMatches;
+            }
+            return ret;
+        },
+
+        __addToMemoryMatches: function (rightContext, leftContext, createdContext) {
+            var rightFactId = rightContext.hashCode,
+                rm = this.rightMemory[rightFactId],
+                lm, leftFactId = leftContext.hashCode;
+            if (rm) {
+                rm = rm.data;
+                if (leftFactId in rm.leftMatches) {
+                    throw new Error("Duplicate left fact entry");
+                }
+                rm.leftMatches[leftFactId] = createdContext;
+            }
+            lm = this.leftMemory[leftFactId];
+            if (lm) {
+                lm = lm.data;
+                if (rightFactId in lm.rightMatches) {
+                    throw new Error("Duplicate right fact entry");
+                }
+                lm.rightMatches[rightFactId] = createdContext;
+            }
+            return createdContext;
+        },
+
+        __addToRightMemory: function (context) {
+            var hashCode = context.hashCode, rm = this.rightMemory;
+            if (hashCode in rm) {
+                return false;
+            }
+            rm[hashCode] = this.rightTuples.push(context);
+            context.leftMatches = {};
+            return true;
+        },
+
 
         __addToLeftMemory: function (context) {
-            var o = context.fact;
-            var lm = this.leftMemory[o.id];
-            if (!lm) {
-                lm = [];
-                this.leftMemory[o.id] = lm;
+            var hashCode = context.hashCode, lm = this.leftMemory;
+            if (hashCode in lm) {
+                return false;
             }
-            this.leftTuples.push(context);
-            lm.push(context);
-            return this;
+            lm[hashCode] = this.leftTuples.push(context);
+            context.rightMatches = {};
+            return true;
         }
     }
 
 }).as(module);
-},{"../extended":11,"./joinReferenceNode":22,"./node":24}],22:[function(require,module,exports){
+},{"../extended":12,"../linkedList":16,"./joinReferenceNode":25,"./node":27}],25:[function(require,module,exports){
 var Node = require("./node");
+
+var DEFUALT_CONSTRAINT = {
+    assert: function () {
+        return true;
+    }
+};
+
 Node.extend({
 
     instance: {
 
-        constraint: null,
+        constraint: DEFUALT_CONSTRAINT,
         __lc: null,
         __rc: null,
         __varLength: 0,
@@ -2277,12 +2957,12 @@ Node.extend({
         clearLeftContext: function () {
             this.__lc = null;
             var fh = this.__fh = {}, rc = this.__rc;
-            fh[this.__alias] = rc ? rc.fact.object : null;
+            fh[this.__alias] = rc ? rc.fact.object: null;
             return this;
         },
 
         addConstraint: function (constraint) {
-            if (this.constraint === null) {
+            if (this.constraint === DEFUALT_CONSTRAINT) {
                 this.constraint = constraint;
             } else {
                 this.constraint = this.constraint.merge(constraint);
@@ -2292,17 +2972,13 @@ Node.extend({
         },
 
         equal: function (constraint) {
-            if (this.constraint !== null) {
+            if (this.constraint !== DEFUALT_CONSTRAINT) {
                 return this.constraint.equal(constraint.constraint);
             }
         },
 
         isMatch: function () {
-            var constraint = this.constraint, ret = true;
-            if (constraint !== null) {
-                ret = constraint.assert(this.__fh);
-            }
-            return ret;
+            return this.constraint.assert(this.__fh);
         },
 
         match: function () {
@@ -2321,7 +2997,7 @@ Node.extend({
     }
 
 }).as(module);
-},{"./node":24}],23:[function(require,module,exports){
+},{"./node":27}],26:[function(require,module,exports){
 var Node = require("./node");
 
 Node.extend({
@@ -2338,7 +3014,7 @@ Node.extend({
             this.__propagate("retractResolve", context);
         },
 
-        modify: function (context) {
+        propagateModify: function (context) {
             this.__propagate("modifyLeft", context);
         },
 
@@ -2356,7 +3032,7 @@ Node.extend({
     }
 
 }).as(module);
-},{"./node":24}],24:[function(require,module,exports){
+},{"./node":27}],27:[function(require,module,exports){
 var extd = require("../extended"),
     forEach = extd.forEach,
     indexOf = extd.indexOf,
@@ -2429,8 +3105,7 @@ declare({
             return false;
         },
 
-        __propagate: function (method, context, outNodes) {
-            outNodes = outNodes || this.nodes;
+        __propagate: function (method, context) {
             var entrySet = this.__entrySet, i = entrySet.length, entry, outNode, paths, continuingPaths;
             while (--i > -1) {
                 entry = entrySet[i];
@@ -2463,30 +3138,32 @@ declare({
             }
         },
 
-        propagateAssert: function (assertable, outNodes) {
-            this.__propagate("assert", assertable, outNodes || this.nodes);
+        propagateAssert: function (assertable) {
+            this.__propagate("assert", assertable);
         },
 
-        propagateRetract: function (assertable, outNodes) {
-            this.__propagate("retract", assertable, outNodes || this.nodes);
+        propagateRetract: function (assertable) {
+            this.__propagate("retract", assertable);
         },
 
         assert: function (assertable) {
             this.propagateAssert(assertable);
         },
 
-        propagateModify: function (assertable, outNodes) {
-            this.__propagate("modify", assertable, outNodes || this.nodes);
+        modify: function (assertable) {
+            this.propagateModify(assertable);
+        },
+
+        propagateModify: function (assertable) {
+            this.__propagate("modify", assertable);
         }
     }
 
 }).as(module);
 
-},{"../context":9,"../extended":11}],25:[function(require,module,exports){
+},{"../context":10,"../extended":12}],28:[function(require,module,exports){
 var JoinNode = require("./joinNode"),
-    Context = require("../context"),
-    extd = require("../extended"),
-    indexOf = extd.indexOf;
+    LinkedList = require("../linkedList");
 
 JoinNode.extend({
     instance: {
@@ -2494,7 +3171,6 @@ JoinNode.extend({
         constructor: function () {
             this._super(arguments);
             this.leftTupleMemory = {};
-            this.allTuples = {};
         },
 
 
@@ -2503,171 +3179,261 @@ JoinNode.extend({
         },
 
 
-        retractRight: function (fact) {
-            var rightMemory = this.rightMemory;
-            var rightContext = rightMemory[fact.id], thisConstraint = this.constraint;
-            delete rightMemory[fact.id];
-            if (rightContext) {
-                var index = indexOf(this.rightTuples, rightContext);
-                this.rightTuples.splice(index, 1);
-                var fl = rightContext.blocking, leftContext;
-                var rValues = this.rightTuples, k = rValues.length, rc, j;
-                while ((leftContext = fl.pop())) {
-                    leftContext.blocker = null;
-                    thisConstraint.setLeftContext(leftContext);
-                    for (j = index; j < k; j++) {
-                        rc = rValues[j];
-                        thisConstraint.setRightContext(rc);
-                        if (thisConstraint.isMatch()) {
-                            leftContext.blocker = rc;
-                            rc.blocking.push(leftContext);
-                            this.__addToLeftTupleMemory(leftContext);
-                            break;
+        retractRight: function (context) {
+            var ctx = this.removeFromRightMemory(context);
+            if (ctx) {
+                var rightContext = ctx.data;
+                var blocking = rightContext.blocking;
+                if (blocking.length) {
+                    //if we are blocking left contexts
+                    var leftContext, rightTuples = this.rightTuples, thisConstraint = this.constraint, blockingNode = {next: blocking.head}, node, l = rightTuples.length, rc;
+                    while ((blockingNode = blockingNode.next)) {
+                        leftContext = blockingNode.data;
+                        this.removeFromLeftBlockedMemory(leftContext);
+                        if (l !== 0) {
+                            thisConstraint.setLeftContext(leftContext);
+                            node = ctx;
+                            while ((node = node.next)) {
+                                if (thisConstraint.setRightContext(rc = node.data).isMatch()) {
+                                    leftContext.blocker = rc;
+                                    this.addToLeftBlockedMemory(rc.blocking.push(leftContext));
+                                    leftContext = null;
+                                    break;
+                                }
+                            }
+                            thisConstraint.clearContexts();
+                        }
+                        if (leftContext) {
+                            this.__addToLeftMemory(leftContext);
+                            this.__propagate("assert", leftContext.clone());
                         }
                     }
-                    if (!leftContext.blocker) {
-                        this.__removeFromLeftTupleMemory(leftContext);
-                        this.__addToLeftMemory(leftContext).propagateAssert(new Context(leftContext.fact, null, leftContext.match));
+                    blocking.clear();
+                }
+            } else {
+                throw new Error();
+            }
+
+        },
+
+
+        retractLeft: function (context) {
+            var ctx = this.removeFromLeftMemory(context);
+            if (ctx) {
+                this.__propagate("retract", ctx.data.clone());
+            } else {
+                if (!this.removeFromLeftBlockedMemory(context)) {
+                    throw new Error();
+                }
+            }
+        },
+
+        assertLeft: function (context) {
+            var values = this.rightTuples,
+                node,
+                thisConstraint = this.constraint, rc;
+            if (values.length) {
+                node = {next: values.head};
+                thisConstraint.setLeftContext(context);
+                while ((node = node.next) && context) {
+                    if (thisConstraint.setRightContext(rc = node.data).isMatch()) {
+                        context.blocker = rc;
+                        this.addToLeftBlockedMemory(rc.blocking.push(context));
+                        context = null;
+                    }
+                }
+                thisConstraint.clearContexts();
+            }
+            if (context) {
+                this.__addToLeftMemory(context);
+                this.__propagate("assert", context.clone());
+            }
+        },
+
+        assertRight: function (context) {
+            this.__addToRightMemory(context);
+            context.blocking = new LinkedList();
+            var fl = this.leftTuples, leftContext, node, thisConstraint = this.constraint;
+            if (fl.length) {
+                node = {next: fl.head};
+                thisConstraint.setRightContext(context);
+                while ((node = node.next)) {
+                    leftContext = node.data;
+                    if (thisConstraint.setLeftContext(leftContext).isMatch()) {
+                        this.__propagate("retract", leftContext.clone());
+                        this.removeFromLeftMemory(leftContext);
+                        leftContext.blocker = context;
+                        this.addToLeftBlockedMemory(context.blocking.push(leftContext));
                     }
                 }
                 thisConstraint.clearContexts();
             }
         },
 
-
-        retractLeft: function (fact) {
-            var factId = fact.id, tuples = this.allTuples[fact.id] || [], context, blocking, blocker;
-            while (tuples.length) {
-                context = tuples.pop();
-                if (indexOf(context.factIds, factId) !== -1) {
-                    this.__removeFromAllTupleMemory(context);
-                    this.__removeFromLeftMemory(context);
-                    this.__removeFromLeftTupleMemory(context);
-                    if ((blocker = context.blocker)) {
-                        blocking = blocker.blocking;
-                        blocking.splice(indexOf(blocking, context), 1);
-                        context.blocker = null;
-                    }
-                }
+        addToLeftBlockedMemory: function (context) {
+            var data = context.data, hashCode = data.hashCode;
+            var ctx = this.leftMemory[hashCode];
+            this.leftTupleMemory[hashCode] = context;
+            if (ctx) {
+                this.leftTuples.remove(ctx);
             }
-            delete this.leftMemory[factId];
-            delete this.leftTupleMemory[factId];
-            this.propagateRetract(fact);
-
+            return this;
         },
 
-        assertLeft: function (context) {
-            var values = this.rightTuples, thisConstraint = this.constraint, i = -1, l = values.length, rc;
-            if (l !== 0) {
-                thisConstraint.setLeftContext(context);
-                while (++i < l) {
-                    if (thisConstraint.setRightContext(rc = values[i]).isMatch()) {
+        removeFromLeftBlockedMemory: function (context) {
+            var ret = this.leftTupleMemory[context.hashCode] || null;
+            if (ret) {
+                delete this.leftTupleMemory[context.hashCode];
+                ret.data.blocker.blocking.remove(ret);
+            }
+            return ret;
+        },
+
+        modifyLeft: function (context) {
+            var ctx = this.removeFromLeftMemory(context),
+                leftContext,
+                thisConstraint = this.constraint,
+                rightTuples = this.rightTuples,
+                l = rightTuples.length,
+                isBlocked = false,
+                node, rc, blocker;
+            if (!ctx) {
+                //blocked before
+                ctx = this.removeFromLeftBlockedMemory(context);
+                isBlocked = true;
+            }
+            if (ctx) {
+                leftContext = ctx.data;
+
+                if (leftContext && leftContext.blocker) {
+                    //we were blocked before so only check nodes previous to our blocker
+                    blocker = this.rightMemory[leftContext.blocker.hashCode];
+                }
+                if (blocker) {
+                    thisConstraint.setLeftContext(context);
+                    if (thisConstraint.setRightContext(rc = blocker.data).isMatch()) {
+                        //we cant be proagated so retract previous
+                        if (!isBlocked) {
+                            //we were asserted before so retract
+                            this.__propagate("retract", leftContext.clone());
+                        }
                         context.blocker = rc;
-                        rc.blocking.push(context);
-                        this.__addToLeftTupleMemory(context);
+                        this.addToLeftBlockedMemory(rc.blocking.push(context));
                         context = null;
-                        break;
                     }
                 }
-            }
-            if (context) {
-                this.__addToLeftMemory(context).propagateAssert(new Context(context.fact, null, context.match));
-            }
-        },
-
-        assertRight: function (context) {
-            context.blocking = [];
-            this.rightTuples.push(context);
-            this.rightMemory[context.fact.id] = context;
-            var fl = this.leftTuples, i = fl.length, leftContext, thisConstraint = this.constraint;
-            thisConstraint.setRightContext(context);
-            while (--i > -1) {
-                leftContext = fl[i];
-                if (thisConstraint.setLeftContext(leftContext).isMatch()) {
-                    this._propagateRetractResolve(leftContext.match);
-                    //blocked so remove from memory
-                    this.__removeFromLeftMemory(leftContext);
-                    leftContext.blocker = context;
-                    context.blocking.push(leftContext);
-                    this.__addToLeftTupleMemory(leftContext);
+                if (context && l) {
+                    node = {next: rightTuples.head};
+                    //we were propogated before
+                    thisConstraint.setLeftContext(context);
+                    while ((node = node.next)) {
+                        if (thisConstraint.setRightContext(rc = node.data).isMatch()) {
+                            //we cant be proagated so retract previous
+                            if (!isBlocked) {
+                                //we were asserted before so retract
+                                this.__propagate("retract", leftContext.clone());
+                            }
+                            this.addToLeftBlockedMemory(rc.blocking.push(context));
+                            context.blocker = rc;
+                            context = null;
+                            break;
+                        }
+                    }
+                    thisConstraint.clearContexts();
                 }
-            }
-            thisConstraint.clearContexts();
-        },
+                if (context) {
+                    //we can still be propogated
+                    this.__addToLeftMemory(context);
+                    if (!isBlocked) {
+                        //we weren't blocked before so modify
+                        this.__propagate("modify", context.clone());
+                    } else {
+                        //we were blocked before but aren't now
+                        this.__propagate("assert", context.clone());
+                    }
 
-        __removeFromLeftMemory: function (context) {
-            var leftMemories = this.leftMemory[context.fact.id] || [], lc, tuples = this.leftTuples;
-            for (var i = 0, l = tuples.length; i < l; i++) {
-                lc = tuples[i];
-                if (lc === context) {
-                    tuples.splice(i, 1);
-                    leftMemories.splice(indexOf(leftMemories, lc), 1);
-                    break;
                 }
+            } else {
+                throw new Error();
             }
-            return this;
+
         },
 
-        __removeFromLeftTupleMemory: function (context) {
-            var leftMemories = this.leftTupleMemory[context.fact.id] || [], lc;
-            for (var i = 0, l = leftMemories.length; i < l; i++) {
-                lc = leftMemories[i];
-                if (lc === context) {
-                    leftMemories.splice(i, 1);
-                    break;
+        modifyRight: function (context) {
+            var ctx = this.removeFromRightMemory(context);
+            if (ctx) {
+                var rightContext = ctx.data,
+                    leftTuples = this.leftTuples,
+                    leftTuplesLength = leftTuples.length,
+                    leftContext,
+                    thisConstraint = this.constraint,
+                    node,
+                    blocking = rightContext.blocking;
+                this.__addToRightMemory(context);
+                context.blocking = new LinkedList();
+                if (leftTuplesLength || blocking.length) {
+                    if (leftTuplesLength) {
+                        //check currently left tuples in memory
+                        thisConstraint.setRightContext(context);
+                        node = {next: leftTuples.head};
+                        while ((node = node.next)) {
+                            leftContext = node.data;
+                            if (thisConstraint.setLeftContext(leftContext).isMatch()) {
+                                this.__propagate("retract", leftContext.clone());
+                                this.removeFromLeftMemory(leftContext);
+                                this.addToLeftBlockedMemory(context.blocking.push(leftContext));
+                                leftContext.blocker = context;
+                            }
+                        }
+                    }
+
+                    if (blocking.length) {
+                        var rc;
+                        //check old blocked contexts
+                        //check if the same contexts blocked before are still blocked
+                        var blockingNode = {next: blocking.head};
+                        while ((blockingNode = blockingNode.next)) {
+                            leftContext = blockingNode.data;
+                            leftContext.blocker = null;
+                            thisConstraint.setRightContext(context);
+                            thisConstraint.setLeftContext(leftContext);
+                            if (thisConstraint.isMatch()) {
+                                leftContext.blocker = context;
+                                this.addToLeftBlockedMemory(context.blocking.push(leftContext));
+                                leftContext = null;
+                                return;
+                            } else {
+                                //we arent blocked anymore
+                                leftContext.blocker = null;
+                                node = ctx;
+                                while ((node = node.next)) {
+                                    if (thisConstraint.setRightContext(rc = node.data).isMatch()) {
+                                        leftContext.blocker = rc;
+                                        this.addToLeftBlockedMemory(rc.blocking.push(leftContext));
+                                        leftContext = null;
+                                        break;
+                                    }
+                                }
+                                if (leftContext) {
+                                    this.__addToLeftMemory(leftContext);
+                                    this.__propagate("assert", leftContext.clone());
+                                }
+                                thisConstraint.clearContexts();
+                            }
+                        }
+                        thisConstraint.clearContexts();
+                    }
+
                 }
+            } else {
+                throw new Error();
             }
-            return this;
-        },
-
-        __addToAllTupleMemory: function (context) {
-            var factIds = context.factIds, i = -1, l = factIds.length, factId, allTuples = this.allTuples, tuples;
-            while (++i < l) {
-                factId = factIds[i];
-                tuples = allTuples[factId] = (allTuples[factId] || []);
-                if (indexOf(tuples, context) === -1) {
-                    tuples.push(context);
-                }
-            }
-            return this;
-
-        },
-
-        __removeFromAllTupleMemory: function (context) {
-            var factIds = context.factIds, i = -1, l = factIds.length, factId, allTuples = this.allTuples, tuples, index;
-            while (++i < l) {
-                factId = factIds[i];
-                tuples = allTuples[factId];
-                index = indexOf(tuples, context);
-                if (index !== -1) {
-                    tuples.splice(i, 1);
-                }
-            }
-            return this;
-
-        },
 
 
-        __addToLeftMemory: function (context) {
-            this._super(arguments);
-            this.__addToAllTupleMemory(context);
-            return this;
-        },
-
-        __addToLeftTupleMemory: function (context) {
-            var o = context.fact;
-            var lm = this.leftTupleMemory[o.id];
-            if (!lm) {
-                lm = [];
-                this.leftTupleMemory[o.id] = lm;
-            }
-            lm.push(context);
-            this.__addToAllTupleMemory(context);
-            return this;
         }
     }
 }).as(module);
-},{"../context":9,"../extended":11,"./joinNode":21}],26:[function(require,module,exports){
+},{"../linkedList":16,"./joinNode":24}],29:[function(require,module,exports){
 var AlphaNode = require("./alphaNode"),
     Context = require("../context"),
     extd = require("../extended");
@@ -2694,6 +3460,22 @@ AlphaNode.extend({
 
         },
 
+        retract: function (context) {
+            this.__propagate("retract", new Context(context.fact, context.paths));
+        },
+
+        modify: function (context) {
+            var c = new Context(context.fact, context.paths);
+            var variables = this.variables, o = context.fact.object, item;
+            c.set(this.alias, o);
+            for (var i = 0, l = this.varLength; i < l; i++) {
+                item = variables[i];
+                c.set(item[1], o[item[0]]);
+            }
+            this.__propagate("modify", c);
+        },
+
+
         toString: function () {
             return "PropertyNode" + this.__count;
         }
@@ -2702,7 +3484,7 @@ AlphaNode.extend({
 
 
 
-},{"../context":9,"../extended":11,"./alphaNode":18}],27:[function(require,module,exports){
+},{"../context":10,"../extended":12,"./alphaNode":19}],30:[function(require,module,exports){
 var Node = require("./node");
 
 Node.extend({
@@ -2728,7 +3510,7 @@ Node.extend({
             this.__propagate("retractResolve", context);
         },
 
-        modify: function (context) {
+        propagateModify: function (context) {
             this.__propagate("modifyRight", context);
         },
 
@@ -2737,7 +3519,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./node":24}],28:[function(require,module,exports){
+},{"./node":27}],31:[function(require,module,exports){
 var Node = require("./node"),
     extd = require("../extended"),
     bind = extd.bind,
@@ -2767,6 +3549,7 @@ Node.extend({
                 var rule = this.rule, bucket = this.bucket;
                 this.agenda.insert(this, {
                     rule: rule,
+                    hashCode: context.hashCode,
                     index: this.index,
                     name: rule.name,
                     recency: bucket.recency++,
@@ -2781,19 +3564,20 @@ Node.extend({
         },
 
         modify: function (context) {
+            this.agenda.retract(this, context);
             this.__assertModify(context);
         },
 
-        retract: function (fact) {
-            this.agenda.removeByFact(this, fact);
+        retract: function (context) {
+            this.agenda.retract(this, context);
         },
 
-        retractRight: function (fact) {
-            this.agenda.removeByFact(this, fact);
+        retractRight: function (context) {
+            this.agenda.retract(this, context);
         },
 
-        retractLeft: function (fact) {
-            this.agenda.removeByFact(this, fact);
+        retractLeft: function (context) {
+            this.agenda.retract(this, context);
         },
 
         assertLeft: function (context) {
@@ -2804,19 +3588,12 @@ Node.extend({
             this.__assertModify(context);
         },
 
-        retractResolve: function (match) {
-            var resolve = this.resolve;
-            this.agenda.retract(this, function (v) {
-                return resolve(v.match, match);
-            });
-        },
-
         toString: function () {
             return "TerminalNode " + this.rule.name;
         }
     }
 }).as(module);
-},{"../extended":11,"./node":24}],29:[function(require,module,exports){
+},{"../extended":12,"./node":27}],32:[function(require,module,exports){
 var AlphaNode = require("./alphaNode"),
     Context = require("../context");
 
@@ -2829,9 +3606,15 @@ AlphaNode.extend({
             }
         },
 
+        modify: function (fact) {
+            if (this.constraint.assert(fact.object)) {
+                this.__propagate("modify", fact);
+            }
+        },
+
         retract: function (fact) {
             if (this.constraint.assert(fact.object)) {
-                this.propagateRetract(fact);
+                this.__propagate("retract", fact);
             }
         },
 
@@ -2848,15 +3631,15 @@ AlphaNode.extend({
         },
 
         __propagate: function (method, fact) {
-            var es = this.__entrySet, i = es.length - 1;
-            for (; i >= 0; i--) {
+            var es = this.__entrySet, i = -1, l = es.length;
+            while (++i < l) {
                 var e = es[i], outNode = e.key, paths = e.value;
                 outNode[method](new Context(fact, paths));
             }
         }
     }
 }).as(module);
-},{"../context":9,"./alphaNode":18}],30:[function(require,module,exports){
+},{"../context":10,"./alphaNode":19}],33:[function(require,module,exports){
 var process=require("__browserify_process");/* parser generated by jison 0.4.6 */
 /*
   Returns a Parser object of the following structure:
@@ -2933,9 +3716,9 @@ var process=require("__browserify_process");/* parser generated by jison 0.4.6 *
 var parser = (function(){
 var parser = {trace: function trace() { },
 yy: {},
-symbols_: {"error":2,"expressions":3,"EXPRESSION":4,"EOF":5,"UNARY_EXPRESSION":6,"LITERAL_EXPRESSION":7,"-":8,"!":9,"MULTIPLICATIVE_EXPRESSION":10,"*":11,"/":12,"%":13,"ADDITIVE_EXPRESSION":14,"+":15,"EXPONENT_EXPRESSION":16,"^":17,"RELATIONAL_EXPRESSION":18,"<":19,">":20,"<=":21,">=":22,"EQUALITY_EXPRESSION":23,"==":24,"!=":25,"=~":26,"!=~":27,"IN_EXPRESSION":28,"in":29,"ARRAY_EXPRESSION":30,"notIn":31,"OBJECT_EXPRESSION":32,"AND_EXPRESSION":33,"&&":34,"OR_EXPRESSION":35,"||":36,"ARGUMENT_LIST":37,",":38,"IDENTIFIER_EXPRESSION":39,"IDENTIFIER":40,".":41,"[":42,"STRING_EXPRESSION":43,"]":44,"(":45,")":46,"STRING":47,"NUMBER_EXPRESSION":48,"NUMBER":49,"REGEXP_EXPRESSION":50,"REGEXP":51,"BOOLEAN_EXPRESSION":52,"BOOLEAN":53,"NULL_EXPRESSION":54,"NULL":55,"$accept":0,"$end":1},
-terminals_: {2:"error",5:"EOF",8:"-",9:"!",11:"*",12:"/",13:"%",15:"+",17:"^",19:"<",20:">",21:"<=",22:">=",24:"==",25:"!=",26:"=~",27:"!=~",29:"in",31:"notIn",34:"&&",36:"||",38:",",40:"IDENTIFIER",41:".",42:"[",44:"]",45:"(",46:")",47:"STRING",49:"NUMBER",51:"REGEXP",53:"BOOLEAN",55:"NULL"},
-productions_: [0,[3,2],[6,1],[6,2],[6,2],[10,1],[10,3],[10,3],[10,3],[14,1],[14,3],[14,3],[16,1],[16,3],[18,1],[18,3],[18,3],[18,3],[18,3],[23,1],[23,3],[23,3],[23,3],[23,3],[28,1],[28,3],[28,3],[28,3],[28,3],[33,1],[33,3],[35,1],[35,3],[37,1],[37,3],[39,1],[32,1],[32,3],[32,4],[32,4],[32,3],[32,4],[43,1],[48,1],[50,1],[52,1],[54,1],[30,2],[30,3],[7,1],[7,1],[7,1],[7,1],[7,1],[7,1],[7,1],[7,3],[4,1]],
+symbols_: {"error":2,"expressions":3,"EXPRESSION":4,"EOF":5,"UNARY_EXPRESSION":6,"LITERAL_EXPRESSION":7,"-":8,"!":9,"MULTIPLICATIVE_EXPRESSION":10,"*":11,"/":12,"%":13,"ADDITIVE_EXPRESSION":14,"+":15,"EXPONENT_EXPRESSION":16,"^":17,"RELATIONAL_EXPRESSION":18,"<":19,">":20,"<=":21,">=":22,"EQUALITY_EXPRESSION":23,"==":24,"!=":25,"=~":26,"!=~":27,"IN_EXPRESSION":28,"in":29,"ARRAY_EXPRESSION":30,"notIn":31,"OBJECT_EXPRESSION":32,"AND_EXPRESSION":33,"&&":34,"OR_EXPRESSION":35,"||":36,"ARGUMENT_LIST":37,",":38,"IDENTIFIER_EXPRESSION":39,"IDENTIFIER":40,".":41,"[":42,"STRING_EXPRESSION":43,"]":44,"NUMBER_EXPRESSION":45,"(":46,")":47,"STRING":48,"NUMBER":49,"REGEXP_EXPRESSION":50,"REGEXP":51,"BOOLEAN_EXPRESSION":52,"BOOLEAN":53,"NULL_EXPRESSION":54,"NULL":55,"$accept":0,"$end":1},
+terminals_: {2:"error",5:"EOF",8:"-",9:"!",11:"*",12:"/",13:"%",15:"+",17:"^",19:"<",20:">",21:"<=",22:">=",24:"==",25:"!=",26:"=~",27:"!=~",29:"in",31:"notIn",34:"&&",36:"||",38:",",40:"IDENTIFIER",41:".",42:"[",44:"]",46:"(",47:")",48:"STRING",49:"NUMBER",51:"REGEXP",53:"BOOLEAN",55:"NULL"},
+productions_: [0,[3,2],[6,1],[6,2],[6,2],[10,1],[10,3],[10,3],[10,3],[14,1],[14,3],[14,3],[16,1],[16,3],[18,1],[18,3],[18,3],[18,3],[18,3],[23,1],[23,3],[23,3],[23,3],[23,3],[28,1],[28,3],[28,3],[28,3],[28,3],[33,1],[33,3],[35,1],[35,3],[37,1],[37,3],[39,1],[32,1],[32,3],[32,4],[32,4],[32,4],[32,3],[32,4],[43,1],[45,1],[50,1],[52,1],[54,1],[30,2],[30,3],[7,1],[7,1],[7,1],[7,1],[7,1],[7,1],[7,1],[7,3],[4,1]],
 performAction: function anonymous(yytext, yyleng, yylineno, yy, yystate /* action[1] */, $$ /* vstack */, _$ /* lstack */) {
 /* this == yyval */
 
@@ -2997,29 +3780,31 @@ case 38:this.$ = [$$[$0-3],$$[$0-1], 'propLookup'];
 break;
 case 39:this.$ = [$$[$0-3],$$[$0-1], 'propLookup'];
 break;
-case 40:this.$ = [$$[$0-2], [null, null, 'arguments'], 'function']
+case 40:this.$ = [$$[$0-3],$$[$0-1], 'propLookup'];
 break;
-case 41:this.$ = [$$[$0-3], $$[$0-1], 'function']
+case 41:this.$ = [$$[$0-2], [null, null, 'arguments'], 'function']
 break;
-case 42:this.$ = [String(yytext.replace(/^['|"]|['|"]$/g, '')), null, 'string'];
+case 42:this.$ = [$$[$0-3], $$[$0-1], 'function']
 break;
-case 43:this.$ = [Number(yytext), null, 'number'];
+case 43:this.$ = [String(yytext.replace(/^['|"]|['|"]$/g, '')), null, 'string'];
 break;
-case 44:this.$ = [yytext, null, 'regexp'];
+case 44:this.$ = [Number(yytext), null, 'number'];
 break;
-case 45:this.$ = [yytext.replace(/^\s+/, '') == 'true', null, 'boolean'];
+case 45:this.$ = [yytext, null, 'regexp'];
 break;
-case 46:this.$ = [null, null, 'null'];
+case 46:this.$ = [yytext.replace(/^\s+/, '') == 'true', null, 'boolean'];
 break;
-case 47:this.$ = [null, null, 'array'];
+case 47:this.$ = [null, null, 'null'];
 break;
-case 48:this.$ = [$$[$0-1], null, 'array'];
+case 48:this.$ = [null, null, 'array'];
 break;
-case 56:this.$ = [$$[$0-1], null, 'composite']
+case 49:this.$ = [$$[$0-1], null, 'array'];
+break;
+case 57:this.$ = [$$[$0-1], null, 'composite']
 break;
 }
 },
-table: [{3:1,4:2,6:28,7:7,8:[1,29],9:[1,30],10:27,14:25,16:17,18:8,23:6,28:5,30:15,32:14,33:4,35:3,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{1:[3]},{5:[1,31]},{5:[2,57],36:[1,32],46:[2,57]},{5:[2,31],34:[1,33],36:[2,31],46:[2,31]},{5:[2,29],34:[2,29],36:[2,29],46:[2,29]},{5:[2,24],24:[1,34],25:[1,35],26:[1,36],27:[1,37],34:[2,24],36:[2,24],46:[2,24]},{5:[2,2],8:[2,2],11:[2,2],12:[2,2],13:[2,2],15:[2,2],17:[2,2],19:[2,2],20:[2,2],21:[2,2],22:[2,2],24:[2,2],25:[2,2],26:[2,2],27:[2,2],29:[1,38],31:[1,39],34:[2,2],36:[2,2],46:[2,2]},{5:[2,19],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,19],25:[2,19],26:[2,19],27:[2,19],34:[2,19],36:[2,19],46:[2,19]},{5:[2,49],8:[2,49],11:[2,49],12:[2,49],13:[2,49],15:[2,49],17:[2,49],19:[2,49],20:[2,49],21:[2,49],22:[2,49],24:[2,49],25:[2,49],26:[2,49],27:[2,49],29:[2,49],31:[2,49],34:[2,49],36:[2,49],38:[2,49],44:[2,49],46:[2,49]},{5:[2,50],8:[2,50],11:[2,50],12:[2,50],13:[2,50],15:[2,50],17:[2,50],19:[2,50],20:[2,50],21:[2,50],22:[2,50],24:[2,50],25:[2,50],26:[2,50],27:[2,50],29:[2,50],31:[2,50],34:[2,50],36:[2,50],38:[2,50],44:[2,50],46:[2,50]},{5:[2,51],8:[2,51],11:[2,51],12:[2,51],13:[2,51],15:[2,51],17:[2,51],19:[2,51],20:[2,51],21:[2,51],22:[2,51],24:[2,51],25:[2,51],26:[2,51],27:[2,51],29:[2,51],31:[2,51],34:[2,51],36:[2,51],38:[2,51],44:[2,51],46:[2,51]},{5:[2,52],8:[2,52],11:[2,52],12:[2,52],13:[2,52],15:[2,52],17:[2,52],19:[2,52],20:[2,52],21:[2,52],22:[2,52],24:[2,52],25:[2,52],26:[2,52],27:[2,52],29:[2,52],31:[2,52],34:[2,52],36:[2,52],38:[2,52],44:[2,52],46:[2,52]},{5:[2,53],8:[2,53],11:[2,53],12:[2,53],13:[2,53],15:[2,53],17:[2,53],19:[2,53],20:[2,53],21:[2,53],22:[2,53],24:[2,53],25:[2,53],26:[2,53],27:[2,53],29:[2,53],31:[2,53],34:[2,53],36:[2,53],38:[2,53],44:[2,53],46:[2,53]},{5:[2,54],8:[2,54],11:[2,54],12:[2,54],13:[2,54],15:[2,54],17:[2,54],19:[2,54],20:[2,54],21:[2,54],22:[2,54],24:[2,54],25:[2,54],26:[2,54],27:[2,54],29:[2,54],31:[2,54],34:[2,54],36:[2,54],38:[2,54],41:[1,44],42:[1,45],44:[2,54],45:[1,46],46:[2,54]},{5:[2,55],8:[2,55],11:[2,55],12:[2,55],13:[2,55],15:[2,55],17:[2,55],19:[2,55],20:[2,55],21:[2,55],22:[2,55],24:[2,55],25:[2,55],26:[2,55],27:[2,55],29:[2,55],31:[2,55],34:[2,55],36:[2,55],38:[2,55],44:[2,55],46:[2,55]},{4:47,6:28,7:7,8:[1,29],9:[1,30],10:27,14:25,16:17,18:8,23:6,28:5,30:15,32:14,33:4,35:3,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,14],17:[1,48],19:[2,14],20:[2,14],21:[2,14],22:[2,14],24:[2,14],25:[2,14],26:[2,14],27:[2,14],34:[2,14],36:[2,14],46:[2,14]},{5:[2,42],8:[2,42],11:[2,42],12:[2,42],13:[2,42],15:[2,42],17:[2,42],19:[2,42],20:[2,42],21:[2,42],22:[2,42],24:[2,42],25:[2,42],26:[2,42],27:[2,42],29:[2,42],31:[2,42],34:[2,42],36:[2,42],38:[2,42],44:[2,42],46:[2,42]},{5:[2,43],8:[2,43],11:[2,43],12:[2,43],13:[2,43],15:[2,43],17:[2,43],19:[2,43],20:[2,43],21:[2,43],22:[2,43],24:[2,43],25:[2,43],26:[2,43],27:[2,43],29:[2,43],31:[2,43],34:[2,43],36:[2,43],38:[2,43],44:[2,43],46:[2,43]},{5:[2,44],8:[2,44],11:[2,44],12:[2,44],13:[2,44],15:[2,44],17:[2,44],19:[2,44],20:[2,44],21:[2,44],22:[2,44],24:[2,44],25:[2,44],26:[2,44],27:[2,44],29:[2,44],31:[2,44],34:[2,44],36:[2,44],38:[2,44],44:[2,44],46:[2,44]},{5:[2,45],8:[2,45],11:[2,45],12:[2,45],13:[2,45],15:[2,45],17:[2,45],19:[2,45],20:[2,45],21:[2,45],22:[2,45],24:[2,45],25:[2,45],26:[2,45],27:[2,45],29:[2,45],31:[2,45],34:[2,45],36:[2,45],38:[2,45],44:[2,45],46:[2,45]},{5:[2,46],8:[2,46],11:[2,46],12:[2,46],13:[2,46],15:[2,46],17:[2,46],19:[2,46],20:[2,46],21:[2,46],22:[2,46],24:[2,46],25:[2,46],26:[2,46],27:[2,46],29:[2,46],31:[2,46],34:[2,46],36:[2,46],38:[2,46],44:[2,46],46:[2,46]},{5:[2,36],8:[2,36],11:[2,36],12:[2,36],13:[2,36],15:[2,36],17:[2,36],19:[2,36],20:[2,36],21:[2,36],22:[2,36],24:[2,36],25:[2,36],26:[2,36],27:[2,36],29:[2,36],31:[2,36],34:[2,36],36:[2,36],38:[2,36],41:[2,36],42:[2,36],44:[2,36],45:[2,36],46:[2,36]},{7:51,30:15,32:14,37:50,39:23,40:[1,26],42:[1,24],43:9,44:[1,49],45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,12],8:[1,53],15:[1,52],17:[2,12],19:[2,12],20:[2,12],21:[2,12],22:[2,12],24:[2,12],25:[2,12],26:[2,12],27:[2,12],34:[2,12],36:[2,12],46:[2,12]},{5:[2,35],8:[2,35],11:[2,35],12:[2,35],13:[2,35],15:[2,35],17:[2,35],19:[2,35],20:[2,35],21:[2,35],22:[2,35],24:[2,35],25:[2,35],26:[2,35],27:[2,35],29:[2,35],31:[2,35],34:[2,35],36:[2,35],38:[2,35],41:[2,35],42:[2,35],44:[2,35],45:[2,35],46:[2,35]},{5:[2,9],8:[2,9],11:[1,54],12:[1,55],13:[1,56],15:[2,9],17:[2,9],19:[2,9],20:[2,9],21:[2,9],22:[2,9],24:[2,9],25:[2,9],26:[2,9],27:[2,9],34:[2,9],36:[2,9],46:[2,9]},{5:[2,5],8:[2,5],11:[2,5],12:[2,5],13:[2,5],15:[2,5],17:[2,5],19:[2,5],20:[2,5],21:[2,5],22:[2,5],24:[2,5],25:[2,5],26:[2,5],27:[2,5],34:[2,5],36:[2,5],46:[2,5]},{6:57,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:59,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{1:[2,1]},{6:28,7:7,8:[1,29],9:[1,30],10:27,14:25,16:17,18:8,23:6,28:5,30:15,32:14,33:60,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:7,8:[1,29],9:[1,30],10:27,14:25,16:17,18:8,23:6,28:61,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:17,18:62,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:17,18:63,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:17,18:64,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:17,18:65,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{30:66,32:67,39:23,40:[1,26],42:[1,24]},{30:68,32:69,39:23,40:[1,26],42:[1,24]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:70,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:71,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:72,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:73,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{39:74,40:[1,26]},{32:76,39:23,40:[1,26],43:75,47:[1,18]},{7:51,30:15,32:14,37:78,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],46:[1,77],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{46:[1,79]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:80,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,47],8:[2,47],11:[2,47],12:[2,47],13:[2,47],15:[2,47],17:[2,47],19:[2,47],20:[2,47],21:[2,47],22:[2,47],24:[2,47],25:[2,47],26:[2,47],27:[2,47],29:[2,47],31:[2,47],34:[2,47],36:[2,47],38:[2,47],44:[2,47],46:[2,47]},{38:[1,82],44:[1,81]},{38:[2,33],44:[2,33],46:[2,33]},{6:28,7:58,8:[1,29],9:[1,30],10:83,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:84,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:85,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:86,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:87,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,3],8:[2,3],11:[2,3],12:[2,3],13:[2,3],15:[2,3],17:[2,3],19:[2,3],20:[2,3],21:[2,3],22:[2,3],24:[2,3],25:[2,3],26:[2,3],27:[2,3],34:[2,3],36:[2,3],46:[2,3]},{5:[2,2],8:[2,2],11:[2,2],12:[2,2],13:[2,2],15:[2,2],17:[2,2],19:[2,2],20:[2,2],21:[2,2],22:[2,2],24:[2,2],25:[2,2],26:[2,2],27:[2,2],34:[2,2],36:[2,2],46:[2,2]},{5:[2,4],8:[2,4],11:[2,4],12:[2,4],13:[2,4],15:[2,4],17:[2,4],19:[2,4],20:[2,4],21:[2,4],22:[2,4],24:[2,4],25:[2,4],26:[2,4],27:[2,4],34:[2,4],36:[2,4],46:[2,4]},{5:[2,32],34:[1,33],36:[2,32],46:[2,32]},{5:[2,30],34:[2,30],36:[2,30],46:[2,30]},{5:[2,20],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,20],25:[2,20],26:[2,20],27:[2,20],34:[2,20],36:[2,20],46:[2,20]},{5:[2,21],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,21],25:[2,21],26:[2,21],27:[2,21],34:[2,21],36:[2,21],46:[2,21]},{5:[2,22],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,22],25:[2,22],26:[2,22],27:[2,22],34:[2,22],36:[2,22],46:[2,22]},{5:[2,23],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,23],25:[2,23],26:[2,23],27:[2,23],34:[2,23],36:[2,23],46:[2,23]},{5:[2,25],34:[2,25],36:[2,25],46:[2,25]},{5:[2,27],34:[2,27],36:[2,27],41:[1,44],42:[1,45],45:[1,46],46:[2,27]},{5:[2,26],34:[2,26],36:[2,26],46:[2,26]},{5:[2,28],34:[2,28],36:[2,28],41:[1,44],42:[1,45],45:[1,46],46:[2,28]},{5:[2,15],17:[1,48],19:[2,15],20:[2,15],21:[2,15],22:[2,15],24:[2,15],25:[2,15],26:[2,15],27:[2,15],34:[2,15],36:[2,15],46:[2,15]},{5:[2,16],17:[1,48],19:[2,16],20:[2,16],21:[2,16],22:[2,16],24:[2,16],25:[2,16],26:[2,16],27:[2,16],34:[2,16],36:[2,16],46:[2,16]},{5:[2,17],17:[1,48],19:[2,17],20:[2,17],21:[2,17],22:[2,17],24:[2,17],25:[2,17],26:[2,17],27:[2,17],34:[2,17],36:[2,17],46:[2,17]},{5:[2,18],17:[1,48],19:[2,18],20:[2,18],21:[2,18],22:[2,18],24:[2,18],25:[2,18],26:[2,18],27:[2,18],34:[2,18],36:[2,18],46:[2,18]},{5:[2,37],8:[2,37],11:[2,37],12:[2,37],13:[2,37],15:[2,37],17:[2,37],19:[2,37],20:[2,37],21:[2,37],22:[2,37],24:[2,37],25:[2,37],26:[2,37],27:[2,37],29:[2,37],31:[2,37],34:[2,37],36:[2,37],38:[2,37],41:[2,37],42:[2,37],44:[2,37],45:[2,37],46:[2,37]},{44:[1,88]},{41:[1,44],42:[1,45],44:[1,89],45:[1,46]},{5:[2,40],8:[2,40],11:[2,40],12:[2,40],13:[2,40],15:[2,40],17:[2,40],19:[2,40],20:[2,40],21:[2,40],22:[2,40],24:[2,40],25:[2,40],26:[2,40],27:[2,40],29:[2,40],31:[2,40],34:[2,40],36:[2,40],38:[2,40],41:[2,40],42:[2,40],44:[2,40],45:[2,40],46:[2,40]},{38:[1,82],46:[1,90]},{5:[2,56],8:[2,56],11:[2,56],12:[2,56],13:[2,56],15:[2,56],17:[2,56],19:[2,56],20:[2,56],21:[2,56],22:[2,56],24:[2,56],25:[2,56],26:[2,56],27:[2,56],29:[2,56],31:[2,56],34:[2,56],36:[2,56],38:[2,56],44:[2,56],46:[2,56]},{5:[2,13],8:[1,53],15:[1,52],17:[2,13],19:[2,13],20:[2,13],21:[2,13],22:[2,13],24:[2,13],25:[2,13],26:[2,13],27:[2,13],34:[2,13],36:[2,13],46:[2,13]},{5:[2,48],8:[2,48],11:[2,48],12:[2,48],13:[2,48],15:[2,48],17:[2,48],19:[2,48],20:[2,48],21:[2,48],22:[2,48],24:[2,48],25:[2,48],26:[2,48],27:[2,48],29:[2,48],31:[2,48],34:[2,48],36:[2,48],38:[2,48],44:[2,48],46:[2,48]},{7:91,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:[1,16],47:[1,18],48:10,49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,10],8:[2,10],11:[1,54],12:[1,55],13:[1,56],15:[2,10],17:[2,10],19:[2,10],20:[2,10],21:[2,10],22:[2,10],24:[2,10],25:[2,10],26:[2,10],27:[2,10],34:[2,10],36:[2,10],46:[2,10]},{5:[2,11],8:[2,11],11:[1,54],12:[1,55],13:[1,56],15:[2,11],17:[2,11],19:[2,11],20:[2,11],21:[2,11],22:[2,11],24:[2,11],25:[2,11],26:[2,11],27:[2,11],34:[2,11],36:[2,11],46:[2,11]},{5:[2,6],8:[2,6],11:[2,6],12:[2,6],13:[2,6],15:[2,6],17:[2,6],19:[2,6],20:[2,6],21:[2,6],22:[2,6],24:[2,6],25:[2,6],26:[2,6],27:[2,6],34:[2,6],36:[2,6],46:[2,6]},{5:[2,7],8:[2,7],11:[2,7],12:[2,7],13:[2,7],15:[2,7],17:[2,7],19:[2,7],20:[2,7],21:[2,7],22:[2,7],24:[2,7],25:[2,7],26:[2,7],27:[2,7],34:[2,7],36:[2,7],46:[2,7]},{5:[2,8],8:[2,8],11:[2,8],12:[2,8],13:[2,8],15:[2,8],17:[2,8],19:[2,8],20:[2,8],21:[2,8],22:[2,8],24:[2,8],25:[2,8],26:[2,8],27:[2,8],34:[2,8],36:[2,8],46:[2,8]},{5:[2,38],8:[2,38],11:[2,38],12:[2,38],13:[2,38],15:[2,38],17:[2,38],19:[2,38],20:[2,38],21:[2,38],22:[2,38],24:[2,38],25:[2,38],26:[2,38],27:[2,38],29:[2,38],31:[2,38],34:[2,38],36:[2,38],38:[2,38],41:[2,38],42:[2,38],44:[2,38],45:[2,38],46:[2,38]},{5:[2,39],8:[2,39],11:[2,39],12:[2,39],13:[2,39],15:[2,39],17:[2,39],19:[2,39],20:[2,39],21:[2,39],22:[2,39],24:[2,39],25:[2,39],26:[2,39],27:[2,39],29:[2,39],31:[2,39],34:[2,39],36:[2,39],38:[2,39],41:[2,39],42:[2,39],44:[2,39],45:[2,39],46:[2,39]},{5:[2,41],8:[2,41],11:[2,41],12:[2,41],13:[2,41],15:[2,41],17:[2,41],19:[2,41],20:[2,41],21:[2,41],22:[2,41],24:[2,41],25:[2,41],26:[2,41],27:[2,41],29:[2,41],31:[2,41],34:[2,41],36:[2,41],38:[2,41],41:[2,41],42:[2,41],44:[2,41],45:[2,41],46:[2,41]},{38:[2,34],44:[2,34],46:[2,34]}],
+table: [{3:1,4:2,6:28,7:7,8:[1,29],9:[1,30],10:27,14:25,16:17,18:8,23:6,28:5,30:15,32:14,33:4,35:3,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{1:[3]},{5:[1,31]},{5:[2,58],36:[1,32],47:[2,58]},{5:[2,31],34:[1,33],36:[2,31],47:[2,31]},{5:[2,29],34:[2,29],36:[2,29],47:[2,29]},{5:[2,24],24:[1,34],25:[1,35],26:[1,36],27:[1,37],34:[2,24],36:[2,24],47:[2,24]},{5:[2,2],8:[2,2],11:[2,2],12:[2,2],13:[2,2],15:[2,2],17:[2,2],19:[2,2],20:[2,2],21:[2,2],22:[2,2],24:[2,2],25:[2,2],26:[2,2],27:[2,2],29:[1,38],31:[1,39],34:[2,2],36:[2,2],47:[2,2]},{5:[2,19],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,19],25:[2,19],26:[2,19],27:[2,19],34:[2,19],36:[2,19],47:[2,19]},{5:[2,50],8:[2,50],11:[2,50],12:[2,50],13:[2,50],15:[2,50],17:[2,50],19:[2,50],20:[2,50],21:[2,50],22:[2,50],24:[2,50],25:[2,50],26:[2,50],27:[2,50],29:[2,50],31:[2,50],34:[2,50],36:[2,50],38:[2,50],44:[2,50],47:[2,50]},{5:[2,51],8:[2,51],11:[2,51],12:[2,51],13:[2,51],15:[2,51],17:[2,51],19:[2,51],20:[2,51],21:[2,51],22:[2,51],24:[2,51],25:[2,51],26:[2,51],27:[2,51],29:[2,51],31:[2,51],34:[2,51],36:[2,51],38:[2,51],44:[2,51],47:[2,51]},{5:[2,52],8:[2,52],11:[2,52],12:[2,52],13:[2,52],15:[2,52],17:[2,52],19:[2,52],20:[2,52],21:[2,52],22:[2,52],24:[2,52],25:[2,52],26:[2,52],27:[2,52],29:[2,52],31:[2,52],34:[2,52],36:[2,52],38:[2,52],44:[2,52],47:[2,52]},{5:[2,53],8:[2,53],11:[2,53],12:[2,53],13:[2,53],15:[2,53],17:[2,53],19:[2,53],20:[2,53],21:[2,53],22:[2,53],24:[2,53],25:[2,53],26:[2,53],27:[2,53],29:[2,53],31:[2,53],34:[2,53],36:[2,53],38:[2,53],44:[2,53],47:[2,53]},{5:[2,54],8:[2,54],11:[2,54],12:[2,54],13:[2,54],15:[2,54],17:[2,54],19:[2,54],20:[2,54],21:[2,54],22:[2,54],24:[2,54],25:[2,54],26:[2,54],27:[2,54],29:[2,54],31:[2,54],34:[2,54],36:[2,54],38:[2,54],44:[2,54],47:[2,54]},{5:[2,55],8:[2,55],11:[2,55],12:[2,55],13:[2,55],15:[2,55],17:[2,55],19:[2,55],20:[2,55],21:[2,55],22:[2,55],24:[2,55],25:[2,55],26:[2,55],27:[2,55],29:[2,55],31:[2,55],34:[2,55],36:[2,55],38:[2,55],41:[1,44],42:[1,45],44:[2,55],46:[1,46],47:[2,55]},{5:[2,56],8:[2,56],11:[2,56],12:[2,56],13:[2,56],15:[2,56],17:[2,56],19:[2,56],20:[2,56],21:[2,56],22:[2,56],24:[2,56],25:[2,56],26:[2,56],27:[2,56],29:[2,56],31:[2,56],34:[2,56],36:[2,56],38:[2,56],44:[2,56],47:[2,56]},{4:47,6:28,7:7,8:[1,29],9:[1,30],10:27,14:25,16:17,18:8,23:6,28:5,30:15,32:14,33:4,35:3,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,14],17:[1,48],19:[2,14],20:[2,14],21:[2,14],22:[2,14],24:[2,14],25:[2,14],26:[2,14],27:[2,14],34:[2,14],36:[2,14],47:[2,14]},{5:[2,43],8:[2,43],11:[2,43],12:[2,43],13:[2,43],15:[2,43],17:[2,43],19:[2,43],20:[2,43],21:[2,43],22:[2,43],24:[2,43],25:[2,43],26:[2,43],27:[2,43],29:[2,43],31:[2,43],34:[2,43],36:[2,43],38:[2,43],44:[2,43],47:[2,43]},{5:[2,44],8:[2,44],11:[2,44],12:[2,44],13:[2,44],15:[2,44],17:[2,44],19:[2,44],20:[2,44],21:[2,44],22:[2,44],24:[2,44],25:[2,44],26:[2,44],27:[2,44],29:[2,44],31:[2,44],34:[2,44],36:[2,44],38:[2,44],44:[2,44],47:[2,44]},{5:[2,45],8:[2,45],11:[2,45],12:[2,45],13:[2,45],15:[2,45],17:[2,45],19:[2,45],20:[2,45],21:[2,45],22:[2,45],24:[2,45],25:[2,45],26:[2,45],27:[2,45],29:[2,45],31:[2,45],34:[2,45],36:[2,45],38:[2,45],44:[2,45],47:[2,45]},{5:[2,46],8:[2,46],11:[2,46],12:[2,46],13:[2,46],15:[2,46],17:[2,46],19:[2,46],20:[2,46],21:[2,46],22:[2,46],24:[2,46],25:[2,46],26:[2,46],27:[2,46],29:[2,46],31:[2,46],34:[2,46],36:[2,46],38:[2,46],44:[2,46],47:[2,46]},{5:[2,47],8:[2,47],11:[2,47],12:[2,47],13:[2,47],15:[2,47],17:[2,47],19:[2,47],20:[2,47],21:[2,47],22:[2,47],24:[2,47],25:[2,47],26:[2,47],27:[2,47],29:[2,47],31:[2,47],34:[2,47],36:[2,47],38:[2,47],44:[2,47],47:[2,47]},{5:[2,36],8:[2,36],11:[2,36],12:[2,36],13:[2,36],15:[2,36],17:[2,36],19:[2,36],20:[2,36],21:[2,36],22:[2,36],24:[2,36],25:[2,36],26:[2,36],27:[2,36],29:[2,36],31:[2,36],34:[2,36],36:[2,36],38:[2,36],41:[2,36],42:[2,36],44:[2,36],46:[2,36],47:[2,36]},{7:51,30:15,32:14,37:50,39:23,40:[1,26],42:[1,24],43:9,44:[1,49],45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,12],8:[1,53],15:[1,52],17:[2,12],19:[2,12],20:[2,12],21:[2,12],22:[2,12],24:[2,12],25:[2,12],26:[2,12],27:[2,12],34:[2,12],36:[2,12],47:[2,12]},{5:[2,35],8:[2,35],11:[2,35],12:[2,35],13:[2,35],15:[2,35],17:[2,35],19:[2,35],20:[2,35],21:[2,35],22:[2,35],24:[2,35],25:[2,35],26:[2,35],27:[2,35],29:[2,35],31:[2,35],34:[2,35],36:[2,35],38:[2,35],41:[2,35],42:[2,35],44:[2,35],46:[2,35],47:[2,35]},{5:[2,9],8:[2,9],11:[1,54],12:[1,55],13:[1,56],15:[2,9],17:[2,9],19:[2,9],20:[2,9],21:[2,9],22:[2,9],24:[2,9],25:[2,9],26:[2,9],27:[2,9],34:[2,9],36:[2,9],47:[2,9]},{5:[2,5],8:[2,5],11:[2,5],12:[2,5],13:[2,5],15:[2,5],17:[2,5],19:[2,5],20:[2,5],21:[2,5],22:[2,5],24:[2,5],25:[2,5],26:[2,5],27:[2,5],34:[2,5],36:[2,5],47:[2,5]},{6:57,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:59,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{1:[2,1]},{6:28,7:7,8:[1,29],9:[1,30],10:27,14:25,16:17,18:8,23:6,28:5,30:15,32:14,33:60,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:7,8:[1,29],9:[1,30],10:27,14:25,16:17,18:8,23:6,28:61,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:17,18:62,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:17,18:63,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:17,18:64,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:17,18:65,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{30:66,32:67,39:23,40:[1,26],42:[1,24]},{30:68,32:69,39:23,40:[1,26],42:[1,24]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:70,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:71,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:72,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:25,16:73,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{39:74,40:[1,26]},{32:77,39:23,40:[1,26],43:75,45:76,48:[1,18],49:[1,19]},{7:51,30:15,32:14,37:79,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],47:[1,78],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{47:[1,80]},{6:28,7:58,8:[1,29],9:[1,30],10:27,14:81,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,48],8:[2,48],11:[2,48],12:[2,48],13:[2,48],15:[2,48],17:[2,48],19:[2,48],20:[2,48],21:[2,48],22:[2,48],24:[2,48],25:[2,48],26:[2,48],27:[2,48],29:[2,48],31:[2,48],34:[2,48],36:[2,48],38:[2,48],44:[2,48],47:[2,48]},{38:[1,83],44:[1,82]},{38:[2,33],44:[2,33],47:[2,33]},{6:28,7:58,8:[1,29],9:[1,30],10:84,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:28,7:58,8:[1,29],9:[1,30],10:85,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:86,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:87,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{6:88,7:58,8:[1,29],9:[1,30],30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,3],8:[2,3],11:[2,3],12:[2,3],13:[2,3],15:[2,3],17:[2,3],19:[2,3],20:[2,3],21:[2,3],22:[2,3],24:[2,3],25:[2,3],26:[2,3],27:[2,3],34:[2,3],36:[2,3],47:[2,3]},{5:[2,2],8:[2,2],11:[2,2],12:[2,2],13:[2,2],15:[2,2],17:[2,2],19:[2,2],20:[2,2],21:[2,2],22:[2,2],24:[2,2],25:[2,2],26:[2,2],27:[2,2],34:[2,2],36:[2,2],47:[2,2]},{5:[2,4],8:[2,4],11:[2,4],12:[2,4],13:[2,4],15:[2,4],17:[2,4],19:[2,4],20:[2,4],21:[2,4],22:[2,4],24:[2,4],25:[2,4],26:[2,4],27:[2,4],34:[2,4],36:[2,4],47:[2,4]},{5:[2,32],34:[1,33],36:[2,32],47:[2,32]},{5:[2,30],34:[2,30],36:[2,30],47:[2,30]},{5:[2,20],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,20],25:[2,20],26:[2,20],27:[2,20],34:[2,20],36:[2,20],47:[2,20]},{5:[2,21],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,21],25:[2,21],26:[2,21],27:[2,21],34:[2,21],36:[2,21],47:[2,21]},{5:[2,22],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,22],25:[2,22],26:[2,22],27:[2,22],34:[2,22],36:[2,22],47:[2,22]},{5:[2,23],19:[1,40],20:[1,41],21:[1,42],22:[1,43],24:[2,23],25:[2,23],26:[2,23],27:[2,23],34:[2,23],36:[2,23],47:[2,23]},{5:[2,25],34:[2,25],36:[2,25],47:[2,25]},{5:[2,27],34:[2,27],36:[2,27],41:[1,44],42:[1,45],46:[1,46],47:[2,27]},{5:[2,26],34:[2,26],36:[2,26],47:[2,26]},{5:[2,28],34:[2,28],36:[2,28],41:[1,44],42:[1,45],46:[1,46],47:[2,28]},{5:[2,15],17:[1,48],19:[2,15],20:[2,15],21:[2,15],22:[2,15],24:[2,15],25:[2,15],26:[2,15],27:[2,15],34:[2,15],36:[2,15],47:[2,15]},{5:[2,16],17:[1,48],19:[2,16],20:[2,16],21:[2,16],22:[2,16],24:[2,16],25:[2,16],26:[2,16],27:[2,16],34:[2,16],36:[2,16],47:[2,16]},{5:[2,17],17:[1,48],19:[2,17],20:[2,17],21:[2,17],22:[2,17],24:[2,17],25:[2,17],26:[2,17],27:[2,17],34:[2,17],36:[2,17],47:[2,17]},{5:[2,18],17:[1,48],19:[2,18],20:[2,18],21:[2,18],22:[2,18],24:[2,18],25:[2,18],26:[2,18],27:[2,18],34:[2,18],36:[2,18],47:[2,18]},{5:[2,37],8:[2,37],11:[2,37],12:[2,37],13:[2,37],15:[2,37],17:[2,37],19:[2,37],20:[2,37],21:[2,37],22:[2,37],24:[2,37],25:[2,37],26:[2,37],27:[2,37],29:[2,37],31:[2,37],34:[2,37],36:[2,37],38:[2,37],41:[2,37],42:[2,37],44:[2,37],46:[2,37],47:[2,37]},{44:[1,89]},{44:[1,90]},{41:[1,44],42:[1,45],44:[1,91],46:[1,46]},{5:[2,41],8:[2,41],11:[2,41],12:[2,41],13:[2,41],15:[2,41],17:[2,41],19:[2,41],20:[2,41],21:[2,41],22:[2,41],24:[2,41],25:[2,41],26:[2,41],27:[2,41],29:[2,41],31:[2,41],34:[2,41],36:[2,41],38:[2,41],41:[2,41],42:[2,41],44:[2,41],46:[2,41],47:[2,41]},{38:[1,83],47:[1,92]},{5:[2,57],8:[2,57],11:[2,57],12:[2,57],13:[2,57],15:[2,57],17:[2,57],19:[2,57],20:[2,57],21:[2,57],22:[2,57],24:[2,57],25:[2,57],26:[2,57],27:[2,57],29:[2,57],31:[2,57],34:[2,57],36:[2,57],38:[2,57],44:[2,57],47:[2,57]},{5:[2,13],8:[1,53],15:[1,52],17:[2,13],19:[2,13],20:[2,13],21:[2,13],22:[2,13],24:[2,13],25:[2,13],26:[2,13],27:[2,13],34:[2,13],36:[2,13],47:[2,13]},{5:[2,49],8:[2,49],11:[2,49],12:[2,49],13:[2,49],15:[2,49],17:[2,49],19:[2,49],20:[2,49],21:[2,49],22:[2,49],24:[2,49],25:[2,49],26:[2,49],27:[2,49],29:[2,49],31:[2,49],34:[2,49],36:[2,49],38:[2,49],44:[2,49],47:[2,49]},{7:93,30:15,32:14,39:23,40:[1,26],42:[1,24],43:9,45:10,46:[1,16],48:[1,18],49:[1,19],50:11,51:[1,20],52:12,53:[1,21],54:13,55:[1,22]},{5:[2,10],8:[2,10],11:[1,54],12:[1,55],13:[1,56],15:[2,10],17:[2,10],19:[2,10],20:[2,10],21:[2,10],22:[2,10],24:[2,10],25:[2,10],26:[2,10],27:[2,10],34:[2,10],36:[2,10],47:[2,10]},{5:[2,11],8:[2,11],11:[1,54],12:[1,55],13:[1,56],15:[2,11],17:[2,11],19:[2,11],20:[2,11],21:[2,11],22:[2,11],24:[2,11],25:[2,11],26:[2,11],27:[2,11],34:[2,11],36:[2,11],47:[2,11]},{5:[2,6],8:[2,6],11:[2,6],12:[2,6],13:[2,6],15:[2,6],17:[2,6],19:[2,6],20:[2,6],21:[2,6],22:[2,6],24:[2,6],25:[2,6],26:[2,6],27:[2,6],34:[2,6],36:[2,6],47:[2,6]},{5:[2,7],8:[2,7],11:[2,7],12:[2,7],13:[2,7],15:[2,7],17:[2,7],19:[2,7],20:[2,7],21:[2,7],22:[2,7],24:[2,7],25:[2,7],26:[2,7],27:[2,7],34:[2,7],36:[2,7],47:[2,7]},{5:[2,8],8:[2,8],11:[2,8],12:[2,8],13:[2,8],15:[2,8],17:[2,8],19:[2,8],20:[2,8],21:[2,8],22:[2,8],24:[2,8],25:[2,8],26:[2,8],27:[2,8],34:[2,8],36:[2,8],47:[2,8]},{5:[2,38],8:[2,38],11:[2,38],12:[2,38],13:[2,38],15:[2,38],17:[2,38],19:[2,38],20:[2,38],21:[2,38],22:[2,38],24:[2,38],25:[2,38],26:[2,38],27:[2,38],29:[2,38],31:[2,38],34:[2,38],36:[2,38],38:[2,38],41:[2,38],42:[2,38],44:[2,38],46:[2,38],47:[2,38]},{5:[2,39],8:[2,39],11:[2,39],12:[2,39],13:[2,39],15:[2,39],17:[2,39],19:[2,39],20:[2,39],21:[2,39],22:[2,39],24:[2,39],25:[2,39],26:[2,39],27:[2,39],29:[2,39],31:[2,39],34:[2,39],36:[2,39],38:[2,39],41:[2,39],42:[2,39],44:[2,39],46:[2,39],47:[2,39]},{5:[2,40],8:[2,40],11:[2,40],12:[2,40],13:[2,40],15:[2,40],17:[2,40],19:[2,40],20:[2,40],21:[2,40],22:[2,40],24:[2,40],25:[2,40],26:[2,40],27:[2,40],29:[2,40],31:[2,40],34:[2,40],36:[2,40],38:[2,40],41:[2,40],42:[2,40],44:[2,40],46:[2,40],47:[2,40]},{5:[2,42],8:[2,42],11:[2,42],12:[2,42],13:[2,42],15:[2,42],17:[2,42],19:[2,42],20:[2,42],21:[2,42],22:[2,42],24:[2,42],25:[2,42],26:[2,42],27:[2,42],29:[2,42],31:[2,42],34:[2,42],36:[2,42],38:[2,42],41:[2,42],42:[2,42],44:[2,42],46:[2,42],47:[2,42]},{38:[2,34],44:[2,34],47:[2,34]}],
 defaultActions: {31:[2,1]},
 parseError: function parseError(str, hash) {
     if (hash.recoverable) {
@@ -3511,9 +4296,9 @@ case 15:/* skip whitespace */
 break;
 case 16:return 49;
 break;
-case 17:return 47;
+case 17:return 48;
 break;
-case 18:return 47;
+case 18:return 48;
 break;
 case 19:return 40;
 break;
@@ -3559,13 +4344,13 @@ case 39:return 15;
 break;
 case 40:return 17;
 break;
-case 41:return 45;
+case 41:return 46;
 break;
 case 42:return 44;
 break;
 case 43:return 42;
 break;
-case 44:return 46;
+case 44:return 47;
 break;
 case 45:return 9;
 break;
@@ -3603,7 +4388,7 @@ if (typeof module !== 'undefined' && require.main === module) {
   exports.main(process.argv.slice(1));
 }
 }
-},{"__browserify_process":51,"fs":48,"path":49}],31:[function(require,module,exports){
+},{"__browserify_process":54,"fs":51,"path":52}],34:[function(require,module,exports){
 (function () {
     "use strict";
     var constraintParser = require("./constraint/parser"),
@@ -3621,7 +4406,7 @@ if (typeof module !== 'undefined' && require.main === module) {
         return noolParser.parse(source, file);
     };
 })();
-},{"./constraint/parser":30,"./nools/nool.parser":32}],32:[function(require,module,exports){
+},{"./constraint/parser":33,"./nools/nool.parser":35}],35:[function(require,module,exports){
 "use strict";
 
 var tokens = require("./tokens.js"),
@@ -3631,7 +4416,7 @@ var tokens = require("./tokens.js"),
 
 var parse = function (src, keywords, context) {
     var orig = src;
-    src = src.replace(/\/\/(.*)[\n|\r|\r\n]/g, "").replace(/\n|\r|\r\n/g, " ");
+    src = src.replace(/\/\/(.*)/g, "").replace(/\n|\r|\r\n/g, " ");
 
     var blockTypes = new RegExp("^(" + keys(keywords).join("|") + ")"), index;
     while (src && (index = utils.findNextTokenIndex(src)) !== -1) {
@@ -3661,7 +4446,7 @@ exports.parse = function (src, file) {
 };
 
 
-},{"../../extended":11,"./tokens.js":33,"./util.js":34}],33:[function(require,module,exports){
+},{"../../extended":12,"./tokens.js":36,"./util.js":37}],36:[function(require,module,exports){
 var process=require("__browserify_process");"use strict";
 
 var utils = require("./util.js"),
@@ -3749,6 +4534,7 @@ var ruleTokens = {
         };
         var constraintRegExp = /(\{ *(?:["']?\$?\w+["']?\s*:\s*["']?\$?\w+["']? *(?:, *["']?\$?\w+["']?\s*:\s*["']?\$?\w+["']?)*)+ *\})/;
         var predicateExp = /^(\w+) *\((.*)\)$/m;
+        var fromRegExp = /(\bfrom\s+.*)/;
         var parseRules = function (str) {
             var rules = [];
             var ruleLines = str.split(";"), l = ruleLines.length, ruleLine;
@@ -3771,9 +4557,14 @@ var ruleTokens = {
                     if (parts && parts.length) {
                         rule.push(parts[2], parts[1]);
                         var constraints = parts[3].replace(/^\s*|\s*$/g, "");
-                        var hashParts = constraints.match(constraintRegExp);
+                        var hashParts = constraints.match(constraintRegExp), from = null, fromMatch;
                         if (hashParts) {
                             var hash = hashParts[1], constraint = constraints.replace(hash, "");
+                            if (fromRegExp.test(constraint)) {
+                                fromMatch = constraint.match(fromRegExp);
+                                from = fromMatch[0];
+                                constraint = constraint.replace(fromMatch[0], "");
+                            }
                             if (constraint) {
                                 rule.push(constraint.replace(/^\s*|\s*$/g, ""));
                             }
@@ -3781,7 +4572,15 @@ var ruleTokens = {
                                 rule.push(eval("(" + hash.replace(/(\$?\w+)\s*:\s*(\$?\w+)/g, '"$1" : "$2"') + ")"));
                             }
                         } else if (constraints && !isWhiteSpace(constraints)) {
+                            if (fromRegExp.test(constraints)) {
+                                fromMatch = constraints.match(fromRegExp);
+                                from = fromMatch[0];
+                                constraints = constraints.replace(fromMatch[0], "");
+                            }
                             rule.push(constraints);
+                        }
+                        if (from) {
+                            rule.push(from);
                         }
                         rules.push(rule);
                     } else {
@@ -3972,7 +4771,7 @@ var topLevelTokens = {
 module.exports = topLevelTokens;
 
 
-},{"../../extended":11,"./util.js":34,"__browserify_process":51,"fs":48}],34:[function(require,module,exports){
+},{"../../extended":12,"./util.js":37,"__browserify_process":54,"fs":51}],37:[function(require,module,exports){
 var process=require("__browserify_process");"use strict";
 
 var path = require("path");
@@ -4064,112 +4863,215 @@ var findNextTokenIndex = exports.findNextTokenIndex = function (str, startIndex,
 exports.findNextToken = function (str, startIndex, endIndex) {
     return str.charAt(findNextTokenIndex(str, startIndex, endIndex));
 };
-},{"__browserify_process":51,"path":49}],35:[function(require,module,exports){
-(function () {
-    "use strict";
-    var extd = require("./extended"),
-        merge = extd.merge,
-        forEach = extd.forEach,
-        declare = extd.declare,
-        constraintMatcher = require("./constraintMatcher"),
-        constraint = require("./constraint");
+},{"__browserify_process":54,"path":52}],38:[function(require,module,exports){
+"use strict";
+var extd = require("./extended"),
+    isEmpty = extd.isEmpty,
+    merge = extd.merge,
+    forEach = extd.forEach,
+    declare = extd.declare,
+    constraintMatcher = require("./constraintMatcher"),
+    constraint = require("./constraint"),
+    EqualityConstraint = constraint.EqualityConstraint;
 
+var id = 0;
+var Pattern = declare({});
 
-    var Pattern = declare({});
-
-    var ObjectPattern = Pattern.extend({
-        instance: {
-            constructor: function (type, alias, conditions, store, options) {
-                options = options || {};
-                this.type = type;
-                this.alias = alias;
-                this.conditions = conditions;
-                this.pattern = options.pattern;
-                this.constraints = [new constraint.ObjectConstraint(type)];
-                var constrnts = constraintMatcher.toConstraints(conditions, merge({alias: alias}, options));
-                if (constrnts.length) {
-                    this.constraints = this.constraints.concat(constrnts);
-                } else {
-                    var cnstrnt = new constraint.TrueConstraint();
-                    this.constraints.push(cnstrnt);
-                }
-                if (store && !extd.isEmpty(store)) {
-                    var atm = new constraint.HashConstraint(store);
-                    this.constraints.push(atm);
-                }
-                forEach(this.constraints, function (constraint) {
-                    constraint.set("alias", alias);
-                });
-            },
-
-            hasConstraint: function (type) {
-                return extd.some(this.constraints, function (c) {
-                    return c instanceof type;
-                });
-            },
-
-            hashCode: function () {
-                return [this.type, this.alias, extd.format("%j", this.conditions)].join(":");
-            },
-
-            toString: function () {
-                return extd.format("%j", this.constraints);
+var ObjectPattern = Pattern.extend({
+    instance: {
+        constructor: function (type, alias, conditions, store, options) {
+            options = options || {};
+            this.id = id++;
+            this.type = type;
+            this.alias = alias;
+            this.conditions = conditions;
+            this.pattern = options.pattern;
+            var constraints = [new constraint.ObjectConstraint(type)];
+            var constrnts = constraintMatcher.toConstraints(conditions, merge({alias: alias}, options));
+            if (constrnts.length) {
+                constraints = constraints.concat(constrnts);
+            } else {
+                var cnstrnt = new constraint.TrueConstraint();
+                constraints.push(cnstrnt);
             }
-        }
-    }).as(exports, "ObjectPattern");
+            if (store && !isEmpty(store)) {
+                var atm = new constraint.HashConstraint(store);
+                constraints.push(atm);
+            }
 
-    ObjectPattern.extend().as(exports, "NotPattern");
+            forEach(constraints, function (constraint) {
+                constraint.set("alias", alias);
+            });
+            this.constraints = constraints;
+        },
 
-    Pattern.extend({
-
-        instance: {
-            constructor: function (left, right) {
-                this.leftPattern = left;
-                this.rightPattern = right;
-            },
-
-            hashCode: function () {
-                return [this.leftPattern.hashCode(), this.rightPattern.hashCode()].join(":");
-            },
-
-            getters: {
-                constraints: function () {
-                    return this.leftPattern.constraints.concat(this.rightPattern.constraints);
+        getSpecificity: function () {
+            var constraints = this.constraints, specificity = 0;
+            for (var i = 0, l = constraints.length; i < l; i++) {
+                if (constraints[i] instanceof EqualityConstraint) {
+                    specificity++;
                 }
             }
+            return specificity;
+        },
+
+        hasConstraint: function (type) {
+            return extd.some(this.constraints, function (c) {
+                return c instanceof type;
+            });
+        },
+
+        hashCode: function () {
+            return [this.type, this.alias, extd.format("%j", this.conditions)].join(":");
+        },
+
+        toString: function () {
+            return extd.format("%j", this.constraints);
         }
+    }
+}).as(exports, "ObjectPattern");
 
-    }).as(exports, "CompositePattern");
+var FromPattern = ObjectPattern.extend({
+    instance: {
+        constructor: function (type, alias, conditions, store, from, options) {
+            this._super([type, alias, conditions, store, options]);
+            this.from = from.from;
+        },
+
+        hasConstraint: function (type) {
+            return extd.some(this.constraints, function (c) {
+                return c instanceof type;
+            });
+        },
+
+        getSpecificity: function () {
+            return this._super(arguments) + 1;
+        },
+
+        hashCode: function () {
+            return [this.type, this.alias, extd.format("%j", this.conditions), this.from.from].join(":");
+        },
+
+        toString: function () {
+            return extd.format("%j from %s", this.constraints, this.from.from);
+        }
+    }
+}).as(exports, "FromPattern");
 
 
-    var InitialFact = declare({}).as(exports, "InitialFact");
+FromPattern.extend().as(exports, "FromNotPattern");
+ObjectPattern.extend().as(exports, "NotPattern");
 
-    ObjectPattern.extend({
-        instance: {
-            constructor: function () {
-                this._super([InitialFact, "i", [], {}]);
-            },
+Pattern.extend({
 
-            assert: function () {
-                return true;
+    instance: {
+        constructor: function (left, right) {
+            this.id = id++;
+            this.leftPattern = left;
+            this.rightPattern = right;
+        },
+
+        hashCode: function () {
+            return [this.leftPattern.hashCode(), this.rightPattern.hashCode()].join(":");
+        },
+
+        getSpecificity: function () {
+            return this.rightPattern.getSpecificity() + this.leftPattern.getSpecificity();
+        },
+
+        getters: {
+            constraints: function () {
+                return this.leftPattern.constraints.concat(this.rightPattern.constraints);
             }
         }
-    }).as(exports, "InitialFactPattern");
+    }
 
-})();
+}).as(exports, "CompositePattern");
 
 
-},{"./constraint":7,"./constraintMatcher":8,"./extended":11}],36:[function(require,module,exports){
+var InitialFact = declare({
+    constuctor: function(){
+        this.id = id++;
+    }
+}).as(exports, "InitialFact");
+
+ObjectPattern.extend({
+    instance: {
+        constructor: function () {
+            this._super([InitialFact, "i", [], {}]);
+        },
+
+        assert: function () {
+            return true;
+        }
+    }
+}).as(exports, "InitialFactPattern");
+
+
+
+
+},{"./constraint":8,"./constraintMatcher":9,"./extended":12}],39:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     isArray = extd.isArray,
     Promise = extd.Promise,
     declare = extd.declare,
+    isHash = extd.isHash,
+    isString = extd.isString,
+    format = extd.format,
     parser = require("./parser"),
     pattern = require("./pattern"),
     ObjectPattern = pattern.ObjectPattern,
+    FromPattern = pattern.FromPattern,
     NotPattern = pattern.NotPattern,
+    FromNotPattern = pattern.FromNotPattern,
     CompositePattern = pattern.CompositePattern;
+
+var parseExtra = extd
+    .switcher()
+    .isUndefinedOrNull(function () {
+        return null;
+    })
+    .isLike(/^from +/, function (s) {
+        return {from: s.replace(/^from +/, "").replace(/^\s*|\s*$/g, "")};
+    })
+    .def(function (o) {
+        throw new Error("invalid rule constraint option " + o);
+    })
+    .switcher();
+
+var normailizeConstraint = extd
+    .switcher()
+    .isLength(1, function (c) {
+        throw new Error("invalid rule constraint " + format("%j", [c]));
+    })
+    .isLength(2, function (c) {
+        c.push("true");
+        return c;
+    })
+    //handle case where c[2] is a hash rather than a constraint string
+    .isLength(3, function (c) {
+        if (isHash(c[2])) {
+            c.splice(2, 0, "true");
+        }
+        return c;
+    })
+    //handle case where c[3] is a from clause rather than a hash for references
+    .isLength(4, function (c) {
+        if (isString(c[3])) {
+            c.splice(3, 0, null);
+            c[4] = parseExtra(c[4]);
+        }
+        return c;
+    })
+    .def(function (c) {
+        if (c.length === 5) {
+            c[4] = parseExtra(c[4]);
+        }
+        return c;
+    })
+    .switcher();
+
 
 var getParamTypeSwitch = extd
     .switcher()
@@ -4230,28 +5132,55 @@ var parsePattern = extd
     })
     .contains("not", 0, function (condition) {
         condition.shift();
-        return [
-            new NotPattern(
-                getParamType(condition[0]),
-                condition[1] || "m",
-                parser.parseConstraint(condition[2] || "true"),
-                condition[3] || {},
-                {scope: condition.scope, pattern: condition[2]}
-            )
-        ];
+        condition = normailizeConstraint(condition);
+        if (condition[4] && condition[4].from) {
+            return [
+                new FromNotPattern(
+                    getParamType(condition[0]),
+                    condition[1] || "m",
+                    parser.parseConstraint(condition[2] || "true"),
+                    condition[3] || {},
+                    condition[4],
+                    {scope: condition.scope, pattern: condition[2]}
+                )
+            ];
+        } else {
+            return [
+                new NotPattern(
+                    getParamType(condition[0]),
+                    condition[1] || "m",
+                    parser.parseConstraint(condition[2] || "true"),
+                    condition[3] || {},
+                    {scope: condition.scope, pattern: condition[2]}
+                )
+            ];
+        }
     })
     .def(function (condition) {
-        return [
-            new ObjectPattern(
-                getParamType(condition[0]),
-                condition[1] || "m",
-                parser.parseConstraint(condition[2] || "true"),
-                condition[3] || {},
-                {scope: condition.scope, pattern: condition[2]}
-            )
-        ];
+        condition = normailizeConstraint(condition);
+        if (condition[4] && condition[4].from) {
+            return [
+                new FromPattern(
+                    getParamType(condition[0]),
+                    condition[1] || "m",
+                    parser.parseConstraint(condition[2] || "true"),
+                    condition[3] || {},
+                    condition[4],
+                    {scope: condition.scope, pattern: condition[2]}
+                )
+            ];
+        } else {
+            return [
+                new ObjectPattern(
+                    getParamType(condition[0]),
+                    condition[1] || "m",
+                    parser.parseConstraint(condition[2] || "true"),
+                    condition[3] || {},
+                    {scope: condition.scope, pattern: condition[2]}
+                )
+            ];
+        }
     }).switcher();
-
 
 var Rule = declare({
     instance: {
@@ -4283,7 +5212,7 @@ var Rule = declare({
 });
 
 function createRule(name, options, conditions, cb) {
-    if (extd.isArray(options)) {
+    if (isArray(options)) {
         cb = conditions;
         conditions = options;
     } else {
@@ -4346,12 +5275,11 @@ exports.createRule = createRule;
 
 
 
-},{"./extended":11,"./parser":31,"./pattern":35}],37:[function(require,module,exports){
+},{"./extended":12,"./parser":34,"./pattern":38}],40:[function(require,module,exports){
 "use strict";
-var declare = require("declare.js");
-
-
-var id = 0;
+var declare = require("declare.js"),
+    LinkedList = require("./linkedList"),
+    id = 0;
 
 var Fact = declare({
 
@@ -4379,26 +5307,69 @@ declare({
 
         constructor: function () {
             this.recency = 0;
-            this.facts = [];
+            this.facts = new LinkedList();
         },
 
         dispose: function () {
-            this.facts.length = 0;
+            this.facts.clear();
+        },
+
+        getFactHandle: function (o) {
+            var head = {next: this.facts.head}, ret;
+            while ((head = head.next)) {
+                var existingFact = head.data;
+                if (existingFact.equals(o)) {
+                    return existingFact;
+                }
+            }
+            if (!ret) {
+                ret = new Fact(o);
+                ret.recency = this.recency++;
+                //this.facts.push(ret);
+            }
+            return ret;
+        },
+
+        modifyFact: function (fact) {
+            var head = {next: this.facts.head};
+            while ((head = head.next)) {
+                var existingFact = head.data;
+                if (existingFact.equals(fact)) {
+                    existingFact.recency = this.recency++;
+                    return existingFact;
+                }
+            }
+            //if we made it here we did not find the fact
+            throw new Error("the fact to modify does not exist");
         },
 
         assertFact: function (fact) {
-            fact = new Fact(fact);
-            fact.recency = this.recency++;
-            this.facts.push(fact);
-            return fact;
+            var ret = new Fact(fact);
+            ret.recency = this.recency++;
+            this.facts.push(ret);
+            return ret;
+//            var head = {next: this.facts.head}, ret;
+//            while ((head = head.next)) {
+//                var existingFact = head.data;
+//                if (existingFact.equals(fact)) {
+//                    ret = existingFact;
+//                    break;
+//                }
+//            }
+//            if (!ret) {
+//                ret = new Fact(fact);
+//                ret.recency = this.recency++;
+//                this.facts.push(ret);
+//            }
+//            return ret;
         },
 
         retractFact: function (fact) {
-            var facts = this.facts, l = facts.length, i = -1, existingFact;
-            while (++i < l) {
-                existingFact = facts[i];
+            var facts = this.facts, head = {next: facts.head};
+            while ((head = head.next)) {
+                var existingFact = head.data;
                 if (existingFact.equals(fact)) {
-                    this.facts.splice(i, 1);
+                    facts.remove(head);
                     return existingFact;
                 }
             }
@@ -4412,7 +5383,7 @@ declare({
 }).as(exports, "WorkingMemory");
 
 
-},{"declare.js":42}],38:[function(require,module,exports){
+},{"./linkedList":16,"declare.js":45}],41:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -4457,7 +5428,7 @@ declare({
 }).call(this);
 
 
-},{"extended":43,"is-extended":53}],39:[function(require,module,exports){
+},{"extended":46,"is-extended":56}],42:[function(require,module,exports){
 (function () {
     "use strict";
     /*global define*/
@@ -5127,7 +6098,7 @@ declare({
 
 
 
-},{"arguments-extended":38,"extended":43,"is-extended":53}],40:[function(require,module,exports){
+},{"arguments-extended":41,"extended":46,"is-extended":56}],43:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -6075,7 +7046,7 @@ declare({
 
 
 
-},{"array-extended":39,"extended":43,"is-extended":53}],41:[function(require,module,exports){
+},{"array-extended":42,"extended":46,"is-extended":56}],44:[function(require,module,exports){
 (function () {
 
     /**
@@ -7002,9 +7973,9 @@ declare({
 
 
 
-},{}],42:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 module.exports = require("./declare.js");
-},{"./declare.js":41}],43:[function(require,module,exports){
+},{"./declare.js":44}],46:[function(require,module,exports){
 (function () {
     "use strict";
     /*global extender is, dateExtended*/
@@ -7103,7 +8074,7 @@ module.exports = require("./declare.js");
 
 
 
-},{"extender":45}],44:[function(require,module,exports){
+},{"extender":48}],47:[function(require,module,exports){
 (function () {
     /*jshint strict:false*/
 
@@ -7644,9 +8615,9 @@ module.exports = require("./declare.js");
     }
 
 }).call(this);
-},{"declare.js":42}],45:[function(require,module,exports){
+},{"declare.js":45}],48:[function(require,module,exports){
 module.exports = require("./extender.js");
-},{"./extender.js":44}],46:[function(require,module,exports){
+},{"./extender.js":47}],49:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -7885,7 +8856,7 @@ module.exports = require("./extender.js");
 
 
 
-},{"arguments-extended":38,"extended":43,"is-extended":53}],47:[function(require,module,exports){
+},{"arguments-extended":41,"extended":46,"is-extended":56}],50:[function(require,module,exports){
 var process=require("__browserify_process");if (!process.EventEmitter) process.EventEmitter = function () {};
 
 var EventEmitter = exports.EventEmitter = process.EventEmitter;
@@ -8081,10 +9052,10 @@ EventEmitter.listenerCount = function(emitter, type) {
   return ret;
 };
 
-},{"__browserify_process":51}],48:[function(require,module,exports){
+},{"__browserify_process":54}],51:[function(require,module,exports){
 // nothing to see here... no file methods for the browser
 
-},{}],49:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 var process=require("__browserify_process");function filter (xs, fn) {
     var res = [];
     for (var i = 0; i < xs.length; i++) {
@@ -8263,7 +9234,7 @@ exports.relative = function(from, to) {
 
 exports.sep = '/';
 
-},{"__browserify_process":51}],50:[function(require,module,exports){
+},{"__browserify_process":54}],53:[function(require,module,exports){
 require=(function(e,t,n,r){function i(r){if(!n[r]){if(!t[r]){if(e)return e(r);throw new Error("Cannot find module '"+r+"'")}var s=n[r]={exports:{}};t[r][0](function(e){var n=t[r][1][e];return i(n?n:e)},s,s.exports)}return n[r].exports}for(var s=0;s<r.length;s++)i(r[s]);return i})(typeof require!=="undefined"&&require,{1:[function(require,module,exports){
 // UTILITY
 var util = require('util');
@@ -12125,7 +13096,7 @@ SlowBuffer.prototype.writeDoubleBE = Buffer.prototype.writeDoubleBE;
 },{}]},{},[])
 ;;module.exports=require("buffer-browserify")
 
-},{}],51:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -12179,7 +13150,7 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],52:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -12444,7 +13415,7 @@ process.chdir = function (dir) {
 
 
 
-},{"array-extended":39,"declare.js":42,"extended":43,"is-extended":53}],53:[function(require,module,exports){
+},{"array-extended":42,"declare.js":45,"extended":46,"is-extended":56}],56:[function(require,module,exports){
 var Buffer=require("__browserify_Buffer").Buffer;(function () {
     "use strict";
 
@@ -12946,7 +13917,7 @@ var Buffer=require("__browserify_Buffer").Buffer;(function () {
 }).call(this);
 
 
-},{"__browserify_Buffer":50,"extended":43}],54:[function(require,module,exports){
+},{"__browserify_Buffer":53,"extended":46}],57:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -13853,7 +14824,7 @@ var Buffer=require("__browserify_Buffer").Buffer;(function () {
 
 
 
-},{"array-extended":39,"declare.js":42,"extended":43,"is-extended":53,"string-extended":57}],55:[function(require,module,exports){
+},{"array-extended":42,"declare.js":45,"extended":46,"is-extended":56,"string-extended":60}],58:[function(require,module,exports){
 (function () {
     "use strict";
     /*global extended isExtended*/
@@ -14071,7 +15042,7 @@ var Buffer=require("__browserify_Buffer").Buffer;(function () {
 
 
 
-},{"array-extended":39,"extended":43,"is-extended":53}],56:[function(require,module,exports){
+},{"array-extended":42,"extended":46,"is-extended":56}],59:[function(require,module,exports){
 var process=require("__browserify_process");(function () {
     "use strict";
     /*global setImmediate, MessageChannel*/
@@ -14576,7 +15547,7 @@ var process=require("__browserify_process");(function () {
 
 
 
-},{"__browserify_process":51,"arguments-extended":38,"array-extended":39,"declare.js":42,"extended":43,"function-extended":46,"is-extended":53}],57:[function(require,module,exports){
+},{"__browserify_process":54,"arguments-extended":41,"array-extended":42,"declare.js":45,"extended":46,"function-extended":49,"is-extended":56}],60:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -15223,5 +16194,5 @@ var process=require("__browserify_process");(function () {
 
 
 
-},{"array-extended":39,"date-extended":40,"extended":43,"is-extended":53}]},{},[1])
+},{"array-extended":42,"date-extended":43,"extended":46,"is-extended":56}]},{},[1])
 ;

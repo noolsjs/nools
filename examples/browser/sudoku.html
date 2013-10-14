@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku</title>
+    <link type="text/css" rel="stylesheet" href="assets/conways.css">
+    <link type="text/css" rel="stylesheet" href="//code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css">
+    <link href='http://fonts.googleapis.com/css?family=Londrina+Shadow' rel='stylesheet' type='text/css'>
+</head>
+<body>
+
+<div class="container sudoku">
+    <header>
+        <h1>Sudoku</h1>
+
+        <form>
+            <input type="submit" id="run" value="Run!"/>
+            <input type="button" id="step" value="Step"/>
+            <input type="button" id="stop" value="Stop"/>
+            <input type="button" id="clear" value="Clear"/>
+            <input type="button" id="edit" value="Edit Rules"/>
+            <select id="patterns"></select>
+        </form>
+    </header>
+    <div id="grid"></div>
+</div>
+
+<div id="editor-dialog">
+    <div id="editor"></div>
+</div>
+
+<script type="text/javascript" src="//code.jquery.com/jquery-1.10.1.min.js"></script>
+<script type="text/javascript" src="//code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/0.2.0/ace.js"></script>
+<script type="text/javascript" src="../../nools.js"></script>
+<script type="text/javascript" src="assets/declare.js"></script>
+<script type="text/javascript" src="assets/extender.js"></script>
+<script type="text/javascript" src="assets/extended.js"></script>
+<script type="text/javascript" src="assets/is-extended.js"></script>
+<script type="text/javascript" src="assets/arguments-extended.js"></script>
+<script type="text/javascript" src="assets/array-extended.js"></script>
+<script type="text/javascript" src="assets/function-extended.js"></script>
+<script type="text/javascript" src="src/common.js"></script>
+<script type="text/javascript" src="src/sudokuPatterns.js"></script>
+<script type="text/javascript" src="src/sudoku.js"></script>
+<!--<script type="text/javascript" src="rules/sudoku.js"></script>-->
+<script type="text/javascript">
+
+    (function () {
+        var flow = null,
+                currPattern = sudokuExamples["Simple"];
+
+
+        var grid = $("#grid"), cells = [], rows = 9, cols = 9;
+
+        $(document).ready(function () {
+
+            $.ajax({
+                url: "./rules/sudoku.nools"
+            }).then(function (flowStr) {
+                        //var flowStr = res;
+                        // flow = nools.compile(res, {name: "conways2d", define: {Cell: Cell}, scope: { loop: loop}});
+                        //validateFlow = nools.compile(validateNools, {name: 'validate', define: {Cell: Cell}});
+                        flow = nools.compile(flowStr, {name: 'sudoku', define: {
+                            SetOfNine: SetOfNine,
+                            CellGroup: CellGroup,
+                            CellFile: CellFile,
+                            Cell: Cell,
+                            CellCol: CellCol,
+                            CellRow: CellRow,
+                            CellSqr: CellSqr,
+                            Counter: Counter,
+                            Setting: Setting,
+                            Stepping: Stepping
+
+                        }});
+                        var sud = new Sudoku(flow, stats());
+                        var $select = $("#patterns");
+                        $select.append($('<option/>', {
+                            value: i,
+                            text: i
+                        }));
+                        for (var i in sudokuExamples) {
+                            $select.append($('<option/>', {
+                                value: i,
+                                text: i
+                            }));
+                        }
+                        $select.on("change", function () {
+                            currPattern = sudokuExamples[$(this).val()];
+                            sud.setCellValues(currPattern).then(function () {
+                                return sud.validate();
+                            });
+                        });
+                        $select.val("Simple").trigger("change");
+
+                        $("form").on("submit", function () {
+                            sud.solve();
+                            return false;
+                        });
+
+                        $("#step").on("click", function () {
+                            sud.step();
+                        });
+
+                        $("#stop").on("click", function () {
+                            sud.solve();
+                        });
+
+                        $("#clear").on("click", function () {
+                            sud.clear();
+                        });
+
+                        $("#edit").on("click", function () {
+                            $("#editor-dialog").dialog("open");
+                            return false;
+                        });
+
+                        $("#editor-dialog").dialog({
+                            autoOpen: false,
+                            modal: true,
+                            width: window.innerWidth * 0.9,
+                            height: window.innerHeight * 0.9,
+                            open: function () {
+                                (editor = ace.edit("editor").getSession()).setValue(flowStr);
+                            },
+                            buttons: {
+                                "Save": function () {
+                                    $(this).dialog("close");
+                                    nools.deleteFlow("sudoku");
+                                    flow = nools.compile((flowStr = editor.getValue()), {name: "sudoku", define: {Cell: Cell}, scope: { loop: loop}});
+                                },
+                                Cancel: function () {
+                                    $(this).dialog("close");
+                                }
+                            }
+                        });
+
+                    });
+        });
+    }());
+</script>
+
+</body>
+</html>

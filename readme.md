@@ -19,7 +19,10 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
    * Flows
     * [Defining A Flow](#flow) 
     * [Sessions](#session) 
-    * [Facts](#facts) 
+    * [Facts](#facts)
+        * [Assert](#facts-assert)
+        * [Retract](#facts-retract)
+        * [Modify](#facts-modify)
     * [Firing](#firing) 
     * [Disposing](#disposing)
     * [Removing A Flow](#removing-flow)
@@ -33,16 +36,19 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
       * [Salience](#rule-salience)
       * [Scope](#rule-scope)
       * [Constraints](#constraints)
+        * [Not](#not-constraint)
+        * [Or](#or-constraint)
+        * [From](#from-constraint)
       * [Actions](#action)
       * [Globals](#globals)
       * [Import](#import)
    * [Browser Support](#browser-support)
    * [Fibonacci](#fib)
-      
-   
 
-The [examples](https://github.com/C2FO/nools/tree/master/examples) and [tests](https://github.com/C2FO/nools/tree/master/test) are a
-great place to get started. You can ask your questions on the [Nools Google group](https://groups.google.com/forum/#!forum/nools).
+## Resources
+  * [Nools Google group](https://groups.google.com/forum/#!forum/nools)
+  * [Examples](http://c2fo.github.io/nools/examples.html)
+  * [Tests](https://github.com/C2FO/nools/tree/master/test)
 
 <a name="flow"></a>
 ## Defining a flow
@@ -236,8 +242,10 @@ var session = flow.getSession();
 
 Facts are items that the rules should try to match.
 
+<a name="facts-assert"></a>
+### Assert
 
-To add facts to the session use **assert** method.
+To add facts to the session use `assert` method.
 
 ```javascript
 session.assert(new Message("hello"));
@@ -247,11 +255,16 @@ session.assert(new Message("goodbye"));
 
 As a convenience any object passed into **getSession** will also be asserted.
 
+**Note** assert is typically used pre engine execution and during the execution of the rules.
+
 ```javascript
 flow.getSession(new Message("hello"), new Message("hello world"), new Message("goodbye"));
 ```
 
-To retract facts from the session use the **retract** method.
+<a name="facts-retract"></a>
+### Retract
+
+To remove facts from the session use the `retract` method.
 
 ```javascript
 var m = new Message("hello");
@@ -264,7 +277,13 @@ session.retract(m);
 
 ```
 
-To modify a fact use the **modify** method.
+**Note** `retract` is typically used during the execution of the rules.
+
+<a name="facts-modify"></a>
+### Modify
+
+
+To modify a fact use the `modify` method.
 
 **Note** modify will not work with immutable objects (i.e. strings). 
 
@@ -280,9 +299,7 @@ session.modify(m);
 
 ```
 
-**assert** is typically used pre engine execution and during the execution of the rules.
-
-**modify** and **retract** are typically used during the execution of the rules.
+**Note** `modify` is typically used during the execution of the rules.
 
 
 <a name="firing"></a>
@@ -762,6 +779,43 @@ this.rule("Hello1", {salience: 10}, [Message, "m", "m.name == 'Hello'"], functio
 });
 ```
 
+Or using the DSL
+
+```javascript
+rule Hello4 {
+    salience: 7;
+    when {
+        m: Message m.name == 'hello';
+    }
+    then {}
+}
+
+rule Hello3 {
+    salience: 8;
+    when {
+        m: Message m.name == 'hello';
+    }
+    then {}
+}
+
+rule Hello2 {
+    salience: 9;
+    when {
+        m: Message m.name == 'hello';
+    }
+    then {}
+}
+
+rule Hello1 {
+    salience: 10;
+    when {
+        m: Message m.name == 'hello';
+    }
+    then {}
+}
+
+```
+
 In the above flow we define four rules each with a different salience, when a single message is asserted they will fire in order of salience (highest to lowest).
 
 ```javascript
@@ -934,6 +988,123 @@ when {
         * `years|months|days|hours|minutes|seconds``Ago`/`FromNow``(interval)` - adds/subtracts the date unit from the current time 
         
    4. Reference(optional) - An object where the keys are properties on the current object, and values are aliases to use. The alias may be used in succeeding patterns.
+
+<a name="not-constraint"></a>
+#### Not Constraint
+
+The `not` constraint allow you to check that particular `fact` does **not** exist.
+
+```javascript
+
+[
+    [Number, "n1"],
+    ["not", Number, "n2", "n1 > n2"]
+]
+
+```
+
+Or using the DSL.
+
+```
+
+when {
+    n1: Number;
+    not(n2: Number n1 > n2);
+}
+
+```
+
+The previous example will check that for all numbers in the `workingMemory` there is **not** one that is greater than `n1`.
+
+<a name="or-constraint"></a>
+#### Or Constraint
+
+The `or` constraint can be used to check for either one fact or another.
+
+```javascript
+
+[
+    ["or",
+        [String, "s", "s == 'hello'"],
+        [String, "s", "s == 'world'"]
+    ]
+]
+
+```
+
+Using the DSL.
+
+```
+when {
+    or(
+        s : String s == 'hello',
+        s : String s == 'world'
+    );
+}
+```
+
+The previous example will evaluate to `true` if you have a string in `workingMemory` that equals `hello` or `world.
+
+
+<a name="from-constraint"></a>
+#### From Constraint
+
+The `from` modifier allows for the checking of facts that are not necessarily in the `workingMemory` but instead exist as a property on a fact.
+
+```javascript
+[
+    [Person, "p"],
+    [Address, "a", "a.zipcode == 88847", "from p.address"],
+    [String, "first", "first == 'bob'", "from p.firstName"],
+    [String, "last", "last == 'yukon'", "from p.lastName"]
+]
+```
+
+Or using the DSL.
+
+```
+when {
+    p: Person:
+    a: Address a.zipcode == 88847 from p.address;
+    first: String first == 'bob' from p.firstName;
+    last: String last == 'yukon' from p.lastName;
+}
+```
+
+The above example will used the address, firstName and lastName from the `person` fact.
+
+You can also use the `from` modifier to check facts that create a graph.
+
+For example assume the person object from above has friends that are also of type `Person`.
+
+```javascript
+[
+    [Person, "p"],
+    [Person, "friend", "friend.firstName != p.firstName", "from p.friends"],
+    [String, "first", "first =~ /^a/", "from friend.firstName"]
+]
+```
+
+Or using the DSL.
+
+```
+when {
+    p: Person;
+    friend: Person friend.firstName != p.firstName;
+    first: String first =~ /^a/ from friend.firstName;
+}
+```
+
+The above example will pull the `friend` fact from the friends array property on fact `p`, and first from the `friend`'s `firstName`.
+
+You could achieve the same thing using the following code if you assert all friends into working memory.
+
+```
+when {
+    p: Person;
+    friend: Person friend in p.friends && friend.firstName != p.firstName && p.firstName =~ /^a/;
+}
+```
 
 <a name="action"></a>
 

@@ -1,0 +1,18 @@
+rule SendMoreMoney {
+    when {
+        s : Number s != 0;
+        e : Number e != s;
+        n : Number n != s && n != e;
+        d : Number d != s && d != e && d != n;
+        m : Number m != 0 && m != s && m != e && m != n && m != d;
+        o : Number o != s && o != e && o != n && o != d && o != m;
+        r : Number r != s && r != e && r != n && r != d && r != m && r != o;
+        y : Number y != s && y != e && y != n && y != d && y != m && y != o && y != r
+            && (s*1000 + e*100 + n*10 + d + m*1000 + o*100 + r*10 + e) == (m*10000 + o*1000 + n*100 + e*10 + y);
+    }
+    then {
+        console.log('pathDone', {s : s, e : e, n : n, d : d, m : m, o: o, r : r, y : y});
+        console.log((s*1000 + e*100 + n*10 + d + m*1000 + o*100 + r*10 + e));
+        console.log((m*10000 + o*1000 + n*100 + e*10 + y))
+    }
+}

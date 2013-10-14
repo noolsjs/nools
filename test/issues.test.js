@@ -91,4 +91,67 @@ it.describe("issues", function (it) {
 
         });
     });
+
+    it.describe("81", function (it) {
+
+        it.should("allow array references when compiling rules", function () {
+
+            function ActualWeightDomain(values) {
+                this.values = values;
+            }
+
+            function ActualWeightEnteredValue(value) {
+                this.value = value;
+            }
+
+            function ActualWeightValue() {
+
+            }
+
+            var src = "rule CheckAndAssertActualWeight {" +
+                " when {" +
+                "    actualWeight_domain: ActualWeightDomain {values: _domainValues};" +
+                "    actualWeight_EnteredValue: ActualWeightEnteredValue" +
+                "    (" +
+                "        actualWeight_EnteredValue.value >= _domainValues[0] &&" +
+                "            actualWeight_EnteredValue.value <= _domainValues[1]" +
+                "    ) {value : _entered};" +
+                "}" +
+                "then {" +
+                "    assert( new ActualWeightValue({value:_entered}) );" +
+                "}" +
+                "}";
+
+            var flow = nools.compile(src, {name: "issue81", define: {
+                "ActualWeightDomain": ActualWeightDomain,
+                "ActualWeightEnteredValue": ActualWeightEnteredValue,
+                ActualWeightValue: ActualWeightValue
+            }});
+            var fired = [];
+            var session = flow.getSession(new ActualWeightEnteredValue(1), new ActualWeightDomain([1, 2])).on("fire", function (name) {
+                fired.push(name);
+            });
+            return session.match().then(function () {
+                assert.deepEqual(fired, ["CheckAndAssertActualWeight"]);
+                fired.length = 0;
+                session = flow.getSession(new ActualWeightEnteredValue(5), new ActualWeightDomain([1, 2])).on("fire", function (name) {
+                    fired.push(name);
+                });
+                return session.match().then(function () {
+                    assert.deepEqual(fired, []);
+                });
+            });
+
+        });
+
+    });
+
+    it.describe("82", function (it) {
+
+        it.should("allow a trailing comment when using the dsl", function () {
+            nools.compile("rule 'hello' {when {s: String s == 'hello';}then{console.log(s);}} //test comment ", {name: "issue82"});
+        });
+
+    });
+
 });

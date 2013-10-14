@@ -505,6 +505,66 @@ it.describe("nools dsl parser", function (it) {
             assert.deepEqual(parsed, parsed2);
         });
 
+        it.should("parse when clause with from", function () {
+            var parsed = noolsParser.parse("rule TestRule { when { p : Person p.name eq 'Test'; a: Address a.zipcode == 88847 from p.address;} then {console.log($test);}}");
+            assert.deepEqual(parsed, {
+                "define": [],
+                "rules": [
+                    {
+                        "name": "TestRule",
+                        "options": {},
+                        "constraints": [
+                            [
+                                "Person",
+                                "p",
+                                "p.name eq 'Test'"
+                            ],
+                            [
+                                "Address",
+                                "a",
+                                "a.zipcode == 88847 ",
+                                "from p.address"
+                            ]
+                        ],
+                        "action": "console.log($test);"
+                    }
+                ],
+                "scope": [],
+                "loaded": [],
+                "file": undefined
+            });
+            parsed = noolsParser.parse("rule TestRule { when { p : Person p.name eq 'Test'; a: Address a.zipcode == 88847 {zipcode: zipCode} from p.address;} then {console.log($test);}}");
+            assert.deepEqual(parsed, {
+                "define": [],
+                "rules": [
+                    {
+                        "name": "TestRule",
+                        "options": {},
+                        "constraints": [
+                            [
+                                "Person",
+                                "p",
+                                "p.name eq 'Test'"
+                            ],
+                            [
+                                "Address",
+                                "a",
+                                "a.zipcode == 88847",
+                                {
+                                    "zipcode": "zipCode"
+                                },
+                                "from p.address"
+                            ]
+                        ],
+                        "action": "console.log($test);"
+                    }
+                ],
+                "scope": [],
+                "loaded": [],
+                "file": undefined
+            });
+        });
+
         it.should("parse rules with a string name in double quotes", function () {
             var parsed = noolsParser.parse('rule "' + "test rule" + '"' + " { when { c : Clazz {test : test} c.name eq 'Test';} then {console.log($test);}}");
             assert.deepEqual(parsed, {
