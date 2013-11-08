@@ -1,6 +1,7 @@
 "use strict";
 var it = require("it"),
     declare = require("declare.js"),
+    dateExtended = require("date-extended"),
     assert = require("assert"),
     nools = require("../index");
 
@@ -445,6 +446,52 @@ it.describe("Flow", function (it) {
 
         });
 
+        it.describe("or with not conditions", function (it) {
+            var flow;
+            it.beforeAll(function () {
+                flow = nools.flow("or condition with not conditions", function (flow) {
+                    flow.rule("hello rule", [
+                        ["or",
+                            ["not", Number, "n1", "n1 == 1"],
+                            ["not", String, "s1", "s1 == 'hello'"],
+                            ["not", Date, "d1", "d1.getDate() == now().getDate()"]
+                        ],
+                        [Count, "called", null]
+                    ], function (facts) {
+                        facts.called.called++;
+                    });
+                });
+            });
+
+            it.should("activate for each fact that does not exist", function () {
+                var count = new Count();
+                return flow.getSession(count).match(2, 'world')
+                    .then(function () {
+                        assert.equal(count.called, 3);
+                        count.called = 0;
+                        return flow.getSession(count, 1).match();
+                    })
+                    .then(function () {
+                        assert.equal(count.called, 2);
+                        count.called = 0;
+                        return flow.getSession(count, 'hello').match();
+                    })
+                    .then(function () {
+                        assert.equal(count.called, 2);
+                        count.called = 0;
+                        return flow.getSession(count, new Date()).match();
+                    })
+                    .then(function () {
+                        assert.equal(count.called, 2);
+                        count.called = 0;
+                        return flow.getSession(count, 1, 'hello', new Date()).match();
+                    })
+                    .then(function () {
+                        assert.equal(count.called, 0);
+                    });
+            });
+        });
+
     });
 
     it.describe("rule with from", function (it) {
@@ -566,7 +613,6 @@ it.describe("Flow", function (it) {
                             });
                         });
                     });
-
                 });
             });
 
@@ -577,6 +623,110 @@ it.describe("Flow", function (it) {
                 assert.equal(session.agenda.peek().name, "from rule 1");
                 session.retract(p);
                 assert.isTrue(session.agenda.isEmpty());
+            });
+        });
+
+        it.describe("with js source", function (it) {
+
+            var called = 0;
+
+            function MyValue(n2) {
+                this.value = n2;
+            }
+
+            var flow = nools.flow("from flow js source", function (flow) {
+                flow.rule("from rule 1", [
+                    [MyValue, "n1"],
+                    [Number, "n2", "n1.value == n2", "from [1,2,3,4,5]"],
+                ], function (facts) {
+                    assert.equal(facts.n1.value, facts.n2);
+                    assert.isTrue([1, 2, 3, 4, 5].indexOf(facts.n2) !== -1);
+                    called++;
+                });
+
+                flow.rule("from rule 2", [
+                    [MyValue, "n1"],
+                    [String, "n2", "n1.value == n2", "from ['a' ,'b', 'c', 'd', 'e']"]
+                ], function (facts) {
+                    assert.equal(facts.n1.value, facts.n2);
+                    assert.isTrue(['a' , 'b', 'c', 'd', 'e', 'f'].indexOf(facts.n2) !== -1);
+                    called++;
+                });
+
+                flow.rule("from rule 3 with function", [
+                    [MyValue, "n1", "isDate(n1.value)"],
+                    [Date, "n2", "dateCmp(n1.value, n2)", "from daysFromNow(1)"]
+                ], function (facts) {
+                    assert.isDate(facts.n1.value);
+                    assert.isDate(facts.n2);
+                    called++;
+                });
+
+                flow.rule("from rule 4 with scope function", {
+                    scope: {
+                        myArr: function () {
+                            return ["f", "g", "h", "i", "j"]
+                        }
+                    }
+                }, [
+                    [MyValue, "n1"],
+                    [String, "n2", "n1.value == n2", "from myArr()"]
+                ], function (facts) {
+                    assert.equal(facts.n1.value, facts.n2);
+                    assert.isTrue(["f", "g", "h", "i", "j"].indexOf(facts.n2) !== -1);
+                    called++;
+                });
+            });
+
+            it.should("create the proper match contexts", function () {
+
+                var session = flow.getSession(
+                    new MyValue(1),
+                    new MyValue(2),
+                    new MyValue(3),
+                    new MyValue(4),
+                    new MyValue(5),
+                    new MyValue('a'),
+                    new MyValue('b'),
+                    new MyValue('c'),
+                    new MyValue('d'),
+                    new MyValue('e'),
+                    new MyValue(dateExtended.daysFromNow(1)),
+                    new MyValue('f'),
+                    new MyValue('g'),
+                    new MyValue('h'),
+                    new MyValue('i'),
+                    new MyValue('j')
+
+                );
+                return session.match().then(function () {
+                    assert.equal(called, 16);
+                });
+            });
+
+            it.should("propagate modified facts properly", function () {
+                var fired = [];
+                var session = flow.getSession()
+                    .on("fire", function (name, rule) {
+                        fired.push(name);
+                    });
+                var v = new MyValue(1);
+                session.assert(v);
+                return session.match().then(function () {
+                    assert.deepEqual(fired, ["from rule 1"]);
+                    fired.length = 0;
+                    debugger;
+                    session.modify(v, function () {
+                        this.value = "a";
+                    });
+                    return session.match().then(function () {
+                        assert.deepEqual(fired, ["from rule 2"]);
+                        fired.length = 0;
+                        session.modify(v, function () {
+                            this.value = 1;
+                        });
+                    });
+                });
             });
         });
 
@@ -700,7 +850,7 @@ it.describe("Flow", function (it) {
                         });
                         return session.match().then(function () {
                             names.sort(function (a, b) {
-                                return a[0] === b[0] ? a[1] === b[1] ? 0: a[1] > b[1] ? 1: -1: a[0] > b[0] ? 1: -1;
+                                return a[0] === b[0] ? a[1] === b[1] ? 0 : a[1] > b[1] ? 1 : -1 : a[0] > b[0] ? 1 : -1;
                             });
                             assert.deepEqual(names, [
                                 [ 'billy', 'bob' ],
@@ -1264,7 +1414,6 @@ it.describe("Flow", function (it) {
             var fired = [];
             var session = flow.getSession(new Message("hello"), new Message("hello goodbye"))
                 .on("fire", function (name) {
-                    debugger;
                     fired.push(name);
                 });
             return session.match().then(function () {

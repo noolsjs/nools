@@ -28,12 +28,10 @@ module.exports = exports = require("./lib");
 },{"./lib":15}],3:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
-//indexOf = extd.indexOf,
     declare = extd.declare,
     AVLTree = extd.AVLTree,
     LinkedList = extd.LinkedList,
-    EventEmitter = require("events").EventEmitter,
-    sortAgenda = require("./conflict").strategy(["salience", "activationRecency"]);
+    EventEmitter = require("events").EventEmitter;
 
 
 var FactHash = declare({
@@ -76,17 +74,18 @@ var DEFAULT_AGENDA_GROUP = "main";
 module.exports = declare(EventEmitter, {
 
     instance: {
-        constructor: function (flow) {
+        constructor: function (flow, conflictResolution) {
             this.agendaGroups = {};
             this.agendaGroupStack = [DEFAULT_AGENDA_GROUP];
             this.rules = {};
             this.flow = flow;
+            this.comparator = conflictResolution;
             this.setFocus(DEFAULT_AGENDA_GROUP).addAgendaGroup(DEFAULT_AGENDA_GROUP);
         },
 
         addAgendaGroup: function (groupName) {
             if (!extd.has(this.agendaGroups, groupName)) {
-                this.agendaGroups[groupName] = new AVLTree({compare: sortAgenda});
+                this.agendaGroups[groupName] = new AVLTree({compare: this.comparator});
             }
         },
 
@@ -113,7 +112,7 @@ module.exports = declare(EventEmitter, {
 
         register: function (node) {
             var agendaGroup = node.rule.agendaGroup;
-            this.rules[node.name] = {tree: new AVLTree({compare: sortAgenda}), factTable: new FactHash()};
+            this.rules[node.name] = {tree: new AVLTree({compare: this.comparator}), factTable: new FactHash()};
             if (agendaGroup) {
                 this.addAgendaGroup(agendaGroup);
             }
@@ -219,7 +218,7 @@ module.exports = declare(EventEmitter, {
     }
 
 });
-},{"./conflict":7,"./extended":12,"events":50}],4:[function(require,module,exports){
+},{"./extended":12,"events":50}],4:[function(require,module,exports){
 /*jshint evil:true*/
 "use strict";
 var extd = require("../extended"),
@@ -322,11 +321,16 @@ var parseAction = function (action, identifiers, defined, scope) {
             declares.push("var " + i + "= scope." + i + ";");
         }
     });
+    extd(["halt", "assert", "retract", "modify", "focus", "emit"]).forEach(function (i) {
+        if (action.indexOf(i) !== -1) {
+            declares.push("if(!" + i + "){ var " + i + "= flow." + i + ";}");
+        }
+    });
     var params = ["facts", 'flow'];
     if (/next\(.*\)/.test(action)) {
         params.push("next");
     }
-    action = "with(flow){" + declares.join("") + action + "}";
+    action = declares.join("") + action;
     try {
         return new Function("defined, scope", "return " + new Function(params.join(","), action).toString())(defined, scope);
     } catch (e) {
@@ -362,8 +366,33 @@ var createRuleFromObject = (function () {
                 }
             }
         }
-
     };
+
+    function parseRule(rule, conditions, identifiers, defined, name) {
+        if (rule.length) {
+            var r0 = rule[0];
+            if (r0 === "not") {
+                var temp = [];
+                rule.shift();
+                __resolveRule(rule, identifiers, temp, defined, name);
+                var cond = temp[0];
+                cond.unshift(r0);
+                conditions.push(cond);
+            } else if (r0 === "or") {
+                var conds = [r0];
+                rule.shift();
+                forEach(rule, function (cond) {
+                    parseRule(cond, conds, identifiers, defined, name);
+                });
+                conditions.push(conds);
+            } else {
+                __resolveRule(rule, identifiers, conditions, defined, name);
+                identifiers = removeDuplicates(identifiers);
+            }
+        }
+
+    }
+
     return function (obj, defined, scope) {
         var name = obj.name;
         if (extd.isEmpty(obj)) {
@@ -380,30 +409,8 @@ var createRuleFromObject = (function () {
             throw new Error("No action was defined for rule " + name);
         }
         var conditions = [], identifiers = [];
-        extd(constraints).forEach(function (rule) {
-
-            if (rule.length) {
-                var r0 = rule[0];
-                if (r0 === "not") {
-                    var temp = [];
-                    rule.shift();
-                    __resolveRule(rule, identifiers, temp, defined, name);
-                    var cond = temp[0];
-                    cond.unshift(r0);
-                    conditions.push(cond);
-                } else if (r0 === "or") {
-                    var conds = [r0];
-                    rule.shift();
-                    forEach(rule, function (cond) {
-                        __resolveRule(cond, identifiers, conds, defined, name);
-                    });
-                    conditions.push(conds);
-                } else {
-                    __resolveRule(rule, identifiers, conditions, defined, name);
-                    identifiers = removeDuplicates(identifiers);
-                }
-            }
-
+        forEach(constraints, function (rule) {
+            parseRule(rule, conditions, identifiers, defined, name);
         });
         return rules.createRule(name, options, conditions, parseAction(action, identifiers, defined, scope));
     };
@@ -529,6 +536,35 @@ function actionToJs(action, identifiers, defined, scope) {
     }
 }
 
+function parseConstraintModifier(constraint, ret) {
+    if (constraint.length && extd.isString(constraint[0])) {
+        var modifier = constraint[0].match(" *(from)");
+        if (modifier) {
+            modifier = modifier[0];
+            switch (modifier) {
+            case "from":
+                ret.push(', "', constraint.shift(), '"');
+                break;
+            default:
+                throw new Error("Unrecognized modifier " + modifier);
+            }
+        }
+    }
+}
+
+function parseConstraintHash(constraint, ret, identifiers) {
+    if (constraint.length && extd.isHash(constraint[0])) {
+        //ret of options
+        var refs = constraint.shift();
+        extd(refs).values().forEach(function (ident) {
+            if (indexOf(identifiers, ident) === -1) {
+                identifiers.push(ident);
+            }
+        });
+        ret.push(',' + extd.format('%j', [refs]));
+    }
+}
+
 function constraintsToJs(constraint, identifiers) {
     constraint = constraint.slice(0);
     var ret = [];
@@ -547,7 +583,7 @@ function constraintsToJs(constraint, identifiers) {
     if (constraint.length) {
         //constraint
         var c = constraint.shift();
-        if (extd.isString(c)) {
+        if (extd.isString(c) && c) {
             ret.push(',"' + c.replace(/"/g, "\\\""), '"');
             forEach(constraintMatcher.getIdentifiers(parser.parseConstraint(c)), function (i) {
                 identifiers.push(i);
@@ -557,16 +593,8 @@ function constraintsToJs(constraint, identifiers) {
             constraint.unshift(c);
         }
     }
-    if (constraint.length) {
-        //ret of options
-        var refs = constraint.shift();
-        extd(refs).values().forEach(function (ident) {
-            if (indexOf(identifiers, ident) === -1) {
-                identifiers.push(ident);
-            }
-        });
-        ret.push(',' + extd.format('%j', [refs]));
-    }
+    parseConstraintModifier(constraint, ret);
+    parseConstraintHash(constraint, ret, identifiers);
     return '[' + ret.join("") + ']';
 }
 
@@ -696,6 +724,7 @@ var Constraint = declare({
             this.id = id++;
             this.type = type;
             this.constraint = constraint;
+            extd.bindAll(this, ["assert"]);
         },
         "assert": function () {
             throw new Error("not implemented");
@@ -850,18 +879,18 @@ Constraint.extend({
 
 Constraint.extend({
     instance: {
-        constructor: function (prop, constraints) {
+        constructor: function (constraints, options) {
             this.type = "from";
-            this.prop = prop;
-            this.constraints = constraints;
+            this.constraints = constraintMatcher.getSourceMatcher(constraints, (options || {}).scope || {});
+            extd.bindAll(this, ["assert"]);
         },
 
         equal: function (constraint) {
             return instanceOf(constraint, this._static) && this.get("alias") === constraint.get("alias") && deepEqual(this.constraints, constraint.constraints);
         },
 
-        "assert": function () {
-            return true;
+        "assert": function (fact, fh) {
+            return this.constraints(fact, fh);
         },
 
         getters: {
@@ -1207,7 +1236,7 @@ var lang = {
     }
 };
 
-var toJs = exports.toJs = function (rule, scope) {
+var toJs = exports.toJs = function (rule, scope, wrap) {
     /*jshint evil:true*/
     var js = lang.parse(rule);
     scope = scope || {};
@@ -1223,7 +1252,7 @@ var toJs = exports.toJs = function (rule, scope) {
         }
         ret.push(";");
         return ret.join("");
-    }).join("") + " return !!(" + js + ");";
+    }).join("") + " return " + (wrap ? wrap(js) : js) + "";
     var f = new Function("fact, hash, definedFuncs, scope", body);
     return function (fact, hash) {
         return f(fact, hash, definedFuncs, scope);
@@ -1231,7 +1260,15 @@ var toJs = exports.toJs = function (rule, scope) {
 };
 
 exports.getMatcher = function (rule, scope) {
-    return toJs(rule, scope);
+    return toJs(rule, scope, function (src) {
+        return "!!(" + src + ")";
+    });
+};
+
+exports.getSourceMatcher = function (rule, scope) {
+    return toJs(rule, scope, function (src) {
+        return src;
+    });
 };
 
 exports.toConstraints = function (constraint, options) {
@@ -1449,51 +1486,14 @@ Promise.extend({
     }
 }).as(module);
 },{"./extended":12,"./nextTick":17}],12:[function(require,module,exports){
-var arr = require("array-extended"),
-    map = arr.map;
-
-function plucked(prop) {
-    var exec = prop.match(/(\w+)\(\)$/);
-    if (exec) {
-        prop = exec[1];
-        return function (item) {
-            return item[prop]();
-        };
-    } else {
-        return function (item) {
-            return item[prop];
-        };
-    }
-}
-
-function plucker(prop) {
-    prop = prop.split(".");
-    if (prop.length === 1) {
-        return plucked(prop[0]);
-    } else {
-        var pluckers = map(prop, function (prop) {
-            return plucked(prop);
-        });
-        var l = pluckers.length;
-        return function (item) {
-            var i = -1, res = item;
-            while (++i < l) {
-                res = pluckers[i](res);
-            }
-            return res;
-        };
-    }
-}
-
 module.exports = require("extended")()
-    .register(arr)
+    .register(require("array-extended"))
     .register(require("date-extended"))
     .register(require("object-extended"))
     .register(require("string-extended"))
     .register(require("promise-extended"))
     .register(require("function-extended"))
     .register(require("is-extended"))
-    .register("plucker", plucker)
     .register("HashTable", require("ht"))
     .register("declare", require("declare.js"))
     .register(require("leafy"))
@@ -1520,15 +1520,17 @@ module.exports = declare(EventEmitter, {
 
         executionStrategy: null,
 
-        constructor: function (name) {
+        constructor: function (name, conflictResolutionStrategy) {
             this.env = null;
             this.name = name;
             this.__rules = {};
+            this.conflictResolutionStrategy = conflictResolutionStrategy;
             this.workingMemory = new WorkingMemory();
-            this.agenda = new AgendaTree(this);
+            this.agenda = new AgendaTree(this, conflictResolutionStrategy);
             this.agenda.on("fire", bind(this, "emit", "fire"));
             this.agenda.on("focused", bind(this, "emit", "focused"));
             this.rootNode = new nodes.RootNode(this.workingMemory, this.agenda);
+            extd.bindAll(this, "halt", "assert", "retract", "modify", "focus", "emit");
         },
 
         focus: function (focused) {
@@ -1605,6 +1607,8 @@ var extd = require("./extended"),
     forEach = extd.forEach,
     declare = extd.declare,
     InitialFact = require("./pattern").InitialFact,
+    conflictStrategies = require("./conflict"),
+    conflictResolution = conflictStrategies.strategy(["salience", "activationRecency"]),
     rule = require("./rule"),
     Flow = require("./flow");
 
@@ -1618,6 +1622,7 @@ var FlowContainer = declare({
             this.cb = cb;
             this.__rules = [];
             this.__defined = {};
+            this.conflictResolutionStrategy = conflictResolution;
             if (cb) {
                 cb.call(this, this);
             }
@@ -1626,6 +1631,11 @@ var FlowContainer = declare({
             } else {
                 throw new Error("Flow with " + name + " already defined");
             }
+        },
+
+        conflictResolution: function (strategies) {
+            this.conflictResolutionStrategy = conflictStrategies.strategy(strategies);
+            return this;
         },
 
         getDefined: function (name) {
@@ -1648,7 +1658,7 @@ var FlowContainer = declare({
         },
 
         getSession: function () {
-            var flow = new Flow(this.name);
+            var flow = new Flow(this.name, this.conflictResolutionStrategy);
             forEach(this.__rules, function (rule) {
                 flow.rule(rule);
             });
@@ -1699,7 +1709,7 @@ var FlowContainer = declare({
     }
 
 }).as(module);
-},{"./extended":12,"./flow":13,"./pattern":38,"./rule":39}],15:[function(require,module,exports){
+},{"./conflict":7,"./extended":12,"./flow":13,"./pattern":38,"./rule":39}],15:[function(require,module,exports){
 /**
  *
  * @projectName nools
@@ -1909,6 +1919,7 @@ Node.extend({
         constructor: function (constraint) {
             this._super([]);
             this.constraint = constraint;
+            this.constraintAssert = this.constraint.assert;
         },
 
         toString: function () {
@@ -1942,11 +1953,12 @@ AlphaNode.extend({
         constructor: function () {
             this.memory = {};
             this._super(arguments);
+            this.constraintAssert = this.constraint.assert;
         },
 
         assert: function (context) {
             var hashCode = createContextHash(context);
-            if ((this.memory[hashCode] = this.constraint.assert(context.factHash))) {
+            if ((this.memory[hashCode] = this.constraintAssert(context.factHash))) {
                 this.__propagate("assert", context);
             }
         },
@@ -1955,8 +1967,8 @@ AlphaNode.extend({
             var memory = this.memory,
                 hashCode = createContextHash(context),
                 wasMatch = memory[hashCode];
-            if ((memory[hashCode] = this.constraint.assert(context.factHash))) {
-                this.__propagate(wasMatch ? "modify": "assert", context);
+            if ((memory[hashCode] = this.constraintAssert(context.factHash))) {
+                this.__propagate(wasMatch ? "modify" : "assert", context);
             } else if (wasMatch) {
                 this.__propagate("retract", context);
             }
@@ -1984,7 +1996,7 @@ var Node = require("./joinNode"),
     HashConstraint = constraint.HashConstraint,
     ReferenceConstraint = constraint.ReferenceConstraint,
     Context = require("../context"),
-    plucker = extd.plucker,
+    isDefined = extd.isDefined,
     isEmpty = extd.isEmpty,
     forEach = extd.forEach,
     isArray = extd.isArray;
@@ -1995,7 +2007,6 @@ var DEFAULT_MATCH = {
     }
 };
 
-
 Node.extend({
     instance: {
 
@@ -2004,14 +2015,14 @@ Node.extend({
             this.workingMemory = wm;
             this.fromMemory = {};
             this.pattern = pattern;
-            this.type = pattern.get("constraints")[0];
+            this.type = pattern.get("constraints")[0].assert;
             this.alias = pattern.get("alias");
-            this.plucker = plucker(this.from = pattern.from);
+            this.from = pattern.from.assert;
             var eqConstraints = this.__equalityConstraints = [];
             var vars = [];
             forEach(this.constraints = this.pattern.get("constraints").slice(1), function (c) {
                 if (c instanceof EqualityConstraint || c instanceof ReferenceConstraint) {
-                    eqConstraints.push(c);
+                    eqConstraints.push(c.assert);
                 } else if (c instanceof HashConstraint) {
                     vars = vars.concat(c.get("variables"));
                 }
@@ -2020,12 +2031,12 @@ Node.extend({
         },
 
         __createMatches: function (context) {
-            var fh = context.factHash, o = this.plucker(fh);
+            var fh = context.factHash, o = this.from(fh);
             if (isArray(o)) {
                 for (var i = 0, l = o.length; i < l; i++) {
                     this.__checkMatch(context, o[i], true);
                 }
-            } else {
+            } else if (isDefined(o)) {
                 this.__checkMatch(context, o, true);
             }
         },
@@ -2039,7 +2050,7 @@ Node.extend({
         },
 
         __createMatch: function (lc, o) {
-            if (this.type.assert(o)) {
+            if (this.type(o)) {
                 var createdFact = this.workingMemory.getFactHandle(o, true),
                     createdContext,
                     rc = new Context(createdFact)
@@ -2051,7 +2062,7 @@ Node.extend({
                 }
                 var eqConstraints = this.__equalityConstraints, vars = this.__variables, i = -1, l = eqConstraints.length;
                 while (++i < l) {
-                    if (!eqConstraints[i].assert(fh)) {
+                    if (!eqConstraints[i](fh)) {
                         createdContext = DEFAULT_MATCH;
                         break;
                     }
@@ -2119,7 +2130,7 @@ Node.extend({
                 var leftContext = ctx.data,
                     fromMatches = (context.fromMatches = {}),
                     rightMatches = leftContext.fromMatches,
-                    o = this.plucker(context.factHash);
+                    o = this.from(context.factHash);
 
                 if (isArray(o)) {
                     for (i = 0, l = o.length; i < l; i++) {
@@ -2133,7 +2144,7 @@ Node.extend({
                             }
                         }
                     }
-                } else {
+                } else if (isDefined(o)) {
                     newContext = this.__checkMatch(context, o, false);
                     if (newContext.isMatch()) {
                         factId = newContext.fact.id;
@@ -2170,7 +2181,7 @@ Node.extend({
                             this.__propagate("retract", cc.clone());
                         }
                         if (newContext.isMatch()) {
-                            this.__propagate(createdIsMatch ? "modify": "assert", newContext.clone());
+                            this.__propagate(createdIsMatch ? "modify" : "assert", newContext.clone());
                         }
 
                     }
@@ -2203,7 +2214,7 @@ var Node = require("./joinNode"),
     HashConstraint = constraint.HashConstraint,
     ReferenceConstraint = constraint.ReferenceConstraint,
     Context = require("../context"),
-    plucker = extd.plucker,
+    isDefined = extd.isDefined,
     forEach = extd.forEach,
     isArray = extd.isArray;
 
@@ -2214,15 +2225,15 @@ Node.extend({
             this._super(arguments);
             this.workingMemory = workingMemory;
             this.pattern = pattern;
-            this.type = pattern.get("constraints")[0];
+            this.type = pattern.get("constraints")[0].assert;
             this.alias = pattern.get("alias");
-            this.plucker = plucker(this.from = pattern.from);
+            this.from = pattern.from.assert;
             this.fromMemory = {};
             var eqConstraints = this.__equalityConstraints = [];
             var vars = [];
             forEach(this.constraints = this.pattern.get("constraints").slice(1), function (c) {
                 if (c instanceof EqualityConstraint || c instanceof ReferenceConstraint) {
-                    eqConstraints.push(c);
+                    eqConstraints.push(c.assert);
                 } else if (c instanceof HashConstraint) {
                     vars = vars.concat(c.get("variables"));
                 }
@@ -2243,7 +2254,7 @@ Node.extend({
 
         __modify: function (context, leftContext) {
             var leftContextBlocked = leftContext.blocked;
-            var fh = context.factHash, o = this.plucker(fh);
+            var fh = context.factHash, o = this.from(fh);
             if (isArray(o)) {
                 for (var i = 0, l = o.length; i < l; i++) {
                     if (this.__isMatch(context, o[i], true)) {
@@ -2251,7 +2262,7 @@ Node.extend({
                         break;
                     }
                 }
-            } else {
+            } else if(isDefined(o)){
                 context.blocked = this.__isMatch(context, o, true);
             }
             var newContextBlocked = context.blocked;
@@ -2295,7 +2306,7 @@ Node.extend({
         },
 
         __findMatches: function (context) {
-            var fh = context.factHash, o = this.plucker(fh), isMatch = false;
+            var fh = context.factHash, o = this.from(fh), isMatch = false;
             if (isArray(o)) {
                 for (var i = 0, l = o.length; i < l; i++) {
                     if (this.__isMatch(context, o[i], true)) {
@@ -2304,7 +2315,7 @@ Node.extend({
                     }
                 }
                 this.__propagate("assert", context.clone());
-            } else if (!(context.blocked = this.__isMatch(context, o, true))) {
+            } else if (isDefined(o) && !(context.blocked = this.__isMatch(context, o, true))) {
                 this.__propagate("assert", context.clone());
             }
             return isMatch;
@@ -2312,7 +2323,7 @@ Node.extend({
 
         __isMatch: function (oc, o, add) {
             var ret = false;
-            if (this.type.assert(o)) {
+            if (this.type(o)) {
                 var createdFact = this.workingMemory.getFactHandle(o);
                 var context = new Context(createdFact, null)
                     .mergeMatch(oc.match)
@@ -2327,7 +2338,7 @@ Node.extend({
                 var fh = context.factHash;
                 var eqConstraints = this.__equalityConstraints;
                 for (var i = 0, l = eqConstraints.length; i < l; i++) {
-                    if (eqConstraints[i].assert(fh)) {
+                    if (eqConstraints[i](fh)) {
                         ret = true;
                     } else {
                         ret = false;
@@ -2663,7 +2674,7 @@ Node.extend({
                 while (++i < l) {
                     this.__propagate("retract", rightMathces[i]);
                 }
-            }else{
+            } else {
                 throw new Error();
             }
             return this;
@@ -2679,7 +2690,7 @@ Node.extend({
                 while (++i < l) {
                     this.__propagate("retract", leftMatches[i]);
                 }
-            }else{
+            } else {
                 throw new Error();
             }
             return this;
@@ -2775,7 +2786,7 @@ Node.extend({
                     }
                     thisConstraint.clearContexts();
                 }
-            }  else {
+            } else {
                 throw new Error();
             }
 
@@ -2900,6 +2911,7 @@ Node.extend({
 var Node = require("./node");
 
 var DEFUALT_CONSTRAINT = {
+    isDefault: true,
     assert: function () {
         return true;
     }
@@ -2913,31 +2925,42 @@ Node.extend({
         __lc: null,
         __rc: null,
         __varLength: 0,
+        __count: 0,
+        __rcMatch: null,
+        __lcMatch: null,
 
         constructor: function () {
             this._super(arguments);
             this.__fh = {};
             this.__variables = [];
+            this.isDefault = true;
+            this.constraintAssert = DEFUALT_CONSTRAINT.assert;
         },
 
         setLeftContext: function (lc) {
             this.__lc = lc;
-            var match = lc.match;
-            var newFh = match.factHash,
-                fh = this.__fh,
-                prop,
-                vars = this.__variables,
-                i = -1,
-                l = this.__varLength;
-            while (++i < l) {
-                prop = vars[i];
-                fh[prop] = newFh[prop];
+            var match = this.__lcMatch = lc.match;
+            if (!this.isDefault) {
+                var newFh = match.factHash,
+                    fh = this.__fh,
+                    prop,
+                    vars = this.__variables,
+                    i = -1,
+                    l = this.__varLength;
+                while (++i < l) {
+                    prop = vars[i];
+                    fh[prop] = newFh[prop];
+                }
             }
             return this;
         },
 
         setRightContext: function (rc) {
-            this.__fh[this.__alias] = (this.__rc = rc).fact.object;
+            this.__rc = rc;
+            this.__rcMatch = rc.match;
+            if (!this.isDefault) {
+                this.__fh[this.__alias] = rc.fact.object;
+            }
             return this;
         },
 
@@ -2945,6 +2968,7 @@ Node.extend({
             this.__fh = {};
             this.__lc = null;
             this.__rc = null;
+            this.__lcMatch = this.__rcMatch = null;
             return this;
         },
 
@@ -2957,38 +2981,41 @@ Node.extend({
         clearLeftContext: function () {
             this.__lc = null;
             var fh = this.__fh = {}, rc = this.__rc;
-            fh[this.__alias] = rc ? rc.fact.object: null;
+            fh[this.__alias] = rc ? rc.fact.object : null;
             return this;
         },
 
         addConstraint: function (constraint) {
-            if (this.constraint === DEFUALT_CONSTRAINT) {
+            if (this.constraint.isDefault) {
                 this.constraint = constraint;
+                this.isDefault = false;
             } else {
                 this.constraint = this.constraint.merge(constraint);
             }
             this.__alias = this.constraint.get("alias");
             this.__varLength = (this.__variables = this.__variables.concat(this.constraint.get("variables"))).length;
+            this.constraintAssert = this.constraint.assert;
         },
 
         equal: function (constraint) {
-            if (this.constraint !== DEFUALT_CONSTRAINT) {
+            if (this.isDefault !== true) {
                 return this.constraint.equal(constraint.constraint);
             }
         },
 
         isMatch: function () {
-            return this.constraint.assert(this.__fh);
+            return this.isDefault || this.constraintAssert(this.__fh);
         },
 
         match: function () {
-            var ret = {isMatch: false}, constraint = this.constraint;
-            if (constraint === null) {
-                ret = this.__lc.match.merge(this.__rc.match);
+            var ret;
+            if (this.isDefault) {
+                ret = this.__lcMatch.merge(this.__rcMatch);
             } else {
-                var rightContext = this.__rc, fh = this.__fh;
-                if (constraint.assert(fh)) {
-                    ret = this.__lc.match.merge(rightContext.match);
+                ret = {isMatch: false};
+                var fh = this.__fh;
+                if (this.constraintAssert(fh)) {
+                    ret = this.__lcMatch.merge(this.__rcMatch);
                 }
             }
             return ret;
@@ -3163,7 +3190,10 @@ declare({
 
 },{"../context":10,"../extended":12}],28:[function(require,module,exports){
 var JoinNode = require("./joinNode"),
-    LinkedList = require("../linkedList");
+    LinkedList = require("../linkedList"),
+    Context = require("../context"),
+    InitialFact = require("../pattern").InitialFact;
+
 
 JoinNode.extend({
     instance: {
@@ -3171,11 +3201,17 @@ JoinNode.extend({
         constructor: function () {
             this._super(arguments);
             this.leftTupleMemory = {};
+            //use this ensure a unique match for and propagated context.
+            this.notMatch = new Context(new InitialFact()).match;
         },
 
 
         toString: function () {
             return "NotNode " + this.__count;
+        },
+
+        __cloneContext: function (context) {
+            return context.clone(null, null, context.match.merge(this.notMatch));
         },
 
 
@@ -3205,7 +3241,7 @@ JoinNode.extend({
                         }
                         if (leftContext) {
                             this.__addToLeftMemory(leftContext);
-                            this.__propagate("assert", leftContext.clone());
+                            this.__propagate("assert", this.__cloneContext(leftContext));
                         }
                     }
                     blocking.clear();
@@ -3220,7 +3256,8 @@ JoinNode.extend({
         retractLeft: function (context) {
             var ctx = this.removeFromLeftMemory(context);
             if (ctx) {
-                this.__propagate("retract", ctx.data.clone());
+                ctx = ctx.data;
+                this.__propagate("retract", this.__cloneContext(ctx));
             } else {
                 if (!this.removeFromLeftBlockedMemory(context)) {
                     throw new Error();
@@ -3246,7 +3283,7 @@ JoinNode.extend({
             }
             if (context) {
                 this.__addToLeftMemory(context);
-                this.__propagate("assert", context.clone());
+                this.__propagate("assert", this.__cloneContext(context));
             }
         },
 
@@ -3260,7 +3297,7 @@ JoinNode.extend({
                 while ((node = node.next)) {
                     leftContext = node.data;
                     if (thisConstraint.setLeftContext(leftContext).isMatch()) {
-                        this.__propagate("retract", leftContext.clone());
+                        this.__propagate("retract", this.__cloneContext(leftContext));
                         this.removeFromLeftMemory(leftContext);
                         leftContext.blocker = context;
                         this.addToLeftBlockedMemory(context.blocking.push(leftContext));
@@ -3315,12 +3352,17 @@ JoinNode.extend({
                         //we cant be proagated so retract previous
                         if (!isBlocked) {
                             //we were asserted before so retract
-                            this.__propagate("retract", leftContext.clone());
+                            this.__propagate("retract", this.__cloneContext(leftContext));
                         }
                         context.blocker = rc;
                         this.addToLeftBlockedMemory(rc.blocking.push(context));
                         context = null;
                     }
+                    if (context) {
+                        node = {next: blocker.next};
+                    }
+                } else {
+                    node = {next: rightTuples.head};
                 }
                 if (context && l) {
                     node = {next: rightTuples.head};
@@ -3331,7 +3373,7 @@ JoinNode.extend({
                             //we cant be proagated so retract previous
                             if (!isBlocked) {
                                 //we were asserted before so retract
-                                this.__propagate("retract", leftContext.clone());
+                                this.__propagate("retract", this.__cloneContext(leftContext));
                             }
                             this.addToLeftBlockedMemory(rc.blocking.push(context));
                             context.blocker = rc;
@@ -3346,10 +3388,10 @@ JoinNode.extend({
                     this.__addToLeftMemory(context);
                     if (!isBlocked) {
                         //we weren't blocked before so modify
-                        this.__propagate("modify", context.clone());
+                        this.__propagate("modify", this.__cloneContext(context));
                     } else {
                         //we were blocked before but aren't now
-                        this.__propagate("assert", context.clone());
+                        this.__propagate("assert", this.__cloneContext(context));
                     }
 
                 }
@@ -3372,21 +3414,6 @@ JoinNode.extend({
                 this.__addToRightMemory(context);
                 context.blocking = new LinkedList();
                 if (leftTuplesLength || blocking.length) {
-                    if (leftTuplesLength) {
-                        //check currently left tuples in memory
-                        thisConstraint.setRightContext(context);
-                        node = {next: leftTuples.head};
-                        while ((node = node.next)) {
-                            leftContext = node.data;
-                            if (thisConstraint.setLeftContext(leftContext).isMatch()) {
-                                this.__propagate("retract", leftContext.clone());
-                                this.removeFromLeftMemory(leftContext);
-                                this.addToLeftBlockedMemory(context.blocking.push(leftContext));
-                                leftContext.blocker = context;
-                            }
-                        }
-                    }
-
                     if (blocking.length) {
                         var rc;
                         //check old blocked contexts
@@ -3401,7 +3428,6 @@ JoinNode.extend({
                                 leftContext.blocker = context;
                                 this.addToLeftBlockedMemory(context.blocking.push(leftContext));
                                 leftContext = null;
-                                return;
                             } else {
                                 //we arent blocked anymore
                                 leftContext.blocker = null;
@@ -3416,13 +3442,29 @@ JoinNode.extend({
                                 }
                                 if (leftContext) {
                                     this.__addToLeftMemory(leftContext);
-                                    this.__propagate("assert", leftContext.clone());
+                                    this.__propagate("assert", this.__cloneContext(leftContext));
                                 }
                                 thisConstraint.clearContexts();
                             }
                         }
                         thisConstraint.clearContexts();
                     }
+
+                    if (leftTuplesLength) {
+                        //check currently left tuples in memory
+                        thisConstraint.setRightContext(context);
+                        node = {next: leftTuples.head};
+                        while ((node = node.next)) {
+                            leftContext = node.data;
+                            if (thisConstraint.setLeftContext(leftContext).isMatch()) {
+                                this.__propagate("retract", this.__cloneContext(leftContext));
+                                this.removeFromLeftMemory(leftContext);
+                                this.addToLeftBlockedMemory(context.blocking.push(leftContext));
+                                leftContext.blocker = context;
+                            }
+                        }
+                    }
+
 
                 }
             } else {
@@ -3433,7 +3475,7 @@ JoinNode.extend({
         }
     }
 }).as(module);
-},{"../linkedList":16,"./joinNode":24}],29:[function(require,module,exports){
+},{"../context":10,"../linkedList":16,"../pattern":38,"./joinNode":24}],29:[function(require,module,exports){
 var AlphaNode = require("./alphaNode"),
     Context = require("../context"),
     extd = require("../extended");
@@ -3601,19 +3643,19 @@ AlphaNode.extend({
     instance: {
 
         assert: function (fact) {
-            if (this.constraint.assert(fact.object)) {
+            if (this.constraintAssert(fact.object)) {
                 this.__propagate("assert", fact);
             }
         },
 
         modify: function (fact) {
-            if (this.constraint.assert(fact.object)) {
+            if (this.constraintAssert(fact.object)) {
                 this.__propagate("modify", fact);
             }
         },
 
         retract: function (fact) {
-            if (this.constraint.assert(fact.object)) {
+            if (this.constraintAssert(fact.object)) {
                 this.__propagate("retract", fact);
             }
         },
@@ -4451,10 +4493,37 @@ var process=require("__browserify_process");"use strict";
 
 var utils = require("./util.js"),
     fs = require("fs"),
-    indexOf = require("../../extended").indexOf;
+    extd = require("../../extended"),
+    filter = extd.filter,
+    indexOf = extd.indexOf;
 
 var isWhiteSpace = function (str) {
     return str.replace(/[\s|\n|\r|\t]/g, "").length === 0;
+};
+
+var joinFunc = function (m, str) {
+    return "; " + str;
+};
+
+var splitRuleLineByPredicateExpressions = function (ruleLine) {
+    var str = ruleLine.replace(/,\s*(\$?\w+\s*:)/g, joinFunc);
+    var parts = filter(str.split(/ *(not|or) *\(/g), function (str) {
+            return str !== "";
+        }),
+        l = parts.length, ret = [];
+
+    if (l) {
+        for (var i = 0; i < l; i++) {
+            if (parts[i] === "not" || parts[i] === "or") {
+                ret.push([parts[i], "(", parts[++i].replace(/, *$/, "")].join(""));
+            } else {
+                ret.push(parts[i].replace(/, *$/, ""));
+            }
+        }
+    } else {
+        return str;
+    }
+    return ret.join(";");
 };
 
 var ruleTokens = {
@@ -4529,11 +4598,9 @@ var ruleTokens = {
         /*jshint evil:true*/
 
         var ruleRegExp = /^(\$?\w+) *: *(\w+)(.*)/;
-        var joinFunc = function (m, str) {
-            return "; " + str;
-        };
+
         var constraintRegExp = /(\{ *(?:["']?\$?\w+["']?\s*:\s*["']?\$?\w+["']? *(?:, *["']?\$?\w+["']?\s*:\s*["']?\$?\w+["']?)*)+ *\})/;
-        var predicateExp = /^(\w+) *\((.*)\)$/m;
+        var predicateExp = /^(not|or) *\((.*)\)$/m;
         var fromRegExp = /(\bfrom\s+.*)/;
         var parseRules = function (str) {
             var rules = [];
@@ -4547,7 +4614,7 @@ var ruleTokens = {
                         rule.push(pred);
                         ruleLine = m[2].replace(/^\s*|\s*$/g, "");
                         if (pred === "or") {
-                            rule = rule.concat(parseRules(ruleLine.replace(/,\s*(\$?\w+\s*:)/g, joinFunc)));
+                            rule = rule.concat(parseRules(splitRuleLineByPredicateExpressions(ruleLine)));
                             rules.push(rule);
                             continue;
                         }
@@ -4872,7 +4939,8 @@ var extd = require("./extended"),
     declare = extd.declare,
     constraintMatcher = require("./constraintMatcher"),
     constraint = require("./constraint"),
-    EqualityConstraint = constraint.EqualityConstraint;
+    EqualityConstraint = constraint.EqualityConstraint,
+    FromConstraint = constraint.FromConstraint;
 
 var id = 0;
 var Pattern = declare({});
@@ -4935,7 +5003,7 @@ var FromPattern = ObjectPattern.extend({
     instance: {
         constructor: function (type, alias, conditions, store, from, options) {
             this._super([type, alias, conditions, store, options]);
-            this.from = from.from;
+            this.from = new FromConstraint(from, options);
         },
 
         hasConstraint: function (type) {
@@ -4990,8 +5058,11 @@ Pattern.extend({
 
 
 var InitialFact = declare({
-    constuctor: function(){
-        this.id = id++;
+    instance: {
+        constructor: function () {
+            this.id = id++;
+            this.recency = 0;
+        }
     }
 }).as(exports, "InitialFact");
 
@@ -5051,7 +5122,12 @@ var normailizeConstraint = extd
     })
     //handle case where c[2] is a hash rather than a constraint string
     .isLength(3, function (c) {
-        if (isHash(c[2])) {
+        if (isString(c[2]) && /^from +/.test(c[2])) {
+            var extra = c[2];
+            c.splice(2, 0, "true");
+            c[3] = null;
+            c[4] = parseExtra(extra);
+        } else if (isHash(c[2])) {
             c.splice(2, 0, "true");
         }
         return c;
@@ -5140,7 +5216,7 @@ var parsePattern = extd
                     condition[1] || "m",
                     parser.parseConstraint(condition[2] || "true"),
                     condition[3] || {},
-                    condition[4],
+                    parser.parseConstraint(condition[4].from),
                     {scope: condition.scope, pattern: condition[2]}
                 )
             ];
@@ -5165,7 +5241,7 @@ var parsePattern = extd
                     condition[1] || "m",
                     parser.parseConstraint(condition[2] || "true"),
                     condition[3] || {},
-                    condition[4],
+                    parser.parseConstraint(condition[4].from),
                     {scope: condition.scope, pattern: condition[2]}
                 )
             ];

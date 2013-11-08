@@ -1,0 +1,19 @@
+define Count{
+    constructor: function(){
+        this.called = 0;
+    }
+}
+
+rule MultiNotOrRule {
+    when {
+        or (
+            not(n1: Number n1 == 1),
+            not(s1: String s1 == 'hello'),
+            not(d1: Date d1.getDate() == now().getDate())
+        );
+        c: Count;
+    }
+    then{
+        c.called++;
+    }
+}
