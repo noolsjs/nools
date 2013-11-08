@@ -1,0 +1,1063 @@
+define Stage {
+    value : ""
+}
+
+define Line {
+    p1 : 0,
+    p2 : 0
+}
+
+define Edge{
+    type : "",
+    p1 : 0,
+    p2 : 0,
+    joined : false
+}
+
+define EdgeLabel{
+    p1 : 0,
+    p2 : 0,
+    labelName : "",
+    labelId : ""
+}
+
+define Junction {
+    p1 : 0,
+    p2 : 0,
+    p3 : 0,
+    basePoint : 0,
+    type : "",
+    name : "",
+    visited : "",
+    toString : function() {
+            return ["JUNCTION: P1=", this.p1, ",P2=", this.p2, ",P3=",
+            this.p3, ",BasePoint=", this.basePoint, ", Type=" + this.type,
+            ",Name=", this.name, ",Visited=", this.visited].join("");
+    }
+}
+
+define Label {
+    id : "",
+    type : "",
+    name : "",
+    n1 : "",
+    n2 : "",
+    n3 : ""
+}
+
+define Illegal {
+    basePoint : null,
+    labelId : ""
+}
+
+
+function getX(val){
+    return Math.floor(val / 100);
+}
+
+function getY(val){
+   return val % 100;
+}
+
+function getAngle(p1, p2){
+  //**********************************************************************
+  // This function is passed two points and calculates the angle between the
+  // line defined by these points and the x-axis.
+  //**********************************************************************/
+  	var deltaX, deltaY, PI = Math.PI;
+
+  	/* Calculate (x2 - x1) and (y2 - y1).  The points are passed in the
+  	 * form x1y1 and x2y2.  get_x() and get_y() are passed these points
+  	 * and return the x and y values respectively.  For example,
+  	 * get_x(1020) returns 10. */
+  	var deltaX = getX(p2) - getX(p1);
+  	var deltaY = getY(p2) - getY(p1);
+
+  	if (deltaX == 0) {
+  		if (deltaY > 0)
+  			return PI/2;
+  		else if (deltaY < 0)
+  			return -PI/2;
+  	}else if (deltaY == 0) {
+  		if (deltaX > 0)
+  			return 0.0;
+  		else if (deltaX < 0)
+  			return PI;
+  	}
+  	else
+  		return Math.atan2(deltaY, deltaX);
+}
+
+function getInscribedAngle(basePoint, p1, p2){
+    var angle1, angle2, temp, PI = Math.PI;
+
+	/* Get the angle between line #1 and the origin and the angle
+	 * between line #2 and the origin, and then subtract these values. */
+	angle1 = getAngle(basePoint,p1),
+	    angle2 = getAngle(basePoint,p2),
+	    temp = angle1 - angle2;
+	if (temp < 0)
+		temp = -temp;
+
+	/* We always want the smaller of the two angles inscribed, so if the
+	 * answer is greater than 180 degrees, calculate the smaller angle and
+	 * return it. */
+	if (temp > PI)
+		temp = 2*PI - temp;
+	if (temp < 0)
+		return -temp;
+	return temp;
+}
+
+function make3Junction(junction, basePoint, p1, p2, p3){
+    	var PI = Math.PI;
+    	var angle12, angle13, angle23;
+    	var sum, sum1213, sum1223, sum1323;
+    	var delta;
+
+    	angle12 = getInscribedAngle(basePoint,p1,p2);
+    	angle13 = getInscribedAngle(basePoint,p1,p3);
+    	angle23 = getInscribedAngle(basePoint,p2,p3);
+
+    	sum1213 = angle12 + angle13;
+    	sum1223 = angle12 + angle23;
+    	sum1323 = angle13 + angle23;
+
+    	if (sum1213 < sum1223) {
+    		if (sum1213 < sum1323) {
+    			sum = sum1213;
+    			junction.p2 = p1; junction.p1 = p2; junction.p3 = p3;
+    		}else {
+    			sum = sum1323;
+    			junction.p2 = p3; junction.p1 = p1; junction.p3 = p2;
+    		}
+    	}else {
+    		if (sum1223 < sum1323) {
+    			sum = sum1223;
+    			junction.p2 = p2; junction.p1 = p1; junction.p3 = p3;
+    		}
+    		else {
+    			sum = sum1323;
+    			junction.p2 = p3; junction.p1 = p1; junction.p3 = p2;
+    		}
+    	}
+
+    	delta = sum - PI;
+    	if (delta < 0)
+    		delta = -delta;
+
+    	if (delta < 0.001)
+    		junction.name = 'tee';
+    	else if (sum > PI)
+    		junction.name = 'fork';
+    	else
+    		junction.name = 'arrow';
+}
+
+
+
+// Reverse the edges
+//(p reverse_edges
+//    (stage ^value duplicate)
+//    (line ^p1 <p1> ^p2 <p2>)
+//    -->
+//    (make edge ^p1 <p1> ^p2 <p2> ^joined false)
+//   (make edge ^p1 <p2> ^p2 <p1> ^joined false)
+//    (remove 2))
+rule reverse_edges {
+    when {
+        stage : Stage stage.value == 'DUPLICATE';
+        line : Line {p1:p1, p2:p2};
+    }
+    then {
+        emit("log", "Edge " + p1 + " " + p2 );
+        emit("log", "Edge " + p2 + " " + p1 );
+        assert( new Edge({p1 : p1, p2 : p2, joined : false}) );
+        assert( new Edge({p1 : p2, p2 : p1, joined : false}) );
+        retract( line );
+    }
+}
+// Reversing is done
+//(p done_reversing
+//    (stage ^value duplicate)
+//    - (line)
+//    -->
+//    (modify 1 ^value detect_junctions))
+rule done_reversing {
+    when{
+        stage : Stage stage.value == 'DUPLICATE';
+        not(l : Line);
+    }
+    then {
+        modify(stage, function(){ this.value = 'DETECT_JUNCTIONS'});
+        emit("log", "DETECT_JUNCTIONS" );
+    }
+}
+
+
+//(p make_3_junction
+//    (stage ^value detect_junctions)
+//    (edge ^p1 <base_point> ^p2 <p1> ^joined false)
+//    (edge ^p1 <base_point> ^p2 {<p2> <> <p1>} ^joined false)
+//    (edge ^p1 <base_point> ^p2 {<p3> <> <p1> <> <p2>} ^joined false)
+//    -->
+//    (make junction
+//        ^type 3j
+//        ^name (make_3_junction <base_point> <p1> <p2> <p3>)
+//        ^base_point <base_point>
+//        ^visited no)
+//    (modify 2 ^type 3j ^joined true)
+//    (modify 3 ^type 3j ^joined true)
+//    (modify 4 ^type 3j ^joined true))
+
+rule make_3_junction {
+    when {
+        stage : Stage stage.value == 'DETECT_JUNCTIONS';
+        edge1 : Edge edge1.joined == false {p1 : basePoint, p2 : p1};
+        edge2 : Edge edge2.joined == false && edge2.p1 == basePoint && edge2.p2 != p1 {p2 : p2};
+        edge3 : Edge edge3.joined == false && edge3.p1 == basePoint && edge3.p2 != p1 && edge3.p2 != p2 {p2 : p3};
+    }
+    then {
+        var junction = new Junction({
+            basePoint : basePoint,
+            type : '3j',
+            visited : "no"
+        });
+        make3Junction(junction, basePoint, p1, p2, p3);
+        assert( junction );
+        emit("log", junction.toString( ) );
+        modify( edge1, function(){this.joined = true; this.type = '3j';});
+        modify( edge2, function(){this.joined = true; this.type = '3j';});
+        modify( edge3, function(){this.joined = true; this.type = '3j';});
+     }
+}
+
+//(p make_L
+//    (stage ^value detect_junctions)
+//    (edge ^p1 <base_point> ^p2 <p2> ^joined false)
+//    (edge ^p1 <base_point> ^p2 {<p3> <> <p2>} ^joined false)
+//    - (edge ^p1 <base_point> ^p2 {<> <p2> <> <p3>})
+//    -->
+//    (make junction
+//        ^type 2j
+//        ^name L
+//        ^base_point <base_point>
+//        ^p1 <p2>
+//        ^p2 <p3>
+//        ^visited no)
+//    (modify 2 ^type 2j ^joined true)
+//    (modify 3 ^type 2j ^joined true))
+
+rule make_L {
+    when {
+        stage : Stage stage.value == 'DETECT_JUNCTIONS';
+        edge1 : Edge edge1.joined == false {p1 : basePoint, p2 : p2};
+        edge2 : Edge edge2.p1 == basePoint &&  edge2.p2 != p2 && edge2.joined == false {p2 : p3};
+        not(e : Edge e.p1 == basePoint && e.p2 != p2 &&  e.p2 != p3 );
+    }
+    then {
+        var junction = new Junction({type : "2j", name : "L", basePoint : basePoint, p1 : p2, p2 : p3, visited : "no"} );
+        assert( junction );
+        emit("log", junction.toString() );
+        modify( edge1, function(){this.joined = true; this.type = "2j"});
+        modify( edge2, function(){this.joined = true; this.type = "2j"});
+    }
+}
+
+
+//(p done_detecting
+//    (stage ^value detect_junctions)
+//    - (edge ^joined false)
+//    -->
+//    (modify 1 ^value find_initial_boundary))
+rule done_detecting {
+    when {
+        stage : Stage stage.value == 'DETECT_JUNCTIONS';
+        not( e : Edge e.joined == false );
+    }
+    then {
+        modify(stage, function(){this.value = 'FIND_INITIAL_BOUNDARY' });
+        emit("log", "Stage: FIND_INITIAL_BOUNDARY" );
+     }
+}
+
+
+//(p initial_boundary_junction_L
+//    (stage ^value find_initial_boundary)
+//        (junction ^type 2j ^base_point <bp> ^p1 <p1> ^p2 <p2>)
+//    (edge ^p1 <bp> ^p2 <p1>)
+//    (edge ^p1 <bp> ^p2 <p2>)
+//    -(junction ^base_point > <bp>)
+//    -->
+//        (modify 2 ^visited yes)
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name B ^l_id 1)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name B ^l_id 1)
+//    (modify 1 ^value find_second_boundary))
+rule initial_boundary_junction_L {
+    when {
+        stage : Stage stage.value == 'FIND_INITIAL_BOUNDARY';
+        junction : Junction junction.type == '2j' {basePoint : basePoint, p1 : p1, p2 : p2};
+        e1 : Edge e1.p1 == basePoint &&  e1.p2 == p1;
+        e2 : Edge e2.p1 == basePoint && e2.p2 == p2;
+        not(j : Junction j.type == '2j' && j.basePoint > basePoint );
+    }
+    then {
+        modify(junction, function(){ this.visited =  "yes" });
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : "B", labelId : "1" }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : "B", labelId : "1" } ) );
+        modify(stage, function(){ this.value = 'FIND_SECOND_BOUNDARY' });
+        emit("log", "FIND_SECOND_BOUNDARY" );
+    }
+}
+
+//(p initial_boundary_junction_arrow
+//    (stage ^value find_initial_boundary)
+//    (junction ^type 3j ^name arrow ^base_point <bp> ^p1 <p1> ^p2 <p2> ^p3 <p3>)
+//    (edge ^p1 <bp> ^p2 <p1>)
+//    (edge ^p1 <bp> ^p2 <p2>)
+//    (edge ^p1 <bp> ^p2 <p3>)
+//    -(junction ^base_point > <bp>)
+//    -->
+//        (modify 2 ^visited yes)
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name B ^l_id 14)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name + ^l_id 14)
+//    (make edge_label ^p1 <bp> ^p2 <p3> ^l_name B ^l_id 14)
+//    (modify 1 ^value find_second_boundary))
+rule initial_boundary_junction_arrow {
+    when {
+        stage : Stage stage.value == 'FIND_INITIAL_BOUNDARY';
+        junction : Junction  junction.type == '3j' && junction.name == 'arrow' {basePoint : basePoint, p1 : p1, p2 : p2, p3 : p3};
+        edge1 : Edge edge1.p1 == basePoint && edge1.p2 == p1;
+        edge2 : Edge edge2.p1 == basePoint && edge2.p2 == p2;
+        edge3 : Edge edge3.p1 == basePoint && edge3.p2 == p3;
+        not(j : Junction j.basePoint > basePoint);
+    }
+    then {
+        modify( junction, function(){this.visited = "yes";});
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : "B", labelId : "14" }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : "+", labelId : "14" }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : "B", labelId  :"14" }) );
+        modify( stage, function() {this.value = 'FIND_SECOND_BOUNDARY';});
+        emit("log", "FIND_SECOND_BOUNDARY" );
+    }
+}
+
+
+//(p second_boundary_junction_L
+//    (stage ^value find_second_boundary)
+//        (junction ^type 2j ^base_point <bp> ^p1 <p1> ^p2 <p2>)
+//    (edge ^p1 <bp> ^p2 <p1>)
+//    (edge ^p1 <bp> ^p2 <p2>)
+//    -(junction ^base_point < <bp>)
+//    -->
+//        (modify 2 ^visited yes)
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name B ^l_id 1)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name B ^l_id 1)
+//    (modify 1 ^value labeling))
+
+rule second_boundary_junction_L {
+    when {
+        stage : Stage stage.value == 'FIND_SECOND_BOUNDARY';
+        junction : Junction junction.type == '2j' {basePoint : basePoint, p1 : p1, p2 : p2};
+        e1 : Edge e1.p1 == basePoint && e1.p2 == p1;
+        e2 : Edge e2.p1 == basePoint && e2.p2 == p2;
+        not(j : Junction j.basePoint < basePoint);
+	}
+	then {
+        modify(junction, function(){ this.visited = "yes"});
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : "B", labelId : "1" }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : "B", labelId : "1" }) );
+        modify(stage, function(){this.value = 'LABELING';});
+        emit("log", "LABELING" );
+	}
+}
+
+//(p second_boundary_junction_arrow
+//    (stage ^value find_second_boundary)
+//    (junction ^type 3j ^name arrow ^base_point <bp> ^p1 <p1> ^p2 <p2> ^p3 <p3>)
+//    (edge ^p1 <bp> ^p2 <p1>)
+//    (edge ^p1 <bp> ^p2 <p2>)
+//    (edge ^p1 <bp> ^p2 <p3>)
+//    -(junction ^base_point < <bp>)
+//    -->
+//        (modify 2 ^visited yes)
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name B ^l_id 14)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name + ^l_id 14)
+//    (make edge_label ^p1 <bp> ^p2 <p3> ^l_name B ^l_id 14)
+//    (modify 1 ^value labeling))
+rule second_boundary_junction_arrow {
+    when {
+        stage : Stage stage.value == 'FIND_SECOND_BOUNDARY';
+        junction : Junction junction.type == '3j' && junction.name == 'arrow' {basePoint : basePoint, p1 : p1, p2 : p2, p3 : p3};
+        e1 : Edge e1.p1 == basePoint && e1.p2 == p1;
+        e2 : Edge e2.p1 == basePoint && e2.p2 == p2;
+        e3 : Edge e3.p1 == basePoint && e3.p2 == p3;
+        not(j : Junction j.basePoint < basePoint);
+	}
+	then {
+        modify( junction, function(){this.visited = "yes"});
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : "B", labelId : "14" }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : "+", labelId : "14" }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : "B", labelId : "14" }) );
+        modify( stage, function(){this.value =  'LABELING'});
+        emit("log", "LABELING" );
+	}
+}
+
+
+//(p start_visit_3_junction
+//    (stage ^value labeling)
+//    (junction ^base_point <bp> ^type 3j ^p1 <p1> ^p2 <p2> ^p3 <p3> ^visited no)
+//    -->
+//    (modify 1 ^value visiting_3j)
+//    (modify 2 ^visited now))
+
+rule start_visit_3_junction {
+    when {
+        stage : Stage stage.value == 'LABELING';
+        junction : Junction junction.type == '3j' && junction.visited == 'no'
+	}
+	then {
+        modify(stage, function(){this.value = 'VISITING_3J'});
+        modify(junction, function(){ this.visited = "now"});
+        emit("log", "VISITING_3J" );
+	}
+}
+
+
+//(p visit_3j_0
+//    (stage ^value visiting_3j)
+//    (junction ^name <n> ^base_point <bp> ^p1 <p1> ^p2 <p2> ^p3 <p3> ^visited now)
+//    (label ^name <n> ^id <id> ^n1 <n1> ^n2 <n2> ^n3 <n3>)
+//    (edge_label ^p1 <p1> ^p2 <bp> ^l_name <n1>)
+//    (edge_label ^p1 <p2> ^p2 <bp> ^l_name <n2>)
+//    (edge_label ^p1 <p3> ^p2 <bp> ^l_name <n3>)
+//    -(edge_label ^p1 <bp> ^l_id <id>)
+//    -->
+//    ; (write edge_label <bp> <p1> <n1> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <n2> <id> (crlf))
+//    ; (write edge_label <bp> <p3> <n3> <id> (crlf))
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name <n1> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name <n2> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p3> ^l_name <n3> ^l_id <id>))
+rule visit_3j_0 {
+    when {
+        s : Stage s.value == 'VISITING_3J';
+        j : Junction j.visited == 'now' {name : name, basePoint : basePoint, p1 : p1, p2 : p2, p3 : p3};
+        l : Label l.name == name {id : id, n1 : n1, n2 : n2, n3 : n3};
+        el1 : EdgeLabel el1.p1 == p1 && el1.p2 == basePoint && el1.labelName == n1;
+        el2 : EdgeLabel el2.p1 == p2 && el2.p2 == basePoint && el2.labelName == n2;
+        el3 : EdgeLabel el3.p1 == p3 && el3.p2 == basePoint && el3.labelName == n3;
+        not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
+	}
+	then {
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
+	}
+}
+
+//(p visit_3j_1
+//    (stage ^value visiting_3j)
+//    (junction ^name <n> ^base_point <bp> ^p1 <p1> ^p2 <p2> ^p3 <p3> ^visited now)
+//    (label ^name <n> ^id <id> ^n1 <n1> ^n2 <n2> ^n3 <n3>)
+//    -(edge_label ^p1 <p1> ^p2 <bp>)
+//    (edge_label ^p1 <p2> ^p2 <bp> ^l_name <n2>)
+//    (edge_label ^p1 <p3> ^p2 <bp> ^l_name <n3>)
+//    -(edge_label ^p1 <bp> ^l_id <id>)
+//    -->
+//    ; (write edge_label <bp> <p1> <n1> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <n2> <id> (crlf))
+//    ; (write edge_label <bp> <p3> <n3> <id> (crlf))
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name <n1> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name <n2> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p3> ^l_name <n3> ^l_id <id>))
+rule visit_3j_1 {
+    when {
+        s : Stage s.value == 'VISITING_3J';
+        j : Junction j.visited == 'now' {name : name, basePoint : basePoint, p1 : p1, p2 : p2, p3 : p3};
+        l : Label l.name == name {id : id, n1 : n1, n2 : n2, n3 : n3};
+        not( el1 : EdgeLabel el1.p1 == p1 && el1.p2 == basePoint );
+        el2 : EdgeLabel el2.p1 == p2 && el2.p2 == basePoint && el2.labelName == n2;
+        el3 : EdgeLabel el3.p1 == p3 && el3.p2 == basePoint && el3.labelName == n3;
+        not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
+	}
+	then {
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
+	}
+}
+
+
+//(p visit_3j_2
+//    (stage ^value visiting_3j)
+//    (junction ^name <n> ^base_point <bp> ^p1 <p1> ^p2 <p2> ^p3 <p3> ^visited now)
+//    (label ^name <n> ^id <id> ^n1 <n1> ^n2 <n2> ^n3 <n3>)
+//    (edge_label ^p1 <p1> ^p2 <bp> ^l_name <n1>)
+//    -(edge_label ^p1 <p2> ^p2 <bp>)
+//    (edge_label ^p1 <p3> ^p2 <bp> ^l_name <n3>)
+//    -(edge_label ^p1 <bp> ^l_id <id>)
+//    -->
+//    ; (write edge_label <bp> <p1> <n1> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <n2> <id> (crlf))
+//    ; (write edge_label <bp> <p3> <n3> <id> (crlf))
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name <n1> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name <n2> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p3> ^l_name <n3> ^l_id <id>))
+rule visit_3j_2 {
+    when {
+        s : Stage s.value == 'VISITING_3J';
+        j : Junction j.visited == 'now' {name : name, basePoint : basePoint, p1 : p1, p2 : p2, p3 : p3};
+        l : Label l.name == name {id : id, n1 : n1, n2 : n2, n3 : n3};
+        el1 : EdgeLabel el1.p1 == p1 && el1.p2 == basePoint && el1.labelName == n1;
+        not(el2 : EdgeLabel el2.p1 == p2 && el2.p2 == basePoint);
+        el3 : EdgeLabel el3.p1 == p3 && el3.p2 == basePoint && el3.labelName == n3;
+        not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
+	}
+	then {
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
+	}
+}
+
+//(p visit_3j_3
+//    (stage ^value visiting_3j)
+//    (junction ^name <n> ^base_point <bp> ^p1 <p1> ^p2 <p2> ^p3 <p3> ^visited now)
+//    (label ^name <n> ^id <id> ^n1 <n1> ^n2 <n2> ^n3 <n3>)
+//    -(edge_label ^p1 <p1> ^p2 <bp>)
+//    -(edge_label ^p1 <p2> ^p2 <bp>)
+//    (edge_label ^p1 <p3> ^p2 <bp> ^l_name <n3>)
+//    -(edge_label ^p1 <bp> ^l_id <id>)
+//    -->
+//    ; (write edge_label <bp> <p1> <n1> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <n2> <id> (crlf))
+//    ; (write edge_label <bp> <p3> <n3> <id> (crlf))
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name <n1> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name <n2> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p3> ^l_name <n3> ^l_id <id>))
+rule visit_3j_3 {
+    when {
+        s : Stage s.value == 'VISITING_3J';
+        j : Junction j.visited == 'now' {name : name, basePoint : basePoint, p1 : p1, p2 : p2, p3 : p3};
+        l : Label l.name == name {id : id, n1 : n1, n2 : n2, n3 : n3};
+        not(el1 : EdgeLabel el1.p1 == p1 && el1.p2 == basePoint);
+        not(el2 : EdgeLabel el2.p1 == p2 && el2.p2 == basePoint);
+        el3 : EdgeLabel el3.p1 == p3 && el3.p2 == basePoint && el3.labelName == n3;
+        not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
+	}
+	then {
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
+	}
+}
+
+//(p visit_3j_4
+//    (stage ^value visiting_3j)
+//    (junction ^name <n> ^base_point <bp> ^p1 <p1> ^p2 <p2> ^p3 <p3> ^visited now)
+//    (label ^name <n> ^id <id> ^n1 <n1> ^n2 <n2> ^n3 <n3>)
+//    (edge_label ^p1 <p1> ^p2 <bp> ^l_name <n1>)
+//    (edge_label ^p1 <p2> ^p2 <bp> ^l_name <n2>)
+//    -(edge_label ^p1 <p3> ^p2 <bp>)
+//    -(edge_label ^p1 <bp> ^l_id <id>)
+//    -->
+//    ; (write edge_label <bp> <p1> <n1> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <n2> <id> (crlf))
+//    ; (write edge_label <bp> <p3> <n3> <id> (crlf))
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name <n1> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name <n2> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p3> ^l_name <n3> ^l_id <id>))
+rule visit_3j_4 {
+    when {
+        s : Stage s.value == 'VISITING_3J';
+        j : Junction j.visited == 'now' {name : name, basePoint : basePoint, p1 : p1, p2 : p2, p3 : p3};
+        l : Label l.name == name {id : id, n1 : n1, n2 : n2, n3 : n3};
+        el1 : EdgeLabel el1.p1 == p1 && el1.p2 == basePoint && el1.labelName == n1;
+        el2 : EdgeLabel el2.p1 == p2 && el2.p2 == basePoint && el2.labelName == n2;
+        not( el3 : EdgeLabel el3.p1 == p3 && el3.p2 == basePoint);
+        not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
+	}
+	then {
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
+	}
+}
+
+//(p visit_3j_5
+//    (stage ^value visiting_3j)
+//    (junction ^name <n> ^base_point <bp> ^p1 <p1> ^p2 <p2> ^p3 <p3> ^visited now)
+//    (label ^name <n> ^id <id> ^n1 <n1> ^n2 <n2> ^n3 <n3>)
+//    -(edge_label ^p1 <p1> ^p2 <bp>)
+//    (edge_label ^p1 <p2> ^p2 <bp> ^l_name <n2>)
+//    -(edge_label ^p1 <p3> ^p2 <bp>)
+//    -(edge_label ^p1 <bp> ^l_id <id>)
+//    -->
+//    ; (write edge_label <bp> <p1> <n1> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <n2> <id> (crlf))
+//    ; (write edge_label <bp> <p3> <n3> <id> (crlf))
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name <n1> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name <n2> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p3> ^l_name <n3> ^l_id <id>))
+rule visit_3j_5 {
+    when {
+        s : Stage s.value == 'VISITING_3J';
+        j : Junction j.visited == 'now' {name : name, basePoint : basePoint, p1 : p1, p2 : p2, p3 : p3};
+        l : Label l.name == name {id : id, n1 : n1, n2 : n2, n3 : n3};
+        not( el1 : EdgeLabel el1.p1 == p1 && el1.p2 == basePoint);
+        el2 : EdgeLabel el2.p1 == p2 && el2.p2 == basePoint && el2.labelName == n2;
+        not( el3 : EdgeLabel el3.p1 == p3 && el3.p2 == basePoint);
+        not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
+	}
+	then {
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
+	}
+}
+
+
+//(p visit_3j_6
+//    (stage ^value visiting_3j)
+//    (junction ^name <n> ^base_point <bp> ^p1 <p1> ^p2 <p2> ^p3 <p3> ^visited now)
+//    (label ^name <n> ^id <id> ^n1 <n1> ^n2 <n2> ^n3 <n3>)
+//    (edge_label ^p1 <p1> ^p2 <bp> ^l_name <n1>)
+//    -(edge_label ^p1 <p2> ^p2 <bp>)
+//    -(edge_label ^p1 <p3> ^p2 <bp>)
+//    -(edge_label ^p1 <bp> ^l_id <id>)
+//    -->
+//    ; (write edge_label <bp> <p1> <n1> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <n2> <id> (crlf))
+//    ; (write edge_label <bp> <p3> <n3> <id> (crlf))
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name <n1> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name <n2> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p3> ^l_name <n3> ^l_id <id>))
+rule visit_3j_6 {
+    when {
+        s : Stage s.value == 'VISITING_3J';
+        j : Junction j.visited == 'now' {name : name, basePoint : basePoint, p1 : p1, p2 : p2, p3 : p3};
+        l : Label l.name == name {id : id, n1 : n1, n2 : n2, n3 : n3};
+        el1 : EdgeLabel el1.p1 == p1 && el1.p2 == basePoint && el1.labelName == n1;
+        not( el2 : EdgeLabel el2.p1 == p2 && el2.p2 == basePoint);
+        not( el3 : EdgeLabel el3.p1 == p3 && el3.p2 == basePoint);
+        not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
+	}
+	then {
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
+	}
+}
+
+
+//(p visit_3j_7
+//    (stage ^value visiting_3j)
+//    (junction ^name <n> ^base_point <bp> ^p1 <p1> ^p2 <p2> ^p3 <p3> ^visited now)
+//    (label ^name <n> ^id <id> ^n1 <n1> ^n2 <n2> ^n3 <n3>)
+//    -(edge_label ^p1 <p1> ^p2 <bp>)
+//    -(edge_label ^p1 <p2> ^p2 <bp>)
+//    -(edge_label ^p1 <p3> ^p2 <bp>)
+//    -(edge_label ^p1 <bp> ^l_id <id>)
+//    -->
+//    ; (write edge_label <bp> <p1> <n1> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <n2> <id> (crlf))
+//    ; (write edge_label <bp> <p3> <n3> <id> (crlf))
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name <n1> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name <n2> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p3> ^l_name <n3> ^l_id <id>))
+rule visit_3j_7 {
+    when {
+        s : Stage s.value == 'VISITING_3J';
+        j : Junction j.visited == 'now' {name : name, basePoint : basePoint, p1 : p1, p2 : p2, p3 : p3};
+        l : Label l.name == name {id : id, n1 : n1, n2 : n2, n3 : n3};
+        not( el1 : EdgeLabel el1.p1 == p1 && el1.p2 == basePoint);
+        not( el2 : EdgeLabel el2.p1 == p2 && el2.p2 == basePoint);
+        not( el3 : EdgeLabel el3.p1 == p3 && el3.p2 == basePoint);
+        not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
+	}
+	then {
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
+	}
+}
+
+//(p start_visit_2_junction
+//    (stage ^value labeling)
+//    (junction ^base_point <bp> ^type 2j ^p1 <p1> ^p2 <p2> ^visited no)
+//    -->
+//    (modify 1 ^value visiting_2j)
+//    (modify 2 ^visited now))
+rule start_visit_2_junction {
+    when {
+        stage : Stage  stage.value == 'LABELING';
+        junction : Junction junction.type == '2j' && junction.visited == 'no' {basePoint : basePoint, p1 : p1, p2 : p2};
+	}
+	then {
+        modify(junction, function(){ this.visited = "now";});
+        modify(stage, function(){ this.value = 'VISITING_2J';});
+        emit("log", "VISITING_2J" );
+	}
+}
+
+//(p visit_2j_0
+//    (stage ^value visiting_2j)
+//    (junction ^name <n> ^base_point <bp> ^p1 <p1> ^p2 <p2> ^visited now)
+//    (label ^name <n> ^id <id> ^n1 <n1> ^n2 <n2>)
+//    (edge_label ^p1 <p1> ^p2 <bp> ^l_name <n1>)
+//    (edge_label ^p1 <p2> ^p2 <bp> ^l_name <n2>)
+//    -(edge_label ^p1 <bp> ^l_id <id>)
+//    -->
+//    ; (write edge_label <bp> <p1> <n1> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <n2> <id> (crlf))
+//    ; (write edge_label <bp> <p3> <n3> <id> (crlf))
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name <n1> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name <n2> ^l_id <id>))
+rule visit_2j_0 {
+    when {
+        s : Stage s.value == 'VISITING_2J';
+        j : Junction j.visited == 'now' {name : name, basePoint : basePoint, p1 : p1, p2 : p2};
+        l : Label l.name == name {id : id, n1 : n1, n2 : n2};
+        el1 : EdgeLabel el1.p1 == p1 && el1.p2 == basePoint && el1.labelName == n1;
+        el2 : EdgeLabel el2.p1 == p2 && el2.p2 == basePoint && el2.labelName == n2;
+        not( el3 : EdgeLabel el3.p1 == basePoint && el3.labelId == id );
+	}
+	then {
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
+	}
+}
+
+//(p visit_2j_1
+//    (stage ^value visiting_2j)
+//    (junction ^name <n> ^base_point <bp> ^p1 <p1> ^p2 <p2> ^visited now)
+//    (label ^name <n> ^id <id> ^n1 <n1> ^n2 <n2>)
+//    -(edge_label ^p1 <p1> ^p2 <bp>)
+//    (edge_label ^p1 <p2> ^p2 <bp> ^l_name <n2>)
+//    -(edge_label ^p1 <bp> ^l_id <id>)
+//    -->
+//    ; (write edge_label <bp> <p1> <n1> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <n2> <id> (crlf))
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name <n1> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name <n2> ^l_id <id>))
+rule visit_2j_1 {
+    when {
+        s : Stage s.value == 'VISITING_2J';
+        j : Junction j.visited == 'now' {name : name, basePoint : basePoint, p1 : p1, p2 : p2};
+        l : Label l.name == name {id : id, n1 : n1, n2 : n2};
+        not(el1 : EdgeLabel el1.p1 == p1 && el1.p2 == basePoint);
+        el2 : EdgeLabel el2.p1 == p2 && el2.p2 == basePoint && el2.labelName == n2;
+        not( el3 : EdgeLabel el3.p1 == basePoint && el3.labelId == id );
+	}
+	then {
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
+	}
+}
+
+
+//(p visit_2j_2
+//    (stage ^value visiting_2j)
+//    (junction ^name <n> ^base_point <bp> ^p1 <p1> ^p2 <p2> ^visited now)
+//    (label ^name <n> ^id <id> ^n1 <n1> ^n2 <n2>)
+//    (edge_label ^p1 <p1> ^p2 <bp> ^l_name <n1>)
+//    -(edge_label ^p1 <p2> ^p2 <bp>)
+//    -(edge_label ^p1 <bp> ^l_id <id>)
+//    -->
+//    ; (write edge_label <bp> <p1> <n1> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <n2> <id> (crlf))
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name <n1> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name <n2> ^l_id <id>))
+rule visit_2j_2 {
+    when {
+        s : Stage s.value == 'VISITING_2J';
+        j : Junction j.visited == 'now' {name : name, basePoint : basePoint, p1 : p1, p2 : p2};
+        l : Label l.name == name {id : id, n1 : n1, n2 : n2};
+        el1 : EdgeLabel el1.p1 == p1 && el1.p2 == basePoint && el1.labelName == n1;
+        not(el2 : EdgeLabel el2.p1 == p2 && el2.p2 == basePoint);
+        not( el3 : EdgeLabel el3.p1 == basePoint && el3.labelId == id );
+	}
+	then {
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
+	}
+}
+
+//(p visit_2j_3
+//    (stage ^value visiting_2j)
+//    (junction ^name <n> ^base_point <bp> ^p1 <p1> ^p2 <p2> ^visited now)
+//    (label ^name <n> ^id <id> ^n1 <n1> ^n2 <n2>)
+//    -(edge_label ^p1 <p1> ^p2 <bp>)
+//    -(edge_label ^p1 <p2> ^p2 <bp>)
+//    -(edge_label ^p1 <bp> ^l_id <id>)
+//    -->
+//    ; (write edge_label <bp> <p1> <n1> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <n2> <id> (crlf))
+//    ; (write edge_label <bp> <p3> <n3> <id> (crlf))
+//    (make edge_label ^p1 <bp> ^p2 <p1> ^l_name <n1> ^l_id <id>)
+//    (make edge_label ^p1 <bp> ^p2 <p2> ^l_name <n2> ^l_id <id>))
+rule visit_2j_3 {
+    when {
+        s : Stage s.value == 'VISITING_2J';
+        j : Junction j.visited == 'now' {name : name, basePoint : basePoint, p1 : p1, p2 : p2};
+        l : Label l.name == name {id : id, n1 : n1, n2 : n2};
+        not(el1 : EdgeLabel el1.p1 == p1 && el1.p2 == basePoint);
+        not(el2 : EdgeLabel el2.p1 == p2 && el2.p2 == basePoint);
+        not(el3 : EdgeLabel el3.p1 == basePoint && el3.labelId == id );
+	}
+	then {
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
+        assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
+	}
+}
+
+//(p end_visit
+//    (stage ^value << visiting_3j visiting_2j >>)
+//    (junction ^visited now)
+//    -->
+//    (modify 1 ^value marking))
+rule end_visit {
+    when {
+        stage : Stage stage.value == 'VISITING_2J' || stage.value == 'VISITING_3J';
+        junction : Junction  junction.visited == 'now';
+	}
+	then {
+        modify(stage, function(){ this.value = 'MARKING';});
+        emit("log", "MARKING" );
+	}
+}
+
+//(p marking
+//    (stage ^value marking)
+//    (junction ^base_point <bp> ^visited now)
+//    (edge ^p1 <p> ^p2 <bp>)
+//    (junction ^base_point <p> ^visited yes)
+//    -->
+//    (modify 4 ^visited check))
+rule marking {
+    when {
+        s : Stage s.value == 'MARKING';
+        j : Junction  j.visited == now {basePoint : basePoint};
+        e : Edge e.p2 == basePoint {p1 : p1};
+        junction : Junction junction.basePoint == p1 && junction.visited == 'yes';
+	}
+	then {
+        modify(junction, function(){ this.visited = "check"});
+	}
+}
+
+
+//(p stop_marking
+//    (stage ^value marking)
+//    (junction ^base_point <bp> ^visited now)
+//    -->
+//    (modify 2 ^visited yes))
+rule stop_marking {
+    when {
+        s : Stage s.value == 'MARKING';
+        junction : Junction  junction.visited == 'now' {basePoint : basePoint};
+	}
+	then {
+        modify(junction, function(){this.visited = "yes"});
+	}
+}
+
+
+//(p start_checking
+//    (stage ^value marking)
+//    -->
+//    (modify 1 ^value checking))
+//
+rule start_checking {
+    when {
+         stage : Stage stage.value == 'MARKING';
+	}
+	then {
+        modify(stage, function(){this.value = 'CHECKING';});
+        emit("log", "CHECKING" );
+	}
+}
+
+//(p checking
+//    (stage ^value checking)
+//    (junction  ^base_point <bp> ^visited check)
+//    (edge_label ^p1 <bp> ^p2 <p> ^l_name <n> ^l_id <id>)
+//    (junction ^base_point <p> ^visited yes)
+//    -(edge_label ^p1 <p> ^p2 <bp> ^l_name <n>)
+//    -->
+//    (modify 1 ^value remove_label)
+//    (make illegal ^bp <bp> ^l_id <id>))
+rule checking {
+    when {
+        stage : Stage stage.value == 'CHECKING';
+        junction : Junction junction.visited == 'check' {basePoint : basePoint};
+        el1 : EdgeLabel el1.p1 == basePoint {p2 : p2, labelName : labelName, labelId : labelId};
+        j : Junction j.basePoint == p2 && j.visited == 'yes';
+        not(el2 : EdgeLabel el2.p1 == p2 && el2.p2 == basePoint && el2.labelName == labelName);
+	}
+	then {
+        modify(stage, function(){this.value = 'REMOVE_LABEL';});
+        emit("log", "REMOVE_LABEL" );
+        assert ( new Illegal({basePoint : basePoint, labelId : labelId}) );
+	}
+}
+
+//(p remove_label_3j
+//    (stage ^value remove_label)
+//    (illegal ^bp <bp> ^l_id <id>)
+//    (junction ^type 3j ^base_point <bp> ^p1 <p1> ^p2 <p2> ^p3 <p3>)
+//    (edge_label ^p1 <bp> ^p2 <p1> ^l_id <id>)
+//    (edge_label ^p1 <bp> ^p2 <p2> ^l_id <id>)
+//    (edge_label ^p1 <bp> ^p2 <p3> ^l_id <id>)
+//    -->
+//    ; (write edge_label <bp> <p1> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <id> (crlf))
+//    (modify 1 ^value checking)
+//    (remove 2)
+//    (remove 4)
+//    (remove 5)
+//    (remove 6))
+rule remove_label_3j {
+    when {
+        stage : Stage stage.value == 'REMOVE_LABEL';
+        illegal : Illegal {basePoint : basePoint, labelId : labelId};
+        j : Junction j.type == '3j' && j.basePoint == basePoint {p1 : p1, p2 : p2, p3 : p3};
+        edgeLabel1 : EdgeLabel edgeLabel1.p1 == basePoint && edgeLabel1.p2 == p1 && edgeLabel1.labelId == labelId;
+        edgeLabel2 : EdgeLabel edgeLabel2.p1 == basePoint && edgeLabel2.p2 == p2 && edgeLabel2.labelId == labelId;
+        edgeLabel3 : EdgeLabel edgeLabel3.p1 == basePoint && edgeLabel3.p2 == p3 && edgeLabel3.labelId == labelId;
+	}
+	then {
+        modify( stage, function(){this.value = 'CHECKING';});
+        emit("log", "CHECKING" );
+        retract( illegal );
+        retract( edgeLabel1 );
+        retract( edgeLabel2 );
+        retract( edgeLabel3 );
+	}
+}
+
+//(p remove_edge_2j
+//    (stage ^value remove_label)
+//    (illegal ^bp <bp> ^l_id <id>)
+//    (junction ^type 2j ^base_point <bp> ^p1 <p1> ^p2 <p2>)
+//    (edge_label ^p1 <bp> ^p2 <p1> ^l_id <id>)
+//    (edge_label ^p1 <bp> ^p2 <p2> ^l_id <id>)
+//    -->
+//    ; (write edge_label <bp> <p1> <n1> <id> (crlf))
+//    ; (write edge_label <bp> <p2> <n2> <id> (crlf))
+//    (modify 1 ^value checking)
+//    (remove 2)
+//    (remove 4)
+//    (remove 5))
+rule remove_edge_2j {
+    when {
+        stage : Stage stage.value == 'REMOVE_LABEL';
+        illegal : Illegal {basePoint : basePoint, labelId : labelId};
+        j : Junction j.type == '2j' && j.basePoint == basePoint {p1 : p1, p2 : p2};
+        edgeLabel1 : EdgeLabel edgeLabel1.p1 == basePoint && edgeLabel1.p2 == p1 && edgeLabel1.labelId == labelId;
+        edgeLabel2 : EdgeLabel edgeLabel2.p1 == basePoint && edgeLabel2.p2 == p2 && edgeLabel2.labelId == labelId;
+	}
+	then {
+        modify(stage, function(){this.value = 'CHECKING';});
+        emit("log", "CHECKING" );
+        retract( illegal );
+        retract( edgeLabel1 );
+        retract( edgeLabel2 );
+	}
+}
+
+
+//(p checking
+//    (stage ^value checking)
+//    (junction  ^base_point <bp> ^visited check)
+//    -->
+//    (modify 2 ^visited yes))
+
+rule checking2 {
+    when {
+        s : Stage s.value == 'CHECKING';
+        junction : Junction junction.visited == 'check' {basePoint : basePoint};
+	}
+	then {
+        modify(junction, function(){this.visited = "yes"});
+	}
+}
+
+
+//(p stop_checking
+//    (stage ^value checking)
+//    -->
+//    (modify 1 ^value labeling))
+rule stop_checking {
+    when {
+         stage : Stage stage.value == 'CHECKING';
+	}
+	then {
+        modify(stage, function(){this.value = 'LABELING'});
+        emit("log", "LABELING" );
+	}
+}
+
+
+//(p done_labeling
+//    (stage ^value labeling)
+//    -->
+//    (modify 1 ^value printing))
+rule done_labeling {
+    when {
+         stage : Stage  stage.value == 'LABELING'
+	}
+	then {
+        modify(stage, function(){this.value = 'PRINTING';});
+        emit("log", "PRINTING" );
+	}
+}
+
+
+//(p done
+//    (stage ^value printing)
+//    -->
+//    (halt))
+rule done {
+    when {
+         stage : Stage stage.value == 'PRINTING'
+	}
+	then {
+        emit("log", "FINISHED" );
+	}
+}

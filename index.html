@@ -207,6 +207,7 @@
 <li><a href="#agenda-groups-auto-focus">Auto Focus</a></li>
 </ul>
 </li>
+<li><a href="#conflict-resolution">Conflict Resolution</a></li>
 </ul>
 </li>
 <li><a href="#defining-rule">Defining Rules</a><ul>
@@ -745,6 +746,101 @@ flow
     .then(function () {
         console.log(fired); //[&quot;Bootstrap&quot;, &quot;A to B&quot;, &quot;B to C&quot;, &quot;B to D&quot;]
     });</code></pre>
+<p><a name="conflict-resolution"></a></p>
+<h2>Conflict Resolution</h2>
+<p>When declaring a flow it is defined with a default conflict resolution strategy. A conflict resolution strategy is used to determine which rule to activate when multiple rules are ready to be activated at the same time.</p>
+<h3>Resolution Strategies</h3>
+<ul>
+<li><code>salience</code> - sort activations on the specified <a href="#rule-salience"><code>salience</code></a>. (<strong>NOTE</strong> The default salience of a rule is 0).</li>
+<li><code>activationRecency</code> - sort activations on activation recency. This is a <code>LIFO</code> strategy the latest activation takes precedence.</li>
+<li><code>factRecency</code> - sort activations based on <code>fact</code> recency. Each time a fact is <code>asserted</code> or <code>modified</code> its recency is incremented.</li>
+<li><code>bucketCounter</code> - sort activations on the internal <code>bucket</code> counter. The bucket counter is incremented after an activation is fired and the internal <code>workingMemory</code> is altered.</li>
+</ul>
+<p>The default conflict resolution strategy consists of <code>salience</code> and <code>activationRecency</code>.</p>
+<h3>Examples</h3>
+<p><strong>Example 1</strong></p>
+<pre class='prettyprint linenums lang-js'><code>//activation 1
+{
+    salience: 0,
+    activationRecency: 1
+}
+
+//activation 2
+{
+    salience: 0,
+    activationRecency: 2
+}</code></pre>
+<p>In the above example activation 2 would be fired since it is the most recent activation an the rule salience is the same.</p>
+<p><strong>Example 2</strong></p>
+<pre class='prettyprint linenums lang-js'><code>//activation 1
+{
+    salience: 1,
+    activationRecency: 1
+}
+
+//activation 2
+{
+    salience: 0,
+    activationRecency: 2
+}</code></pre>
+<p>In this example activation 1 would fire because it has a greater salience</p>
+<h3>Overidding The Default Strategy</h3>
+<p>To override the default strategy you can use the <code>conflictResolution</code> method on a flow.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">
+var flow = nools.flow(/**define your flow**/);
+
+flow.conflictResolution([&quot;salience&quot;, &quot;factRecency&quot;, &quot;activationRecency&quot;]);</code></pre>
+<p>The combination of <code>salience</code>, <code>factRecency</code>, and <code>activationRecency</code> would do the following.</p>
+<ol>
+<li>Check if the salience is the same, if not use the activation with the greatest salience.</li>
+<li>If salience is the same check if fact recency is the same. The fact recency is determined by looping through the facts in each activation and until two different recencies are found. The activation with the greatest recency takes precendence.</li>
+<li>If fact recency is the same check the activation recency.</li>
+</ol>
+<p><strong>Example 1</strong></p>
+<pre class='prettyprint linenums lang-js'><code>//activation 1
+{
+    salience: 2,
+    factRecency: [1,2,3],
+    activationRecency: 1
+}
+
+//activation 2
+{
+    salience: 1,
+    factRecency: [1,2,4],
+    activationRecency: 2
+}</code></pre>
+<p>In this example activation 1 would fire because it&#39;s salience is the greatest.</p>
+<p><strong>Example 2</strong></p>
+<pre class='prettyprint linenums lang-js'><code>//activation 1
+{
+    salience: 1,
+    factRecency: [1,2,3],
+    activationRecency: 1
+}
+
+//activation 2
+{
+    salience: 1,
+    factRecency: [1,2,4],
+    activationRecency: 2
+}</code></pre>
+<p>In Example 2 activation 2 would fire because of the third recency entry.</p>
+<p><strong>Example 3</strong></p>
+<pre class='prettyprint linenums lang-js'><code>//activation 1
+{
+    salience: 2,
+    factRecency: [1,2,3],
+    activationRecency: 1
+}
+
+//activation 2
+{
+    salience: 1,
+    factRecency: [1,2,3],
+    activationRecency: 2
+}</code></pre>
+<p>In Example 3 activation 2 would fire because <code>salience</code> and <code>factRecency</code> are the same but activation 2&#39;s activation recency is greater.</p>
 <p><a name="defining-rule"></a></p>
 <h1>Defining rules</h1>
 <p><a name="rule structure"></a></p>
@@ -986,25 +1082,59 @@ when {
 <p>The previous example will check that for all numbers in the <code>workingMemory</code> there is <strong>not</strong> one that is greater than <code>n1</code>.</p>
 <p><a name="or-constraint"></a></p>
 <h4>Or Constraint</h4>
-<p>The <code>or</code> constraint can be used to check for either one fact or another.</p>
+<p>The <code>or</code> constraint can be used to check for the existence of multiple facts.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">
 [
     [&quot;or&quot;,
         [String, &quot;s&quot;, &quot;s == &#39;hello&#39;&quot;],
-        [String, &quot;s&quot;, &quot;s == &#39;world&#39;&quot;]
+        [String, &quot;s&quot;, &quot;s == &#39;world&#39;&quot;],
+        [String, &quot;s&quot;, &quot;s == &#39;hello world&#39;&quot;]
     ]
 ]</code></pre>
 <p>Using the DSL.</p>
 <pre class='prettyprint linenums lang-js'><code>when {
     or(
         s : String s == &#39;hello&#39;,
-        s : String s == &#39;world&#39;
+        s : String s == &#39;world&#39;,
+        s : String s == &#39;hello world&#39;
     );
 }</code></pre>
-<p>The previous example will evaluate to <code>true</code> if you have a string in <code>workingMemory</code> that equals <code>hello</code> or `world.</p>
+<p>The previous example will evaluate to <code>true</code> if you have a string in <code>workingMemory</code> that equals <code>hello</code>, <code>world, or &#39;hello world</code>.</p>
+<p><strong>Or with Not</strong></p>
+<p>The <code>or</code> constraint can be combined with a <code>not</code> constraint to allow for the checking of multiple not conditions without the implcit and.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var flow = nools.flow(&quot;or condition with not conditions&quot;, function (flow) {
+        flow.rule(&quot;hello rule&quot;, [
+                [&quot;or&quot;,
+                    [&quot;not&quot;, Number, &quot;n1&quot;, &quot;n1 == 1&quot;],
+                    [&quot;not&quot;, String, &quot;s1&quot;, &quot;s1 == &#39;hello&#39;&quot;],
+                    [&quot;not&quot;, Date, &quot;d1&quot;, &quot;d1.getDate() == now().getDate()&quot;]
+                ],
+                [Count, &quot;called&quot;, null]
+            ], function (facts) {
+                facts.called.called++;
+            });
+        });
+});</code></pre>
+<p>or using the dsl.</p>
+<pre class='prettyprint linenums lang-js'><code>rule MultiNotOrRule {
+    when {
+        or (
+            not(n1: Number n1 == 1),
+            not(s1: String s1 == &#39;hello&#39;),
+            not(d1: Date d1.getDate() == now().getDate())
+        );
+        c: Count;
+    }
+    then{
+        c.called++;
+    }
+}</code></pre>
+<p><strong>Note</strong> Using the <code>or</code> with a <code>not</code> will cause the activation to fire for each <code>not</code> condition that passes. In the above examples if none of the three facts existed then the rule would fire three times.</p>
 <p><a name="from-constraint"></a></p>
 <h4>From Constraint</h4>
-<p>The <code>from</code> modifier allows for the checking of facts that are not necessarily in the <code>workingMemory</code> but instead exist as a property on a fact.</p>
+<p>The <code>from</code> modifier allows for the checking of facts that are not necessarily in the <code>workingMemory</code>.</p>
+<p>The <code>from</code> modifier can be used to access properties on a <code>fact</code> in <code>workingMemory</code> or you can use javascript expressions.</p>
+<p>To access properties on a fact you can use the fact name and the property you wish to use as the source for the <code>from</code> source.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">[
     [Person, &quot;p&quot;],
     [Address, &quot;a&quot;, &quot;a.zipcode == 88847&quot;, &quot;from p.address&quot;],
@@ -1037,6 +1167,37 @@ when {
 <pre class='prettyprint linenums lang-js'><code>when {
     p: Person;
     friend: Person friend in p.friends &amp;&amp; friend.firstName != p.firstName &amp;&amp; p.firstName =~ /^a/;
+}</code></pre>
+<p>To specify the from source as an expression you can do the following.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">[
+    [Number, &quot;n1&quot;, &quot;from [1,2,3,4,5]&quot;]
+]</code></pre>
+<p>Or using the dsl</p>
+<pre class='prettyprint linenums lang-js'><code>{
+    n1: Number from [1,2,3,4,5];
+}</code></pre>
+<p>Using the above syntax you could use <code>from</code> to bootstrap data.</p>
+<p>You can also use any function defined in the scope of the <code>rule</code> or <code>flow</code></p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">
+flow.rule(&quot;my rule&quot;, {
+    scope: {
+        myArr: function(){
+            return [1,2,3,4,5];
+        }
+    },
+    [Number, &quot;n1&quot;, &quot;from myArr()&quot;],
+    function(facts){
+        this.assert(facts.n1);
+    }
+}</code></pre>
+<p>Or using the dsl and the <a href="#rule-scope">scope</a> option.</p>
+<pre class='prettyprint linenums lang-js'><code>rule &quot;my rule&quot;, {
+    when {
+        n1: Number from myArr();
+    }
+    then{
+        assert(n1);
+    }
 }</code></pre>
 <p><a name="action"></a></p>
 <h3>Action</h3>
