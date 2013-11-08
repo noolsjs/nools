@@ -53,6 +53,44 @@ it.describe("Flow dsl", function (it) {
 
             });
         });
+
+        it.describe("or rule with not conditions", function (it) {
+            var flow, count;
+            it.beforeAll(function () {
+                flow = nools.compile(__dirname + "/rules/orRule-notConditions.nools");
+                var Count = flow.getDefined("count");
+                count = new Count();
+            });
+
+            it.should("activate for each fact that does not exist", function () {
+                return flow.getSession(count).match()
+                    .then(function () {
+                        assert.equal(count.called, 3);
+                        count.called = 0;
+                        return flow.getSession(count, 1).match();
+                    })
+                    .then(function () {
+                        assert.equal(count.called, 2);
+                        count.called = 0;
+                        return flow.getSession(count, 'hello').match();
+                    })
+                    .then(function () {
+                        assert.equal(count.called, 2);
+                        count.called = 0;
+                        return flow.getSession(count, new Date()).match();
+                    })
+                    .then(function () {
+                        assert.equal(count.called, 2);
+                        count.called = 0;
+                        return flow.getSession(count, 1, 'hello', new Date()).match();
+                    })
+                    .then(function () {
+                        assert.equal(count.called, 0);
+                    });
+
+
+            });
+        });
     });
 
     it.describe("scoped functions", function (it) {
@@ -389,3 +427,5 @@ it.describe("Flow dsl", function (it) {
         });
     });
 });
+
+//it.run();

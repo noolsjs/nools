@@ -178,6 +178,21 @@
 
 
 
+<h1>0.2.1</h1>
+<ul>
+<li>Added support for js expression in the <code>from</code> node addressing issue <a href="https://github.com/C2FO/nools/issues/86">#86</a></li>
+<li>Enhanced <code>JoinReferenceNode</code> performance in the default assert case where there are no <code>references</code> to left or right context.</li>
+<li>Added ability to use <code>or</code> and <code>not</code> in tandem to check for the non-existence of multiple facts. <a href="https://github.com/C2FO/nools/issues/85">#85</a></li>
+<li>Fixed issue with <code>from</code> node where an undefined property would be tested. <a href="https://github.com/C2FO/nools/issues/89">#89</a></li>
+<li>You can now define a custom resolution strategy.</li>
+<li>Compiling nools files now supports the from modifier.</li>
+<li>Documentation updates<ul>
+<li>Updates about from node support with js values.</li>
+<li>New documentation about using <code>or</code> and <code>not</code> constratints together.</li>
+<li>Updated <code>or</code> documentation to include a three constraint example.</li>
+</ul>
+</li>
+</ul>
 <h1>0.2.0 / 2013-10-14</h1>
 <ul>
 <li>Nools now supports true modify!!!<ul>

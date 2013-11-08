@@ -170,8 +170,8 @@ rule reverse_edges {
         line : Line {p1:p1, p2:p2};
     }
     then {
-        console.log( "Edge " + p1 + " " + p2 );
-        console.log( "Edge " + p2 + " " + p1 );
+        emit("log", "Edge " + p1 + " " + p2 );
+        emit("log", "Edge " + p2 + " " + p1 );
         assert( new Edge({p1 : p1, p2 : p2, joined : false}) );
         assert( new Edge({p1 : p2, p2 : p1, joined : false}) );
         retract( line );
@@ -190,7 +190,7 @@ rule done_reversing {
     }
     then {
         modify(stage, function(){ this.value = 'DETECT_JUNCTIONS'});
-        console.log( "DETECT_JUNCTIONS" );
+        emit("log", "DETECT_JUNCTIONS" );
     }
 }
 
@@ -225,7 +225,7 @@ rule make_3_junction {
         });
         make3Junction(junction, basePoint, p1, p2, p3);
         assert( junction );
-        console.log( junction.toString( ) );
+        emit("log", junction.toString( ) );
         modify( edge1, function(){this.joined = true; this.type = '3j';});
         modify( edge2, function(){this.joined = true; this.type = '3j';});
         modify( edge3, function(){this.joined = true; this.type = '3j';});
@@ -258,7 +258,7 @@ rule make_L {
     then {
         var junction = new Junction({type : "2j", name : "L", basePoint : basePoint, p1 : p2, p2 : p3, visited : "no"} );
         assert( junction );
-        console.log( junction.toString() );
+        emit("log", junction.toString() );
         modify( edge1, function(){this.joined = true; this.type = "2j"});
         modify( edge2, function(){this.joined = true; this.type = "2j"});
     }
@@ -277,7 +277,7 @@ rule done_detecting {
     }
     then {
         modify(stage, function(){this.value = 'FIND_INITIAL_BOUNDARY' });
-        console.log( "Stage: FIND_INITIAL_BOUNDARY" );
+        emit("log", "Stage: FIND_INITIAL_BOUNDARY" );
      }
 }
 
@@ -306,7 +306,7 @@ rule initial_boundary_junction_L {
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : "B", labelId : "1" }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : "B", labelId : "1" } ) );
         modify(stage, function(){ this.value = 'FIND_SECOND_BOUNDARY' });
-        console.log( "FIND_SECOND_BOUNDARY" );
+        emit("log", "FIND_SECOND_BOUNDARY" );
     }
 }
 
@@ -338,7 +338,7 @@ rule initial_boundary_junction_arrow {
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : "+", labelId : "14" }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : "B", labelId  :"14" }) );
         modify( stage, function() {this.value = 'FIND_SECOND_BOUNDARY';});
-        console.log( "FIND_SECOND_BOUNDARY" );
+        emit("log", "FIND_SECOND_BOUNDARY" );
     }
 }
 
@@ -368,7 +368,7 @@ rule second_boundary_junction_L {
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : "B", labelId : "1" }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : "B", labelId : "1" }) );
         modify(stage, function(){this.value = 'LABELING';});
-        console.log( "LABELING" );
+        emit("log", "LABELING" );
 	}
 }
 
@@ -400,7 +400,7 @@ rule second_boundary_junction_arrow {
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : "+", labelId : "14" }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : "B", labelId : "14" }) );
         modify( stage, function(){this.value =  'LABELING'});
-        console.log( "LABELING" );
+        emit("log", "LABELING" );
 	}
 }
 
@@ -420,7 +420,7 @@ rule start_visit_3_junction {
 	then {
         modify(stage, function(){this.value = 'VISITING_3J'});
         modify(junction, function(){ this.visited = "now"});
-        console.log( "VISITING_3J" );
+        emit("log", "VISITING_3J" );
 	}
 }
 
@@ -451,9 +451,9 @@ rule visit_3j_0 {
         not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
 	}
 	then {
-        console.log( "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
@@ -486,9 +486,9 @@ rule visit_3j_1 {
         not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
 	}
 	then {
-        console.log( "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
@@ -522,9 +522,9 @@ rule visit_3j_2 {
         not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
 	}
 	then {
-        console.log( "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
@@ -557,9 +557,9 @@ rule visit_3j_3 {
         not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
 	}
 	then {
-        console.log( "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
@@ -592,9 +592,9 @@ rule visit_3j_4 {
         not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
 	}
 	then {
-        console.log( "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
@@ -627,9 +627,9 @@ rule visit_3j_5 {
         not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
 	}
 	then {
-        console.log( "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
@@ -663,9 +663,9 @@ rule visit_3j_6 {
         not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
 	}
 	then {
-        console.log( "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
@@ -699,9 +699,9 @@ rule visit_3j_7 {
         not( el4 : EdgeLabel el4.p1 == basePoint && el4.labelId == id );
 	}
 	then {
-        console.log( "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p3 + " " + n3 + " " + id );
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p3, labelName : n3, labelId : id }) );
@@ -722,7 +722,7 @@ rule start_visit_2_junction {
 	then {
         modify(junction, function(){ this.visited = "now";});
         modify(stage, function(){ this.value = 'VISITING_2J';});
-        console.log( "VISITING_2J" );
+        emit("log", "VISITING_2J" );
 	}
 }
 
@@ -749,8 +749,8 @@ rule visit_2j_0 {
         not( el3 : EdgeLabel el3.p1 == basePoint && el3.labelId == id );
 	}
 	then {
-        console.log( "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
 	}
@@ -778,8 +778,8 @@ rule visit_2j_1 {
         not( el3 : EdgeLabel el3.p1 == basePoint && el3.labelId == id );
 	}
 	then {
-        console.log( "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
 	}
@@ -808,8 +808,8 @@ rule visit_2j_2 {
         not( el3 : EdgeLabel el3.p1 == basePoint && el3.labelId == id );
 	}
 	then {
-        console.log( "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
 	}
@@ -838,8 +838,8 @@ rule visit_2j_3 {
         not(el3 : EdgeLabel el3.p1 == basePoint && el3.labelId == id );
 	}
 	then {
-        console.log( "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
-        console.log( "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p1 + " " + n1 + " " + id );
+        emit("log", "EdgeLabel " + basePoint + " " + p2 + " " + n2 + " " + id );
         assert( new EdgeLabel({p1 : basePoint, p2 : p1, labelName : n1, labelId : id }) );
         assert( new EdgeLabel({p1 : basePoint, p2 : p2, labelName : n2, labelId : id }) );
 	}
@@ -857,7 +857,7 @@ rule end_visit {
 	}
 	then {
         modify(stage, function(){ this.value = 'MARKING';});
-        console.log( "MARKING" );
+        emit("log", "MARKING" );
 	}
 }
 
@@ -908,7 +908,7 @@ rule start_checking {
 	}
 	then {
         modify(stage, function(){this.value = 'CHECKING';});
-        console.log( "CHECKING" );
+        emit("log", "CHECKING" );
 	}
 }
 
@@ -931,7 +931,7 @@ rule checking {
 	}
 	then {
         modify(stage, function(){this.value = 'REMOVE_LABEL';});
-        console.log( "REMOVE_LABEL" );
+        emit("log", "REMOVE_LABEL" );
         assert ( new Illegal({basePoint : basePoint, labelId : labelId}) );
 	}
 }
@@ -963,7 +963,7 @@ rule remove_label_3j {
 	}
 	then {
         modify( stage, function(){this.value = 'CHECKING';});
-        console.log( "CHECKING" );
+        emit("log", "CHECKING" );
         retract( illegal );
         retract( edgeLabel1 );
         retract( edgeLabel2 );
@@ -994,7 +994,7 @@ rule remove_edge_2j {
 	}
 	then {
         modify(stage, function(){this.value = 'CHECKING';});
-        console.log( "CHECKING" );
+        emit("log", "CHECKING" );
         retract( illegal );
         retract( edgeLabel1 );
         retract( edgeLabel2 );
@@ -1029,7 +1029,7 @@ rule stop_checking {
 	}
 	then {
         modify(stage, function(){this.value = 'LABELING'});
-        console.log( "LABELING" );
+        emit("log", "LABELING" );
 	}
 }
 
@@ -1044,7 +1044,7 @@ rule done_labeling {
 	}
 	then {
         modify(stage, function(){this.value = 'PRINTING';});
-        console.log( "PRINTING" );
+        emit("log", "PRINTING" );
 	}
 }
 
@@ -1058,6 +1058,6 @@ rule done {
          stage : Stage stage.value == 'PRINTING'
 	}
 	then {
-        console.log( "FINISHED" );
+        emit("log", "FINISHED" );
 	}
 }

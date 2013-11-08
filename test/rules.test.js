@@ -571,7 +571,37 @@ it.describe("Rule",function (it) {
             assert.instanceOf(constrnts[0], constraints.ObjectConstraint);
             assert.instanceOf(constrnts[1], constraints.ReferenceConstraint);
             assert.instanceOf(constrnts[2], constraints.HashConstraint);
-            assert.equal(pattern.rightPattern.from, "name");
+            assert.instanceOf(pattern.rightPattern.from, constraints.FromConstraint);
+        });
+
+        it.should("should include from constraints", function () {
+            var ruleArr = rules.createRule("My Rule", [
+                ["Hash", "h", {name: "name"}],
+                ["string", "s2", "s2 == name", {length: "length"}, "from [1,2,3,4]"]
+            ], cb);
+            assert.isNotNull(ruleArr);
+            assert.lengthOf(ruleArr, 1);
+
+            var rule = ruleArr[0];
+            assert.equal(rule.name, "My Rule");
+            assert.isNotNull(rule.pattern);
+            var pattern = rule.pattern;
+            assert.instanceOf(pattern, patterns.CompositePattern);
+            assert.instanceOf(pattern.leftPattern, patterns.ObjectPattern);
+            assert.instanceOf(pattern.rightPattern, patterns.FromPattern);
+            assert.equal(pattern.leftPattern.alias, "h");
+            assert.equal(pattern.rightPattern.alias, "s2");
+            var constrnts = pattern.leftPattern.constraints;
+            assert.lengthOf(constrnts, 3);
+            assert.instanceOf(constrnts[0], constraints.ObjectConstraint);
+            assert.instanceOf(constrnts[1], constraints.TrueConstraint);
+            assert.instanceOf(constrnts[2], constraints.HashConstraint);
+            constrnts = pattern.rightPattern.constraints;
+            assert.lengthOf(constrnts, 3);
+            assert.instanceOf(constrnts[0], constraints.ObjectConstraint);
+            assert.instanceOf(constrnts[1], constraints.ReferenceConstraint);
+            assert.instanceOf(constrnts[2], constraints.HashConstraint);
+            assert.instanceOf(pattern.rightPattern.from, constraints.FromConstraint);
         });
     });
 

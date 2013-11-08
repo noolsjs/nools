@@ -23,13 +23,16 @@ it.describe("issues", function (it) {
             return "hello";
         };
 
-        var flow = nools.flow("issue65", function () {
+        var flow;
+        it.beforeAll(function () {
+            flow = nools.flow("issue65", function () {
 
-            this.rule("issue65",
-                [Thing, "$t", "($t.step && isUndefined($t[$t.step]))"],
-                function (facts, flow) {
-                    flow.emit("thing", facts.$t);
-                });
+                this.rule("issue65",
+                    [Thing, "$t", "($t.step && isUndefined($t[$t.step]))"],
+                    function (facts, flow) {
+                        flow.emit("thing", facts.$t);
+                    });
+            });
         });
 
         it.should("allow property lookup using [] instead of . notation", function () {
@@ -50,10 +53,13 @@ it.describe("issues", function (it) {
     it.describe("66", function (it) {
 
 
-        var flow = nools.compile(
+        var flow, Value;
+        it.beforeAll(function () {
+            flow = nools.compile(
                 "define Value {id : null,v : null,constructor : function (id, value) {this.id = id;this.v = value;} }" +
-                    "rule 'issue66' {when {v4 : Value v4.id =~ /xyz/ && v4.v == 27;}then {emit('v4', v4);}}", {name: "issue66"}),
+                    "rule 'issue66' {when {v4 : Value v4.id =~ /xyz/ && v4.v == 27;}then {emit('v4', v4);}}", {name: "issue66"});
             Value = flow.getDefined("value");
+        });
 
         it.should("properly evaluate a rule with a regular expressions and equality", function () {
             var called = 0;
@@ -68,10 +74,13 @@ it.describe("issues", function (it) {
     });
 
     it.describe("67", function (it) {
-        var flow = nools.compile(
+        var flow, Value;
+        it.beforeAll(function () {
+            flow = nools.compile(
                 "define Value {id : null,v : null,constructor : function (id, value) {this.id = id;this.v = value;} }" +
-                    "rule 'issue67' {when {v4 : Value v4.id =~ /xyz/ && v4.v =~ /abc/;}then {emit('v4', v4);}}", {name: "issue67"}),
+                    "rule 'issue67' {when {v4 : Value v4.id =~ /xyz/ && v4.v =~ /abc/;}then {emit('v4', v4);}}", {name: "issue67"});
             Value = flow.getDefined("value");
+        });
 
         it.should("properly evaluate a rule with multiple regular expressions", function () {
             var called = 0;
@@ -154,4 +163,96 @@ it.describe("issues", function (it) {
 
     });
 
+    it.describe("85", function (it) {
+
+        it.should("allow multiple not clauses in an or condition", function () {
+
+            var flowSrc = " rule MultiNotOrRule {" +
+                "   when {" +
+                "       or (" +
+                "           not(n1: Number n1 == 1)," +
+                "           not(s1: String s1 == 'hello')," +
+                "           not(d1: Date d1.getDate() == now().getDate())" +
+                "       )" +
+                "   }" +
+                "   then{" +
+                "       emit('called', n1, s1, d1)" +
+                "   }" +
+                "}";
+            var flow = nools.compile(flowSrc, {name: "issue85"});
+            var called = 0;
+            return flow.getSession()
+                .on("called",function () {
+                    called++;
+                }).match()
+                .then(function () {
+                    assert.equal(called, 3);
+                    called = 0;
+                    return flow.getSession(1).on("called",function () {
+                        called++;
+                    }).match();
+                })
+                .then(function () {
+                    assert.equal(called, 2);
+                    called = 0;
+                    return flow.getSession('hello').on("called",function () {
+                        called++;
+                    }).match();
+                })
+                .then(function () {
+                    assert.equal(called, 2);
+                    called = 0;
+                    return flow.getSession(new Date()).on("called",function () {
+                        called++;
+                    }).match();
+                })
+                .then(function () {
+                    assert.equal(called, 2);
+                    called = 0;
+                    return flow.getSession(1, 'hello', new Date()).on("called",function () {
+                        called++;
+                    }).match();
+                })
+                .then(function () {
+                    assert.equal(called, 0);
+                    return flow.getSession(1, 'hello', new Date()).on("called",function () {
+                        called++;
+                    }).match();
+                });
+        });
+    });
+
+    it.describe("89", function (it) {
+
+        var flow;
+
+        function Person(address) {
+            this.address = address;
+        }
+
+        it.beforeAll(function () {
+            flow = nools.flow("issue 89", function () {
+
+                this.rule("from with missing property", [
+                    [Person, "p"],
+                    [Number, "zipcode", "from p.address.zipcode"]
+                ], function () {
+
+                });
+            });
+        });
+
+        it.should("not throw an error on missing properties", function () {
+            return flow.getSession(new Person({})).match();
+        });
+
+        it.should("should throw an error if the from references a property on a value that is undefined", function () {
+            try {
+                flow.getSession(new Person()).match();
+                assert.fail();
+            } catch (e) {
+                assert.ok(true);
+            }
+        });
+    });
 });

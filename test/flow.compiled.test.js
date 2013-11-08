@@ -1,9 +1,8 @@
 "use strict";
 var it = require("it"),
-    assert = require("assert"),
-    nools = require("../index");
+    assert = require("assert");
 
-it.describe("Flow compiled",function (it) {
+it.describe("Flow compiled", function (it) {
 
     it.describe("not rule", function (it) {
 
@@ -50,6 +49,44 @@ it.describe("Flow compiled",function (it) {
             return flow.getSession("world", called).match().then(function () {
                 assert.equal(called.called, 1);
                 assert.equal(called.s, "world");
+            });
+        });
+
+        it.describe("or rule with not conditions", function (it) {
+            var flow, count;
+            it.beforeAll(function () {
+                flow = require("./rules/orRule-notConditions-compiled")();
+                var Count = flow.getDefined("count");
+                count = new Count();
+            });
+
+            it.should("activate for each fact that does not exist", function () {
+                return flow.getSession(count).match()
+                    .then(function () {
+                        assert.equal(count.called, 3);
+                        count.called = 0;
+                        return flow.getSession(count, 1).match();
+                    })
+                    .then(function () {
+                        assert.equal(count.called, 2);
+                        count.called = 0;
+                        return flow.getSession(count, 'hello').match();
+                    })
+                    .then(function () {
+                        assert.equal(count.called, 2);
+                        count.called = 0;
+                        return flow.getSession(count, new Date()).match();
+                    })
+                    .then(function () {
+                        assert.equal(count.called, 2);
+                        count.called = 0;
+                        return flow.getSession(count, 1, 'hello', new Date()).match();
+                    })
+                    .then(function () {
+                        assert.equal(count.called, 0);
+                    });
+
+
             });
         });
 
@@ -292,7 +329,7 @@ it.describe("Flow compiled",function (it) {
         });
 
     });
-}).as(module);
+});
 
 
 

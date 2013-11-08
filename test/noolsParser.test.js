@@ -481,6 +481,54 @@ it.describe("nools dsl parser", function (it) {
                 "loaded": [],
                 "file": undefined
             });
+
+            parsed = noolsParser.parse("rule TestRule { when {or($c : Clazz $c.name eq 'test1', not($c : Clazz $c.name eq 'test2'), not($c : Clazz $c.name eq 'test3'), $c: Clazz $c.name == 'test4')} then {console.log($test);}}");
+            assert.deepEqual(parsed, {
+                "define": [],
+                "rules": [
+                    {
+                        "name": "TestRule",
+                        "options": {},
+                        "constraints": [
+                            [
+                                "or",
+                                ["Clazz", "$c", "$c.name eq 'test1'"],
+                                ["not", "Clazz", "$c", "$c.name eq 'test2'"],
+                                ["not", "Clazz", "$c", "$c.name eq 'test3'"],
+                                ["Clazz", "$c", "$c.name == 'test4'"]
+                            ]
+                        ],
+                        "action": "console.log($test);"
+                    }
+                ],
+                "scope": [],
+                "loaded": [],
+                "file": undefined
+            });
+
+            parsed = noolsParser.parse("rule TestRule { when {or(not($c : Clazz $c.name eq 'test1'), $c : Clazz $c.name eq 'test2', $c : Clazz $c.name eq 'test3', $c: Clazz $c.name == 'test4')} then {console.log($test);}}");
+            assert.deepEqual(parsed, {
+                "define": [],
+                "rules": [
+                    {
+                        "name": "TestRule",
+                        "options": {},
+                        "constraints": [
+                            [
+                                "or",
+                                ["not", "Clazz", "$c", "$c.name eq 'test1'"],
+                                ["Clazz", "$c", "$c.name eq 'test2'"],
+                                ["Clazz", "$c", "$c.name eq 'test3'"],
+                                ["Clazz", "$c", "$c.name == 'test4'"]
+                            ]
+                        ],
+                        "action": "console.log($test);"
+                    }
+                ],
+                "scope": [],
+                "loaded": [],
+                "file": undefined
+            });
         });
 
         it.should("parse when clause with hash and constraints in any order", function () {
