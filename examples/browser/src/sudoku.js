@@ -6,6 +6,13 @@
 
     var allNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
+    if (typeof console === 'undefined') {
+        console = {
+            log: function () {
+            }
+        };
+    }
+
     var SetOfNine = declare({
         instance: {
 
@@ -102,7 +109,7 @@
             },
 
             valueAsString: function () {
-                return this.value === null ? " ": this.value;
+                return this.value === null ? " " : this.value;
             },
 
             posAsString: function () {
@@ -206,35 +213,39 @@
             },
 
             step: function () {
-                this.session.modify(this.counter, function () {
-                    this.count = 1;
-                });
-                if (!this.stepping) {
-                    this.session.assert(new Stepping());
-                }
-                return this.session.matchUntilHalt(function (err) {
-                    if (err) {
-                        console.log(err);
+                if (!this.invalid) {
+                    this.session.modify(this.counter, function () {
+                        this.count = 1;
+                    });
+                    if (!this.stepping) {
+                        this.session.assert(new Stepping());
                     }
-                });
+                    return this.session.matchUntilHalt(function (err) {
+                        if (err) {
+                            console.log(err);
+                        }
+                    });
+                }
             },
 
             solve: function () {
-                this.session.modify(this.counter, function () {
-                    this.count = Infinity;
-                });
-                if (this.stepping) {
-                    this.session.retract(this.stepping);
-                }
-                return this.session.match(function (err) {
-                    if (err) {
-                        console.log(err);
+                if (!this.invalid) {
+                    this.session.modify(this.counter, function () {
+                        this.count = Infinity;
+                    });
+                    if (this.stepping) {
+                        this.session.retract(this.stepping);
                     }
-                });
+                    return this.session.match(function (err) {
+                        if (err) {
+                            console.log(err);
+                        }
+                    });
+                }
             },
 
             setCellValue: function setCellValue(cell) {
-                cell.el.text(cell.value ? cell.value: "");
+                cell.el.text(cell.value ? cell.value : "");
                 return cell;
             },
 
@@ -296,7 +307,6 @@
                         if (value) {
                             session.assert(new Setting(iRow, iCol, value));
                             initial++;
-                            //console.log(initial);
                         }
                     }
                 }
@@ -340,11 +350,13 @@
             },
 
             setInvalidCellValue: function setCellValue(cell) {
+                this.invalid = true;
                 cell.el.addClass("error");
                 return cell;
             },
 
             validate: function () {
+                this.invalid = false;
                 this.session.assert("validate");
                 return this.session.focus("validate")
                     .on("invalid", this.setInvalidCellValue)

@@ -16,45 +16,91 @@ body {
     height: 100%;
 }
 
-#fibonacci div.inline {
+.fibonacci div.inline {
     height: 100%;
     margin: 10px;
 }
 
-#fibonacci #results_container {
+.fibonacci .results_container {
     word-wrap: break-word;
     max-width: 100%;
     line-height: 50px;
 }
 
-#diagnose {
-    width: 500px;
-    padding: 10px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    -webkit-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
-    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
-    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+.diagnose {
+    width: 100%;
 }
 
-#manners {
-    width: 50%;
+.diagnose .diagnose-container{
+    width: 49%;
+    vertical-align: top;
     padding: 10px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    -webkit-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
-    -moz-box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
-    box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
-
 }
 
-#manners #results_container {
+.waltz-db,
+.manners {
+    width: 100%;
+}
+
+.waltz-db .editor-container,
+.manners .editor-container,
+.diagnose .editor-container,
+.send-more-money .editor-container {
+    width: 49%;
+    height: 100%;
+    display: inline-block;
+}
+
+.waltz-db .results_container,
+.manners .results_container {
+    width: 49%;
+    vertical-align: top;
+    display: inline-block;
+    height: 100%;
     overflow: auto;
-    height: 400px;
-    width: 95%;
     background: #dfdfdf;
     color: #09C;
     font-family: Tahoma, Geneva, sans-serif;
+    padding-left: 10px;
+}
+
+.editor-container {
+    width: 100%;
+    height: 400px;
+    position: relative;
+    border: 1px solid lightgray;
+}
+
+.editor-container .editor {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.send-more-money {
+    width: 100%;
+}
+
+.send-more-money .equation-container {
+    vertical-align: top;
+    width: 49%;
+}
+
+.send-more-money .equation {
+    font-size: 6em;
+    text-align: right;
+    width: 400px;
+}
+
+.send-more-money .equation > div > span {
+    width: 30px;
+    display: inline-block;
+    height: 50px;
     padding: 10px;
-    border-radius: 10px;
+}
+
+.send-more-money .equation > div:last-child {
+    border-top: solid black 1px;
 }
 
 .container > header {
@@ -108,6 +154,12 @@ input[type="submit"], input[type="button"] {
     margin: 10px;
 }
 
+input[type="submit"]:disabled,
+input[type="button"]:disabled {
+    background-color: lightgray;
+    cursor: not-allowed;
+}
+
 #grid {
 
     overflow: hidden;
@@ -136,6 +188,7 @@ input[type="submit"], input[type="button"] {
     box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
     position: absolute;
     bottom: 5px;
+    right: 5px;
 }
 
 .row {
@@ -152,6 +205,10 @@ input[type="submit"], input[type="button"] {
     box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
 }
 
+.sudoku {
+    width: 100%;
+}
+
 .sudoku .col {
     width: 50px;
     height: 50px;
@@ -164,9 +221,18 @@ input[type="submit"], input[type="button"] {
     background-color: rgba(255, 0, 0, 0.43);
 }
 
-.sudoku #grid{
+.sudoku #grid {
     width: 465px;
     height: 470px;
+}
+
+.sudoku .grid-container {
+    vertical-align: top;
+    width: 49%;
+}
+
+.sudoku .editor-container {
+    width: 49%;
 }
 
 .col.live {
