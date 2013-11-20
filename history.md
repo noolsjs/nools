@@ -1,3 +1,12 @@
+#0.2.2
+
+* Performance Upgrades
+  * Added BetaNode indexing
+  * Abstracted out JoinNode to extend BetaNode (Prevents the checking of constraints if there are not any constraints to check)
+  * Refactored BetaNetwork
+  * Created a new Memory Class to encapusulate left and right memory for BetaNodes
+* Added new `exists` logic operator to check for existence of fact (opposite of `not`)
+
 #0.2.1
 
 * Added support for js expression in the `from` node addressing issue [#86](https://github.com/C2FO/nools/issues/86)

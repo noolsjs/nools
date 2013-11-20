@@ -218,6 +218,7 @@
 <li><a href="#not-constraint">Not</a></li>
 <li><a href="#or-constraint">Or</a></li>
 <li><a href="#from-constraint">From</a></li>
+<li><a href="#exists-constraint">Exists</a></li>
 </ul>
 </li>
 <li><a href="#action">Actions</a></li>
@@ -231,7 +232,17 @@
 <h2>Resources</h2>
 <ul>
 <li><a href="https://groups.google.com/forum/#!forum/nools">Nools Google group</a></li>
-<li><a href="http://c2fo.github.io/nools/examples.html">Examples</a></li>
+<li><a href="http://c2fo.github.io/nools/examples.html">Examples</a><ul>
+<li><a href="http://c2fo.github.io/nools/examples/browser/conways_2d.html">Conways 2D</a></li>
+<li><a href="http://c2fo.github.io/nools/examples/browser/conways_3d.html">Conways 3D</a></li>
+<li><a href="http://c2fo.github.io/nools/examples/browser/sudoku.html">Sudoku</a></li>
+<li><a href="http://c2fo.github.io/nools/examples/browser/fibonacci.html">Fibonacci</a></li>
+<li><a href="http://c2fo.github.io/nools/examples/browser/manners.html">Miss Manners</a></li>
+<li><a href="http://c2fo.github.io/nools/examples/browser/waltzDb.html">Waltz DB</a></li>
+<li><a href="http://c2fo.github.io/nools/examples/browser/sendMoreMoney.html">Send More Money</a></li>
+<li><a href="http://c2fo.github.io/nools/examples/browser/diagnose.html">Diagnosis</a></li>
+</ul>
+</li>
 <li><a href="https://github.com/C2FO/nools/tree/master/test">Tests</a></li>
 </ul>
 <p><a name="flow"></a></p>
@@ -1199,6 +1210,25 @@ flow.rule(&quot;my rule&quot;, {
         assert(n1);
     }
 }</code></pre>
+<p><a name="exists-constraint"></a></p>
+<h3>Exists Constraint</h3>
+<p><code>exists</code> is the logical inversion of a <code>not</code> constraint. It checks for the existence of a fact in memory.</p>
+<p> <strong>NOTE</strong> If there are multiple facts that satisfy the constraint the rule will <strong>ONLY</strong> be fired once.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">
+ [
+     [&quot;exists&quot;, Number, &quot;n1&quot;, &quot;n1 &gt; 1&quot;]
+ ]</code></pre>
+<p> Or using the DSL.</p>
+<pre class='prettyprint linenums lang-js'><code>
+ when {
+     exists(n1: Number n1 &gt; 1);
+ }</code></pre>
+<p> Assuming the above constraint. The following facts would cause the rule to fire once since there is a number that is greater than 1.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript"> session.assert(1);
+ session.assert(2);
+ session.assert(3);
+ session.assert(4);
+ session.assert(5);</code></pre>
 <p><a name="action"></a></p>
 <h3>Action</h3>
 <p>The action is a function that should be fired when all patterns in the rule match. The action is called in the scope

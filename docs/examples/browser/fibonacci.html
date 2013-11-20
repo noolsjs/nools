@@ -9,7 +9,7 @@
 </head>
 <body>
 
-<div id="fibonacci" class="middle">
+<div class="fibonacci middle">
 
     <h1>Fibonacci</h1>
 
@@ -20,7 +20,7 @@
         <div class="inline">
             <div class="large"><span>=</span></div>
         </div>
-        <div class="inline large" id="results_container">
+        <div class="inline large results_container">
         </div>
     </form>
 </div>
@@ -90,7 +90,7 @@
         }
 
 
-        var resultsContainer = $("#results_container"), valInput = $("#val");
+        var resultsContainer = $(".results_container"), valInput = $("#val");
         $("#fibonacci_form").on('submit', function () {
             var num = parseInt(valInput.val(), 10);
             resultsContainer.text("Calculating...");
