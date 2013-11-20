@@ -4,41 +4,40 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link type="text/css" rel="stylesheet" href="assets/conways.css">
-    <link type="text/css" rel="stylesheet" href="//code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css">
     <link href='http://fonts.googleapis.com/css?family=Londrina+Shadow' rel='stylesheet' type='text/css'>
     <title>WaltzDB Benchmark</title>
 </head>
 <body>
 
 
-<div id="manners" class="middle">
-    <h1>WaltzDB Benchmark</h1>
+<div class="middle waltz-db">
+    <div class="header">
+        <h1 class="inline">WaltzDB Benchmark</h1>
 
-    <form>
+        <form class="inline">
 
-        <select id="data">
-            <option value="waltzdb4">Waltzdb 4</option>
-            <option value="waltzdb8">Waltzdb 8</option>
-            <option value="waltzdb12">Waltzdb 12</option>
-            <option value="waltzdb16">Waltzdb 16</option>
-        </select>
-        <input type="submit" value="Run"/>
-        <input type="button" id="edit" value="Edit Rules"/>
+            <select id="data">
+                <option value="waltzdb4">Waltzdb 4</option>
+                <option value="waltzdb8">Waltzdb 8</option>
+                <option value="waltzdb12">Waltzdb 12</option>
+                <option value="waltzdb16">Waltzdb 16</option>
+            </select>
+            <input type="submit" value="Run"/>
 
-        <div class="middle" id="results_container">
-        </div>
+        </form>
+    </div>
 
-    </form>
+    <div class="editor-container">
+        <div id="editor"></div>
+    </div>
+    <div class="results_container"></div>
 
-</div>
-
-<div id="editor-dialog">
-    <div id="editor"></div>
 </div>
 
 <script type="text/javascript" src="//code.jquery.com/jquery-1.10.1.min.js"></script>
-<script type="text/javascript" src="//code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
-<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/0.2.0/ace.js"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/1.1.01/ace.js"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/1.1.01/mode-javascript.js"></script>
+
 <script type="text/javascript" src="../../nools.js"></script>
 <script type="text/javascript" src="./src/common.js"></script>
 <script type="text/javascript" src="./src/watlzdbData.js"></script>
@@ -50,10 +49,11 @@
         }).then(function (res) {
 
                     var session, dataset,
-                            resultsContainer = $("#results_container"),
+                            resultsContainer = $(".results_container"),
                             statsListener = stats(),
                             flowStr = res,
-                            flow = nools.compile(res, {name: "waltzDb"});
+                            flow = nools.compile(res, {name: "waltzDb"})
+                                    .conflictResolution(["salience", "factRecency", "activationRecency"]);
 
                     function stop() {
                         if (session) {
@@ -81,7 +81,7 @@
                         session
                                 .on("log", function (data) {
                                     resultsContainer.append(data + "</br>");
-                                    resultsContainer.scrollTop(resultsContainer.scrollHeight);
+                                    resultsContainer.scrollTop(resultsContainer.prop("scrollHeight"));
                                 })
                                 .match().then(function () {
                                     console.profileEnd();
@@ -114,26 +114,16 @@
                         return false;
                     });
 
-                    $("#editor-dialog").dialog({
-                        autoOpen: false,
-                        modal: true,
-                        width: window.innerWidth * 0.9,
-                        height: window.innerHeight * 0.9,
-                        open: function () {
-                            (editor = ace.edit("editor").getSession()).setValue(flowStr);
-                        },
-                        buttons: {
-                            "Save": function () {
-                                $(this).dialog("close");
-                                nools.deleteFlow("manners");
-                                stop();
-                                flow = nools.compile((flowStr = editor.getValue()), {name: "manners"});
-                            },
-                            Cancel: function () {
-                                $(this).dialog("close");
-                            }
-                        }
-                    });
+                    var height = $(document).height() - $("#manners .header").height() - 100;
+                    $(".editor-container").height(height);
+                    resultsContainer.height(height);
+
+                    var editor = ace.edit("editor");
+                    //editor.setTheme("ace/theme/monokai");
+                    var editorSession = editor.getSession();
+                    editorSession.setMode("ace/mode/javascript");
+                    editorSession.setValue(res);
+                    editor.setReadOnly(true);
 
                 });
     });

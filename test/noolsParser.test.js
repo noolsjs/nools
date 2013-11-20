@@ -997,5 +997,25 @@ it.describe("nools dsl parser", function (it) {
             });
         });
 
+        it.should("parse rules with exists clause", function () {
+            var parsed = noolsParser.parse("rule 'test \"rule\"' { when { exists(c : Clazz c.name eq 'Test' {test : test})} then {console.log($test);}}");
+            assert.deepEqual(parsed, {
+                define: [],
+                rules: [
+                    {
+                        name: 'test "rule"',
+                        constraints: [
+                            ["exists", "Clazz", "c", "c.name eq 'Test'", {test: "test"}]
+                        ],
+                        action: "console.log($test);",
+                        options: {}
+                    }
+                ],
+                "scope": [],
+                "loaded": [],
+                "file": undefined
+            });
+        });
+
     });
 });

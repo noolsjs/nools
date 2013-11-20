@@ -318,7 +318,23 @@ it.describe("constraint matcher", function (it) {
         it.should("create for expressions", function () {
             var atoms = constraintMatcher.toConstraints(parser.parseConstraint("isFalse(a)"), {alias: "a"});
             assert.lengthOf(atoms, 1);
+            assert.equal(atoms[0].type, "comparison");
+
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("a == 1"), {alias: "a"});
+            assert.lengthOf(atoms, 1);
             assert.equal(atoms[0].type, "equality");
+
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("a != 1"), {alias: "a"});
+            assert.lengthOf(atoms, 1);
+            assert.equal(atoms[0].type, "inequality");
+
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("a == b"), {alias: "a"});
+            assert.lengthOf(atoms, 1);
+            assert.equal(atoms[0].type, "reference_equality");
+
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("a != b"), {alias: "a"});
+            assert.lengthOf(atoms, 1);
+            assert.equal(atoms[0].type, "reference_inequality");
 
             atoms = constraintMatcher.toConstraints(parser.parseConstraint("isTrue(b)"), {alias: "a"});
             assert.lengthOf(atoms, 1);
@@ -327,7 +343,7 @@ it.describe("constraint matcher", function (it) {
             atoms = constraintMatcher.toConstraints(parser.parseConstraint("isTrue(b) && isFalse(a)"), {alias: "a"});
             assert.lengthOf(atoms, 2);
             assert.equal(atoms[0].type, "reference");
-            assert.equal(atoms[1].type, "equality");
+            assert.equal(atoms[1].type, "comparison");
 
             atoms = constraintMatcher.toConstraints(parser.parseConstraint("isTrue(b) || isFalse(a)"), {alias: "a"});
             assert.lengthOf(atoms, 1);
@@ -340,30 +356,30 @@ it.describe("constraint matcher", function (it) {
             atoms = constraintMatcher.toConstraints(parser.parseConstraint("(isNumber(b) || isFalse(a)) && b == 1"), {alias: "a"});
             assert.lengthOf(atoms, 2);
             assert.equal(atoms[0].type, "reference");
-            assert.equal(atoms[1].type, "reference");
+            assert.equal(atoms[1].type, "reference_equality");
 
             atoms = constraintMatcher.toConstraints(parser.parseConstraint("a.name == 'bob' && isFalse(a.flag) && b == 1"), {alias: "a"});
             assert.lengthOf(atoms, 3);
             assert.equal(atoms[0].type, "equality");
-            assert.equal(atoms[1].type, "equality");
-            assert.equal(atoms[2].type, "reference");
+            assert.equal(atoms[1].type, "comparison");
+            assert.equal(atoms[2].type, "reference_equality");
 
             atoms = constraintMatcher.toConstraints(parser.parseConstraint("a.name == 'bob' && !a.flag && b == 1"), {alias: "a"});
             assert.lengthOf(atoms, 3);
             assert.equal(atoms[0].type, "equality");
-            assert.equal(atoms[1].type, "equality");
-            assert.equal(atoms[2].type, "reference");
+            assert.equal(atoms[1].type, "comparison");
+            assert.equal(atoms[2].type, "reference_equality");
 
             atoms = constraintMatcher.toConstraints(parser.parseConstraint("!(a.bool && a.bool2)"), {alias: "a"});
             assert.lengthOf(atoms, 1);
-            assert.equal(atoms[0].type, "equality");
+            assert.equal(atoms[0].type, "comparison");
         });
 
         it.should("create correct pattern depending on scope", function () {
             var atoms = constraintMatcher.toConstraints(parser.parseConstraint("isEmail(a)"), {alias: "a", scope: {isEmail: function () {
             }}});
             assert.lengthOf(atoms, 1);
-            assert.equal(atoms[0].type, "equality");
+            assert.equal(atoms[0].type, "comparison");
 
             atoms = constraintMatcher.toConstraints(parser.parseConstraint("isEmail(a)"), {alias: "a"});
             assert.lengthOf(atoms, 1);
@@ -479,6 +495,47 @@ it.describe("constraint matcher", function (it) {
             assert.isFalse(constraintMatcher.equal(parser.parseConstraint("a.hello(a, b)"), parser.parseConstraint("hello()")));
             assert.isFalse(constraintMatcher.equal(parser.parseConstraint("hello(a, b, c, e)"), parser.parseConstraint("Date('2001-02-01')")));
             assert.isFalse(constraintMatcher.equal(parser.parseConstraint("Date('2001-02-01')"), parser.parseConstraint("hello(a, b, c, e)")));
+        });
+    });
+
+    it.describe(".getIndexableProperties", function (it) {
+
+        it.should("get properties with no functions", function () {
+            var props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a == b"), "a");
+            assert.deepEqual(props, ["a", "b"]);
+            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a.b == b"), "a");
+            assert.deepEqual(props, ["a.b", "b"]);
+            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a == b.c"), "a");
+            assert.deepEqual(props, ["a", "b.c"]);
+            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a.b.c.d == b.c.d.e "), "a");
+            assert.deepEqual(props, ["a.b.c.d", "b.c.d.e"]);
+            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("(a == b)"), "a");
+            assert.deepEqual(props, ["a", "b"]);
+            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a != b"), "a");
+            assert.deepEqual(props, ["a", "b"]);
+            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a.b != b"), "a");
+            assert.deepEqual(props, ["a.b", "b"]);
+            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a != b.c"), "a");
+            assert.deepEqual(props, ["a", "b.c"]);
+            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a.b.c.d != b.c.d.e "), "a");
+            assert.deepEqual(props, ["a.b.c.d", "b.c.d.e"]);
+            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("(a != b)"), "a");
+            assert.deepEqual(props, ["a", "b"]);
+        });
+
+        it.should("not get non indexable constraints", function () {
+            var props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a.b.c.d == b.c.d.e || a.b.c == b.c.d "), "a");
+            assert.deepEqual(props, []);
+
+            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a.b.c.d == b.c.d.e || a.b.c == b.c.d && c.d.e == d.e.f "), "a");
+            assert.deepEqual(props, []);
+            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("f3.sequence == s2 + 1"));
+            assert.deepEqual(props, []);
+        });
+
+        it.should("not get properties with functions", function () {
+            var props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a() == b()"), "a");
+            assert.deepEqual(props, []);
         });
     });
 

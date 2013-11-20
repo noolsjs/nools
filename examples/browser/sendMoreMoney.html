@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link type="text/css" rel="stylesheet" href="assets/conways.css">
+    <link type="text/css" rel="stylesheet" href="//code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css">
+    <link href='http://fonts.googleapis.com/css?family=Londrina+Shadow' rel='stylesheet' type='text/css'>
+    <title>Send More Money Benchmark</title>
+</head>
+<body>
+
+
+<div class="middle send-more-money">
+    <div class="header">
+        <h1>Send More Money</h1>
+        <span class="error"><b>Warning:</b> This can take a while!</span>
+    </div>
+
+    <div class="editor-container">
+        <div id="editor"></div>
+    </div>
+    <div class="inline equation-container">
+        <div class="equation middle">
+            <div>
+                <span></span>
+                <span></span>
+                <span class="s-val">S</span>
+                <span class="e-val">E</span>
+                <span class="n-val">N</span>
+                <span class="d-val">D</span>
+            </div>
+            <div>
+                <span>+</span>
+                <span></span>
+                <span class="m-val">M</span>
+                <span class="o-val">O</span>
+                <span class="r-val">R</span>
+                <span class="e-val">E</span>
+            </div>
+            <div>
+                <span></span>
+                <span class="m-val">M</span>
+                <span class="o-val">O</span>
+                <span class="n-val">N</span>
+                <span class="e-val">E</span>
+                <span class="y-val">Y</span>
+            </div>
+        </div>
+        <input class="middle calc-button" type="button" value="Calculate"/>
+    </div>
+</div>
+
+<script type="text/javascript" src="//code.jquery.com/jquery-1.10.1.min.js"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/1.1.01/ace.js"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/1.1.01/mode-javascript.js"></script>
+<script type="text/javascript" src="../../nools.js"></script>
+<script type="text/javascript">
+
+    $(document).ready(function () {
+        $.ajax({
+            url: "./rules/sendMoreMoney.nools"
+        }).then(function (res) {
+
+                    var flow = nools.compile(res, {name: "SendMoreMoney"}),
+                            calcButton = $("input.calc-button"),
+                            letters = ["s", "e", "n", "d", "m", "o", "r", "y"];
+
+                    function calc() {
+                        session;
+                        (session = flow.getSession(0, 1, 2, 3, 4, 5, 6, 7, 8, 9))
+                                .on("solved",function (solved) {
+                                    for (var i in solved) {
+                                        $("." + i + "-val").text(solved[i]);
+                                    }
+                                    calcButton.val("Calculated");
+                                }).match().then(function () {
+                                    session.dispose();
+                                });
+                    }
+
+                    calcButton.on("click", function () {
+                        calcButton.attr("disabled", "disabled");
+                        calcButton.val("Calculating");
+                        for (var i = 0, l = letters.length; i < l; i++) {
+                            $("." + letters[i] + "-val").text("#");
+                        }
+                        setTimeout(calc, 100);
+                    });
+                    var height = $(document).height() - $("#manners .header").height() - 100;
+                    $(".editor-container").height(height);
+
+                    var editor = ace.edit("editor");
+                    //editor.setTheme("ace/theme/monokai");
+                    var session = editor.getSession();
+                    session.setMode("ace/mode/javascript");
+                    session.setValue(res);
+                    editor.setReadOnly(true);
+
+
+                });
+    });
+</script>
+
+</body>
+</html>

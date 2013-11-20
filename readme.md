@@ -40,6 +40,7 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
         * [Not](#not-constraint)
         * [Or](#or-constraint)
         * [From](#from-constraint)
+        * [Exists](#exists-constraint)
       * [Actions](#action)
       * [Globals](#globals)
       * [Import](#import)
@@ -49,6 +50,14 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
 ## Resources
   * [Nools Google group](https://groups.google.com/forum/#!forum/nools)
   * [Examples](http://c2fo.github.io/nools/examples.html)
+    * [Conways 2D](http://c2fo.github.io/nools/examples/browser/conways_2d.html)
+    * [Conways 3D](http://c2fo.github.io/nools/examples/browser/conways_3d.html)
+    * [Sudoku](http://c2fo.github.io/nools/examples/browser/sudoku.html)
+    * [Fibonacci](http://c2fo.github.io/nools/examples/browser/fibonacci.html)
+    * [Miss Manners](http://c2fo.github.io/nools/examples/browser/manners.html)
+    * [Waltz DB](http://c2fo.github.io/nools/examples/browser/waltzDb.html)
+    * [Send More Money](http://c2fo.github.io/nools/examples/browser/sendMoreMoney.html)
+    * [Diagnosis](http://c2fo.github.io/nools/examples/browser/diagnose.html)
   * [Tests](https://github.com/C2FO/nools/tree/master/test)
 
 <a name="flow"></a>
@@ -1333,6 +1342,42 @@ rule "my rule", {
     }
 }
 ```
+
+<a name="exists-constraint"></a>
+
+###Exists Constraint
+
+`exists` is the logical inversion of a `not` constraint. It checks for the existence of a fact in memory.
+
+ **NOTE** If there are multiple facts that satisfy the constraint the rule will **ONLY** be fired once.
+
+ ```javascript
+
+ [
+     ["exists", Number, "n1", "n1 > 1"]
+ ]
+
+ ```
+
+ Or using the DSL.
+
+ ```
+
+ when {
+     exists(n1: Number n1 > 1);
+ }
+
+ ```
+
+ Assuming the above constraint. The following facts would cause the rule to fire once since there is a number that is greater than 1.
+
+ ```javascript
+ session.assert(1);
+ session.assert(2);
+ session.assert(3);
+ session.assert(4);
+ session.assert(5);
+ ```
 
 <a name="action"></a>
 

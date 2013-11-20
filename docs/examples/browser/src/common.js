@@ -64,7 +64,7 @@
         }
 
         setInterval(function () {
-            runningTimeSpan.text("running Time:" + Math.round(transCum / 1000 / 60) + "min");
+            runningTimeSpan.text("running time:" + Math.round(transCum / 1000 / 60) + "min");
             firesSpan.text('rules fired: : ' + fires);
             retractionsSpan.text('facts retracted: ' + retractions);
             modifiesSpan.text('facts modified: ' + modified);

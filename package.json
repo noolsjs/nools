@@ -1,7 +1,7 @@
 {
     "name": "nools",
     "description": "A rules engine for node",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "bin": {
         "nools": "./bin/nools"
     },
@@ -29,7 +29,7 @@
         "object-extended": "~0.0.3",
         "promise-extended": "~0.0.3",
         "arguments-extended": "~0.0.3",
-        "leafy": "~0.0.2",
+        "leafy": "~0.0.3",
         "ht": "~0.0.2",
         "commander": "~1.1.1",
         "uglify-js": "~2.3.6"
