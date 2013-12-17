@@ -1,3 +1,12 @@
+#0.2.3
+
+* Added new `getFacts` method to allow for querying of facts currently in session. [#52](https://github.com/C2FO/nools/issues/52);
+* Added indexing on comparison operators (i.e. `>, <, >=, <=`).
+* Updated documentation.
+   * Added new section about retrieving facts from a session.
+   * Created new section for async actions to address [#94](https://github.com/C2FO/nools/issues/94)
+
+
 #0.2.2
 
 * Performance Upgrades

@@ -328,9 +328,31 @@ it.describe("constraint matcher", function (it) {
             assert.lengthOf(atoms, 1);
             assert.equal(atoms[0].type, "inequality");
 
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("a > b"), {alias: "a"});
+            assert.lengthOf(atoms, 1);
+            assert.equal(atoms[0].type, "reference_gt");
+            assert.equal(atoms[0].op, "gt");
+
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("a >= b"), {alias: "a"});
+            assert.lengthOf(atoms, 1);
+            assert.equal(atoms[0].type, "reference_gte");
+            assert.equal(atoms[0].op, "gte");
+
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("a < b"), {alias: "a"});
+            assert.lengthOf(atoms, 1);
+            assert.equal(atoms[0].type, "reference_lt");
+            assert.equal(atoms[0].op, "lt");
+
+            atoms = constraintMatcher.toConstraints(parser.parseConstraint("a <= b"), {alias: "a"});
+            assert.lengthOf(atoms, 1);
+            assert.equal(atoms[0].type, "reference_lte");
+            assert.equal(atoms[0].op, "lte");
+
+
             atoms = constraintMatcher.toConstraints(parser.parseConstraint("a == b"), {alias: "a"});
             assert.lengthOf(atoms, 1);
             assert.equal(atoms[0].type, "reference_equality");
+            assert.equal(atoms[0].op, "eq");
 
             atoms = constraintMatcher.toConstraints(parser.parseConstraint("a != b"), {alias: "a"});
             assert.lengthOf(atoms, 1);
@@ -501,26 +523,22 @@ it.describe("constraint matcher", function (it) {
     it.describe(".getIndexableProperties", function (it) {
 
         it.should("get properties with no functions", function () {
-            var props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a == b"), "a");
-            assert.deepEqual(props, ["a", "b"]);
-            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a.b == b"), "a");
-            assert.deepEqual(props, ["a.b", "b"]);
-            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a == b.c"), "a");
-            assert.deepEqual(props, ["a", "b.c"]);
-            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a.b.c.d == b.c.d.e "), "a");
-            assert.deepEqual(props, ["a.b.c.d", "b.c.d.e"]);
-            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("(a == b)"), "a");
-            assert.deepEqual(props, ["a", "b"]);
-            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a != b"), "a");
-            assert.deepEqual(props, ["a", "b"]);
-            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a.b != b"), "a");
-            assert.deepEqual(props, ["a.b", "b"]);
-            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a != b.c"), "a");
-            assert.deepEqual(props, ["a", "b.c"]);
-            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a.b.c.d != b.c.d.e "), "a");
-            assert.deepEqual(props, ["a.b.c.d", "b.c.d.e"]);
-            props = constraintMatcher.getIndexableProperties(parser.parseConstraint("(a != b)"), "a");
-            assert.deepEqual(props, ["a", "b"]);
+
+            var operators = ["==", "!=", ">", ">=", "<", "<="], props, op;
+            for (var i = 0, l = operators.length; i < l; i++) {
+                op = operators[i];
+                props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a " + op + " b"), "a");
+                assert.deepEqual(props, ["a", "b"]);
+                props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a.b " + op + " b"), "a");
+                assert.deepEqual(props, ["a.b", "b"]);
+                props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a " + op + " b.c"), "a");
+                assert.deepEqual(props, ["a", "b.c"]);
+                props = constraintMatcher.getIndexableProperties(parser.parseConstraint("a.b.c.d " + op + " b.c.d.e "), "a");
+                assert.deepEqual(props, ["a.b.c.d", "b.c.d.e"]);
+                props = constraintMatcher.getIndexableProperties(parser.parseConstraint("(a " + op + " b)"), "a");
+                assert.deepEqual(props, ["a", "b"]);
+            }
+
         });
 
         it.should("not get non indexable constraints", function () {

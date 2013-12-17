@@ -79,7 +79,7 @@ it.describe("BetaNode RightMemory", function (it) {
         var node = rm.push(rightContext);
         assert.equal(rm.length, 1);
         rm.remove(node);
-        assert.deepEqual(rm.tables.tables["a.s"].get(1).tuples, []);
+        assert.isUndefined(rm.tables.tables["a.s"].get(1));
     });
 
     it.describe(".getRightMemory", function (it) {
@@ -125,6 +125,31 @@ it.describe("BetaNode RightMemory", function (it) {
             assert.deepEqual(nodes, [node1]);
             nodes = rm.getRightMemory(leftContext2);
             assert.lengthOf(nodes, 0);
+        });
+
+        it.should("find intersection of multiple neq", function () {
+            var wm = new WorkingMemory(),
+                rm = new RightMemory(),
+                rightContext1 = new Context(wm.assertFact({s: 1})),
+                rightContext2 = new Context(wm.assertFact({s: 1})),
+                leftContext1 = new Context(wm.assertFact({a: 1})),
+                leftContext2 = new Context(wm.assertFact({a: 3}));
+            rightContext1.set("a", {s: 1});
+            rightContext2.set("a", {s: 3});
+            leftContext1.set("s", {a: 1, b: 2, c: 1});
+            leftContext2.set("s", {a: 2, b: 3, c: 4});
+            rm.addIndex("a.s", "s.a", "neq");
+            rm.addIndex("a.s", "s.b", "neq");
+            rm.addIndex("a.s", "s.c", "neq");
+            var node1 = rm.push(rightContext1),
+                node2 = rm.push(rightContext2);
+            assert.equal(rm.length, 2);
+            var nodes = rm.getRightMemory(leftContext1);
+            assert.lengthOf(nodes, 1);
+            assert.deepEqual(nodes, [node2]);
+            nodes = rm.getRightMemory(leftContext2);
+            assert.lengthOf(nodes, 1);
+            assert.deepEqual(nodes, [node1]);
         });
     });
 });

@@ -92,7 +92,7 @@ var hard4 = [
 
 var sud = new sudoku.Sudoku(flow);
 var repl = require("repl");
-sud.setCellValues(hard4).then(function () {
+sud.setCellValues(hard3).then(function () {
     var sudokuRepl = repl.start("sudoku>>");
     sudokuRepl.context.print = sud.dumpGrid.bind(sud);
     sudokuRepl.context.step = function () {

@@ -1,15 +1,20 @@
 "use strict";
 var it = require("it"),
     assert = require("assert"),
-    nools = require("../index");
+    nools = require("../index"),
+    resolve = require("path").resolve;
 
 it.describe("Flow dsl", function (it) {
 
     it.describe("not rule", function (it) {
 
-        var flow = nools.compile(__dirname + "/rules/notRule.nools"),
-            Count = flow.getDefined("count"),
+        var flow, Count, called;
+
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/notRule.nools"));
+            Count = flow.getDefined("count");
             called = new Count();
+        });
 
 
         it.should("call when a string that does not equal 'hello'", function () {
@@ -35,10 +40,12 @@ it.describe("Flow dsl", function (it) {
     });
 
     it.describe("or rule", function (it) {
-
-        var flow = nools.compile(__dirname + "/rules/orRule.nools"),
-            Count = flow.getDefined("count"),
+        var flow, Count, called;
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/orRule.nools"));
+            Count = flow.getDefined("count");
             called = new Count();
+        });
 
         it.should("call when a string equals 'hello'", function () {
             return flow.getSession("world", called).match().then(function () {
@@ -57,7 +64,7 @@ it.describe("Flow dsl", function (it) {
         it.describe("or rule with not conditions", function (it) {
             var flow, count;
             it.beforeAll(function () {
-                flow = nools.compile(__dirname + "/rules/orRule-notConditions.nools");
+                flow = nools.compile(resolve(__dirname, "./rules/orRule-notConditions.nools"));
                 var Count = flow.getDefined("count");
                 count = new Count();
             });
@@ -94,9 +101,11 @@ it.describe("Flow dsl", function (it) {
     });
 
     it.describe("scoped functions", function (it) {
-        var flow = nools.compile(__dirname + "/rules/scope.nools"),
-            Message = flow.getDefined("Message"),
-            session;
+        var flow, Message, session;
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/scope.nools"));
+            Message = flow.getDefined("Message");
+        });
 
         it.beforeEach(function () {
             session = flow.getSession();
@@ -116,9 +125,11 @@ it.describe("Flow dsl", function (it) {
         var matches = function (str, regex) {
             return regex.test(str);
         };
-        var flow = nools.compile(__dirname + "/rules/provided-scope.nools", {scope: {doesMatch: matches}}),
-            Message = flow.getDefined("Message"),
-            session;
+        var flow, Message, session;
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/provided-scope.nools"), {scope: {doesMatch: matches}});
+            Message = flow.getDefined("Message");
+        });
 
         it.beforeEach(function () {
             session = flow.getSession();
@@ -140,13 +151,15 @@ it.describe("Flow dsl", function (it) {
             this.message = message;
         }
 
-        var flow = nools.compile(__dirname + "/rules/simple-external-defined.nools", {
+        var flow, session;
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/simple-external-defined.nools"), {
                 define: {
                     Message: Message
                 }
 
-            }),
-            session;
+            });
+        });
 
         it.beforeEach(function () {
             session = flow.getSession();
@@ -167,10 +180,13 @@ it.describe("Flow dsl", function (it) {
     });
 
     it.describe("globals", function (it) {
-        var flow = nools.compile(__dirname + "/rules/global.nools"),
-            session;
+        var flow, session;
 
         it.timeout(1000);
+
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/global.nools"));
+        });
 
         it.beforeEach(function () {
             session = flow.getSession();
@@ -198,7 +214,10 @@ it.describe("Flow dsl", function (it) {
 
     it.describe("comments in dsl", function (it) {
 
-        var flow = nools.compile(__dirname + "/rules/comments.nools");
+        var flow;
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/comments.nools"));
+        });
 
         it.should("remove all block comments", function () {
             assert.isFalse(flow.containsRule("Goodbye2"));
@@ -212,9 +231,11 @@ it.describe("Flow dsl", function (it) {
 
         it.timeout(1000);
 
-        var flow = nools.compile(__dirname + "/rules/simple.nools"),
-            Message = flow.getDefined("Message"),
-            session;
+        var flow, Message, session;
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/simple.nools"));
+            Message = flow.getDefined("Message");
+        });
 
         it.beforeEach(function () {
             session = flow.getSession();
@@ -279,9 +300,11 @@ it.describe("Flow dsl", function (it) {
     });
 
     it.describe("agenda-groups", function (it) {
-        var flow = nools.compile(__dirname + "/rules/agenda-group.nools"),
-            Message = flow.getDefined("message"),
-            session;
+        var flow, Message, session;
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/agenda-group.nools"));
+            Message = flow.getDefined("message");
+        });
 
         it.beforeEach(function () {
             session = flow.getSession();
@@ -336,10 +359,77 @@ it.describe("Flow dsl", function (it) {
         });
     });
 
+    it.describe("getFacts from action", function (it) {
+        var flow;
+
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/getFacts.nools"));
+        });
+
+        it.should("get all facts", function () {
+            var session = flow.getSession().focus("get-facts");
+            var facts = [
+                {},
+                1,
+                "hello",
+                true,
+                new Date()
+            ];
+            for (var i = 0; i < facts.length; i++) {
+                session.assert(facts[i]);
+            }
+            var called = 0;
+            return session.on("get-facts",function (gottenFacts) {
+                assert.deepEqual(gottenFacts, facts);
+                called++;
+            }).match().then(function () {
+                    assert.equal(called, 1);
+                });
+        });
+
+        it.should("get facts by type", function () {
+            var session = flow.getSession().focus("get-facts-by-type");
+            var facts = [
+                1,
+                "hello",
+                true,
+                new Date()
+            ];
+            for (var i = 0; i < facts.length; i++) {
+                session.assert(facts[i]);
+            }
+            var called = 0;
+            return session
+                .on("get-facts-number", function (fact) {
+                    assert.deepEqual(fact, [facts[0]]);
+                    called++;
+                })
+                .on("get-facts-string", function (fact) {
+                    assert.deepEqual(fact, [facts[1]]);
+                    called++;
+                })
+                .on("get-facts-boolean", function (fact) {
+                    assert.deepEqual(fact, [facts[2]]);
+                    called++;
+                })
+                .on("get-facts-date", function (fact) {
+                    assert.deepEqual(fact, [facts[3]]);
+                    called++;
+                })
+                .match().then(function () {
+                    assert.equal(called, 4);
+                });
+        });
+
+    });
+
     it.describe("auto-focus", function (it) {
-        var flow = nools.compile(__dirname + "/rules/auto-focus.nools"),
-            State = flow.getDefined("state"),
-            session;
+
+        var flow, State, session;
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/auto-focus.nools"));
+            State = flow.getDefined("state");
+        });
 
         it.beforeEach(function () {
             session = flow.getSession();
@@ -360,11 +450,15 @@ it.describe("Flow dsl", function (it) {
         });
     });
 
+
     it.describe("fibonacci nools dsl", function (it) {
 
-        var flow = nools.compile(__dirname + "/rules/fibonacci.nools");
-        var Fibonacci = flow.getDefined("fibonacci");
-        var Result = flow.getDefined("result");
+        var flow, Fibonacci, Result;
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/fibonacci.nools"));
+            Fibonacci = flow.getDefined("fibonacci");
+            Result = flow.getDefined("result");
+        });
 
         it.should("calculate fibonacci 3", function () {
             var result = new Result();
@@ -402,8 +496,11 @@ it.describe("Flow dsl", function (it) {
 
     it.describe("diagnosis using dsl", function (it) {
 
-        var flow = nools.compile(__dirname + "/rules/diagnosis.nools"),
+        var flow, Patient;
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/diagnosis.nools"));
             Patient = flow.getDefined("patient");
+        });
 
 
         it.should("treat properly", function () {
@@ -414,9 +511,8 @@ it.describe("Flow dsl", function (it) {
             session.assert(new Patient({name: "Bob", fever: "high", spots: true, rash: false, soreThroat: false, innoculated: true}));
             session.assert(new Patient({name: "Tom", fever: "none", spots: false, rash: true, soreThroat: false, innoculated: false}));
             session.assert(results);
-            //flow.print();
             return session.match().then(function () {
-                //session.dispose();
+                session.dispose();
                 assert.deepEqual(results, [
                     {"name": "Tom", "treatment": "allergyShot"},
                     {"name": "Bob", "treatment": "penicillin"},

@@ -1,0 +1,36 @@
+rule getFacts1{
+    agenda-group: "get-facts";
+    when {
+        n: Number;
+        s: String;
+        b: Boolean;
+        d: Date;
+    }
+    then {
+        emit("get-facts", getFacts());
+        retract(n);
+        retract(s);
+        retract(b);
+        retract(d);
+    }
+}
+
+rule getFacts2{
+    agenda-group: "get-facts-by-type";
+    when {
+        n: Number;
+        s: String;
+        b: Boolean;
+        d: Date;
+    }
+    then {
+        emit("get-facts-number", getFacts(Number));
+        emit("get-facts-string", getFacts(String));
+        emit("get-facts-boolean", getFacts(Boolean));
+        emit("get-facts-date", getFacts(Date));
+        retract(n);
+        retract(s);
+        retract(b);
+        retract(d);
+    }
+}

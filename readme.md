@@ -23,6 +23,7 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
         * [Assert](#facts-assert)
         * [Retract](#facts-retract)
         * [Modify](#facts-modify)
+        * [Retrieving Facts](#get-facts)
     * [Firing](#firing) 
     * [Disposing](#disposing)
     * [Removing A Flow](#removing-flow)
@@ -42,6 +43,7 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
         * [From](#from-constraint)
         * [Exists](#exists-constraint)
       * [Actions](#action)
+        * [Async Actions](#action-async)
       * [Globals](#globals)
       * [Import](#import)
    * [Browser Support](#browser-support)
@@ -310,6 +312,32 @@ session.modify(m);
 ```
 
 **Note** `modify` is typically used during the execution of the rules.
+
+<a name="get-facts"></a>
+### Retrieving Facts
+
+To get a list of facts currently in the session you can use the `getFacts()` method exposed on a session.
+
+```javascript
+session.assert(1);
+session.assert("A");
+session.assert("B");
+session.assert(2);
+
+session.getFacts(); //[1, "A", "B", 2];
+```
+
+You may also pass in a `Type` to `getFacts` which will return facts only of the given type.
+
+```javascript
+session.assert(1);
+session.assert("A");
+session.assert("B");
+session.assert(2);
+
+session.getFacts(Number); //[1, 2];
+session.getFacts(String); //["A", "B"];
+```
 
 
 <a name="firing"></a>
@@ -1411,25 +1439,7 @@ function (facts, session) {
     }
 ```
 
-If you have an async action that needs to take place an optional third argument can be passed in which is a function 
-to be called when the action is completed.
-
-```javascript
-function (facts, engine, next) {
-        //some async action
-        process.nextTick(function(){
-            var f3 = facts.f3, f1 = facts.f1, f2 = facts.f2;
-            var v = f3.value = f1.value + facts.f2.value;
-            facts.r.result = v;
-            engine.modify(f3);
-            engine.retract(f1);
-            next();
-        })
-    }
-```
-If any arguments are passed into next it is assumed there was an error and the session will error out.
-
-To define the action with the nools DSL
+To define the actions with the nools DSL
 
 ```
 then {
@@ -1441,6 +1451,45 @@ then {
 ```
 
 For rules defined using the rules language nools will automatically determine what parameters need to be passed in based on what is referenced in the action.
+
+
+<a name="action-async"></a>
+
+### Async Actions
+
+If your action is async you can use the third argument which should called when the action is completed.
+
+```javascript
+function (facts, engine, next) {
+        //some async action
+        process.nextTick(function(){
+            var f3 = facts.f3, f1 = facts.f1, f2 = facts.f2;
+            var v = f3.value = f1.value + facts.f2.value;
+            facts.r.result = v;
+            engine.modify(f3);
+            engine.retract(f1);
+            next();
+        });
+    }
+```
+
+If an error occurs you can pass the error as the first argument to `next`.
+
+```javascript
+then{
+   saveToDatabase(user, function(err){
+      next(new Error("Something went BOOM!"));
+   });
+}
+```
+
+If you are using a [`Promises/A+`](http://promises-aplus.github.io/promises-spec/) compliant library you can just return a promise from your action and `nools` will wait for the promise to resolve before continuing.
+
+```javascript
+then{
+   return saveToDatabase(user); // assume saveToDatabase returns a promise
+}
+```
 
 <a name="globals"></a>
 
