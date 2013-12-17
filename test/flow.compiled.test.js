@@ -329,6 +329,70 @@ it.describe("Flow compiled", function (it) {
         });
 
     });
+
+    it.describe("getFacts from action", function (it) {
+        var flow;
+
+        it.beforeAll(function () {
+            flow = require("./rules/getFacts-compiled")();
+        });
+
+        it.should("get all facts", function () {
+            var session = flow.getSession().focus("get-facts");
+            var facts = [
+                {},
+                1,
+                "hello",
+                true,
+                new Date()
+            ];
+            for (var i = 0; i < facts.length; i++) {
+                session.assert(facts[i]);
+            }
+            var called = 0;
+            return session.on("get-facts",function (gottenFacts) {
+                assert.deepEqual(gottenFacts, facts);
+                called++;
+            }).match().then(function () {
+                    assert.equal(called, 1);
+                });
+        });
+
+        it.should("get facts by type", function () {
+            var session = flow.getSession().focus("get-facts-by-type");
+            var facts = [
+                1,
+                "hello",
+                true,
+                new Date()
+            ];
+            for (var i = 0; i < facts.length; i++) {
+                session.assert(facts[i]);
+            }
+            var called = 0;
+            return session
+                .on("get-facts-number",function (fact) {
+                    assert.deepEqual(fact, [facts[0]]);
+                    called++;
+                })
+                .on("get-facts-string",function (fact) {
+                    assert.deepEqual(fact, [facts[1]]);
+                    called++;
+                })
+                .on("get-facts-boolean",function (fact) {
+                    assert.deepEqual(fact, [facts[2]]);
+                    called++;
+                })
+                .on("get-facts-date",function (fact) {
+                    assert.deepEqual(fact, [facts[3]]);
+                    called++;
+                })
+                .match().then(function () {
+                    assert.equal(called, 4);
+                });
+        });
+
+    });
 });
 
 

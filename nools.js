@@ -31,6 +31,7 @@ var extd = require("./extended"),
     declare = extd.declare,
     AVLTree = extd.AVLTree,
     LinkedList = extd.LinkedList,
+    isPromise = extd.isPromiseLike,
     EventEmitter = require("events").EventEmitter;
 
 
@@ -138,7 +139,7 @@ module.exports = declare(EventEmitter, {
                 var activation = this.pop();
                 this.emit("fire", activation.rule.name, activation.match.factHash);
                 var fired = activation.rule.fire(this.flow, activation.match);
-                if (extd.isPromiseLike(fired)) {
+                if (isPromise(fired)) {
                     ret = fired.then(function () {
                         //return true if an activation fired
                         return true;
@@ -217,14 +218,14 @@ module.exports = declare(EventEmitter, {
     }
 
 });
-},{"./extended":12,"events":64}],4:[function(require,module,exports){
+},{"./extended":12,"events":60}],4:[function(require,module,exports){
 /*jshint evil:true*/
 "use strict";
 var extd = require("../extended"),
     forEach = extd.forEach,
     isString = extd.isString;
 
-exports.modifiers = ["assert", "modify", "retract", "emit", "halt", "focus"];
+exports.modifiers = ["assert", "modify", "retract", "emit", "halt", "focus", "getFacts"];
 
 var createFunction = function (body, defined, scope, scopeNames, definedNames) {
     var declares = [];
@@ -289,6 +290,7 @@ var extd = require("../extended"),
     merge = extd.merge,
     rules = require("../rule"),
     common = require("./common"),
+    modifiers = common.modifiers,
     createDefined = common.createDefined,
     createFunction = common.createFunction;
 
@@ -320,7 +322,7 @@ var parseAction = function (action, identifiers, defined, scope) {
             declares.push("var " + i + "= scope." + i + ";");
         }
     });
-    extd(["halt", "assert", "retract", "modify", "focus", "emit"]).forEach(function (i) {
+    extd(modifiers).forEach(function (i) {
         if (action.indexOf(i) !== -1) {
             declares.push("if(!" + i + "){ var " + i + "= flow." + i + ";}");
         }
@@ -473,12 +475,13 @@ exports.transpile = require("./transpile").transpile;
 
 
 
-},{"../constraintMatcher.js":9,"../extended":12,"../parser":41,"../rule":46,"./common":4,"./transpile":6,"__browserify_Buffer":67}],6:[function(require,module,exports){
+},{"../constraintMatcher.js":9,"../extended":12,"../parser":44,"../rule":49,"./common":4,"./transpile":6,"__browserify_Buffer":63}],6:[function(require,module,exports){
 var Buffer=require("__browserify_Buffer").Buffer;var extd = require("../extended"),
     forEach = extd.forEach,
     indexOf = extd.indexOf,
     merge = extd.merge,
     isString = extd.isString,
+    modifiers = require("./common").modifiers,
     constraintMatcher = require("../constraintMatcher"),
     parser = require("../parser");
 
@@ -506,21 +509,29 @@ function definedToJs(options) {
 }
 
 function actionToJs(action, identifiers, defined, scope) {
-    var declares = [];
+    var declares = [], usedVars = {};
     forEach(identifiers, function (i) {
         if (action.indexOf(i) !== -1) {
+            usedVars[i] = true;
             declares.push("var " + i + "= facts." + i + ";");
         }
     });
     extd(defined).keys().forEach(function (i) {
-        if (action.indexOf(i) !== -1) {
+        if (action.indexOf(i) !== -1 && !usedVars[i]) {
+            usedVars[i] = true;
             declares.push("var " + i + "= defined." + i + ";");
         }
     });
 
     extd(scope).keys().forEach(function (i) {
-        if (action.indexOf(i) !== -1) {
+        if (action.indexOf(i) !== -1 && !usedVars[i]) {
+            usedVars[i] = true;
             declares.push("var " + i + "= scope." + i + ";");
+        }
+    });
+    extd(modifiers).forEach(function (i) {
+        if (action.indexOf(i) !== -1 && !usedVars[i]) {
+            declares.push("var " + i + "= flow." + i + ";");
         }
     });
     var params = ["facts", 'flow'];
@@ -529,7 +540,7 @@ function actionToJs(action, identifiers, defined, scope) {
     }
     action = declares.join("") + action;
     try {
-        return ["function(", params.join(","), "){with(flow){", action, "}}"].join("");
+        return ["function(", params.join(","), "){", action, "}"].join("");
     } catch (e) {
         throw new Error("Invalid action : " + action + "\n" + e.message);
     }
@@ -603,7 +614,8 @@ exports.transpile = function (flowObj, options) {
     ret.push("(function(){");
     ret.push("return function(options){");
     ret.push("options = options || {};");
-    ret.push("var bind = function(scope, fn){return function(){return fn.apply(scope, arguments);};}, defined = options.defined || {}, scope = options.scope || {};");
+    ret.push("var bind = function(scope, fn){return function(){return fn.apply(scope, arguments);};}, defined = {Array: Array, String: String, Number: Number, Boolean: Boolean, RegExp: RegExp, Date: Date, Object: Object}, scope = options.scope || {};");
+    ret.push("var optDefined = options.defined || {}; for(var i in optDefined){defined[i] = optDefined[i];}");
     var defined = merge({Array: Array, String: String, Number: Number, Boolean: Boolean, RegExp: RegExp, Date: Date, Object: Object}, options.define || {});
     if (typeof Buffer !== "undefined") {
         defined.Buffer = Buffer;
@@ -646,7 +658,7 @@ exports.transpile = function (flowObj, options) {
 
 
 
-},{"../constraintMatcher":9,"../extended":12,"../parser":41,"__browserify_Buffer":67}],7:[function(require,module,exports){
+},{"../constraintMatcher":9,"../extended":12,"../parser":44,"./common":4,"__browserify_Buffer":63}],7:[function(require,module,exports){
 var map = require("./extended").map;
 
 function salience(a, b) {
@@ -883,7 +895,11 @@ ReferenceConstraint.extend({instance: {
         return constraintMatcher.getIndexableProperties(this.constraint);
     }
 }}).as(exports, "ReferenceEqualityConstraint")
-    .extend({instance: {type: "reference_inequality", op: "neq"}}).as(exports, "ReferenceInequalityConstraint");
+    .extend({instance: {type: "reference_inequality", op: "neq"}}).as(exports, "ReferenceInequalityConstraint")
+    .extend({instance: {type: "reference_gt", op: "gt"}}).as(exports, "ReferenceGTConstraint")
+    .extend({instance: {type: "reference_gte", op: "gte"}}).as(exports, "ReferenceGTEConstraint")
+    .extend({instance: {type: "reference_lt", op: "lt"}}).as(exports, "ReferenceLTConstraint")
+    .extend({instance: {type: "reference_lte", op: "lte"}}).as(exports, "ReferenceLTEConstraint");
 
 
 Constraint.extend({
@@ -1079,7 +1095,7 @@ var lang = {
     getIndexableProperties: function (rule) {
         if (rule[2] === "composite") {
             return this.getIndexableProperties(rule[0]);
-        } else if (/^(\w+(\['[^']*'])*) *[!=]== (\w+(\['[^']*'])*)$/.test(this.parse(rule))) {
+        } else if (/^(\w+(\['[^']*'])*) *([!=]==|[<>]=?) (\w+(\['[^']*'])*)$/.test(this.parse(rule))) {
             return getProps(this.__getProperties(rule)).flatten().value();
         } else {
             return [];
@@ -1160,11 +1176,26 @@ var lang = {
             var isReference = some(this.getIdentifiers(rule), function (i) {
                 return i !== alias && !(i in definedFuncs) && !(i in scope);
             });
-            if (rule2 === "eq") {
+            switch (rule2) {
+            case "eq":
                 ret.push(new atoms[isReference ? "ReferenceEqualityConstraint" : "EqualityConstraint"](rule, options));
-            } else if (rule2 === "neq") {
+                break;
+            case "neq":
                 ret.push(new atoms[isReference ? "ReferenceInequalityConstraint" : "InequalityConstraint"](rule, options));
-            } else {
+                break;
+            case "gt":
+                ret.push(new atoms[isReference ? "ReferenceGTConstraint" : "ComparisonConstraint"](rule, options));
+                break;
+            case "gte":
+                ret.push(new atoms[isReference ? "ReferenceGTEConstraint" : "ComparisonConstraint"](rule, options));
+                break;
+            case "lt":
+                ret.push(new atoms[isReference ? "ReferenceLTConstraint" : "ComparisonConstraint"](rule, options));
+                break;
+            case "lte":
+                ret.push(new atoms[isReference ? "ReferenceLTEConstraint" : "ComparisonConstraint"](rule, options));
+                break;
+            default:
                 ret.push(new atoms[isReference ? "ReferenceConstraint" : "ComparisonConstraint"](rule, options));
             }
 
@@ -1384,60 +1415,82 @@ exports.getIdentifiers = function (constraint) {
 exports.getIndexableProperties = function (constraint) {
     return lang.getIndexableProperties(constraint);
 };
-
 },{"./constraint":8,"./extended":12}],10:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     isBoolean = extd.isBoolean,
     declare = extd.declare,
-    merge = extd.merge,
-    union = extd.union,
-    pSlice = Array.prototype.slice;
+    indexOf = extd.indexOf,
+    pPush = Array.prototype.push;
 
 function createContextHash(paths, hashCode) {
-    var ret = [],
+    var ret = "",
         i = -1,
         l = paths.length;
     while (++i < l) {
-        ret.push(paths[i].id);
+        ret += paths[i].id + ":";
     }
-    ret.push(hashCode);
-    return ret.join(":");
+    ret += hashCode;
+    return ret;
+}
+
+function merge(h1, h2, aliases) {
+    var i = -1, l = aliases.length, alias;
+    while (++i < l) {
+        alias = aliases[i];
+        h1[alias] = h2[alias];
+    }
+}
+
+function unionRecency(arr, arr1, arr2) {
+    pPush.apply(arr, arr1);
+    var i = -1, l = arr2.length, val, j = arr.length;
+    while (++i < l) {
+        val = arr2[i];
+        if (indexOf(arr, val) === -1) {
+            arr[j++] = val;
+        }
+    }
 }
 
 var Match = declare({
     instance: {
-        constructor: function (assertable) {
-            this.isMatch = true;
-            if (assertable instanceof this._static) {
-                this.isMatch = assertable.isMatch;
-                this.facts = pSlice.call(assertable.facts);
-                this.factIds = pSlice.call(assertable.factIds);
-                this.hashCode = this.factIds.join(":");
-                this.factHash = merge({}, assertable.factHash);
-                this.recency = pSlice.call(assertable.recency);
-            } else if (assertable) {
-                this.facts = [assertable];
-                this.factIds = [assertable.id];
-                this.recency = [assertable.recency];
-                this.hashCode = assertable.id + "";
-                this.factHash = assertable.factHash || {};
-            } else {
-                this.facts = [];
-                this.factIds = [];
-                this.factHash = {};
-                this.hashCode = "";
-            }
+
+        isMatch: true,
+        hashCode: "",
+        facts: null,
+        factIds: null,
+        factHash: null,
+        recency: null,
+        aliases: null,
+
+        constructor: function () {
+            this.facts = [];
+            this.factIds = [];
+            this.factHash = {};
+            this.recency = [];
+            this.aliases = [];
+        },
+
+        addFact: function (assertable) {
+            pPush.call(this.facts, assertable);
+            pPush.call(this.recency, assertable.recency);
+            pPush.call(this.factIds, assertable.id);
+            this.hashCode = this.factIds.join(":");
+            return this;
         },
 
         merge: function (mr) {
-            var ret = new this._static();
+            var ret = new Match();
             ret.isMatch = mr.isMatch;
-            ret.facts = this.facts.concat(mr.facts);
-            ret.factIds = this.factIds.concat(mr.factIds);
-            ret.hashCode = ret.factIds.join(":");
-            ret.factHash = merge({}, this.factHash, mr.factHash);
-            ret.recency = union(this.recency, mr.recency);
+            pPush.apply(ret.facts, this.facts);
+            pPush.apply(ret.facts, mr.facts);
+            pPush.apply(ret.aliases, this.aliases);
+            pPush.apply(ret.aliases, mr.aliases);
+            ret.hashCode = this.hashCode + ":" + mr.hashCode;
+            merge(ret.factHash, this.factHash, this.aliases);
+            merge(ret.factHash, mr.factHash, mr.aliases);
+            unionRecency(ret.recency, this.recency, mr.recency);
             return ret;
         }
     }
@@ -1447,22 +1500,33 @@ var Context = declare({
     instance: {
         match: null,
         factHash: null,
+        aliases: null,
         fact: null,
         hashCode: null,
         paths: null,
+        pathsHash: null,
 
         constructor: function (fact, paths, mr) {
             this.fact = fact;
-            this.paths = paths || null;
-            var match = this.match = mr || new Match(fact);
-            this.factHash = match.factHash;
-            var hashCode = this.hashCode = match.hashCode;
-            this.pathsHash = paths ? createContextHash(paths || [], hashCode) : hashCode;
-            this.factIds = match.factIds;
+            if (mr) {
+                this.match = mr;
+            } else {
+                this.match = new Match().addFact(fact);
+            }
+            this.factHash = this.match.factHash;
+            this.aliases = this.match.aliases;
+            this.hashCode = this.match.hashCode;
+            if (paths) {
+                this.paths = paths;
+                this.pathsHash = createContextHash(paths, this.hashCode);
+            } else {
+                this.pathsHash = this.hashCode;
+            }
         },
 
         "set": function (key, value) {
             this.factHash[key] = value;
+            this.aliases.push(key);
             return this;
         },
 
@@ -1479,7 +1543,7 @@ var Context = declare({
             var match = this.match = this.match.merge(merge);
             this.factHash = match.factHash;
             this.hashCode = match.hashCode;
-            this.factIds = match.factIds;
+            this.aliases = match.aliases;
             return this;
         },
 
@@ -1542,7 +1606,7 @@ Promise.extend({
 
         __handleAsyncNext: function (next) {
             var self = this, agenda = self.agenda;
-            return next.addCallback(function () {
+            return next.then(function () {
                 self.looping = false;
                 if (!agenda.isEmpty()) {
                     if (self.flowAltered) {
@@ -1558,7 +1622,7 @@ Promise.extend({
                     self.callback();
                 }
                 self = null;
-            }).addErrback(this.errback);
+            }, this.errback);
         },
 
         __handleSyncNext: function (next) {
@@ -1586,7 +1650,7 @@ Promise.extend({
         callNext: function () {
             this.looping = true;
             var next = this.agenda.fireNext();
-            return isPromiseLike(next) ? this.__handleAsyncNext(next): this.__handleSyncNext(next);
+            return isPromiseLike(next) ? this.__handleAsyncNext(next) : this.__handleSyncNext(next);
         },
 
         execute: function () {
@@ -1651,6 +1715,32 @@ function intersection(a, b) {
     return a;
 }
 
+function inPlaceIntersection(a, b) {
+    var aOne, i = -1, l;
+    l = a.length;
+    while (++i < l) {
+        aOne = a[i];
+        if (indexOf(b, aOne) === -1) {
+            pSplice.call(a, i--, 1);
+            l--;
+        }
+    }
+    return a;
+}
+
+function inPlaceDifference(a, b) {
+    var aOne, i = -1, l;
+    l = a.length;
+    while (++i < l) {
+        aOne = a[i];
+        if (indexOf(b, aOne) !== -1) {
+            pSplice.call(a, i--, 1);
+            l--;
+        }
+    }
+    return a;
+}
+
 function diffArr(arr1, arr2) {
     var ret = [], i = -1, j, l2 = arr2.length, l1 = arr1.length, a, found;
     if (l2 > l1) {
@@ -1685,6 +1775,17 @@ function diffArr(arr1, arr2) {
     return ret;
 }
 
+function diffHash(h1, h2) {
+    var ret = {};
+    for (var i in h1) {
+        if (!hasOwnProperty.call(h2, i)) {
+            ret[i] = h1[i];
+        }
+    }
+    return ret;
+}
+
+
 function union(arr1, arr2) {
     return unique(arr1.concat(arr2));
 }
@@ -1698,7 +1799,10 @@ module.exports = require("extended")()
     .register(require("function-extended"))
     .register(require("is-extended"))
     .register("intersection", intersection)
+    .register("inPlaceIntersection", inPlaceIntersection)
+    .register("inPlaceDifference", inPlaceDifference)
     .register("diffArr", diffArr)
+    .register("diffHash", diffHash)
     .register("unionArr", union)
     .register("plucker", plucker)
     .register("HashTable", require("ht"))
@@ -1707,7 +1811,7 @@ module.exports = require("extended")()
     .register("LinkedList", require("./linkedList"));
 
 
-},{"./linkedList":16,"array-extended":49,"date-extended":50,"declare.js":52,"extended":53,"function-extended":56,"ht":69,"is-extended":70,"leafy":71,"object-extended":72,"promise-extended":73,"string-extended":74}],13:[function(require,module,exports){
+},{"./linkedList":16,"array-extended":52,"date-extended":53,"declare.js":55,"extended":56,"function-extended":59,"ht":65,"is-extended":66,"leafy":67,"object-extended":68,"promise-extended":69,"string-extended":70}],13:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     bind = extd.bind,
@@ -1737,7 +1841,17 @@ module.exports = declare(EventEmitter, {
             this.agenda.on("fire", bind(this, "emit", "fire"));
             this.agenda.on("focused", bind(this, "emit", "focused"));
             this.rootNode = new nodes.RootNode(this.workingMemory, this.agenda);
-            extd.bindAll(this, "halt", "assert", "retract", "modify", "focus", "emit");
+            extd.bindAll(this, "halt", "assert", "retract", "modify", "focus", "emit", "getFacts");
+        },
+
+        getFacts: function (Type) {
+            var ret;
+            if (Type) {
+                ret = this.workingMemory.getFactsByType(Type);
+            } else {
+                ret = this.workingMemory.getFacts();
+            }
+            return ret;
         },
 
         focus: function (focused) {
@@ -1807,7 +1921,7 @@ module.exports = declare(EventEmitter, {
 
     }
 });
-},{"./agenda":3,"./executionStrategy":11,"./extended":12,"./nodes":27,"./workingMemory":47,"events":64}],14:[function(require,module,exports){
+},{"./agenda":3,"./executionStrategy":11,"./extended":12,"./nodes":27,"./workingMemory":50,"events":60}],14:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     instanceOf = extd.instanceOf,
@@ -1916,7 +2030,7 @@ var FlowContainer = declare({
     }
 
 }).as(module);
-},{"./conflict":7,"./extended":12,"./flow":13,"./pattern":45,"./rule":46}],15:[function(require,module,exports){
+},{"./conflict":7,"./extended":12,"./flow":13,"./pattern":48,"./rule":49}],15:[function(require,module,exports){
 /**
  *
  * @projectName nools
@@ -1992,7 +2106,7 @@ exports.transpile = function (file, options) {
 };
 
 exports.parse = parse;
-},{"./compile":5,"./extended":12,"./flowContainer":14,"fs":65,"path":66}],16:[function(require,module,exports){
+},{"./compile":5,"./extended":12,"./flowContainer":14,"fs":61,"path":62}],16:[function(require,module,exports){
 var declare = require("declare.js");
 declare({
 
@@ -2074,7 +2188,7 @@ declare({
 
 }).as(module);
 
-},{"declare.js":52}],17:[function(require,module,exports){
+},{"declare.js":55}],17:[function(require,module,exports){
 var process=require("__browserify_process");/*global setImmediate, window, MessageChannel*/
 var extd = require("./extended");
 var nextTick;
@@ -2112,10 +2226,9 @@ if (typeof setImmediate === "function") {
 }
 
 module.exports = nextTick;
-},{"./extended":12,"__browserify_process":68}],18:[function(require,module,exports){
+},{"./extended":12,"__browserify_process":64}],18:[function(require,module,exports){
 var Node = require("./node"),
-    intersection = require("../extended").intersection,
-    Context = require("../context");
+    intersection = require("../extended").intersection;
 
 Node.extend({
     instance: {
@@ -2127,7 +2240,7 @@ Node.extend({
                 outNode = entry.key;
                 paths = entry.value;
                 if ((continuingPaths = intersection(paths, context.paths)).length) {
-                    outNode[method](new Context(context.fact, continuingPaths, context.match));
+                    outNode[method](context.clone(null, continuingPaths, null));
                 }
             }
         },
@@ -2148,7 +2261,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"../context":10,"../extended":12,"./node":34}],19:[function(require,module,exports){
+},{"../extended":12,"./node":37}],19:[function(require,module,exports){
 var AlphaNode = require("./alphaNode");
 
 AlphaNode.extend({
@@ -2201,9 +2314,8 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./node":34}],21:[function(require,module,exports){
+},{"./node":37}],21:[function(require,module,exports){
 var extd = require("../extended"),
-    values = extd.hash.values,
     keys = extd.hash.keys,
     Node = require("./node"),
     LeftMemory = require("./misc/leftMemory"), RightMemory = require("./misc/rightMemory");
@@ -2260,21 +2372,23 @@ Node.extend({
 
         retractLeft: function (context) {
             context = this.removeFromLeftMemory(context).data;
-            var rightMathces = values(context.rightMatches),
+            var rightMatches = context.rightMatches,
+                hashCodes = keys(rightMatches),
                 i = -1,
-                l = rightMathces.length;
+                l = hashCodes.length;
             while (++i < l) {
-                this.__propagate("retract", rightMathces[i].clone());
+                this.__propagate("retract", rightMatches[hashCodes[i]].clone());
             }
         },
 
         retractRight: function (context) {
             context = this.removeFromRightMemory(context).data;
-            var leftMatches = values(context.leftMatches),
+            var leftMatches = context.leftMatches,
+                hashCodes = keys(leftMatches),
                 i = -1,
-                l = leftMatches.length;
+                l = hashCodes.length;
             while (++i < l) {
-                this.__propagate("retract", leftMatches[i].clone());
+                this.__propagate("retract", leftMatches[hashCodes[i]].clone());
             }
         },
 
@@ -2297,12 +2411,11 @@ Node.extend({
         modifyLeft: function (context) {
             var previousContext = this.removeFromLeftMemory(context).data;
             this.__addToLeftMemory(context);
-            var rm = this.rightTuples.getRightMemory(context), l = rm.length;
+            var rm = this.rightTuples.getRightMemory(context), l = rm.length, i = -1, rightMatches;
             if (!l) {
-                this.propagateRetract(context);
+                this.propagateRetractModifyFromLeft(previousContext);
             } else {
-                var i = -1,
-                    rightMatches = previousContext.rightMatches;
+                rightMatches = previousContext.rightMatches;
                 while (++i < l) {
                     this.propagateAssertModifyFromLeft(context, rightMatches, rm[i].data);
                 }
@@ -2315,7 +2428,7 @@ Node.extend({
             this.__addToRightMemory(context);
             var lm = this.leftTuples.getLeftMemory(context);
             if (!lm.length) {
-                this.propagateRetract(context);
+                this.propagateRetractModifyFromRight(previousContext);
             } else {
                 var leftMatches = previousContext.leftMatches, i = -1, l = lm.length;
                 while (++i < l) {
@@ -2330,6 +2443,26 @@ Node.extend({
 
         propagateFromRight: function (context, lc) {
             this.__propagate("assert", this.__addToMemoryMatches(context, lc, lc.clone(null, null, lc.match.merge(context.match))));
+        },
+
+        propagateRetractModifyFromLeft: function (context) {
+            var rightMatches = context.rightMatches,
+                hashCodes = keys(rightMatches),
+                l = hashCodes.length,
+                i = -1;
+            while (++i < l) {
+                this.__propagate("retract", rightMatches[hashCodes[i]].clone());
+            }
+        },
+
+        propagateRetractModifyFromRight: function (context) {
+            var leftMatches = context.leftMatches,
+                hashCodes = keys(leftMatches),
+                l = hashCodes.length,
+                i = -1;
+            while (++i < l) {
+                this.__propagate("retract", leftMatches[hashCodes[i]].clone());
+            }
         },
 
         propagateAssertModifyFromLeft: function (context, rightMatches, rm) {
@@ -2375,8 +2508,9 @@ Node.extend({
                 var rightMemory = this.rightMemory;
                 var rightMatches = context.data.rightMatches;
                 this.leftTuples.remove(context);
-                for (var i in rightMatches) {
-                    delete rightMemory[i].data.leftMatches[hashCode];
+                var hashCodes = keys(rightMatches), i = -1, l = hashCodes.length;
+                while (++i < l) {
+                    delete rightMemory[hashCodes[i]].data.leftMatches[hashCode];
                 }
                 delete this.leftMemory[hashCode];
             }
@@ -2436,7 +2570,7 @@ Node.extend({
     }
 
 }).as(module);
-},{"../extended":12,"./misc/leftMemory":31,"./misc/rightMemory":33,"./node":34}],22:[function(require,module,exports){
+},{"../extended":12,"./misc/leftMemory":32,"./misc/rightMemory":34,"./node":37}],22:[function(require,module,exports){
 var AlphaNode = require("./alphaNode");
 
 AlphaNode.extend({
@@ -2548,7 +2682,7 @@ FromNotNode.extend({
             var ret = false;
             if (this.type(o)) {
                 var createdFact = this.workingMemory.getFactHandle(o);
-                var context = new Context(createdFact, null)
+                var context = new Context(createdFact, null, null)
                     .mergeMatch(oc.match)
                     .set(this.alias, o);
                 if (add) {
@@ -2753,7 +2887,7 @@ NotNode.extend({
         }
     }
 }).as(module);
-},{"../linkedList":16,"./notNode":35}],25:[function(require,module,exports){
+},{"../linkedList":16,"./notNode":38}],25:[function(require,module,exports){
 var JoinNode = require("./joinNode"),
     extd = require("../extended"),
     constraint = require("../constraint"),
@@ -2820,7 +2954,7 @@ JoinNode.extend({
             if (this.type(o)) {
                 var createdFact = this.workingMemory.getFactHandle(o, true),
                     createdContext,
-                    rc = new Context(createdFact)
+                    rc = new Context(createdFact, null, null)
                         .set(this.alias, o),
                     createdFactId = createdFact.id;
                 var fh = rc.factHash, lcFh = lc.factHash;
@@ -3388,7 +3522,7 @@ declare({
 
 
 
-},{"../constraint":8,"../extended":12,"../pattern.js":45,"./aliasNode":19,"./betaNode":21,"./equalityNode":22,"./existsFromNode":23,"./existsNode":24,"./fromNode":25,"./fromNotNode":26,"./joinNode":28,"./leftAdapterNode":30,"./notNode":35,"./propertyNode":36,"./rightAdapterNode":37,"./terminalNode":38,"./typeNode":39}],28:[function(require,module,exports){
+},{"../constraint":8,"../extended":12,"../pattern.js":48,"./aliasNode":19,"./betaNode":21,"./equalityNode":22,"./existsFromNode":23,"./existsNode":24,"./fromNode":25,"./fromNotNode":26,"./joinNode":28,"./leftAdapterNode":30,"./notNode":38,"./propertyNode":39,"./rightAdapterNode":40,"./terminalNode":41,"./typeNode":42}],28:[function(require,module,exports){
 var BetaNode = require("./betaNode"),
     JoinReferenceNode = require("./joinReferenceNode");
 
@@ -3466,6 +3600,29 @@ var DEFUALT_CONSTRAINT = {
     }
 };
 
+var inversions = {
+    "gt": "lte",
+    "gte": "lte",
+    "lt": "gte",
+    "lte": "gte",
+    "eq": "eq",
+    "neq": "neq"
+};
+
+function normalizeRightIndexConstraint(rightIndex, indexes, op) {
+    if (rightIndex === indexes[1]) {
+        op = inversions[op];
+    }
+    return op;
+}
+
+function normalizeLeftIndexConstraint(leftIndex, indexes, op) {
+    if (leftIndex === indexes[1]) {
+        op = inversions[op];
+    }
+    return op;
+}
+
 Node.extend({
 
     instance: {
@@ -3488,18 +3645,22 @@ Node.extend({
                 var identifiers = constraint.getIndexableProperties();
                 var alias = constraint.get("alias");
                 if (identifiers.length === 2 && alias) {
-                    var leftIndex, rightIndex, i = -1;
+                    var leftIndex, rightIndex, i = -1, indexes = [];
                     while (++i < 2) {
                         var index = identifiers[i];
                         if (index.match(new RegExp("^" + alias + "(\\.?)")) === null) {
+                            indexes.push(index);
                             leftIndex = index;
                         } else {
+                            indexes.push(index);
                             rightIndex = index;
                         }
                     }
                     if (leftIndex && rightIndex) {
-                        this.rightMemory.addIndex(rightIndex, leftIndex, constraint.op);
-                        this.leftMemory.addIndex(leftIndex, rightIndex, constraint.op);
+                        var leftOp = normalizeLeftIndexConstraint(leftIndex, indexes, constraint.op),
+                            rightOp = normalizeRightIndexConstraint(rightIndex, indexes, constraint.op);
+                        this.rightMemory.addIndex(rightIndex, leftIndex, rightOp);
+                        this.leftMemory.addIndex(leftIndex, rightIndex, leftOp);
                     }
                 }
             }
@@ -3532,7 +3693,7 @@ Node.extend({
     }
 
 }).as(module);
-},{"../constraint":8,"./node":34}],30:[function(require,module,exports){
+},{"../constraint":8,"./node":37}],30:[function(require,module,exports){
 var Node = require("./adapterNode");
 
 Node.extend({
@@ -3568,6 +3729,158 @@ Node.extend({
 
 }).as(module);
 },{"./adapterNode":18}],31:[function(require,module,exports){
+exports.getMemory = (function () {
+
+    var pPush = Array.prototype.push, NPL = 0, EMPTY_ARRAY = [], NOT_POSSIBLES_HASH = {}, POSSIBLES_HASH = {}, PL = 0;
+
+    function mergePossibleTuples(ret, a, l) {
+        var val, j = 0, i = -1;
+        if (PL < l) {
+            while (PL && ++i < l) {
+                if (POSSIBLES_HASH[(val = a[i]).hashCode]) {
+                    ret[j++] = val;
+                    PL--;
+                }
+            }
+        } else {
+            pPush.apply(ret, a);
+        }
+        PL = 0;
+        POSSIBLES_HASH = {};
+    }
+
+
+    function mergeNotPossibleTuples(ret, a, l) {
+        var val, j = 0, i = -1;
+        if (NPL < l) {
+            while (++i < l) {
+                if (!NPL) {
+                    ret[j++] = a[i];
+                } else if (!NOT_POSSIBLES_HASH[(val = a[i]).hashCode]) {
+                    ret[j++] = val;
+                } else {
+                    NPL--;
+                }
+            }
+        }
+        NPL = 0;
+        NOT_POSSIBLES_HASH = {};
+    }
+
+    function mergeBothTuples(ret, a, l) {
+        if (PL === l) {
+            mergeNotPossibles(ret, a, l);
+        } else if (NPL < l) {
+            var val, j = 0, i = -1, hashCode;
+            while (++i < l) {
+                if (!NOT_POSSIBLES_HASH[(hashCode = (val = a[i]).hashCode)] && POSSIBLES_HASH[hashCode]) {
+                    ret[j++] = val;
+                }
+            }
+        }
+        NPL = 0;
+        NOT_POSSIBLES_HASH = {};
+        PL = 0;
+        POSSIBLES_HASH = {};
+    }
+
+    function mergePossiblesAndNotPossibles(a, l) {
+        var ret = EMPTY_ARRAY;
+        if (l) {
+            if (NPL || PL) {
+                ret = [];
+                if (!NPL) {
+                    mergePossibleTuples(ret, a, l);
+                } else if (!PL) {
+                    mergeNotPossibleTuples(ret, a, l);
+                } else {
+                    mergeBothTuples(ret, a, l);
+                }
+            }else{
+                ret = a;
+            }
+        }
+        return ret;
+    }
+
+    function getRangeTuples(op, currEntry, val) {
+        var ret;
+        if (op === "gt") {
+            ret = currEntry.findGT(val);
+        } else if (op === "gte") {
+            ret = currEntry.findGTE(val);
+        } else if (op === "lt") {
+            ret = currEntry.findLT(val);
+        } else if (op === "lte") {
+            ret = currEntry.findLTE(val);
+        }
+        return ret;
+    }
+
+    function mergeNotPossibles(tuples, tl) {
+        if (tl) {
+            var j = -1, hashCode;
+            while (++j < tl) {
+                hashCode = tuples[j].hashCode;
+                if (!NOT_POSSIBLES_HASH[hashCode]) {
+                    NOT_POSSIBLES_HASH[hashCode] = true;
+                    NPL++;
+                }
+            }
+        }
+    }
+
+    function mergePossibles(tuples, tl) {
+        if (tl) {
+            var j = -1, hashCode;
+            while (++j < tl) {
+                hashCode = tuples[j].hashCode;
+                if (!POSSIBLES_HASH[hashCode]) {
+                    POSSIBLES_HASH[hashCode] = true;
+                    PL++;
+                }
+            }
+        }
+    }
+
+    return function _getMemory(entry, factHash, indexes) {
+        var i = -1, l = indexes.length,
+            ret = entry.tuples,
+            rl = ret.length,
+            intersected = false,
+            tables = entry.tables,
+            index, val, op, nextEntry, currEntry, tuples, tl;
+        while (++i < l && rl) {
+            index = indexes[i];
+            val = index[3](factHash);
+            op = index[4];
+            currEntry = tables[index[0]];
+            if (op === "eq") {
+                if ((nextEntry = currEntry.get(val))) {
+                    rl = (ret = (entry = nextEntry).tuples).length;
+                    tables = nextEntry.tables;
+                } else {
+                    rl = (ret = EMPTY_ARRAY).length;
+                }
+            } else if (op === "neq") {
+                if ((nextEntry = currEntry.get(val))) {
+                    tl = (tuples = nextEntry.tuples).length;
+                    mergeNotPossibles(tuples, tl);
+                }
+            } else if (!intersected) {
+                rl = (ret = getRangeTuples(op, currEntry, val)).length;
+                intersected = true;
+            } else if ((tl = (tuples = getRangeTuples(op, currEntry, val)).length)) {
+                mergePossibles(tuples, tl);
+            } else {
+                ret = tuples;
+                rl = tl;
+            }
+        }
+        return mergePossiblesAndNotPossibles(ret, rl);
+    };
+}());
+},{}],32:[function(require,module,exports){
 var Memory = require("./memory");
 
 Memory.extend({
@@ -3580,29 +3893,30 @@ Memory.extend({
     }
 
 }).as(module);
-},{"./memory":32}],32:[function(require,module,exports){
+},{"./memory":33}],33:[function(require,module,exports){
 var extd = require("../../extended"),
-    indexOf = extd.indexOf,
     plucker = extd.plucker,
-    difference = extd.diffArr,
-    pPush = Array.prototype.push,
     declare = extd.declare,
-    HashTable = extd.HashTable;
+    getMemory = require("./helpers").getMemory,
+    Table = require("./table"),
+    TupleEntry = require("./tupleEntry");
+
+
+var id = 0;
 declare({
 
     instance: {
+        length: 0,
+
         constructor: function () {
             this.head = null;
             this.tail = null;
-            this.length = null;
             this.indexes = [];
-            this.tables = {tuples: [], tables: []};
+            this.tables = new TupleEntry(null, new Table(), false);
         },
 
-        inequalityThreshold: 0.5,
-
         push: function (data) {
-            var tail = this.tail, head = this.head, node = {data: data, prev: tail, next: null};
+            var tail = this.tail, head = this.head, node = {data: data, tuples: [], hashCode: id++, prev: tail, next: null};
             if (tail) {
                 this.tail.next = node;
             }
@@ -3612,7 +3926,7 @@ declare({
             }
             this.length++;
             this.__index(node);
-            this.tables.tuples.push(node);
+            this.tables.addNode(node);
             return node;
         },
 
@@ -3627,10 +3941,7 @@ declare({
             } else {
                 this.tail = node.prev;
             }
-            var index = indexOf(this.tables.tuples, node);
-            if (index !== -1) {
-                this.tables.tuples.splice(index, 1);
-            }
+            this.tables.removeNode(node);
             this.__removeFromIndex(node);
             this.length--;
         },
@@ -3643,11 +3954,7 @@ declare({
         },
 
         toArray: function () {
-            var head = {next: this.head}, ret = [];
-            while ((head = head.next)) {
-                ret.push(head);
-            }
-            return ret;
+            return this.tables.tuples.slice();
         },
 
         clear: function () {
@@ -3673,118 +3980,42 @@ declare({
                 val = index[2](factHash);
                 path = index[0];
                 tables = entry.tables;
-                currEntry = tables[path];
-                if (!currEntry) {
-                    currEntry = tables[path] = new HashTable();
-                    tuples = {tuples: [node], tables: {}};
-                    currEntry.put(val, tuples);
-                } else if (!(tuples = currEntry.get(val))) {
-                    tuples = {tuples: [node], tables: {}};
-                    currEntry.put(val, tuples);
-                } else if (prevLookup !== path) {
-                    tuples.tuples.push(node);
+                if (!(tuples = (currEntry = tables[path] || (tables[path] = new Table())).get(val))) {
+                    tuples = new TupleEntry(val, currEntry, true);
+                    currEntry.set(val, tuples);
                 }
-                prevLookup = path;
+                if (currEntry !== prevLookup) {
+                    node.tuples.push(tuples.addNode(node));
+                }
+                prevLookup = currEntry;
                 if (index[4] === "eq") {
                     entry = tuples;
                 }
             }
         },
 
-        getSimilarMemory: function (tuple) {
-            return this.getMemory(tuple, true);
-        },
-
         __removeFromIndex: function (node) {
-            var data = node.data,
-                factHash = data.factHash,
-                indexes = this.indexes,
-                entry = this.tables,
-                i = -1, l = indexes.length;
-            while (++i < l) {
-                var index = indexes[i],
-                    val = index[2](factHash);
-                var currEntry = entry.tables[index[0]];
-                if (currEntry) {
-                    var tuples = currEntry.get(val);
-                    if (tuples) {
-                        var currTuples = tuples.tuples, ind = indexOf(currTuples, node);
-                        if (ind !== -1) {
-                            currTuples.splice(ind, 1);
-                        }
-                        if (index[4] === "eq") {
-                            entry = tuples;
-                        }
-                    }
-                }
+            var tuples = node.tuples, i = tuples.length;
+            while (--i >= 0) {
+                tuples[i].removeNode(node);
             }
+            node.tuples.length = 0;
         },
 
-        getMemory: function (tuple, usePrimary) {
-            var factHash = tuple.factHash,
-                indexes = this.indexes,
-                entry = this.tables,
-                i = -1, l = indexes.length,
-                ret = entry.tuples,
-                lookup = usePrimary ? 2 : 3,
-                inequalityThreshold = this.inequalityThreshold,
-                notPossibles = [], npl = 0, rl;
-
-            while (++i < l) {
-                var index = indexes[i],
-                    val = index[lookup](factHash),
-                    currEntry = entry.tables[index[0]];
-                if (currEntry) {
-                    var nextEntry = currEntry.get(val), tuples, tl;
-                    if (index[4] === "neq") {
-                        rl = ret.length;
-                        if (!nextEntry) {
-                            ret = rl ? ret : entry.tuples;
-                        } else {
-                            tuples = nextEntry.tuples;
-                            tl = tuples.length;
-                            if (!tl || !rl) {
-                                ret = entry.tuples;
-                            } else if (tl === entry.tuples.length) {
-                                ret = [];
-                                i = l;
-                            } else if (tl) {
-                                pPush.apply(notPossibles, tuples);
-                                npl += tl;
-                            }
-                        }
-                    } else if (nextEntry) {
-                        tuples = nextEntry.tuples;
-                        tl = tuples.length;
-                        if (tl) {
-                            ret = nextEntry.tuples;
-                            entry = nextEntry;
-                        } else {
-                            i = l;
-                            ret = [];
-                        }
-                    } else {
-                        i = l;
-                        ret = [];
-                    }
-                } else {
-                    ret = [];
-                    i = l;
-                }
+        getMemory: function (tuple) {
+            var ret;
+            if (!this.length) {
+                ret = [];
+            } else {
+                ret = getMemory(this.tables, tuple.factHash, this.indexes);
             }
-            rl = ret.length;
-            if (npl && rl && (npl / rl) > inequalityThreshold) {
-                //console.log(npl);
-                ret = difference(ret, notPossibles);
-            }
-            return ret.slice();
+            return ret;
         },
 
         __createIndexTree: function () {
             var table = this.tables.tables = {};
             var indexes = this.indexes;
-            table[indexes[0][0]] = new HashTable();
-
+            table[indexes[0][0]] = new Table();
         },
 
 
@@ -3792,16 +4023,16 @@ declare({
             this.indexes.push([primary, lookup, plucker(primary), plucker(lookup), op || "eq"]);
             this.indexes.sort(function (a, b) {
                 var aOp = a[4], bOp = b[4];
-                return aOp === bOp ? 0 : aOp > bOp ? 1 : -1;
+                return aOp === bOp ? 0 : aOp > bOp ? 1 : aOp === bOp ? 0 : -1;
             });
             this.__createIndexTree();
+
         }
 
     }
 
 }).as(module);
-
-},{"../../extended":12}],33:[function(require,module,exports){
+},{"../../extended":12,"./helpers":31,"./table":35,"./tupleEntry":36}],34:[function(require,module,exports){
 var Memory = require("./memory");
 
 Memory.extend({
@@ -3814,7 +4045,229 @@ Memory.extend({
     }
 
 }).as(module);
-},{"./memory":32}],34:[function(require,module,exports){
+},{"./memory":33}],35:[function(require,module,exports){
+var extd = require("../../extended"),
+    pPush = Array.prototype.push,
+    HashTable = extd.HashTable,
+    AVLTree = extd.AVLTree;
+
+function compare(a, b) {
+    a = a.key;
+    b = b.key;
+    var ret;
+    if (a === b) {
+        ret = 0;
+    } else if (a > b) {
+        ret = 1;
+    } else if (a < b) {
+        ret = -1;
+    } else {
+        ret = 1;
+    }
+    return ret;
+}
+
+function compareGT(v1, v2) {
+    return compare(v1, v2) === 1;
+}
+function compareGTE(v1, v2) {
+    return compare(v1, v2) !== -1;
+}
+
+function compareLT(v1, v2) {
+    return compare(v1, v2) === -1;
+}
+function compareLTE(v1, v2) {
+    return compare(v1, v2) !== 1;
+}
+
+var STACK = [],
+    VALUE = {key: null};
+function traverseInOrder(tree, key, comparator) {
+    VALUE.key = key;
+    var ret = [];
+    var i = 0, current = tree.__root, v;
+    while (true) {
+        if (current) {
+            current = (STACK[i++] = current).left;
+        } else {
+            if (i > 0) {
+                v = (current = STACK[--i]).data;
+                if (comparator(v, VALUE)) {
+                    pPush.apply(ret, v.value.tuples);
+                    current = current.right;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+    }
+    STACK.length = 0;
+    return ret;
+}
+
+function traverseReverseOrder(tree, key, comparator) {
+    VALUE.key = key;
+    var ret = [];
+    var i = 0, current = tree.__root, v;
+    while (true) {
+        if (current) {
+            current = (STACK[i++] = current).right;
+        } else {
+            if (i > 0) {
+                v = (current = STACK[--i]).data;
+                if (comparator(v, VALUE)) {
+                    pPush.apply(ret, v.value.tuples);
+                    current = current.left;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+    }
+    STACK.length = 0;
+    return ret;
+}
+
+AVLTree.extend({
+    instance: {
+
+        constructor: function () {
+            this._super([
+                {
+                    compare: compare
+                }
+            ]);
+            this.gtCache = new HashTable();
+            this.gteCache = new HashTable();
+            this.ltCache = new HashTable();
+            this.lteCache = new HashTable();
+            this.hasGTCache = false;
+            this.hasGTECache = false;
+            this.hasLTCache = false;
+            this.hasLTECache = false;
+        },
+
+        clearCache: function () {
+            this.hasGTCache && this.gtCache.clear() && (this.hasGTCache = false);
+            this.hasGTECache && this.gteCache.clear() && (this.hasGTECache = false);
+            this.hasLTCache && this.ltCache.clear() && (this.hasLTCache = false);
+            this.hasLTECache && this.lteCache.clear() && (this.hasLTECache = false);
+        },
+
+        contains: function (key) {
+            return  this._super([
+                {key: key}
+            ]);
+        },
+
+        "set": function (key, value) {
+            this.insert({key: key, value: value});
+            this.clearCache();
+        },
+
+        "get": function (key) {
+            var ret = this.find({key: key});
+            return ret && ret.value;
+        },
+
+        "remove": function (key) {
+            this.clearCache();
+            return this._super([
+                {key: key}
+            ]);
+        },
+
+        findGT: function (key) {
+            var ret = this.gtCache.get(key);
+            if (!ret) {
+                this.hasGTCache = true;
+                this.gtCache.put(key, (ret = traverseReverseOrder(this, key, compareGT)));
+            }
+            return ret;
+        },
+
+        findGTE: function (key) {
+            var ret = this.gteCache.get(key);
+            if (!ret) {
+                this.hasGTECache = true;
+                this.gteCache.put(key, (ret = traverseReverseOrder(this, key, compareGTE)));
+            }
+            return ret;
+        },
+
+        findLT: function (key) {
+            var ret = this.ltCache.get(key);
+            if (!ret) {
+                this.hasLTCache = true;
+                this.ltCache.put(key, (ret = traverseInOrder(this, key, compareLT)));
+            }
+            return ret;
+        },
+
+        findLTE: function (key) {
+            var ret = this.lteCache.get(key);
+            if (!ret) {
+                this.hasLTECache = true;
+                this.lteCache.put(key, (ret = traverseInOrder(this, key, compareLTE)));
+            }
+            return ret;
+        }
+
+    }
+}).as(module);
+},{"../../extended":12}],36:[function(require,module,exports){
+var extd = require("../../extended"),
+    indexOf = extd.indexOf;
+//    HashSet = require("./hashSet");
+
+
+var TUPLE_ID = 0;
+extd.declare({
+
+    instance: {
+        tuples: null,
+        tupleMap: null,
+        hashCode: null,
+        tables: null,
+        entry: null,
+        constructor: function (val, entry, canRemove) {
+            this.val = val;
+            this.canRemove = canRemove;
+            this.tuples = [];
+            this.tupleMap = {};
+            this.hashCode = TUPLE_ID++;
+            this.tables = {};
+            this.length = 0;
+            this.entry = entry;
+        },
+
+        addNode: function (node) {
+            this.tuples[this.length++] = node;
+            if (this.length > 1) {
+                this.entry.clearCache();
+            }
+            return this;
+        },
+
+        removeNode: function (node) {
+            var tuples = this.tuples, index = indexOf(tuples, node);
+            if (index !== -1) {
+                tuples.splice(index, 1);
+                this.length--;
+                this.entry.clearCache();
+            }
+            if (this.canRemove && !this.length) {
+                this.entry.remove(this.val);
+            }
+        }
+    }
+}).as(module);
+},{"../../extended":12}],37:[function(require,module,exports){
 var extd = require("../extended"),
     forEach = extd.forEach,
     indexOf = extd.indexOf,
@@ -3941,7 +4394,7 @@ declare({
 
 }).as(module);
 
-},{"../context":10,"../extended":12}],35:[function(require,module,exports){
+},{"../context":10,"../extended":12}],38:[function(require,module,exports){
 var JoinNode = require("./joinNode"),
     LinkedList = require("../linkedList"),
     Context = require("../context"),
@@ -3971,11 +4424,11 @@ JoinNode.extend({
                 blocking = rightContext.blocking;
             if (blocking.length) {
                 //if we are blocking left contexts
-                var rm = this.rightTuples.getSimilarMemory(rightContext), l = rm.length, i;
                 var leftContext, thisConstraint = this.constraint, blockingNode = {next: blocking.head}, rc;
                 while ((blockingNode = blockingNode.next)) {
                     leftContext = blockingNode.data;
-                    //this.removeFromLeftBlockedMemory(leftContext);
+                    this.removeFromLeftBlockedMemory(leftContext);
+                    var rm = this.rightTuples.getRightMemory(leftContext), l = rm.length, i;
                     i = -1;
                     while (++i < l) {
                         if (thisConstraint.isMatch(leftContext, rc = rm[i].data)) {
@@ -4052,7 +4505,7 @@ JoinNode.extend({
         assertRight: function (context) {
             this.__addToRightMemory(context);
             context.blocking = new LinkedList();
-            var fl = this.leftTuples.getLeftMemory(context),
+            var fl = this.leftTuples.getLeftMemory(context).slice(),
                 i = -1, l = fl.length,
                 leftContext, thisConstraint = this.constraint;
             while (++i < l) {
@@ -4101,6 +4554,7 @@ JoinNode.extend({
                 if (leftContext && leftContext.blocker) {
                     //we were blocked before so only check nodes previous to our blocker
                     blocker = this.rightMemory[leftContext.blocker.hashCode];
+                    leftContext.blocker = null;
                 }
                 if (blocker) {
                     if (thisConstraint.isMatch(context, rc = blocker.data)) {
@@ -4153,7 +4607,7 @@ JoinNode.extend({
             var ctx = this.removeFromRightMemory(context);
             if (ctx) {
                 var rightContext = ctx.data,
-                    leftTuples = this.leftTuples.getLeftMemory(context),
+                    leftTuples = this.leftTuples.getLeftMemory(context).slice(),
                     leftTuplesLength = leftTuples.length,
                     leftContext,
                     thisConstraint = this.constraint,
@@ -4190,22 +4644,19 @@ JoinNode.extend({
                             this.__propagate("assert", this.__cloneContext(leftContext));
                         }
                     }
-
-                    if (leftTuplesLength) {
-                        //check currently left tuples in memory
-                        i = -1;
-                        while (++i < leftTuplesLength) {
-                            leftContext = leftTuples[i].data;
-                            if (thisConstraint.isMatch(leftContext, context)) {
-                                this.__propagate("retract", this.__cloneContext(leftContext));
-                                this.removeFromLeftMemory(leftContext);
-                                this.addToLeftBlockedMemory(context.blocking.push(leftContext));
-                                leftContext.blocker = context;
-                            }
+                }
+                if (leftTuplesLength) {
+                    //check currently left tuples in memory
+                    i = -1;
+                    while (++i < leftTuplesLength) {
+                        leftContext = leftTuples[i].data;
+                        if (thisConstraint.isMatch(leftContext, context)) {
+                            this.__propagate("retract", this.__cloneContext(leftContext));
+                            this.removeFromLeftMemory(leftContext);
+                            this.addToLeftBlockedMemory(context.blocking.push(leftContext));
+                            leftContext.blocker = context;
                         }
                     }
-
-
                 }
             } else {
                 throw new Error();
@@ -4215,7 +4666,7 @@ JoinNode.extend({
         }
     }
 }).as(module);
-},{"../context":10,"../linkedList":16,"../pattern":45,"./joinNode":28}],36:[function(require,module,exports){
+},{"../context":10,"../linkedList":16,"../pattern":48,"./joinNode":28}],39:[function(require,module,exports){
 var AlphaNode = require("./alphaNode"),
     Context = require("../context"),
     extd = require("../extended");
@@ -4266,7 +4717,7 @@ AlphaNode.extend({
 
 
 
-},{"../context":10,"../extended":12,"./alphaNode":20}],37:[function(require,module,exports){
+},{"../context":10,"../extended":12,"./alphaNode":20}],40:[function(require,module,exports){
 var Node = require("./adapterNode");
 
 Node.extend({
@@ -4301,7 +4752,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"./adapterNode":18}],38:[function(require,module,exports){
+},{"./adapterNode":18}],41:[function(require,module,exports){
 var Node = require("./node"),
     extd = require("../extended"),
     bind = extd.bind;
@@ -4369,7 +4820,7 @@ Node.extend({
         }
     }
 }).as(module);
-},{"../extended":12,"./node":34}],39:[function(require,module,exports){
+},{"../extended":12,"./node":37}],42:[function(require,module,exports){
 var AlphaNode = require("./alphaNode"),
     Context = require("../context");
 
@@ -4417,7 +4868,7 @@ AlphaNode.extend({
 }).as(module);
 
 
-},{"../context":10,"./alphaNode":20}],40:[function(require,module,exports){
+},{"../context":10,"./alphaNode":20}],43:[function(require,module,exports){
 var process=require("__browserify_process");/* parser generated by jison 0.4.6 */
 /*
   Returns a Parser object of the following structure:
@@ -5166,7 +5617,7 @@ if (typeof module !== 'undefined' && require.main === module) {
   exports.main(process.argv.slice(1));
 }
 }
-},{"__browserify_process":68,"fs":65,"path":66}],41:[function(require,module,exports){
+},{"__browserify_process":64,"fs":61,"path":62}],44:[function(require,module,exports){
 (function () {
     "use strict";
     var constraintParser = require("./constraint/parser"),
@@ -5184,7 +5635,7 @@ if (typeof module !== 'undefined' && require.main === module) {
         return noolParser.parse(source, file);
     };
 })();
-},{"./constraint/parser":40,"./nools/nool.parser":42}],42:[function(require,module,exports){
+},{"./constraint/parser":43,"./nools/nool.parser":45}],45:[function(require,module,exports){
 "use strict";
 
 var tokens = require("./tokens.js"),
@@ -5224,7 +5675,7 @@ exports.parse = function (src, file) {
 };
 
 
-},{"../../extended":12,"./tokens.js":43,"./util.js":44}],43:[function(require,module,exports){
+},{"../../extended":12,"./tokens.js":46,"./util.js":47}],46:[function(require,module,exports){
 var process=require("__browserify_process");"use strict";
 
 var utils = require("./util.js"),
@@ -5576,7 +6027,7 @@ var topLevelTokens = {
 module.exports = topLevelTokens;
 
 
-},{"../../extended":12,"./util.js":44,"__browserify_process":68,"fs":65}],44:[function(require,module,exports){
+},{"../../extended":12,"./util.js":47,"__browserify_process":64,"fs":61}],47:[function(require,module,exports){
 var process=require("__browserify_process");"use strict";
 
 var path = require("path");
@@ -5668,7 +6119,7 @@ var findNextTokenIndex = exports.findNextTokenIndex = function (str, startIndex,
 exports.findNextToken = function (str, startIndex, endIndex) {
     return str.charAt(findNextTokenIndex(str, startIndex, endIndex));
 };
-},{"__browserify_process":68,"path":66}],45:[function(require,module,exports){
+},{"__browserify_process":64,"path":62}],48:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     isEmpty = extd.isEmpty,
@@ -5821,7 +6272,7 @@ ObjectPattern.extend({
 
 
 
-},{"./constraint":8,"./constraintMatcher":9,"./extended":12}],46:[function(require,module,exports){
+},{"./constraint":8,"./constraintMatcher":9,"./extended":12}],49:[function(require,module,exports){
 "use strict";
 var extd = require("./extended"),
     isArray = extd.isArray,
@@ -6119,10 +6570,11 @@ exports.createRule = createRule;
 
 
 
-},{"./extended":12,"./parser":41,"./pattern":45}],47:[function(require,module,exports){
+},{"./extended":12,"./parser":44,"./pattern":48}],50:[function(require,module,exports){
 "use strict";
 var declare = require("declare.js"),
     LinkedList = require("./linkedList"),
+    InitialFact = require("./pattern").InitialFact,
     id = 0;
 
 var Fact = declare({
@@ -6156,6 +6608,27 @@ declare({
 
         dispose: function () {
             this.facts.clear();
+        },
+
+        getFacts: function () {
+            var head = {next: this.facts.head}, ret = [], i = 0, val;
+            while ((head = head.next)) {
+                if (!((val = head.data.object)  instanceof InitialFact)) {
+                    ret[i++] = val;
+                }
+            }
+            return ret;
+        },
+
+        getFactsByType: function (Type) {
+            var head = {next: this.facts.head}, ret = [], i = 0;
+            while ((head = head.next)) {
+                var val = head.data.object;
+                if (!(val  instanceof InitialFact) && (val instanceof Type || val.constructor === Type)) {
+                    ret[i++] = val;
+                }
+            }
+            return ret;
         },
 
         getFactHandle: function (o) {
@@ -6192,20 +6665,6 @@ declare({
             ret.recency = this.recency++;
             this.facts.push(ret);
             return ret;
-//            var head = {next: this.facts.head}, ret;
-//            while ((head = head.next)) {
-//                var existingFact = head.data;
-//                if (existingFact.equals(fact)) {
-//                    ret = existingFact;
-//                    break;
-//                }
-//            }
-//            if (!ret) {
-//                ret = new Fact(fact);
-//                ret.recency = this.recency++;
-//                this.facts.push(ret);
-//            }
-//            return ret;
         },
 
         retractFact: function (fact) {
@@ -6227,7 +6686,7 @@ declare({
 }).as(exports, "WorkingMemory");
 
 
-},{"./linkedList":16,"declare.js":52}],48:[function(require,module,exports){
+},{"./linkedList":16,"./pattern":48,"declare.js":55}],51:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -6272,7 +6731,7 @@ declare({
 }).call(this);
 
 
-},{"extended":53,"is-extended":70}],49:[function(require,module,exports){
+},{"extended":56,"is-extended":66}],52:[function(require,module,exports){
 (function () {
     "use strict";
     /*global define*/
@@ -6942,7 +7401,7 @@ declare({
 
 
 
-},{"arguments-extended":48,"extended":53,"is-extended":70}],50:[function(require,module,exports){
+},{"arguments-extended":51,"extended":56,"is-extended":66}],53:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -7890,7 +8349,7 @@ declare({
 
 
 
-},{"array-extended":49,"extended":53,"is-extended":70}],51:[function(require,module,exports){
+},{"array-extended":52,"extended":56,"is-extended":66}],54:[function(require,module,exports){
 (function () {
 
     /**
@@ -8817,9 +9276,9 @@ declare({
 
 
 
-},{}],52:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 module.exports = require("./declare.js");
-},{"./declare.js":51}],53:[function(require,module,exports){
+},{"./declare.js":54}],56:[function(require,module,exports){
 (function () {
     "use strict";
     /*global extender is, dateExtended*/
@@ -8918,7 +9377,7 @@ module.exports = require("./declare.js");
 
 
 
-},{"extender":55}],54:[function(require,module,exports){
+},{"extender":58}],57:[function(require,module,exports){
 (function () {
     /*jshint strict:false*/
 
@@ -9459,9 +9918,9 @@ module.exports = require("./declare.js");
     }
 
 }).call(this);
-},{"declare.js":52}],55:[function(require,module,exports){
+},{"declare.js":55}],58:[function(require,module,exports){
 module.exports = require("./extender.js");
-},{"./extender.js":54}],56:[function(require,module,exports){
+},{"./extender.js":57}],59:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -9505,8 +9964,7 @@ module.exports = require("./extender.js");
                 return function () {
                     var func = scope[method];
                     if (isFunction(func)) {
-                        var scopeArgs = args.concat(argsToArray(arguments));
-                        return func.apply(scope, scopeArgs);
+                        return spreadArgs(func, args.concat(argsToArray(arguments)), scope);
                     } else {
                         return func;
                     }
@@ -9514,8 +9972,7 @@ module.exports = require("./extender.js");
             } else {
                 if (args.length) {
                     return function () {
-                        var scopeArgs = args.concat(argsToArray(arguments));
-                        return spreadArgs(method, arguments, scope);
+                        return spreadArgs(method, args.concat(argsToArray(arguments)), scope);
                     };
                 } else {
 
@@ -9538,7 +9995,7 @@ module.exports = require("./extender.js");
                     var func = scope[method];
                     if (isFunction(func)) {
                         scopeArgs = args.concat(scopeArgs);
-                        return func.apply(scope, scopeArgs);
+                        return spreadArgs(func, scopeArgs, scope);
                     } else {
                         return func;
                     }
@@ -9547,7 +10004,7 @@ module.exports = require("./extender.js");
                 return function () {
                     var scopeArgs = argsToArray(arguments), scope = scopeArgs.shift();
                     scopeArgs = args.concat(scopeArgs);
-                    return method.apply(scope, scopeArgs);
+                    return spreadArgs(method, scopeArgs, scope);
                 };
             }
         }
@@ -9564,14 +10021,14 @@ module.exports = require("./extender.js");
                 return function () {
                     var func = scope[method];
                     if (isFunction(func)) {
-                        return func.apply(scope, args);
+                        return spreadArgs(func, args, scope);
                     } else {
                         return func;
                     }
                 };
             } else {
                 return function () {
-                    return method.apply(scope, args);
+                    return spreadArgs(method, args, scope);
                 };
             }
         }
@@ -9610,7 +10067,7 @@ module.exports = require("./extender.js");
                     var func = this[method];
                     if (isFunction(func)) {
                         var scopeArgs = args.concat(argsToArray(arguments));
-                        return func.apply(this, scopeArgs);
+                        return spreadArgs(func, scopeArgs, this);
                     } else {
                         return func;
                     }
@@ -9618,7 +10075,7 @@ module.exports = require("./extender.js");
             } else {
                 return function () {
                     var scopeArgs = args.concat(argsToArray(arguments));
-                    return method.apply(this, scopeArgs);
+                    return spreadArgs(method, scopeArgs, this);
                 };
             }
         }
@@ -9626,8 +10083,8 @@ module.exports = require("./extender.js");
         function curryFunc(f, execute) {
             return function () {
                 var args = argsToArray(arguments);
-                return execute ? f.apply(this, arguments) : function () {
-                    return f.apply(this, args.concat(argsToArray(arguments)));
+                return execute ? spreadArgs(f, arguments, this) : function () {
+                    return spreadArgs(f, args.concat(argsToArray(arguments)), this);
                 };
             };
         }
@@ -9660,10 +10117,10 @@ module.exports = require("./extender.js");
             })
             .define(isFunction, {
                 bind: function (fn, obj) {
-                    return hitch.apply(this, [obj, fn].concat(argsToArray(arguments, 2)));
+                    return spreadArgs(hitch, [obj, fn].concat(argsToArray(arguments, 2)), this);
                 },
                 bindIgnore: function (fn, obj) {
-                    return hitchIgnore.apply(this, [obj, fn].concat(argsToArray(arguments, 2)));
+                    return spreadArgs(hitchIgnore, [obj, fn].concat(argsToArray(arguments, 2)), this);
                 },
                 partial: partial,
                 applyFirst: applyFirst,
@@ -9721,2105 +10178,7 @@ module.exports = require("./extender.js");
 
 
 
-},{"arguments-extended":57,"extended":58,"is-extended":63}],57:[function(require,module,exports){
-(function () {
-    "use strict";
-
-    function defineArgumentsExtended(extended, is) {
-
-        var pSlice = Array.prototype.slice,
-            isArguments = is.isArguments;
-
-        function argsToArray(args, slice) {
-            var i = -1, j = 0, l = args.length, ret = [];
-            slice = slice || 0;
-            i += slice;
-            while (++i < l) {
-                ret[j++] = args[i];
-            }
-            return ret;
-        }
-
-
-        return extended
-            .define(isArguments, {
-                toArray: argsToArray
-            })
-            .expose({
-                argsToArray: argsToArray
-            });
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineArgumentsExtended(require("extended"), require("is-extended"));
-
-        }
-    } else if ("function" === typeof define && define.amd) {
-        define(["extended", "is-extended"], function (extended, is) {
-            return defineArgumentsExtended(extended, is);
-        });
-    } else {
-        this.argumentsExtended = defineArgumentsExtended(this.extended, this.isExtended);
-    }
-
-}).call(this);
-
-
-},{"extended":58,"is-extended":63}],58:[function(require,module,exports){
-(function () {
-    "use strict";
-    /*global extender is, dateExtended*/
-
-    function defineExtended(extender) {
-
-
-        var merge = (function merger() {
-            function _merge(target, source) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name)) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
-            }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                for (var i = 1, l = arguments.length; i < l; i++) {
-                    _merge(obj, arguments[i]);
-                }
-                return obj; // Object
-            };
-        }());
-
-        function getExtended() {
-
-            var loaded = {};
-
-
-            //getInitial instance;
-            var extended = extender.define();
-            extended.expose({
-                register: function register(alias, extendWith) {
-                    if (!extendWith) {
-                        extendWith = alias;
-                        alias = null;
-                    }
-                    var type = typeof extendWith;
-                    if (alias) {
-                        extended[alias] = extendWith;
-                    } else if (extendWith && type === "function") {
-                        extended.extend(extendWith);
-                    } else if (type === "object") {
-                        extended.expose(extendWith);
-                    } else {
-                        throw new TypeError("extended.register must be called with an extender function");
-                    }
-                    return extended;
-                },
-
-                define: function () {
-                    return extender.define.apply(extender, arguments);
-                }
-            });
-
-            return extended;
-        }
-
-        function extended() {
-            return getExtended();
-        }
-
-        extended.define = function define() {
-            return extender.define.apply(extender, arguments);
-        };
-
-        return extended;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtended(require("extender"));
-
-        }
-    } else if ("function" === typeof define && define.amd) {
-        define(["extender"], function (extender) {
-            return defineExtended(extender);
-        });
-    } else {
-        this.extended = defineExtended(this.extender);
-    }
-
-}).call(this);
-
-
-
-
-
-
-
-},{"extender":60}],59:[function(require,module,exports){
-(function () {
-    /*jshint strict:false*/
-
-
-    /**
-     *
-     * @projectName extender
-     * @github http://github.com/doug-martin/extender
-     * @header
-     * [![build status](https://secure.travis-ci.org/doug-martin/extender.png)](http://travis-ci.org/doug-martin/extender)
-     * # Extender
-     *
-     * `extender` is a library that helps in making chainable APIs, by creating a function that accepts different values and returns an object decorated with functions based on the type.
-     *
-     * ## Why Is Extender Different?
-     *
-     * Extender is different than normal chaining because is does more than return `this`. It decorates your values in a type safe manner.
-     *
-     * For example if you return an array from a string based method then the returned value will be decorated with array methods and not the string methods. This allow you as the developer to focus on your API and not worrying about how to properly build and connect your API.
-     *
-     *
-     * ## Installation
-     *
-     * ```
-     * npm install extender
-     * ```
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/extender/master/extender.js) ([minified](https://raw.github.com/doug-martin/extender/master/extender-min.js))
-     *
-     * **Note** `extender` depends on [`declare.js`](http://doug-martin.github.com/declare.js/).
-     *
-     * ### Requirejs
-     *
-     * To use with requirejs place the `extend` source in the root scripts directory
-     *
-     * ```javascript
-     *
-     * define(["extender"], function(extender){
-     * });
-     *
-     * ```
-     *
-     *
-     * ## Usage
-     *
-     * **`extender.define(tester, decorations)`**
-     *
-     * To create your own extender call the `extender.define` function.
-     *
-     * This function accepts an optional tester which is used to determine a value should be decorated with the specified `decorations`
-     *
-     * ```javascript
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     *
-     * var myExtender = extender.define(isString, {
-     *		multiply: function (str, times) {
-     *			var ret = str;
-     *			for (var i = 1; i < times; i++) {
-     *				ret += str;
-     *			}
-     *			return ret;
-     *		},
-     *		toArray: function (str, delim) {
-     *			delim = delim || "";
-     *			return str.split(delim);
-     *		}
-     *	});
-     *
-     * myExtender("hello").multiply(2).value(); //hellohello
-     *
-     * ```
-     *
-     * If you do not specify a tester function and just pass in an object of `functions` then all values passed in will be decorated with methods.
-     *
-     * ```javascript
-     *
-     * function isUndefined(obj) {
-     *     var undef;
-     *     return obj === undef;
-     * }
-     *
-     * function isUndefinedOrNull(obj) {
-     *	var undef;
-     *     return obj === undef || obj === null;
-     * }
-     *
-     * function isArray(obj) {
-     *     return Object.prototype.toString.call(obj) === "[object Array]";
-     * }
-     *
-     * function isBoolean(obj) {
-     *     var undef, type = typeof obj;
-     *     return !isUndefinedOrNull(obj) && type === "boolean" || type === "Boolean";
-     * }
-     *
-     * function isString(obj) {
-     *     return !isUndefinedOrNull(obj) && (typeof obj === "string" || obj instanceof String);
-     * }
-     *
-     * var myExtender = extender.define({
-     *	isUndefined : isUndefined,
-     *	isUndefinedOrNull : isUndefinedOrNull,
-     *	isArray : isArray,
-     *	isBoolean : isBoolean,
-     *	isString : isString
-     * });
-     *
-     * ```
-     *
-     * To use
-     *
-     * ```
-     * var undef;
-     * myExtender("hello").isUndefined().value(); //false
-     * myExtender(undef).isUndefined().value(); //true
-     * ```
-     *
-     * You can also chain extenders so that they accept multiple types and decorates accordingly.
-     *
-     * ```javascript
-     * myExtender
-     *     .define(isArray, {
-     *		pluck: function (arr, m) {
-     *			var ret = [];
-     *			for (var i = 0, l = arr.length; i < l; i++) {
-     *				ret.push(arr[i][m]);
-     *			}
-     *			return ret;
-     *		}
-     *	})
-     *     .define(isBoolean, {
-     *		invert: function (val) {
-     *			return !val;
-     *		}
-     *	});
-     *
-     * myExtender([{a: "a"},{a: "b"},{a: "c"}]).pluck("a").value(); //["a", "b", "c"]
-     * myExtender("I love javascript!").toArray(/\s+/).pluck("0"); //["I", "l", "j"]
-     *
-     * ```
-     *
-     * Notice that we reuse the same extender as defined above.
-     *
-     * **Return Values**
-     *
-     * When creating an extender if you return a value from one of the decoration functions then that value will also be decorated. If you do not return any values then the extender will be returned.
-     *
-     * **Default decoration methods**
-     *
-     * By default every value passed into an extender is decorated with the following methods.
-     *
-     * * `value` : The value this extender represents.
-     * * `eq(otherValue)` : Tests strict equality of the currently represented value to the `otherValue`
-     * * `neq(oterValue)` : Tests strict inequality of the currently represented value.
-     * * `print` : logs the current value to the console.
-     *
-     * **Extender initialization**
-     *
-     * When creating an extender you can also specify a constructor which will be invoked with the current value.
-     *
-     * ```javascript
-     * myExtender.define(isString, {
-     *	constructor : function(val){
-     *     //set our value to the string trimmed
-     *		this._value = val.trimRight().trimLeft();
-     *	}
-     * });
-     * ```
-     *
-     * **`noWrap`**
-     *
-     * `extender` also allows you to specify methods that should not have the value wrapped providing a cleaner exit function other than `value()`.
-     *
-     * For example suppose you have an API that allows you to build a validator, rather than forcing the user to invoke the `value` method you could add a method called `validator` which makes more syntactic sense.
-     *
-     * ```
-     *
-     * var myValidator = extender.define({
-     *     //chainable validation methods
-     *     //...
-     *     //end chainable validation methods
-     *
-     *     noWrap : {
-     *         validator : function(){
-     *             //return your validator
-     *         }
-     *     }
-     * });
-     *
-     * myValidator().isNotNull().isEmailAddress().validator(); //now you dont need to call .value()
-     *
-     *
-     * ```
-     * **`extender.extend(extendr)`**
-     *
-     * You may also compose extenders through the use of `extender.extend(extender)`, which will return an entirely new extender that is the composition of extenders.
-     *
-     * Suppose you have the following two extenders.
-     *
-     * ```javascript
-     * var myExtender = extender
-     *        .define({
-     *            isFunction: is.function,
-     *            isNumber: is.number,
-     *            isString: is.string,
-     *            isDate: is.date,
-     *            isArray: is.array,
-     *            isBoolean: is.boolean,
-     *            isUndefined: is.undefined,
-     *            isDefined: is.defined,
-     *            isUndefinedOrNull: is.undefinedOrNull,
-     *            isNull: is.null,
-     *            isArguments: is.arguments,
-     *            isInstanceOf: is.instanceOf,
-     *            isRegExp: is.regExp
-     *        });
-     * var myExtender2 = extender.define(is.array, {
-     *     pluck: function (arr, m) {
-     *         var ret = [];
-     *         for (var i = 0, l = arr.length; i < l; i++) {
-     *             ret.push(arr[i][m]);
-     *         }
-     *         return ret;
-     *     },
-     *
-     *     noWrap: {
-     *         pluckPlain: function (arr, m) {
-     *             var ret = [];
-     *             for (var i = 0, l = arr.length; i < l; i++) {
-     *                 ret.push(arr[i][m]);
-     *             }
-     *             return ret;
-     *         }
-     *     }
-     * });
-     *
-     *
-     * ```
-     *
-     * And you do not want to alter either of them but instead what to create a third that is the union of the two.
-     *
-     *
-     * ```javascript
-     * var composed = extender.extend(myExtender).extend(myExtender2);
-     * ```
-     * So now you can use the new extender with the joined functionality if `myExtender` and `myExtender2`.
-     *
-     * ```javascript
-     * var extended = composed([
-     *      {a: "a"},
-     *      {a: "b"},
-     *      {a: "c"}
-     * ]);
-     * extended.isArray().value(); //true
-     * extended.pluck("a").value(); // ["a", "b", "c"]);
-     *
-     * ```
-     *
-     * **Note** `myExtender` and `myExtender2` will **NOT** be altered.
-     *
-     * **`extender.expose(methods)`**
-     *
-     * The `expose` method allows you to add methods to your extender that are not wrapped or automatically chained by exposing them on the extender directly.
-     *
-     * ```
-     * var isMethods = {
-     *      isFunction: is.function,
-     *      isNumber: is.number,
-     *      isString: is.string,
-     *      isDate: is.date,
-     *      isArray: is.array,
-     *      isBoolean: is.boolean,
-     *      isUndefined: is.undefined,
-     *      isDefined: is.defined,
-     *      isUndefinedOrNull: is.undefinedOrNull,
-     *      isNull: is.null,
-     *      isArguments: is.arguments,
-     *      isInstanceOf: is.instanceOf,
-     *      isRegExp: is.regExp
-     * };
-     *
-     * var myExtender = extender.define(isMethods).expose(isMethods);
-     *
-     * myExtender.isArray([]); //true
-     * myExtender([]).isArray([]).value(); //true
-     *
-     * ```
-     *
-     *
-     * **Using `instanceof`**
-     *
-     * When using extenders you can test if a value is an `instanceof` of an extender by using the instanceof operator.
-     *
-     * ```javascript
-     * var str = myExtender("hello");
-     *
-     * str instanceof myExtender; //true
-     * ```
-     *
-     * ## Examples
-     *
-     * To see more examples click [here](https://github.com/doug-martin/extender/tree/master/examples)
-     */
-    function defineExtender(declare) {
-
-
-        var slice = Array.prototype.slice, undef;
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        var merge = (function merger() {
-            function _merge(target, source, exclude) {
-                var name, s;
-                for (name in source) {
-                    if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                        s = source[name];
-                        if (!(name in target) || (target[name] !== s)) {
-                            target[name] = s;
-                        }
-                    }
-                }
-                return target;
-            }
-
-            return function merge(obj) {
-                if (!obj) {
-                    obj = {};
-                }
-                var l = arguments.length;
-                var exclude = arguments[arguments.length - 1];
-                if (isArray(exclude)) {
-                    l--;
-                } else {
-                    exclude = [];
-                }
-                for (var i = 1; i < l; i++) {
-                    _merge(obj, arguments[i], exclude);
-                }
-                return obj; // Object
-            };
-        }());
-
-
-        function extender(supers) {
-            supers = supers || [];
-            var Base = declare({
-                instance: {
-                    constructor: function (value) {
-                        this._value = value;
-                    },
-
-                    value: function () {
-                        return this._value;
-                    },
-
-                    eq: function eq(val) {
-                        return this["__extender__"](this._value === val);
-                    },
-
-                    neq: function neq(other) {
-                        return this["__extender__"](this._value !== other);
-                    },
-                    print: function () {
-                        console.log(this._value);
-                        return this;
-                    }
-                }
-            }), defined = [];
-
-            function addMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        var ret = func.apply(this, args);
-                        return ret !== undef ? this["__extender__"](ret) : this;
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function addNoWrapMethod(proto, name, func) {
-                if ("function" !== typeof func) {
-                    throw new TypeError("when extending type you must provide a function");
-                }
-                var extendedMethod;
-                if (name === "constructor") {
-                    extendedMethod = function () {
-                        this._super(arguments);
-                        func.apply(this, arguments);
-                    };
-                } else {
-                    extendedMethod = function extendedMethod() {
-                        var args = slice.call(arguments);
-                        args.unshift(this._value);
-                        return func.apply(this, args);
-                    };
-                }
-                proto[name] = extendedMethod;
-            }
-
-            function decorateProto(proto, decoration, nowrap) {
-                for (var i in decoration) {
-                    if (decoration.hasOwnProperty(i)) {
-                        if (i !== "getters" && i !== "setters") {
-                            if (i === "noWrap") {
-                                decorateProto(proto, decoration[i], true);
-                            } else if (nowrap) {
-                                addNoWrapMethod(proto, i, decoration[i]);
-                            } else {
-                                addMethod(proto, i, decoration[i]);
-                            }
-                        } else {
-                            proto[i] = decoration[i];
-                        }
-                    }
-                }
-            }
-
-            function _extender(obj) {
-                var ret = obj, i, l;
-                if (!(obj instanceof Base)) {
-                    var OurBase = Base;
-                    for (i = 0, l = defined.length; i < l; i++) {
-                        var definer = defined[i];
-                        if (definer[0](obj)) {
-                            OurBase = OurBase.extend({instance: definer[1]});
-                        }
-                    }
-                    ret = new OurBase(obj);
-                    ret["__extender__"] = _extender;
-                }
-                return ret;
-            }
-
-            function always() {
-                return true;
-            }
-
-            function define(tester, decorate) {
-                if (arguments.length) {
-                    if (typeof tester === "object") {
-                        decorate = tester;
-                        tester = always;
-                    }
-                    decorate = decorate || {};
-                    var proto = {};
-                    decorateProto(proto, decorate);
-                    //handle browsers like which skip over the constructor while looping
-                    if (!proto.hasOwnProperty("constructor")) {
-                        if (decorate.hasOwnProperty("constructor")) {
-                            addMethod(proto, "constructor", decorate.constructor);
-                        } else {
-                            proto.constructor = function () {
-                                this._super(arguments);
-                            };
-                        }
-                    }
-                    defined.push([tester, proto]);
-                }
-                return _extender;
-            }
-
-            function extend(supr) {
-                if (supr && supr.hasOwnProperty("__defined__")) {
-                    _extender["__defined__"] = defined = defined.concat(supr["__defined__"]);
-                }
-                merge(_extender, supr, ["define", "extend", "expose", "__defined__"]);
-                return _extender;
-            }
-
-            _extender.define = define;
-            _extender.extend = extend;
-            _extender.expose = function expose() {
-                var methods;
-                for (var i = 0, l = arguments.length; i < l; i++) {
-                    methods = arguments[i];
-                    if (typeof methods === "object") {
-                        merge(_extender, methods, ["define", "extend", "expose", "__defined__"]);
-                    }
-                }
-                return _extender;
-            };
-            _extender["__defined__"] = defined;
-
-
-            return _extender;
-        }
-
-        return {
-            define: function () {
-                return extender().define.apply(extender, arguments);
-            },
-
-            extend: function (supr) {
-                return extender().define().extend(supr);
-            }
-        };
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineExtender(require("declare.js"));
-
-        }
-    } else if ("function" === typeof define && define.amd) {
-        define(["declare"], function (declare) {
-            return defineExtender(declare);
-        });
-    } else {
-        this.extender = defineExtender(this.declare);
-    }
-
-}).call(this);
-},{"declare.js":62}],60:[function(require,module,exports){
-module.exports = require("./extender.js");
-},{"./extender.js":59}],61:[function(require,module,exports){
-(function () {
-
-    /**
-     * @projectName declare
-     * @github http://github.com/doug-martin/declare.js
-     * @header
-     *
-     * Declare is a library designed to allow writing object oriented code the same way in both the browser and node.js.
-     *
-     * ##Installation
-     *
-     * `npm install declare.js`
-     *
-     * Or [download the source](https://raw.github.com/doug-martin/declare.js/master/declare.js) ([minified](https://raw.github.com/doug-martin/declare.js/master/declare-min.js))
-     *
-     * ###Requirejs
-     *
-     * To use with requirejs place the `declare` source in the root scripts directory
-     *
-     * ```
-     *
-     * define(["declare"], function(declare){
-     *      return declare({
-     *          instance : {
-     *              hello : function(){
-     *                  return "world";
-     *              }
-     *          }
-     *      });
-     * });
-     *
-     * ```
-     *
-     *
-     * ##Usage
-     *
-     * declare.js provides
-     *
-     * Class methods
-     *
-     * * `as(module | object, name)` : exports the object to module or the object with the name
-     * * `mixin(mixin)` : mixes in an object but does not inherit directly from the object. **Note** this does not return a new class but changes the original class.
-     * * `extend(proto)` : extend a class with the given properties. A shortcut to `declare(Super, {})`;
-     *
-     * Instance methods
-     *
-     * * `_super(arguments)`: calls the super of the current method, you can pass in either the argments object or an array with arguments you want passed to super
-     * * `_getSuper()`: returns a this methods direct super.
-     * * `_static` : use to reference class properties and methods.
-     * * `get(prop)` : gets a property invoking the getter if it exists otherwise it just returns the named property on the object.
-     * * `set(prop, val)` : sets a property invoking the setter if it exists otherwise it just sets the named property on the object.
-     *
-     *
-     * ###Declaring a new Class
-     *
-     * Creating a new class with declare is easy!
-     *
-     * ```
-     *
-     * var Mammal = declare({
-     *      //define your instance methods and properties
-     *      instance : {
-     *
-     *          //will be called whenever a new instance is created
-     *          constructor: function(options) {
-     *              options = options || {};
-     *              this._super(arguments);
-     *              this._type = options.type || "mammal";
-     *          },
-     *
-     *          speak : function() {
-     *              return  "A mammal of type " + this._type + " sounds like";
-     *          },
-     *
-     *          //Define your getters
-     *          getters : {
-     *
-     *              //can be accessed by using the get method. (mammal.get("type"))
-     *              type : function() {
-     *                  return this._type;
-     *              }
-     *          },
-     *
-     *           //Define your setters
-     *          setters : {
-     *
-     *                //can be accessed by using the set method. (mammal.set("type", "mammalType"))
-     *              type : function(t) {
-     *                  this._type = t;
-     *              }
-     *          }
-     *      },
-     *
-     *      //Define your static methods
-     *      static : {
-     *
-     *          //Mammal.soundOff(); //"Im a mammal!!"
-     *          soundOff : function() {
-     *              return "Im a mammal!!";
-     *          }
-     *      }
-     * });
-     *
-     *
-     * ```
-     *
-     * You can use Mammal just like you would any other class.
-     *
-     * ```
-     * Mammal.soundOff("Im a mammal!!");
-     *
-     * var myMammal = new Mammal({type : "mymammal"});
-     * myMammal.speak(); // "A mammal of type mymammal sounds like"
-     * myMammal.get("type"); //"mymammal"
-     * myMammal.set("type", "mammal");
-     * myMammal.get("type"); //"mammal"
-     *
-     *
-     * ```
-     *
-     * ###Extending a class
-     *
-     * If you want to just extend a single class use the .extend method.
-     *
-     * ```
-     *
-     * var Wolf = Mammal.extend({
-     *
-     *   //define your instance method
-     *   instance: {
-     *
-     *        //You can override super constructors just be sure to call `_super`
-     *       constructor: function(options) {
-     *          options = options || {};
-     *          this._super(arguments); //call our super constructor.
-     *          this._sound = "growl";
-     *          this._color = options.color || "grey";
-     *      },
-     *
-     *      //override Mammals `speak` method by appending our own data to it.
-     *      speak : function() {
-     *          return this._super(arguments) + " a " + this._sound;
-     *      },
-     *
-     *      //add new getters for sound and color
-     *      getters : {
-     *
-     *           //new Wolf().get("type")
-     *           //notice color is read only as we did not define a setter
-     *          color : function() {
-     *              return this._color;
-     *          },
-     *
-     *          //new Wolf().get("sound")
-     *          sound : function() {
-     *              return this._sound;
-     *          }
-     *      },
-     *
-     *      setters : {
-     *
-     *          //new Wolf().set("sound", "howl")
-     *          sound : function(s) {
-     *              this._sound = s;
-     *          }
-     *      }
-     *
-     *  },
-     *
-     *  static : {
-     *
-     *      //You can override super static methods also! And you can still use _super
-     *      soundOff : function() {
-     *          //You can even call super in your statics!!!
-     *          //should return "I'm a mammal!! that growls"
-     *          return this._super(arguments) + " that growls";
-     *      }
-     *  }
-     * });
-     *
-     * Wolf.soundOff(); //Im a mammal!! that growls
-     *
-     * var myWolf = new Wolf();
-     * myWolf instanceof Mammal //true
-     * myWolf instanceof Wolf //true
-     *
-     * ```
-     *
-     * You can also extend a class by using the declare method and just pass in the super class.
-     *
-     * ```
-     * //Typical hierarchical inheritance
-     * // Mammal->Wolf->Dog
-     * var Dog = declare(Wolf, {
-     *    instance: {
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            //override Wolfs initialization of sound to woof.
-     *            this._sound = "woof";
-     *
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a growl thats domesticated"
-     *            return this._super(arguments) + " thats domesticated";
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'm a mammal!! that growls but now barks"
-     *            return this._super(arguments) + " but now barks";
-     *        }
-     *    }
-     * });
-     *
-     * Dog.soundOff(); //Im a mammal!! that growls but now barks
-     *
-     * var myDog = new Dog();
-     * myDog instanceof Mammal //true
-     * myDog instanceof Wolf //true
-     * myDog instanceof Dog //true
-     *
-     *
-     * //Notice you still get the extend method.
-     *
-     * // Mammal->Wolf->Dog->Breed
-     * var Breed = Dog.extend({
-     *    instance: {
-     *
-     *        //initialize outside of constructor
-     *        _pitch : "high",
-     *
-     *        constructor: function(options) {
-     *            options = options || {};
-     *            this._super(arguments);
-     *            this.breed = options.breed || "lab";
-     *        },
-     *
-     *        speak : function() {
-     *            //Should return "A mammal of type mammal sounds like a
-     *            //growl thats domesticated with a high pitch!"
-     *            return this._super(arguments) + " with a " + this._pitch + " pitch!";
-     *        },
-     *
-     *        getters : {
-     *            pitch : function() {
-     *                return this._pitch;
-     *            }
-     *        }
-     *    },
-     *
-     *    static : {
-     *        soundOff : function() {
-     *            //should return "I'M A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *            return this._super(arguments).toUpperCase() + "!";
-     *        }
-     *    }
-     * });
-     *
-     *
-     * Breed.soundOff()//"IM A MAMMAL!! THAT GROWLS BUT NOW BARKS!"
-     *
-     * var myBreed = new Breed({color : "gold", type : "lab"}),
-     * myBreed instanceof Dog //true
-     * myBreed instanceof Wolf //true
-     * myBreed instanceof Mammal //true
-     * myBreed.speak() //"A mammal of type lab sounds like a woof thats domesticated with a high pitch!"
-     * myBreed.get("type") //"lab"
-     * myBreed.get("color") //"gold"
-     * myBreed.get("sound")" //"woof"
-     * ```
-     *
-     * ###Multiple Inheritance / Mixins
-     *
-     * declare also allows the use of multiple super classes.
-     * This is useful if you have generic classes that provide functionality but shouldnt be used on their own.
-     *
-     * Lets declare a mixin that allows us to watch for property changes.
-     *
-     * ```
-     * //Notice that we set up the functions outside of declare because we can reuse them
-     *
-     * function _set(prop, val) {
-     *     //get the old value
-     *     var oldVal = this.get(prop);
-     *     //call super to actually set the property
-     *     var ret = this._super(arguments);
-     *     //call our handlers
-     *     this.__callHandlers(prop, oldVal, val);
-     *     return ret;
-     * }
-     *
-     * function _callHandlers(prop, oldVal, newVal) {
-     *    //get our handlers for the property
-     *     var handlers = this.__watchers[prop], l;
-     *     //if the handlers exist and their length does not equal 0 then we call loop through them
-     *     if (handlers && (l = handlers.length) !== 0) {
-     *         for (var i = 0; i < l; i++) {
-     *             //call the handler
-     *             handlers[i].call(null, prop, oldVal, newVal);
-     *         }
-     *     }
-     * }
-     *
-     *
-     * //the watch function
-     * function _watch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         //if its not a function then its an invalid handler
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     if (!this.__watchers[prop]) {
-     *         //create the watchers if it doesnt exist
-     *         this.__watchers[prop] = [handler];
-     *     } else {
-     *         //otherwise just add it to the handlers array
-     *         this.__watchers[prop].push(handler);
-     *     }
-     * }
-     *
-     * function _unwatch(prop, handler) {
-     *     if ("function" !== typeof handler) {
-     *         throw new TypeError("Invalid handler.");
-     *     }
-     *     var handlers = this.__watchers[prop], index;
-     *     if (handlers && (index = handlers.indexOf(handler)) !== -1) {
-     *        //remove the handler if it is found
-     *         handlers.splice(index, 1);
-     *     }
-     * }
-     *
-     * declare({
-     *     instance:{
-     *         constructor:function () {
-     *             this._super(arguments);
-     *             //set up our watchers
-     *             this.__watchers = {};
-     *         },
-     *
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set up our callhandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch function
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     },
-     *
-     *     "static":{
-     *
-     *         init:function () {
-     *             this._super(arguments);
-     *             this.__watchers = {};
-     *         },
-     *         //override the default set function so we can watch values
-     *         "set":_set,
-     *         //set our callHandlers function
-     *         __callHandlers:_callHandlers,
-     *         //add the watch
-     *         watch:_watch,
-     *         //add the unwatch function
-     *         unwatch:_unwatch
-     *     }
-     * })
-     *
-     * ```
-     *
-     * Now lets use the mixin
-     *
-     * ```
-     * var WatchDog = declare([Dog, WatchMixin]);
-     *
-     * var watchDog = new WatchDog();
-     * //create our handler
-     * function watch(id, oldVal, newVal) {
-     *     console.log("watchdog's %s was %s, now %s", id, oldVal, newVal);
-     * }
-     *
-     * //watch for property changes
-     * watchDog.watch("type", watch);
-     * watchDog.watch("color", watch);
-     * watchDog.watch("sound", watch);
-     *
-     * //now set the properties each handler will be called
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * //unwatch the property changes
-     * watchDog.unwatch("type", watch);
-     * watchDog.unwatch("color", watch);
-     * watchDog.unwatch("sound", watch);
-     *
-     * //no handlers will be called this time
-     * watchDog.set("type", "newDog");
-     * watchDog.set("color", "newColor");
-     * watchDog.set("sound", "newSound");
-     *
-     *
-     * ```
-     *
-     * ###Accessing static methods and properties witin an instance.
-     *
-     * To access static properties on an instance use the `_static` property which is a reference to your constructor.
-     *
-     * For example if your in your constructor and you want to have configurable default values.
-     *
-     * ```
-     * consturctor : function constructor(opts){
-     *     this.opts = opts || {};
-     *     this._type = opts.type || this._static.DEFAULT_TYPE;
-     * }
-     * ```
-     *
-     *
-     *
-     * ###Creating a new instance of within an instance.
-     *
-     * Often times you want to create a new instance of an object within an instance. If your subclassed however you cannot return a new instance of the parent class as it will not be the right sub class. `declare` provides a way around this by setting the `_static` property on each isntance of the class.
-     *
-     * Lets add a reproduce method `Mammal`
-     *
-     * ```
-     * reproduce : function(options){
-     *     return new this._static(options);
-     * }
-     * ```
-     *
-     * Now in each subclass you can call reproduce and get the proper type.
-     *
-     * ```
-     * var myDog = new Dog();
-     * var myDogsChild = myDog.reproduce();
-     *
-     * myDogsChild instanceof Dog; //true
-     * ```
-     *
-     * ###Using the `as`
-     *
-     * `declare` also provides an `as` method which allows you to add your class to an object or if your using node.js you can pass in `module` and the class will be exported as the module.
-     *
-     * ```
-     * var animals = {};
-     *
-     * Mammal.as(animals, "Dog");
-     * Wolf.as(animals, "Wolf");
-     * Dog.as(animals, "Dog");
-     * Breed.as(animals, "Breed");
-     *
-     * var myDog = new animals.Dog();
-     *
-     * ```
-     *
-     * Or in node
-     *
-     * ```
-     * Mammal.as(exports, "Dog");
-     * Wolf.as(exports, "Wolf");
-     * Dog.as(exports, "Dog");
-     * Breed.as(exports, "Breed");
-     *
-     * ```
-     *
-     * To export a class as the `module` in node
-     *
-     * ```
-     * Mammal.as(module);
-     * ```
-     *
-     *
-     */
-    function createDeclared() {
-        var arraySlice = Array.prototype.slice, classCounter = 0, Base, forceNew = new Function();
-
-        var SUPER_REGEXP = /(super)/g;
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return arraySlice.call(args, slice);
-        }
-
-        function isArray(obj) {
-            return Object.prototype.toString.call(obj) === "[object Array]";
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && obj !== undef && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object;
-        }
-
-        var isArguments = function _isArguments(object) {
-            return Object.prototype.toString.call(object) === '[object Arguments]';
-        };
-
-        if (!isArguments(arguments)) {
-            isArguments = function _isArguments(obj) {
-                return !!(obj && obj.hasOwnProperty("callee"));
-            };
-        }
-
-        function indexOf(arr, item) {
-            if (arr && arr.length) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (arr[i] === item) {
-                        return i;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        function merge(target, source, exclude) {
-            var name, s;
-            for (name in source) {
-                if (source.hasOwnProperty(name) && indexOf(exclude, name) === -1) {
-                    s = source[name];
-                    if (!(name in target) || (target[name] !== s)) {
-                        target[name] = s;
-                    }
-                }
-            }
-            return target;
-        }
-
-        function callSuper(args, a) {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                args = !args ? [] : (!isArguments(args) && !isArray(args)) ? [args] : args;
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, args);
-                    }
-                } while (l > ++pos);
-            }
-
-            return null;
-        }
-
-        function getSuper() {
-            var meta = this.__meta,
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.bind(this);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-        function getter(name) {
-            var getters = this.__getters__;
-            if (getters.hasOwnProperty(name)) {
-                return getters[name].apply(this);
-            } else {
-                return this[name];
-            }
-        }
-
-        function setter(name, val) {
-            var setters = this.__setters__;
-            if (isHash(name)) {
-                for (var i in name) {
-                    var prop = name[i];
-                    if (setters.hasOwnProperty(i)) {
-                        setters[name].call(this, prop);
-                    } else {
-                        this[i] = prop;
-                    }
-                }
-            } else {
-                if (setters.hasOwnProperty(name)) {
-                    return setters[name].apply(this, argsToArray(arguments, 1));
-                } else {
-                    return this[name] = val;
-                }
-            }
-        }
-
-
-        function defaultFunction() {
-            var meta = this.__meta || {},
-                supers = meta.supers,
-                l = supers.length, superMeta = meta.superMeta, pos = superMeta.pos;
-            if (l > pos) {
-                var name = superMeta.name, f = superMeta.f, m;
-                do {
-                    m = supers[pos][name];
-                    if ("function" === typeof m && (m = m._f || m) !== f) {
-                        superMeta.pos = 1 + pos;
-                        return m.apply(this, arguments);
-                    }
-                } while (l > ++pos);
-            }
-            return null;
-        }
-
-
-        function functionWrapper(f, name) {
-            if (f.toString().match(SUPER_REGEXP)) {
-                var wrapper = function wrapper() {
-                    var ret, meta = this.__meta || {};
-                    var orig = meta.superMeta;
-                    meta.superMeta = {f: f, pos: 0, name: name};
-                    switch (arguments.length) {
-                    case 0:
-                        ret = f.call(this);
-                        break;
-                    case 1:
-                        ret = f.call(this, arguments[0]);
-                        break;
-                    case 2:
-                        ret = f.call(this, arguments[0], arguments[1]);
-                        break;
-
-                    case 3:
-                        ret = f.call(this, arguments[0], arguments[1], arguments[2]);
-                        break;
-                    default:
-                        ret = f.apply(this, arguments);
-                    }
-                    meta.superMeta = orig;
-                    return ret;
-                };
-                wrapper._f = f;
-                return wrapper;
-            } else {
-                f._f = f;
-                return f;
-            }
-        }
-
-        function defineMixinProps(child, proto) {
-
-            var operations = proto.setters || {}, __setters = child.__setters__, __getters = child.__getters__;
-            for (var i in operations) {
-                if (!__setters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            for (i in operations) {
-                if (!__getters.hasOwnProperty(i)) {  //make sure that the setter isnt already there
-                    __getters[i] = operations[i];
-                }
-            }
-            for (var j in proto) {
-                if (j !== "getters" && j !== "setters") {
-                    var p = proto[j];
-                    if ("function" === typeof p) {
-                        if (!child.hasOwnProperty(j)) {
-                            child[j] = functionWrapper(defaultFunction, j);
-                        }
-                    } else {
-                        child[j] = p;
-                    }
-                }
-            }
-        }
-
-        function mixin() {
-            var args = argsToArray(arguments), l = args.length;
-            var child = this.prototype;
-            var childMeta = child.__meta, thisMeta = this.__meta, bases = child.__meta.bases, staticBases = bases.slice(),
-                staticSupers = thisMeta.supers || [], supers = childMeta.supers || [];
-            for (var i = 0; i < l; i++) {
-                var m = args[i], mProto = m.prototype;
-                var protoMeta = mProto.__meta, meta = m.__meta;
-                !protoMeta && (protoMeta = (mProto.__meta = {proto: mProto || {}}));
-                !meta && (meta = (m.__meta = {proto: m.__proto__ || {}}));
-                defineMixinProps(child, protoMeta.proto || {});
-                defineMixinProps(this, meta.proto || {});
-                //copy the bases for static,
-
-                mixinSupers(m.prototype, supers, bases);
-                mixinSupers(m, staticSupers, staticBases);
-            }
-            return this;
-        }
-
-        function mixinSupers(sup, arr, bases) {
-            var meta = sup.__meta;
-            !meta && (meta = (sup.__meta = {}));
-            var unique = sup.__meta.unique;
-            !unique && (meta.unique = "declare" + ++classCounter);
-            //check it we already have this super mixed into our prototype chain
-            //if true then we have already looped their supers!
-            if (indexOf(bases, unique) === -1) {
-                //add their id to our bases
-                bases.push(unique);
-                var supers = sup.__meta.supers || [], i = supers.length - 1 || 0;
-                while (i >= 0) {
-                    mixinSupers(supers[i--], arr, bases);
-                }
-                arr.unshift(sup);
-            }
-        }
-
-        function defineProps(child, proto) {
-            var operations = proto.setters,
-                __setters = child.__setters__,
-                __getters = child.__getters__;
-            if (operations) {
-                for (var i in operations) {
-                    __setters[i] = operations[i];
-                }
-            }
-            operations = proto.getters || {};
-            if (operations) {
-                for (i in operations) {
-                    __getters[i] = operations[i];
-                }
-            }
-            for (i in proto) {
-                if (i != "getters" && i != "setters") {
-                    var f = proto[i];
-                    if ("function" === typeof f) {
-                        var meta = f.__meta || {};
-                        if (!meta.isConstructor) {
-                            child[i] = functionWrapper(f, i);
-                        } else {
-                            child[i] = f;
-                        }
-                    } else {
-                        child[i] = f;
-                    }
-                }
-            }
-
-        }
-
-        function _export(obj, name) {
-            if (obj && name) {
-                obj[name] = this;
-            } else {
-                obj.exports = obj = this;
-            }
-            return this;
-        }
-
-        function extend(proto) {
-            return declare(this, proto);
-        }
-
-        function getNew(ctor) {
-            // create object with correct prototype using a do-nothing
-            // constructor
-            forceNew.prototype = ctor.prototype;
-            var t = new forceNew();
-            forceNew.prototype = null;	// clean up
-            return t;
-        }
-
-
-        function __declare(child, sup, proto) {
-            var childProto = {}, supers = [];
-            var unique = "declare" + ++classCounter, bases = [], staticBases = [];
-            var instanceSupers = [], staticSupers = [];
-            var meta = {
-                supers: instanceSupers,
-                unique: unique,
-                bases: bases,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-            var childMeta = {
-                supers: staticSupers,
-                unique: unique,
-                bases: staticBases,
-                isConstructor: true,
-                superMeta: {
-                    f: null,
-                    pos: 0,
-                    name: null
-                }
-            };
-
-            if (isHash(sup) && !proto) {
-                proto = sup;
-                sup = Base;
-            }
-
-            if ("function" === typeof sup || isArray(sup)) {
-                supers = isArray(sup) ? sup : [sup];
-                sup = supers.shift();
-                child.__meta = childMeta;
-                childProto = getNew(sup);
-                childProto.__meta = meta;
-                childProto.__getters__ = merge({}, childProto.__getters__ || {});
-                childProto.__setters__ = merge({}, childProto.__setters__ || {});
-                child.__getters__ = merge({}, child.__getters__ || {});
-                child.__setters__ = merge({}, child.__setters__ || {});
-                mixinSupers(sup.prototype, instanceSupers, bases);
-                mixinSupers(sup, staticSupers, staticBases);
-            } else {
-                child.__meta = childMeta;
-                childProto.__meta = meta;
-                childProto.__getters__ = childProto.__getters__ || {};
-                childProto.__setters__ = childProto.__setters__ || {};
-                child.__getters__ = child.__getters__ || {};
-                child.__setters__ = child.__setters__ || {};
-            }
-            child.prototype = childProto;
-            if (proto) {
-                var instance = meta.proto = proto.instance || {};
-                var stat = childMeta.proto = proto.static || {};
-                stat.init = stat.init || defaultFunction;
-                defineProps(childProto, instance);
-                defineProps(child, stat);
-                if (!instance.hasOwnProperty("constructor")) {
-                    childProto.constructor = instance.constructor = functionWrapper(defaultFunction, "constructor");
-                } else {
-                    childProto.constructor = functionWrapper(instance.constructor, "constructor");
-                }
-            } else {
-                meta.proto = {};
-                childMeta.proto = {};
-                child.init = functionWrapper(defaultFunction, "init");
-                childProto.constructor = functionWrapper(defaultFunction, "constructor");
-            }
-            if (supers.length) {
-                mixin.apply(child, supers);
-            }
-            if (sup) {
-                //do this so we mixin our super methods directly but do not ov
-                merge(child, merge(merge({}, sup), child));
-            }
-            childProto._super = child._super = callSuper;
-            childProto._getSuper = child._getSuper = getSuper;
-            childProto._static = child;
-        }
-
-        function declare(sup, proto) {
-            function declared() {
-                this.constructor.apply(this, arguments);
-            }
-
-            __declare(declared, sup, proto);
-            return declared.init() || declared;
-        }
-
-        function singleton(sup, proto) {
-            var retInstance;
-
-            function declaredSingleton() {
-                if (!retInstance) {
-                    this.constructor.apply(this, arguments);
-                    retInstance = this;
-                }
-                return retInstance;
-            }
-
-            __declare(declaredSingleton, sup, proto);
-            return  declaredSingleton.init() || declaredSingleton;
-        }
-
-        Base = declare({
-            instance: {
-                "get": getter,
-                "set": setter
-            },
-
-            "static": {
-                "get": getter,
-                "set": setter,
-                mixin: mixin,
-                extend: extend,
-                as: _export
-            }
-        });
-
-        declare.singleton = singleton;
-        return declare;
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = createDeclared();
-        }
-    } else if ("function" === typeof define && define.amd) {
-        define(createDeclared);
-    } else {
-        this.declare = createDeclared();
-    }
-}());
-
-
-
-
-},{}],62:[function(require,module,exports){
-module.exports = require("./declare.js");
-},{"./declare.js":61}],63:[function(require,module,exports){
-var Buffer=require("__browserify_Buffer").Buffer;(function () {
-    "use strict";
-
-    function defineIsa(extended) {
-
-        var pSlice = Array.prototype.slice;
-
-        var hasOwn = Object.prototype.hasOwnProperty;
-        var toStr = Object.prototype.toString;
-
-        function argsToArray(args, slice) {
-            slice = slice || 0;
-            return pSlice.call(args, slice);
-        }
-
-        function keys(obj) {
-            var ret = [];
-            for (var i in obj) {
-                if (hasOwn.call(obj, i)) {
-                    ret.push(i);
-                }
-            }
-            return ret;
-        }
-
-        //taken from node js assert.js
-        //https://github.com/joyent/node/blob/master/lib/assert.js
-        function deepEqual(actual, expected) {
-            // 7.1. All identical values are equivalent, as determined by ===.
-            if (actual === expected) {
-                return true;
-
-            } else if (typeof Buffer !== "undefined" && Buffer.isBuffer(actual) && Buffer.isBuffer(expected)) {
-                if (actual.length !== expected.length) {
-                    return false;
-                }
-                for (var i = 0; i < actual.length; i++) {
-                    if (actual[i] !== expected[i]) {
-                        return false;
-                    }
-                }
-                return true;
-
-                // 7.2. If the expected value is a Date object, the actual value is
-                // equivalent if it is also a Date object that refers to the same time.
-            } else if (isDate(actual) && isDate(expected)) {
-                return actual.getTime() === expected.getTime();
-
-                // 7.3 If the expected value is a RegExp object, the actual value is
-                // equivalent if it is also a RegExp object with the same source and
-                // properties (`global`, `multiline`, `lastIndex`, `ignoreCase`).
-            } else if (isRegExp(actual) && isRegExp(expected)) {
-                return actual.source === expected.source &&
-                    actual.global === expected.global &&
-                    actual.multiline === expected.multiline &&
-                    actual.lastIndex === expected.lastIndex &&
-                    actual.ignoreCase === expected.ignoreCase;
-
-                // 7.4. Other pairs that do not both pass typeof value == 'object',
-                // equivalence is determined by ==.
-            } else if (isString(actual) && isString(expected) && actual !== expected) {
-                return false;
-            } else if (typeof actual !== 'object' && typeof expected !== 'object') {
-                return actual === expected;
-
-                // 7.5 For all other Object pairs, including Array objects, equivalence is
-                // determined by having the same number of owned properties (as verified
-                // with Object.prototype.hasOwnProperty.call), the same set of keys
-                // (although not necessarily the same order), equivalent values for every
-                // corresponding key, and an identical 'prototype' property. Note: this
-                // accounts for both named and indexed properties on Arrays.
-            } else {
-                return objEquiv(actual, expected);
-            }
-        }
-
-
-        function objEquiv(a, b) {
-            var key;
-            if (isUndefinedOrNull(a) || isUndefinedOrNull(b)) {
-                return false;
-            }
-            // an identical 'prototype' property.
-            if (a.prototype !== b.prototype) {
-                return false;
-            }
-            //~~~I've managed to break Object.keys through screwy arguments passing.
-            //   Converting to array solves the problem.
-            if (isArguments(a)) {
-                if (!isArguments(b)) {
-                    return false;
-                }
-                a = pSlice.call(a);
-                b = pSlice.call(b);
-                return deepEqual(a, b);
-            }
-            try {
-                var ka = keys(a),
-                    kb = keys(b),
-                    i;
-                // having the same number of owned properties (keys incorporates
-                // hasOwnProperty)
-                if (ka.length !== kb.length) {
-                    return false;
-                }
-                //the same set of keys (although not necessarily the same order),
-                ka.sort();
-                kb.sort();
-                //~~~cheap key test
-                for (i = ka.length - 1; i >= 0; i--) {
-                    if (ka[i] !== kb[i]) {
-                        return false;
-                    }
-                }
-                //equivalent values for every corresponding key, and
-                //~~~possibly expensive deep test
-                for (i = ka.length - 1; i >= 0; i--) {
-                    key = ka[i];
-                    if (!deepEqual(a[key], b[key])) {
-                        return false;
-                    }
-                }
-            } catch (e) {//happens when one is a string literal and the other isn't
-                return false;
-            }
-            return true;
-        }
-
-
-        var isFunction = function (obj) {
-            return toStr.call(obj) === '[object Function]';
-        };
-
-        //ie hack
-        if ("undefined" !== typeof window && !isFunction(window.alert)) {
-            (function (alert) {
-                isFunction = function (obj) {
-                    return toStr.call(obj) === '[object Function]' || obj === alert;
-                };
-            }(window.alert));
-        }
-
-        function isObject(obj) {
-            var undef;
-            return obj !== null && typeof obj === "object";
-        }
-
-        function isHash(obj) {
-            var ret = isObject(obj);
-            return ret && obj.constructor === Object && !obj.nodeType && !obj.setInterval;
-        }
-
-        function isEmpty(object) {
-            if (isArguments(object)) {
-                return object.length === 0;
-            } else if (isObject(object)) {
-                return keys(object).length === 0;
-            } else if (isString(object) || isArray(object)) {
-                return object.length === 0;
-            }
-            return true;
-        }
-
-        function isBoolean(obj) {
-            return obj === true || obj === false || toStr.call(obj) === "[object Boolean]";
-        }
-
-        function isUndefined(obj) {
-            return typeof obj === 'undefined';
-        }
-
-        function isDefined(obj) {
-            return !isUndefined(obj);
-        }
-
-        function isUndefinedOrNull(obj) {
-            return isUndefined(obj) || isNull(obj);
-        }
-
-        function isNull(obj) {
-            return obj === null;
-        }
-
-
-        var isArguments = function _isArguments(object) {
-            return toStr.call(object) === '[object Arguments]';
-        };
-
-        if (!isArguments(arguments)) {
-            isArguments = function _isArguments(obj) {
-                return !!(obj && hasOwn.call(obj, "callee"));
-            };
-        }
-
-
-        function isInstanceOf(obj, clazz) {
-            if (isFunction(clazz)) {
-                return obj instanceof clazz;
-            } else {
-                return false;
-            }
-        }
-
-        function isRegExp(obj) {
-            return toStr.call(obj) === '[object RegExp]';
-        }
-
-        var isArray = Array.isArray || function isArray(obj) {
-            return toStr.call(obj) === "[object Array]";
-        };
-
-        function isDate(obj) {
-            return toStr.call(obj) === '[object Date]';
-        }
-
-        function isString(obj) {
-            return toStr.call(obj) === '[object String]';
-        }
-
-        function isNumber(obj) {
-            return toStr.call(obj) === '[object Number]';
-        }
-
-        function isTrue(obj) {
-            return obj === true;
-        }
-
-        function isFalse(obj) {
-            return obj === false;
-        }
-
-        function isNotNull(obj) {
-            return !isNull(obj);
-        }
-
-        function isEq(obj, obj2) {
-            /*jshint eqeqeq:false*/
-            return obj == obj2;
-        }
-
-        function isNeq(obj, obj2) {
-            /*jshint eqeqeq:false*/
-            return obj != obj2;
-        }
-
-        function isSeq(obj, obj2) {
-            return obj === obj2;
-        }
-
-        function isSneq(obj, obj2) {
-            return obj !== obj2;
-        }
-
-        function isIn(obj, arr) {
-            if ((isArray(arr) && Array.prototype.indexOf) || isString(arr)) {
-                return arr.indexOf(obj) > -1;
-            } else if (isArray(arr)) {
-                for (var i = 0, l = arr.length; i < l; i++) {
-                    if (isEq(obj, arr[i])) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        function isNotIn(obj, arr) {
-            return !isIn(obj, arr);
-        }
-
-        function isLt(obj, obj2) {
-            return obj < obj2;
-        }
-
-        function isLte(obj, obj2) {
-            return obj <= obj2;
-        }
-
-        function isGt(obj, obj2) {
-            return obj > obj2;
-        }
-
-        function isGte(obj, obj2) {
-            return obj >= obj2;
-        }
-
-        function isLike(obj, reg) {
-            if (isString(reg)) {
-                return ("" + obj).match(reg) !== null;
-            } else if (isRegExp(reg)) {
-                return reg.test(obj);
-            }
-            return false;
-        }
-
-        function isNotLike(obj, reg) {
-            return !isLike(obj, reg);
-        }
-
-        function contains(arr, obj) {
-            return isIn(obj, arr);
-        }
-
-        function notContains(arr, obj) {
-            return !isIn(obj, arr);
-        }
-
-        function containsAt(arr, obj, index) {
-            if (isArray(arr) && arr.length > index) {
-                return isEq(arr[index], obj);
-            }
-            return false;
-        }
-
-        function notContainsAt(arr, obj, index) {
-            if (isArray(arr)) {
-                return !isEq(arr[index], obj);
-            }
-            return false;
-        }
-
-        function has(obj, prop) {
-            return hasOwn.call(obj, prop);
-        }
-
-        function notHas(obj, prop) {
-            return !has(obj, prop);
-        }
-
-        function length(obj, l) {
-            if (has(obj, "length")) {
-                return obj.length === l;
-            }
-            return false;
-        }
-
-        function notLength(obj, l) {
-            if (has(obj, "length")) {
-                return obj.length !== l;
-            }
-            return false;
-        }
-
-        var isa = {
-            isFunction: isFunction,
-            isObject: isObject,
-            isEmpty: isEmpty,
-            isHash: isHash,
-            isNumber: isNumber,
-            isString: isString,
-            isDate: isDate,
-            isArray: isArray,
-            isBoolean: isBoolean,
-            isUndefined: isUndefined,
-            isDefined: isDefined,
-            isUndefinedOrNull: isUndefinedOrNull,
-            isNull: isNull,
-            isArguments: isArguments,
-            instanceOf: isInstanceOf,
-            isRegExp: isRegExp,
-            deepEqual: deepEqual,
-            isTrue: isTrue,
-            isFalse: isFalse,
-            isNotNull: isNotNull,
-            isEq: isEq,
-            isNeq: isNeq,
-            isSeq: isSeq,
-            isSneq: isSneq,
-            isIn: isIn,
-            isNotIn: isNotIn,
-            isLt: isLt,
-            isLte: isLte,
-            isGt: isGt,
-            isGte: isGte,
-            isLike: isLike,
-            isNotLike: isNotLike,
-            contains: contains,
-            notContains: notContains,
-            has: has,
-            notHas: notHas,
-            isLength: length,
-            isNotLength: notLength,
-            containsAt: containsAt,
-            notContainsAt: notContainsAt
-        };
-
-        var tester = {
-            constructor: function () {
-                this._testers = [];
-            },
-
-            noWrap: {
-                tester: function () {
-                    var testers = this._testers;
-                    return function tester(value) {
-                        var isa = false;
-                        for (var i = 0, l = testers.length; i < l && !isa; i++) {
-                            isa = testers[i](value);
-                        }
-                        return isa;
-                    };
-                }
-            }
-        };
-
-        var switcher = {
-            constructor: function () {
-                this._cases = [];
-                this.__default = null;
-            },
-
-            def: function (val, fn) {
-                this.__default = fn;
-            },
-
-            noWrap: {
-                switcher: function () {
-                    var testers = this._cases, __default = this.__default;
-                    return function tester() {
-                        var handled = false, args = argsToArray(arguments), caseRet;
-                        for (var i = 0, l = testers.length; i < l && !handled; i++) {
-                            caseRet = testers[i](args);
-                            if (caseRet.length > 1) {
-                                if (caseRet[1] || caseRet[0]) {
-                                    return caseRet[1];
-                                }
-                            }
-                        }
-                        if (!handled && __default) {
-                            return  __default.apply(this, args);
-                        }
-                    };
-                }
-            }
-        };
-
-        function addToTester(func) {
-            tester[func] = function isaTester() {
-                this._testers.push(isa[func]);
-            };
-        }
-
-        function addToSwitcher(func) {
-            switcher[func] = function isaTester() {
-                var args = argsToArray(arguments, 1), isFunc = isa[func], handler, doBreak = true;
-                if (args.length <= isFunc.length - 1) {
-                    throw new TypeError("A handler must be defined when calling using switch");
-                } else {
-                    handler = args.pop();
-                    if (isBoolean(handler)) {
-                        doBreak = handler;
-                        handler = args.pop();
-                    }
-                }
-                if (!isFunction(handler)) {
-                    throw new TypeError("handler must be defined");
-                }
-                this._cases.push(function (testArgs) {
-                    if (isFunc.apply(isa, testArgs.concat(args))) {
-                        return [doBreak, handler.apply(this, testArgs)];
-                    }
-                    return [false];
-                });
-            };
-        }
-
-        for (var i in isa) {
-            if (hasOwn.call(isa, i)) {
-                addToSwitcher(i);
-                addToTester(i);
-            }
-        }
-
-        var is = extended.define(isa).expose(isa);
-        is.tester = extended.define(tester);
-        is.switcher = extended.define(switcher);
-        return is;
-
-    }
-
-    if ("undefined" !== typeof exports) {
-        if ("undefined" !== typeof module && module.exports) {
-            module.exports = defineIsa(require("extended"));
-
-        }
-    } else if ("function" === typeof define && define.amd) {
-        define(["extended"], function (extended) {
-            return defineIsa(extended);
-        });
-    } else {
-        this.isExtended = defineIsa(this.extended);
-    }
-
-}).call(this);
-
-
-},{"__browserify_Buffer":67,"extended":58}],64:[function(require,module,exports){
+},{"arguments-extended":51,"extended":56,"is-extended":66}],60:[function(require,module,exports){
 var process=require("__browserify_process");if (!process.EventEmitter) process.EventEmitter = function () {};
 
 var EventEmitter = exports.EventEmitter = process.EventEmitter;
@@ -12015,10 +10374,10 @@ EventEmitter.listenerCount = function(emitter, type) {
   return ret;
 };
 
-},{"__browserify_process":68}],65:[function(require,module,exports){
+},{"__browserify_process":64}],61:[function(require,module,exports){
 // nothing to see here... no file methods for the browser
 
-},{}],66:[function(require,module,exports){
+},{}],62:[function(require,module,exports){
 var process=require("__browserify_process");function filter (xs, fn) {
     var res = [];
     for (var i = 0; i < xs.length; i++) {
@@ -12197,7 +10556,7 @@ exports.relative = function(from, to) {
 
 exports.sep = '/';
 
-},{"__browserify_process":68}],67:[function(require,module,exports){
+},{"__browserify_process":64}],63:[function(require,module,exports){
 require=(function(e,t,n,r){function i(r){if(!n[r]){if(!t[r]){if(e)return e(r);throw new Error("Cannot find module '"+r+"'")}var s=n[r]={exports:{}};t[r][0](function(e){var n=t[r][1][e];return i(n?n:e)},s,s.exports)}return n[r].exports}for(var s=0;s<r.length;s++)i(r[s]);return i})(typeof require!=="undefined"&&require,{1:[function(require,module,exports){
 // UTILITY
 var util = require('util');
@@ -16059,7 +14418,7 @@ SlowBuffer.prototype.writeDoubleBE = Buffer.prototype.writeDoubleBE;
 },{}]},{},[])
 ;;module.exports=require("buffer-browserify")
 
-},{}],68:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -16113,7 +14472,7 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],69:[function(require,module,exports){
+},{}],65:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -16378,7 +14737,7 @@ process.chdir = function (dir) {
 
 
 
-},{"array-extended":49,"declare.js":52,"extended":53,"is-extended":70}],70:[function(require,module,exports){
+},{"array-extended":52,"declare.js":55,"extended":56,"is-extended":66}],66:[function(require,module,exports){
 var Buffer=require("__browserify_Buffer").Buffer;(function () {
     "use strict";
 
@@ -16880,7 +15239,7 @@ var Buffer=require("__browserify_Buffer").Buffer;(function () {
 }).call(this);
 
 
-},{"__browserify_Buffer":67,"extended":53}],71:[function(require,module,exports){
+},{"__browserify_Buffer":63,"extended":56}],67:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -17807,7 +16166,7 @@ var Buffer=require("__browserify_Buffer").Buffer;(function () {
 
 
 
-},{"array-extended":49,"declare.js":52,"extended":53,"is-extended":70,"string-extended":74}],72:[function(require,module,exports){
+},{"array-extended":52,"declare.js":55,"extended":56,"is-extended":66,"string-extended":70}],68:[function(require,module,exports){
 (function () {
     "use strict";
     /*global extended isExtended*/
@@ -17819,7 +16178,8 @@ var Buffer=require("__browserify_Buffer").Buffer;(function () {
             isHash = is.isHash,
             difference = arr.difference,
             hasOwn = Object.prototype.hasOwnProperty,
-            isFunction = is.isFunction;
+            isFunction = is.isFunction,
+            nativeKeys = Object.keys;
 
         function _merge(target, source) {
             var name, s;
@@ -17922,13 +16282,18 @@ var Buffer=require("__browserify_Buffer").Buffer;(function () {
 
 
         function keys(hash) {
-            if (!isHash(hash)) {
-                throw new TypeError();
-            }
-            var ret = [];
-            for (var i in hash) {
-                if (hasOwn.call(hash, i)) {
-                    ret.push(i);
+            var ret;
+            if (nativeKeys) {
+                ret = nativeKeys(hash);
+            } else {
+                if (!isHash(hash)) {
+                    throw new TypeError();
+                }
+                ret = [];
+                for (var i in hash) {
+                    if (hasOwn.call(hash, i)) {
+                        ret.push(i);
+                    }
                 }
             }
             return ret;
@@ -18025,7 +16390,7 @@ var Buffer=require("__browserify_Buffer").Buffer;(function () {
 
 
 
-},{"array-extended":49,"extended":53,"is-extended":70}],73:[function(require,module,exports){
+},{"array-extended":52,"extended":56,"is-extended":66}],69:[function(require,module,exports){
 var process=require("__browserify_process");(function () {
     "use strict";
     /*global setImmediate, MessageChannel*/
@@ -18530,7 +16895,7 @@ var process=require("__browserify_process");(function () {
 
 
 
-},{"__browserify_process":68,"arguments-extended":48,"array-extended":49,"declare.js":52,"extended":53,"function-extended":56,"is-extended":70}],74:[function(require,module,exports){
+},{"__browserify_process":64,"arguments-extended":51,"array-extended":52,"declare.js":55,"extended":56,"function-extended":59,"is-extended":66}],70:[function(require,module,exports){
 (function () {
     "use strict";
 
@@ -19177,5 +17542,5 @@ var process=require("__browserify_process");(function () {
 
 
 
-},{"array-extended":49,"date-extended":50,"extended":53,"is-extended":70}]},{},[1])
+},{"array-extended":52,"date-extended":53,"extended":56,"is-extended":66}]},{},[1])
 ;

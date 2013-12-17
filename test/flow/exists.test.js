@@ -77,22 +77,22 @@ it.describe("exists rule", function (it) {
                 str2 = new Str("Bob Yukon"),
                 person = new Person("Bob Yukon");
             session.assert(person);
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 0);
             session.assert(str1);
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 0);
             session.retract(str1);
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 0);
             session.assert(str2);
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 1);
             session.retract(str2);
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 0);
             session.assert(str2);
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 1);
             session.assert(str1);
             activations = activationTree.toArray()

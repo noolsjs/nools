@@ -1,6 +1,8 @@
 /*global module:false*/
 module.exports = function (grunt) {
     // Project configuration.
+    var path = require("path"),
+        child = require("child_process");
     grunt.initConfig({
         pkg: grunt.file.readJSON('package.json'),
         jshint: {
@@ -48,9 +50,37 @@ module.exports = function (grunt) {
     });
 
     // Default task.
-    grunt.registerTask('default', ['jshint', 'it', 'browserify:nools', 'uglify:min']);
+    grunt.registerTask('default', ['jshint', "compile-tests", 'it', 'browserify:nools', 'uglify:min']);
     grunt.loadNpmTasks('grunt-it');
     grunt.loadNpmTasks('grunt-contrib-jshint');
     grunt.loadNpmTasks('grunt-contrib-uglify');
     grunt.loadNpmTasks('grunt-browserify');
+
+    grunt.registerTask("compile-tests", "compiles all lest files", function () {
+        var files = grunt.file.expand("./test/rules/*.nools"), count = files.length, done = this.async();
+
+        function counter(err) {
+            if (err) {
+                done(err);
+            } else {
+                count--;
+                if (!count) {
+                    done();
+                }
+            }
+        }
+
+        files.forEach(function (file) {
+            var base = path.basename(file, ".nools"),
+                out = path.resolve(path.dirname(file), base + "-compiled.js");
+            child.exec(path.resolve(__dirname, "./bin/nools") + " compile " + file + " -l ../../ -n " + base + "-compiled", function (err, output) {
+                if (!err) {
+                    grunt.file.write(out, output.toString());
+                }
+                counter(err);
+            });
+        });
+
+
+    });
 };

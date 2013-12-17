@@ -110,56 +110,56 @@ it.describe("not rule", function (it) {
             session.modify(num1, function () {
                 this.value = 6;
             });
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 1);
             assert.equal(activations[0].match.factHash.n1, num2);
             session.modify(num2, function () {
                 this.value = 7;
             });
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 1);
             assert.equal(activations[0].match.factHash.n1, num3);
             session.modify(num3, function () {
                 this.value = 8;
             });
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 1);
             assert.equal(activations[0].match.factHash.n1, num4);
             session.modify(num4, function () {
                 this.value = 9;
             });
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 1);
             assert.equal(activations[0].match.factHash.n1, num5);
             session.modify(num5, function () {
                 this.value = 10;
             });
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 1);
             assert.equal(activations[0].match.factHash.n1, num1);
 
             session.retract(num1);
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 1);
             assert.equal(activations[0].match.factHash.n1, num2);
 
             session.retract(num2);
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 1);
             assert.equal(activations[0].match.factHash.n1, num3);
 
             session.retract(num3);
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 1);
             assert.equal(activations[0].match.factHash.n1, num4);
 
             session.retract(num4);
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 1);
             assert.equal(activations[0].match.factHash.n1, num5);
 
             session.retract(num5);
-            activations = activationTree.toArray()
+            activations = activationTree.toArray();
             assert.lengthOf(activations, 0);
 
             session.assert(num5);
@@ -168,7 +168,6 @@ it.describe("not rule", function (it) {
             session.assert(num2);
             session.assert(num1);
             activations = activationTree.toArray();
-            debugger;
             assert.lengthOf(activations, 1);
             assert.equal(activations[0].match.factHash.n1, num1);
             session.retract(num1);

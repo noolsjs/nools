@@ -1,3 +1,4 @@
+require("./facts.test");
 require("./agendaGroups.test");
 require("./async.test");
 require("./events.test");

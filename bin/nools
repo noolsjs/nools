@@ -5,6 +5,7 @@ var nools = require(".."),
     path = require("path"),
     fs = require("fs"),
     path = require("path"),
+    stdout = process.stdout,
     template = fs.readFileSync(path.join(__dirname, "assets", "compile_wrapper.tmpl"), "utf8"),
     str = require("string-extended"),
     uglifyjs = require("uglify-js"),
@@ -42,7 +43,7 @@ program.command("compile")
         var noolsLocation = program["nools_location"] || "nools";
         files.forEach(function (file) {
             var name = program.name || path.basename(file, path.extname(file));
-            console.log(uglify(str.format(template, { source: nools.transpile(path.resolve(process.cwd(), file), {name: name}), noolsLocation: noolsLocation}), program));
+            stdout.write(uglify(str.format(template, { source: nools.transpile(path.resolve(process.cwd(), file), {name: name}), noolsLocation: noolsLocation}), program));
         });
     });
 
