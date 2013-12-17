@@ -195,6 +195,7 @@
 <li><a href="#facts-assert">Assert</a></li>
 <li><a href="#facts-retract">Retract</a></li>
 <li><a href="#facts-modify">Modify</a></li>
+<li><a href="#get-facts">Retrieving Facts</a></li>
 </ul>
 </li>
 <li><a href="#firing">Firing</a> </li>
@@ -221,7 +222,10 @@
 <li><a href="#exists-constraint">Exists</a></li>
 </ul>
 </li>
-<li><a href="#action">Actions</a></li>
+<li><a href="#action">Actions</a><ul>
+<li><a href="#action-async">Async Actions</a></li>
+</ul>
+</li>
 <li><a href="#globals">Globals</a></li>
 <li><a href="#import">Import</a></li>
 </ul>
@@ -434,6 +438,23 @@ m.message = &quot;hello goodbye&quot;;
 
 session.modify(m);</code></pre>
 <p><strong>Note</strong> <code>modify</code> is typically used during the execution of the rules.</p>
+<p><a name="get-facts"></a></p>
+<h3>Retrieving Facts</h3>
+<p>To get a list of facts currently in the session you can use the <code>getFacts()</code> method exposed on a session.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">session.assert(1);
+session.assert(&quot;A&quot;);
+session.assert(&quot;B&quot;);
+session.assert(2);
+
+session.getFacts(); //[1, &quot;A&quot;, &quot;B&quot;, 2];</code></pre>
+<p>You may also pass in a <code>Type</code> to <code>getFacts</code> which will return facts only of the given type.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">session.assert(1);
+session.assert(&quot;A&quot;);
+session.assert(&quot;B&quot;);
+session.assert(2);
+
+session.getFacts(Number); //[1, 2];
+session.getFacts(String); //[&quot;A&quot;, &quot;B&quot;];</code></pre>
 <p><a name="firing"></a></p>
 <h2>Firing the rules</h2>
 <p>When you get a session from a <strong>flow</strong> no rules will be fired until the <strong>match</strong> method is called.</p>
@@ -1250,8 +1271,17 @@ references created by the alpha nodes is passed in as the first argument to the 
         session.modify(f3);
         session.retract(f1);
     }</code></pre>
-<p>If you have an async action that needs to take place an optional third argument can be passed in which is a function 
-to be called when the action is completed.</p>
+<p>To define the actions with the nools DSL</p>
+<pre class='prettyprint linenums lang-js'><code>then {
+    modify(f3, function(){
+        this.value = f1.value + f2.value;
+    });
+    retract(f1);
+}</code></pre>
+<p>For rules defined using the rules language nools will automatically determine what parameters need to be passed in based on what is referenced in the action.</p>
+<p><a name="action-async"></a></p>
+<h3>Async Actions</h3>
+<p>If your action is async you can use the third argument which should called when the action is completed.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">function (facts, engine, next) {
         //some async action
         process.nextTick(function(){
@@ -1261,17 +1291,18 @@ to be called when the action is completed.</p>
             engine.modify(f3);
             engine.retract(f1);
             next();
-        })
+        });
     }</code></pre>
-<p>If any arguments are passed into next it is assumed there was an error and the session will error out.</p>
-<p>To define the action with the nools DSL</p>
-<pre class='prettyprint linenums lang-js'><code>then {
-    modify(f3, function(){
-        this.value = f1.value + f2.value;
-    });
-    retract(f1);
+<p>If an error occurs you can pass the error as the first argument to <code>next</code>.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">then{
+   saveToDatabase(user, function(err){
+      next(new Error(&quot;Something went BOOM!&quot;));
+   });
 }</code></pre>
-<p>For rules defined using the rules language nools will automatically determine what parameters need to be passed in based on what is referenced in the action.</p>
+<p>If you are using a <a href="http://promises-aplus.github.io/promises-spec/"><code>Promises/A+</code></a> compliant library you can just return a promise from your action and <code>nools</code> will wait for the promise to resolve before continuing.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">then{
+   return saveToDatabase(user); // assume saveToDatabase returns a promise
+}</code></pre>
 <p><a name="globals"></a></p>
 <h3>Globals</h3>
 <p>Globals are accessible through the current working scope of rules defined in a <code>dsl</code>, very similar to using the <code>scope</code> option when compiling.</p>

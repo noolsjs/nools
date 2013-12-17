@@ -21,7 +21,7 @@
                 container.css({width: innerWidth + "px", height: innerHeight + "px"});
 
                 var camera = this.camera = new THREE.PerspectiveCamera(100, innerWidth / innerHeight, 1, 10000);
-                camera.position.set(0.01,(dimension || this.defaultDimensions) * 25, 0.01);
+                camera.position.set(0.01, (dimension || this.defaultDimensions) * 25, 0.01);
 
 
                 var controls = this.controls = new THREE.OrbitControls(camera, container[0]);
@@ -77,7 +77,6 @@
             __disposeAndReset: function () {
                 this.session.dispose();
                 if (!this.stopped) {
-                    console.profileEnd();
                     this.reset();
                     this.__matchPromise = null;
                     return this.run();
@@ -89,7 +88,6 @@
                 var session;
                 if (this.stopped && !this.__matchPromise) {
                     this.stopped = false;
-                    console.profile();
                     this.__matchPromise = this.statsListener.listen(this.session = this.flow
                             .getSession(this.cells))
                         .focus("populate")

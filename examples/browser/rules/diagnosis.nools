@@ -22,6 +22,18 @@ define Treatment {
 }
 
 
+rule Cold {
+    when {
+        p : Patient p.fever in ['mild', 'high'] {name : n};
+        not(d : Diagnosis d.name == n && d.diagnosis == 'flu');
+    }
+    then {
+        var d = new Diagnosis({name : n, diagnosis : "cold"});
+        emit("diagnosis", d);
+        assert(d);
+    }
+}
+
 rule Measels {
     when {
         p : Patient p.fever == 'high' && p.spots == true && p.innoculated == true {name : n};
@@ -63,18 +75,6 @@ rule Flu {
     }
     then {
         var d = new Diagnosis({name : n, diagnosis : "flu"});
-        emit("diagnosis", d);
-        assert(d);
-    }
-}
-
-rule Cold {
-    when {
-        p : Patient p.fever in ['mild', 'high'] {name : n};
-        not(d : Diagnosis d.name == n && d.diagnosis == 'flu');
-    }
-    then {
-        var d = new Diagnosis({name : n, diagnosis : "cold"});
         emit("diagnosis", d);
         assert(d);
     }

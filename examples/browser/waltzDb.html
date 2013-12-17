@@ -71,7 +71,6 @@
 
                     function run() {
                         stop();
-                        console.profile();
                         var data = loadData(flow, dataset);
                         session = statsListener.listen(flow.getSession());
                         for (var i = 0, l = data.length; i < l; i++) {
@@ -84,7 +83,6 @@
                                     resultsContainer.scrollTop(resultsContainer.prop("scrollHeight"));
                                 })
                                 .match().then(function () {
-                                    console.profileEnd();
                                     console.log("done");
                                 }, function (e) {
                                     console.log(e.stack);
