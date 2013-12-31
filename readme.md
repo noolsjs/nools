@@ -1306,7 +1306,7 @@ Or using the DSL.
 ```
 when {
     p: Person;
-    friend: Person friend.firstName != p.firstName;
+    friend: Person friend.firstName != p.firstName from p.friends;
     first: String first =~ /^a/ from friend.firstName;
 }
 ```
