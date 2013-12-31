@@ -1111,6 +1111,7 @@ when {
     f1 : Fibonacci f1.value != -1 {sequence:s1};
     f2 : Fibonacci f2.value != -1 && f2.sequence == s1 + 1 {sequence:s2};
     f3 : Fibonacci f3.value == -1 && f3.sequence == s2 + 1;
+    r  : Result;
 }
 ```
 
