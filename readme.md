@@ -120,7 +120,7 @@ define Message {
 //find any message that start with hello
 rule Hello {
     when {
-        m : Message m.message =~ /^hello(\\s*world)?$/;
+        m : Message m.message =~ /^hello(\s*world)?$/;
     }
     then {
         modify(m, function(){this.message += " goodbye";});
@@ -556,11 +556,11 @@ Or in the dsl
 rule "Hello World" {
     agenda-group: "ag1";
     when{
-        m : Message m.name == 'hello';
+        m : Message m.message == 'hello';
     }
     then{
         modify(m, function(){
-            this.name = "goodbye"
+            this.message = "goodbye"
         });
     }
 }
@@ -568,11 +568,11 @@ rule "Hello World" {
 rule "Hello World 2" {
     agenda-group: "ag2";
     when{
-        m : Message m.name == 'hello';
+        m : Message m.message == 'hello';
     }
     then {
         modify(m, function(){
-            this.name = "goodbye"
+            this.message = "goodbye"
         });
     }
 }
@@ -583,17 +583,17 @@ In the above rules we have defined two agenda-groups called `ag1` and `ag2`
 <a name="agenda-groups-focus"></a>
 ### Focus
 
-When running your rules and you want a particular agenda group to run you must call `focus` on the flow and specify the `agenda-group` to add to the stack.
+When running your rules and you want a particular agenda group to run you must call `focus` on the session of the flow and specify the `agenda-group` to add to the stack.
 
 ```
 //assuming a flow with the rules specified above.
 var fired = [];
 flow
+   .getSession(new Message("hello"))
    .focus("ag1")
    .on("fire", function(ruleName){
       fired.push(ruleName); //[ 'Hello World' ]
    })
-   .assert(new Message("hello"))
    .match(function(){
         console.log(fired);
    });
@@ -742,8 +742,8 @@ var fired = [];
 flow
     .getSession(
         new State("A", "NOT_RUN"),
-        new State("B", "NOT_RUN")),
-        new State("C", "NOT_RUN")),
+        new State("B", "NOT_RUN"),
+        new State("C", "NOT_RUN"),
         new State("D", "NOT_RUN")
     )
     .on("fire", function (name) {
@@ -1124,7 +1124,7 @@ when {
       * `Object` - "object", "Object", "hash", Object
       * Custom - any custom type that you define
    2. Alias - the name the object should be represented as.
-   3. Pattern(optional) - The pattern that should evaluate to a boolean, the alias that was used should be used to reference the object in the pattern. Strings should be in single quotes, regular expressions are allowed. Any previously define alias/reference can be used within the pattern. Available operators are.
+   3. Pattern(optional) - The pattern that should evaluate to a boolean, the alias that was used should be used to reference the object in the pattern. Strings should be in single quotes, regular expressions are allowed. Any previously defined alias/reference can be used within the pattern. Available operators are.
       * `&&`, `AND`, `and`
       * `||`, `OR`, `or`
       * `>`, `<`, `>=`, `<=`, `gt`, `lt`, `gte`, `lte`
@@ -1163,7 +1163,7 @@ when {
 <a name="not-constraint"></a>
 #### Not Constraint
 
-The `not` constraint allow you to check that particular `fact` does **not** exist.
+The `not` constraint allows you to check that particular `fact` does **not** exist.
 
 ```javascript
 
@@ -1305,7 +1305,7 @@ Or using the DSL.
 ```
 when {
     p: Person;
-    friend: Person friend.firstName != p.firstName;
+    friend: Person friend.firstName != p.firstName from p.friends;
     first: String first =~ /^a/ from friend.firstName;
 }
 ```
@@ -1457,7 +1457,7 @@ For rules defined using the rules language nools will automatically determine wh
 
 ### Async Actions
 
-If your action is async you can use the third argument which should called when the action is completed.
+If your action is async you can use the third argument which should be called when the action is completed.
 
 ```javascript
 function (facts, engine, next) {
