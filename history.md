@@ -1,4 +1,12 @@
-#0.2.3
+# 0.3.0
+
+* Added new `===` and `!==` operators [#110](https://github.com/C2FO/nools/issues/110)
+* Fix for issue [#109](https://github.com/C2FO/nools/issues/109)
+* Updated Readme
+    * Updated agenda groups examples for [#105](https://github.com/C2FO/nools/issues/105)
+    * Changed class names not to match property names in readme [#99](https://github.com/C2FO/nools/issues/99)
+
+# 0.2.3
 
 * Added new `getFacts` method to allow for querying of facts currently in session. [#52](https://github.com/C2FO/nools/issues/52);
 * Added indexing on comparison operators (i.e. `>, <, >=, <=`).
@@ -7,7 +15,7 @@
    * Created new section for async actions to address [#94](https://github.com/C2FO/nools/issues/94)
 
 
-#0.2.2
+# 0.2.2
 
 * Performance Upgrades
   * Added BetaNode indexing
@@ -16,7 +24,7 @@
   * Created a new Memory Class to encapusulate left and right memory for BetaNodes
 * Added new `exists` logic operator to check for existence of fact (opposite of `not`)
 
-#0.2.1
+# 0.2.1
 
 * Added support for js expression in the `from` node addressing issue [#86](https://github.com/C2FO/nools/issues/86)
 * Enhanced `JoinReferenceNode` performance in the default assert case where there are no `references` to left or right context.
@@ -30,7 +38,7 @@
    * Updated `or` documentation to include a three constraint example.
 
 
-#0.2.0 / 2013-10-14
+# 0.2.0 / 2013-10-14
 
 * Nools now supports true modify!!!
    * This is a major leap forward for `nools` opening the door for more complex actions and expressions in the rules.
@@ -41,11 +49,11 @@
 * Added [Send More Money](http://en.wikipedia.org/wiki/Verbal_arithmetic) benchmark see [#78](https://github.com/C2FO/nools/issues/78).
 
 
-#0.1.14
+# 0.1.14
 * Fixed issue with async actions and early match termination.
 
 
-#0.1.13
+# 0.1.13
 * Fixed issue [#68](https://github.com/C2FO/nools/issues/68) where `matchUntilHalt` uses a lot of CPU
 * Fixed issue [#45](https://github.com/C2FO/nools/issues/45), now compiled rules support `or` constraint with more than 2 inner constraints.
 * Added new feature to address [#76](https://github.com/C2FO/nools/issues/76), now you can use `deleteFlows` to dispose all flows, or use `hasFlow` to check if a flow is already registred with `nools`.

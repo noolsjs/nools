@@ -11,7 +11,7 @@ for (var i = 0; i < COUNT; i++) {
 }
 
 
-var start = new Date().getTime();
+var start = new Date();
 
 var execCount = 0;
 
@@ -35,13 +35,12 @@ for (var j = 0; j < COUNT; j++) {
     }
 }
 
-session.match(function (err) {
+module.exports = session.match(function (err) {
     if (err) {
         throw err;
     }
-    var end = new Date().getTime();
-    var diff = end - start;
-    console.log("elapsed: " + diff);
+    console.log("Duration %dms", new Date() - start);
+    session.dispose();
 });
 
 

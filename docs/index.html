@@ -189,8 +189,8 @@
 <h1>Usage</h1>
 <ul>
 <li>Flows<ul>
-<li><a href="#flow">Defining A Flow</a> </li>
-<li><a href="#session">Sessions</a> </li>
+<li><a href="#flow">Defining A Flow</a></li>
+<li><a href="#session">Sessions</a></li>
 <li><a href="#facts">Facts</a><ul>
 <li><a href="#facts-assert">Assert</a></li>
 <li><a href="#facts-retract">Retract</a></li>
@@ -198,7 +198,7 @@
 <li><a href="#get-facts">Retrieving Facts</a></li>
 </ul>
 </li>
-<li><a href="#firing">Firing</a> </li>
+<li><a href="#firing">Firing</a></li>
 <li><a href="#disposing">Disposing</a></li>
 <li><a href="#removing-flow">Removing A Flow</a></li>
 <li><a href="#removing-flows">Removing All Flows</a></li>
@@ -257,64 +257,64 @@ a <strong>session</strong></p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">var nools = require(&quot;nools&quot;);
 
 var Message = function (message) {
-    this.message = message;
+    this.text = message;
 };
 
 var flow = nools.flow(&quot;Hello World&quot;, function (flow) {
 
     //find any message that start with hello
-    flow.rule(&quot;Hello&quot;, [Message, &quot;m&quot;, &quot;m.message =~ /^hello(\\s*world)?$/&quot;], function (facts) {
-        facts.m.message = facts.m.message + &quot; goodbye&quot;;
+    flow.rule(&quot;Hello&quot;, [Message, &quot;m&quot;, &quot;m.text =~ /^hello(\\s*world)?$/&quot;], function (facts) {
+        facts.m.text = facts.m.text + &quot; goodbye&quot;;
         this.modify(facts.m);
     });
 
     //find all messages then end in goodbye
-    flow.rule(&quot;Goodbye&quot;, [Message, &quot;m&quot;, &quot;m.message =~ /.*goodbye$/&quot;], function (facts) {
-        console.log(facts.m.message);
+    flow.rule(&quot;Goodbye&quot;, [Message, &quot;m&quot;, &quot;m.text =~ /.*goodbye$/&quot;], function (facts) {
+        console.log(facts.m.text);
     });
 });</code></pre>
 <p>In the above flow definition 2 rules were defined</p>
 <ul>
 <li>Hello<ul>
 <li>Requires a Message</li>
-<li>The messages&#39;s message must match the regular expression &quot;/^hello(\s*world)?$/&quot;</li>
-<li>When matched the message&#39;s message is modified and then we let the engine know that we modified the message.</li>
+<li>The messages&#39;s <code>text</code> must match the regular expression <code>/^hello(\\s*world)?$/</code></li>
+<li>When matched the message&#39;s <code>text</code> is modified and then we let the engine know that we modified the message.</li>
 </ul>
 </li>
 <li>Goodbye<ul>
 <li>Requires a Message</li>
-<li>The messages&#39;s message must match the regular expression &quot;/.*goodbye$/&quot;(anything that ends in goodbye)</li>
+<li>The messages&#39;s <code>text</code> must match the regular expression <code>/.*goodbye$/</code>(anything that ends in goodbye)</li>
 <li>When matched the resulting message is logged.</li>
 </ul>
 </li>
 </ul>
 <h3>DSL</h3>
 <p>You may also use the <code>nools</code> rules language to define your rules.</p>
-<p>The following is the equivalent of the rules defined programmatially above.</p>
+<p>The following is the equivalent of the rules defined programmatically above.</p>
 <pre class='prettyprint linenums lang-js'><code>define Message {
-    message : &#39;&#39;,
+    text : &#39;&#39;,
     constructor : function(message){
-        this.message = message;
+        this.text = message;
     }
 }
 
-//find any message that start with hello
+//find any message that starts with hello
 rule Hello {
     when {
-        m : Message m.message =~ /^hello(\\s*world)?$/;
+        m : Message m.text =~ /^hello(\s*world)?$/;
     }
     then {
-        modify(m, function(){this.message += &quot; goodbye&quot;;});
+        modify(m, function(){this.text += &quot; goodbye&quot;;});
     }
 }
 
 //find all messages then end in goodbye
 rule Goodbye {
     when {
-        m : Message m.message =~ /.*goodbye$/;
+        m : Message m.text =~ /.*goodbye$/;
     }
     then {
-        console.log(m.message);
+        console.log(m.text);
     }
 }</code></pre>
 <p>To use the flow</p>
@@ -428,13 +428,13 @@ session.retract(m);</code></pre>
 <p><a name="facts-modify"></a></p>
 <h3>Modify</h3>
 <p>To modify a fact use the <code>modify</code> method.</p>
-<p><strong>Note</strong> modify will not work with immutable objects (i.e. strings). </p>
+<p><strong>Note</strong> modify will not work with immutable objects (i.e. strings).</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">
 var m = new Message(&quot;hello&quot;);
 
 session.assert(m);
 
-m.message = &quot;hello goodbye&quot;;
+m.text = &quot;hello goodbye&quot;;
 
 session.modify(m);</code></pre>
 <p><strong>Note</strong> <code>modify</code> is typically used during the execution of the rules.</p>
@@ -467,7 +467,7 @@ session.assert(new Message(&quot;hello world&quot;));
 //now fire the rules
 session.match(function(err){
     if(err){
-        console.error(err);
+        console.error(err.stack);
     }else{
         console.log(&quot;done&quot;);
     }
@@ -476,10 +476,10 @@ session.match(function(err){
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">session.match().then(
   function(){
       console.log(&quot;Done&quot;);
-  }, 
+  },
   function(err){
     //uh oh an error occurred
-    console.error(err);
+    console.error(err.stack);
   });</code></pre>
 <h2>Fire until halt</h2>
 <p>You may also run the engine an a &quot;reactive&quot; mode which will continue to match until <code>halt</code> is invoked.</p>
@@ -531,7 +531,9 @@ rule count {
         $ctr: Counter {count: $count}
     }
     then{
-        modify($ctr, function(){this.count = $count + 1;});
+        modify($ctr, function(){
+          this.count = $count + 1;
+        });
     }
 }</code></pre>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">flow.getSession().matchUntilHalt(function(err){
@@ -588,7 +590,7 @@ nools.hasFlow(&quot;flow&quot;); //true</code></pre>
 <h2>Agenda Groups</h2>
 <p>Agenda groups allow for logical groups of rules within a flow.</p>
 <p>The agenda manages a <code>stack</code> of <code>agenda-groups</code> that are currently in focus. The default <code>agenda-group</code> is called <code>main</code> and all rules that do not have an <code>agenda-group</code> specified are placed into the <code>main</code> <code>agenda-group</code>.</p>
-<p>As rules are fired when a particular <code>agenda-group</code> runs out of activations then that a <code>agenda-group</code> is popped from the internal <code>agenda-group</code> stack and the next one comes into focus. This continues until <code>focus</code> is explicitly called again or the <code>main</code> <code>agenda-group</code> comes into focus.</p>
+<p>As rules are fired and a particular <code>agenda-group</code> runs out of activations then that <code>agenda-group</code> is popped from the internal <code>agenda-group</code> stack and the next one comes into focus. This continues until <code>focus</code> is explicitly called again or the <code>main</code> <code>agenda-group</code> comes into focus.</p>
 <p><strong>Note</strong> Once an agenda group loses focus it must be re-added to the stack in order for those activations to be focused again.</p>
 <p>To add a rule to an agenda-group you can use the <code>agendaGroup</code> option.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">this.rule(&quot;Hello World&quot;, {agendaGroup: &quot;ag1&quot;}, [Message, &quot;m&quot;, &quot;m.name == &#39;hello&#39;&quot;], function (facts) {
@@ -606,65 +608,62 @@ this.rule(&quot;Hello World2&quot;, {agendaGroup: &quot;ag2&quot;}, [Message, &q
 <pre class='prettyprint linenums lang-js'><code>rule &quot;Hello World&quot; {
     agenda-group: &quot;ag1&quot;;
     when{
-        m : Message m.name == &#39;hello&#39;;
+        m : Message m.name === &#39;hello&#39;;
     }
     then{
         modify(m, function(){
-            this.name = &quot;goodbye&quot;
+            this.name = &quot;goodbye&quot;;
         });
     }
 }
-
 rule &quot;Hello World 2&quot; {
     agenda-group: &quot;ag2&quot;;
     when{
-        m : Message m.name == &#39;hello&#39;;
+        m : Message m.name === &#39;goodbye&#39;;
     }
     then {
         modify(m, function(){
-            this.name = &quot;goodbye&quot;
+            m.name = &quot;hello&quot;;
         });
     }
 }</code></pre>
 <p>In the above rules we have defined two agenda-groups called <code>ag1</code> and <code>ag2</code></p>
 <p><a name="agenda-groups-focus"></a></p>
 <h3>Focus</h3>
-<p>When running your rules and you want a particular agenda group to run you must call <code>focus</code> on the flow and specify the <code>agenda-group</code> to add to the stack.</p>
+<p>When running your rules and you want a particular agenda group to run you must call <code>focus</code> on the session of the flow and specify the <code>agenda-group</code> to add to the stack.</p>
 <pre class='prettyprint linenums lang-js'><code>//assuming a flow with the rules specified above.
 var fired = [];
-flow
-   .focus(&quot;ag1&quot;)
-   .on(&quot;fire&quot;, function(ruleName){
-      fired.push(ruleName); //[ &#39;Hello World&#39; ]
-   })
-   .assert(new Message(&quot;hello&quot;))
-   .match(function(){
-        console.log(fired);
-   });</code></pre>
-<p>Or you can add multiple focuses to the stack</p>
-<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var fired = [], fired2 = [];
-flow
-    .getSession(new Message(&quot;hello&quot;))
-    .focus(&quot;ag2&quot;)
+flow.getSession(new Message(&quot;hello&quot;))
     .focus(&quot;ag1&quot;)
     .on(&quot;fire&quot;, function (ruleName) {
-       fired.push(ruleName);
+        fired.push(ruleName);
     })
     .match(function () {
-        console.log(fired); //[ &#39;Hello World&#39;, &#39;Hello World2&#39; ]
-    });
-
-flow
-    .getSession(new Message(&quot;hello&quot;))
-    .focus(&quot;ag1&quot;)
-    .focus(&quot;ag2&quot;)
-    .on(&quot;fire&quot;, function (ruleName) {
-       fired2.push(ruleName);
-    })
-    .match(function () {
-        console.log(fired2); //[ &#39;Hello World2&#39;, &#39;Hello World&#39; ]
+        console.log(fired);  //[ &#39;Hello World&#39; ]
     });</code></pre>
-<p>Notice above that the last <code>agenda-group</code> focused is added to the array first.</p>
+<p>Or you can add multiple <code>agenda-groups</code> to the focus stack.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var fired1 = [], fired2 = [];
+flow
+    .getSession(new Message(&quot;goodbye&quot;))
+    .focus(&quot;ag1&quot;)
+    .focus(&quot;ag2&quot;)
+    .on(&quot;fire&quot;, function (ruleName) {
+        fired1.push(ruleName);
+    })
+    .match(function () {
+        console.log(&quot;Example 1&quot;, fired1); //[ &#39;Hello World&#39;, &#39;Hello World2&#39; ]
+    });
+flow
+    .getSession(new Message(&quot;hello&quot;))
+    .focus(&quot;ag2&quot;)
+    .focus(&quot;ag1&quot;)
+    .on(&quot;fire&quot;, function (ruleName) {
+        fired3.push(ruleName);
+    })
+    .match(function () {
+        console.log(&quot;Example 2&quot;, fired2); //[ &#39;Hello World&#39;, &#39;Hello World2&#39; ]
+    });</code></pre>
+<p>Notice above that the <strong>last</strong> <code>agenda-group</code> focused is added to the array first.</p>
 <p><a name="agenda-groups-auto-focus"></a></p>
 <h3>Auto Focus</h3>
 <p>Sometimes you may want an <code>agenda-group</code> to <code>auto-focus</code> whenever a certain rule is activated.</p>
@@ -767,8 +766,8 @@ rule &#39;B to D&#39; {
 flow
     .getSession(
         new State(&quot;A&quot;, &quot;NOT_RUN&quot;),
-        new State(&quot;B&quot;, &quot;NOT_RUN&quot;)),
-        new State(&quot;C&quot;, &quot;NOT_RUN&quot;)),
+        new State(&quot;B&quot;, &quot;NOT_RUN&quot;),
+        new State(&quot;C&quot;, &quot;NOT_RUN&quot;),
         new State(&quot;D&quot;, &quot;NOT_RUN&quot;)
     )
     .on(&quot;fire&quot;, function (name) {
@@ -802,7 +801,7 @@ flow
     salience: 0,
     activationRecency: 2
 }</code></pre>
-<p>In the above example activation 2 would be fired since it is the most recent activation an the rule salience is the same.</p>
+<p>In the above example activation 2 would be fired since it is the most recent activation and the rule salience is the same.</p>
 <p><strong>Example 2</strong></p>
 <pre class='prettyprint linenums lang-js'><code>//activation 1
 {
@@ -986,18 +985,18 @@ this.rule(&quot;hello rule&quot;, {scope: {isEqualTo: isEqualTo}},
 
 rule Hello {
     when {
-        m : Message matches(m.message, /^hello(\\s*world)?$/);
+        m : Message matches(m.text, /^hello(\\s*world)?$/);
     }
     then {
         modify(m, function(){
-            this.message += &quot; goodbye&quot;;
+            this.text += &quot; goodbye&quot;;
         })
     }
 }
 
 rule Goodbye {
     when {
-        m : Message matches(m.message, /.*goodbye$/);
+        m : Message matches(m.text, /.*goodbye$/);
     }
     then {
     }
@@ -1005,18 +1004,18 @@ rule Goodbye {
 <p>Or you can pass in a custom function using the scope option in compile.</p>
 <pre class='prettyprint linenums lang-js'><code>rule Hello {
     when {
-        m : Message doesMatch(m.message, /^hello(\\s*world)?$/);
+        m : Message doesMatch(m.text, /^hello(\\s*world)?$/);
     }
     then {
         modify(m, function(){
-            this.message += &quot; goodbye&quot;;
+            this.text += &quot; goodbye&quot;;
         })
     }
 }
 
 rule Goodbye {
     when {
-        m : Message doesMatch(m.message, /.*goodbye$/);
+        m : Message doesMatch(m.text, /.*goodbye$/);
     }
     then {
     }
@@ -1042,6 +1041,7 @@ var flow = nools.compile(__dirname + &quot;/rules/provided-scope.nools&quot;, {s
     f1 : Fibonacci f1.value != -1 {sequence:s1};
     f2 : Fibonacci f2.value != -1 &amp;&amp; f2.sequence == s1 + 1 {sequence:s2};
     f3 : Fibonacci f3.value == -1 &amp;&amp; f3.sequence == s2 + 1;
+    r  : Result;
 }</code></pre>
 <ol>
 <li>Type -  is the Object type the rule should match. The available types are<ul>
@@ -1056,12 +1056,12 @@ var flow = nools.compile(__dirname + &quot;/rules/provided-scope.nools&quot;, {s
 </ul>
 </li>
 <li>Alias - the name the object should be represented as.</li>
-<li><p>Pattern(optional) - The pattern that should evaluate to a boolean, the alias that was used should be used to reference the object in the pattern. Strings should be in single quotes, regular expressions are allowed. Any previously define alias/reference can be used within the pattern. Available operators are.</p>
+<li><p>Pattern(optional) - The pattern that should evaluate to a boolean, the alias that was used should be used to reference the object in the pattern. Strings should be in single quotes, regular expressions are allowed. Any previously defined alias/reference can be used within the pattern. Available operators are.</p>
 <ul>
 <li><code>&amp;&amp;</code>, <code>AND</code>, <code>and</code></li>
 <li><code>||</code>, <code>OR</code>, <code>or</code></li>
 <li><code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>gt</code>, <code>lt</code>, <code>gte</code>, <code>lte</code></li>
-<li><code>==</code>, <code>!=</code>, <code>=~</code>, <code>!=~</code>, <code>eq</code>, <code>neq</code>, <code>like</code>, <code>notLike</code></li>
+<li><code>==</code>, <code>===</code>, <code>!=</code>, <code>!==</code>, <code>=~</code>, <code>!=~</code>, <code>eq</code>, <code>seq</code>, <code>neq</code>, <code>sneq</code>, <code>like</code>, <code>notLike</code></li>
 <li><code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code></li>
 <li><code>-</code> (unary minus)</li>
 <li><code>.</code> (member operator)</li>
@@ -1071,10 +1071,10 @@ var flow = nools.compile(__dirname + &quot;/rules/provided-scope.nools&quot;, {s
 <li><code>now</code> - the current date</li>
 <li><code>Date(year?, month?, day?, hour?, minute?, second?, ms?)</code> - creates a new <code>Date</code> object</li>
 <li><code>lengthOf(arr, length)</code> - checks the length of an array</li>
-<li><code>isTrue(something)</code> - check if something === true         </li>
+<li><code>isTrue(something)</code> - check if something === true</li>
 <li><code>isFalse(something)</code> - check if something === false</li>
 <li><code>isRegExp(something)</code> - check if something is a <code>RegExp</code></li>
-<li><code>isArray(something)</code> - check if something is an <code>Array</code>                                </li>
+<li><code>isArray(something)</code> - check if something is an <code>Array</code></li>
 <li><code>isNumber(something)</code> - check if something is an <code>Number</code></li>
 <li><code>isHash(something)</code> - check if something is strictly an <code>Object</code></li>
 <li><code>isObject(something)</code> - check if something is any type of <code>Object</code></li>
@@ -1089,7 +1089,7 @@ var flow = nools.compile(__dirname + &quot;/rules/provided-scope.nools&quot;, {s
 <li><code>isNull(something)</code> - check if something is <code>null</code></li>
 <li><code>isNotNull(something)</code> - check if something is not null</li>
 <li><code>dateCmp(dt1, dt2)</code> - compares two dates return 1, -1, or 0</li>
-<li><code>years|months|days|hours|minutes|seconds``Ago</code>/<code>FromNow``(interval)</code> - adds/subtracts the date unit from the current time </li>
+<li><code>(years|months|days|hours|minutes|seconds)(Ago|FromNow)(interval)</code> - adds/subtracts the date unit from the current time</li>
 </ul>
 </li>
 </ul>
@@ -1099,7 +1099,7 @@ var flow = nools.compile(__dirname + &quot;/rules/provided-scope.nools&quot;, {s
 </ol>
 <p><a name="not-constraint"></a></p>
 <h4>Not Constraint</h4>
-<p>The <code>not</code> constraint allow you to check that particular <code>fact</code> does <strong>not</strong> exist.</p>
+<p>The <code>not</code> constraint allows you to check that particular <code>fact</code> does <strong>not</strong> exist.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">
 [
     [Number, &quot;n1&quot;],
@@ -1191,7 +1191,7 @@ when {
 <p>Or using the DSL.</p>
 <pre class='prettyprint linenums lang-js'><code>when {
     p: Person;
-    friend: Person friend.firstName != p.firstName;
+    friend: Person friend.firstName != p.firstName from p.friends;
     first: String first =~ /^a/ from friend.firstName;
 }</code></pre>
 <p>The above example will pull the <code>friend</code> fact from the friends array property on fact <code>p</code>, and first from the <code>friend</code>&#39;s <code>firstName</code>.</p>
@@ -1281,7 +1281,7 @@ references created by the alpha nodes is passed in as the first argument to the 
 <p>For rules defined using the rules language nools will automatically determine what parameters need to be passed in based on what is referenced in the action.</p>
 <p><a name="action-async"></a></p>
 <h3>Async Actions</h3>
-<p>If your action is async you can use the third argument which should called when the action is completed.</p>
+<p>If your action is async you can use the third argument which should be called when the action is completed.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">function (facts, engine, next) {
         //some async action
         process.nextTick(function(){
@@ -1409,27 +1409,27 @@ session.on(&quot;my custom event&quot;, function(){
 define Message {
     message : &quot;&quot;,
     constructor : function (message) {
-        this.message = message;
+        this.text = message;
     }
 }
 
 rule Hello {
     when {
-        m : Message m.message =~ /^hello(\\s*world)?$/
+        m : Message m.text =~ /^hello(\\s*world)?$/
     }
     then {
         modify(m, function(){
-            this.message += &quot; goodbye&quot;;
+            this.text += &quot; goodbye&quot;;
         });
     }
 }
 
 rule Goodbye {
     when {
-        m : Message m.message =~ /.*goodbye$/
+        m : Message m.text =~ /.*goodbye$/
     }
     then {
-        document.getElementById(&quot;output&quot;).innerHTML += m.message + &quot;&lt;/br&gt;&quot;;
+        document.getElementById(&quot;output&quot;).innerHTML += m.text + &quot;&lt;/br&gt;&quot;;
     }
 }
 &lt;/script&gt;

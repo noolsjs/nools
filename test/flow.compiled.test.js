@@ -92,6 +92,38 @@ it.describe("Flow compiled", function (it) {
 
     });
 
+    it.describe("exists rule", function (it) {
+
+
+        var called, flow;
+        it.beforeAll(function () {
+            flow = require("./rules/existsRule-compiled")();
+            called = new (flow.getDefined("count"))();
+        });
+
+
+        it.should("call when a string equals 'hello'", function () {
+            return flow.getSession("hello", called).match().then(function () {
+                assert.equal(called.called, 1);
+            });
+        });
+
+        it.should("not call when a string that does not equal 'hello'", function () {
+            called.called = 0;
+            return flow.getSession("world", called).match().then(function () {
+                assert.equal(called.called, 0);
+            });
+        });
+
+        it.should(" call when a string that does not equal 'hello' and one that does exist", function () {
+            called.called = 0;
+            return flow.getSession("hello", "world", called).match().then(function () {
+                assert.equal(called.called, 1);
+            });
+        });
+
+    });
+
     it.describe("scoped functions", function (it) {
         var session, Message;
         it.beforeAll(function () {
@@ -394,9 +426,3 @@ it.describe("Flow compiled", function (it) {
 
     });
 });
-
-
-
-
-
-

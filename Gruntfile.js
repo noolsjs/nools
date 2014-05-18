@@ -5,6 +5,12 @@ module.exports = function (grunt) {
         child = require("child_process");
     grunt.initConfig({
         pkg: grunt.file.readJSON('package.json'),
+
+        exec: {
+            removeDocs: "rm -rf docs/* && mkdir -p ./docs/examples/browser && cp -r ./examples/browser/ ./docs/examples/browser && cp ./nools.min.js ./docs/nools.js",
+            createDocs: 'coddoc -f multi-html -d ./lib --dir ./docs'
+        },
+
         jshint: {
             src: ["./index.js", "lib/**/*.js", "Gruntfile.js"],
             options: {
@@ -46,17 +52,33 @@ module.exports = function (grunt) {
                 src: ['./browser/nools.js'],
                 dest: './nools.js'
             }
+        },
+
+        benchmark: {
+            manners: {
+                files: "./benchmark/manners/benchmark.js"
+            },
+            sendMoreMoney: {
+                files: "./benchmark/sendMoreMoney/benchmark.js"
+            },
+            simple: {
+                files: "./benchmark/simple/benchmark.js"
+            },
+            waltzDb: {
+                files: "./benchmark/waltzDb/benchmark.js"
+            }
         }
     });
 
     // Default task.
-    grunt.registerTask('default', ['jshint', "compile-tests", 'it', 'browserify:nools', 'uglify:min']);
+    grunt.registerTask('default', ['jshint', "compile-tests", 'it', 'browserify:nools', 'uglify:min', 'exec']);
     grunt.loadNpmTasks('grunt-it');
     grunt.loadNpmTasks('grunt-contrib-jshint');
     grunt.loadNpmTasks('grunt-contrib-uglify');
     grunt.loadNpmTasks('grunt-browserify');
+    grunt.loadNpmTasks('grunt-exec');
 
-    grunt.registerTask("compile-tests", "compiles all lest files", function () {
+    grunt.registerTask("compile-tests", "compiles all nools files", function () {
         var files = grunt.file.expand("./test/rules/*.nools"), count = files.length, done = this.async();
 
         function counter(err) {
@@ -80,7 +102,20 @@ module.exports = function (grunt) {
                 counter(err);
             });
         });
+    });
 
+    grunt.registerTask("benchmarks", function () {
 
+    });
+
+    grunt.registerMultiTask('benchmark', 'execute it unit tests in a spawned process', function () {
+        var done = this.async();
+        require(this.data.files).classic(function (err) {
+            if (err) {
+                done(false);
+            } else {
+                done();
+            }
+        });
     });
 };
