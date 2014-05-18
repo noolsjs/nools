@@ -100,6 +100,38 @@ it.describe("Flow dsl", function (it) {
         });
     });
 
+    it.describe("exists rule", function (it) {
+
+
+        var flow, Count, called;
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/existsRule.nools"));
+            Count = flow.getDefined("count");
+            called = new Count();
+        });
+
+        it.should("call when a string equals 'hello'", function () {
+            return flow.getSession("hello", called).match().then(function () {
+                assert.equal(called.called, 1);
+            });
+        });
+
+        it.should("not call when a string that does not equal 'hello'", function () {
+            called.called = 0;
+            return flow.getSession("world", called).match().then(function () {
+                assert.equal(called.called, 0);
+            });
+        });
+
+        it.should(" call when a string that does not equal 'hello' and one that does exist", function () {
+            called.called = 0;
+            return flow.getSession("hello", "world", called).match().then(function () {
+                assert.equal(called.called, 1);
+            });
+        });
+
+    });
+
     it.describe("scoped functions", function (it) {
         var flow, Message, session;
         it.beforeAll(function () {
@@ -379,12 +411,12 @@ it.describe("Flow dsl", function (it) {
                 session.assert(facts[i]);
             }
             var called = 0;
-            return session.on("get-facts",function (gottenFacts) {
+            return session.on("get-facts", function (gottenFacts) {
                 assert.deepEqual(gottenFacts, facts);
                 called++;
             }).match().then(function () {
-                    assert.equal(called, 1);
-                });
+                assert.equal(called, 1);
+            });
         });
 
         it.should("get facts by type", function () {
@@ -490,7 +522,6 @@ it.describe("Flow dsl", function (it) {
                     assert.equal(result.value, 8);
                 });
         });
-
 
     });
 

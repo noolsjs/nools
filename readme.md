@@ -17,14 +17,14 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
 # Usage
 
    * Flows
-    * [Defining A Flow](#flow) 
-    * [Sessions](#session) 
+    * [Defining A Flow](#flow)
+    * [Sessions](#session)
     * [Facts](#facts)
         * [Assert](#facts-assert)
         * [Retract](#facts-retract)
         * [Modify](#facts-modify)
         * [Retrieving Facts](#get-facts)
-    * [Firing](#firing) 
+    * [Firing](#firing)
     * [Disposing](#disposing)
     * [Removing A Flow](#removing-flow)
     * [Removing All Flows](#removing-flows)
@@ -73,20 +73,20 @@ a **session**
 var nools = require("nools");
 
 var Message = function (message) {
-    this.message = message;
+    this.text = message;
 };
 
 var flow = nools.flow("Hello World", function (flow) {
 
     //find any message that start with hello
-    flow.rule("Hello", [Message, "m", "m.message =~ /^hello(\\s*world)?$/"], function (facts) {
-        facts.m.message = facts.m.message + " goodbye";
+    flow.rule("Hello", [Message, "m", "m.text =~ /^hello(\\s*world)?$/"], function (facts) {
+        facts.m.text = facts.m.text + " goodbye";
         this.modify(facts.m);
     });
 
     //find all messages then end in goodbye
-    flow.rule("Goodbye", [Message, "m", "m.message =~ /.*goodbye$/"], function (facts) {
-        console.log(facts.m.message);
+    flow.rule("Goodbye", [Message, "m", "m.text =~ /.*goodbye$/"], function (facts) {
+        console.log(facts.m.text);
     });
 });
 
@@ -96,44 +96,44 @@ In the above flow definition 2 rules were defined
 
   * Hello
     * Requires a Message
-    * The messages's message must match the regular expression "/^hello(\\s*world)?$/"
-    * When matched the message's message is modified and then we let the engine know that we modified the message.
+    * The messages's `text` must match the regular expression `/^hello(\\s*world)?$/`
+    * When matched the message's `text` is modified and then we let the engine know that we modified the message.
   * Goodbye
     * Requires a Message
-    * The messages's message must match the regular expression "/.*goodbye$/"(anything that ends in goodbye)
+    * The messages's `text` must match the regular expression `/.*goodbye$/`(anything that ends in goodbye)
     * When matched the resulting message is logged.
 
 ### DSL
 
 You may also use the `nools` rules language to define your rules.
 
-The following is the equivalent of the rules defined programmatially above.
+The following is the equivalent of the rules defined programmatically above.
 
 ```
 define Message {
-    message : '',
+    text : '',
     constructor : function(message){
-        this.message = message;
+        this.text = message;
     }
 }
 
-//find any message that start with hello
+//find any message that starts with hello
 rule Hello {
     when {
-        m : Message m.message =~ /^hello(\s*world)?$/;
+        m : Message m.text =~ /^hello(\s*world)?$/;
     }
     then {
-        modify(m, function(){this.message += " goodbye";});
+        modify(m, function(){this.text += " goodbye";});
     }
 }
 
 //find all messages then end in goodbye
 rule Goodbye {
     when {
-        m : Message m.message =~ /.*goodbye$/;
+        m : Message m.text =~ /.*goodbye$/;
     }
     then {
-        console.log(m.message);
+        console.log(m.text);
     }
 }
 ```
@@ -297,7 +297,7 @@ session.retract(m);
 
 To modify a fact use the `modify` method.
 
-**Note** modify will not work with immutable objects (i.e. strings). 
+**Note** modify will not work with immutable objects (i.e. strings).
 
 ```javascript
 
@@ -305,7 +305,7 @@ var m = new Message("hello");
 
 session.assert(m);
 
-m.message = "hello goodbye";
+m.text = "hello goodbye";
 
 session.modify(m);
 
@@ -355,7 +355,7 @@ session.assert(new Message("hello world"));
 //now fire the rules
 session.match(function(err){
     if(err){
-        console.error(err);
+        console.error(err.stack);
     }else{
         console.log("done");
     }
@@ -368,10 +368,10 @@ The **match** method also returns a promise that is resolved once there are no m
 session.match().then(
   function(){
       console.log("Done");
-  }, 
+  },
   function(err){
     //uh oh an error occurred
-    console.error(err);
+    console.error(err.stack);
   });
 ```
 
@@ -429,7 +429,9 @@ rule count {
         $ctr: Counter {count: $count}
     }
     then{
-        modify($ctr, function(){this.count = $count + 1;});
+        modify($ctr, function(){
+          this.count = $count + 1;
+        });
     }
 }
 
@@ -530,7 +532,7 @@ Agenda groups allow for logical groups of rules within a flow.
 
 The agenda manages a `stack` of `agenda-groups` that are currently in focus. The default `agenda-group` is called `main` and all rules that do not have an `agenda-group` specified are placed into the `main` `agenda-group`.
 
-As rules are fired when a particular `agenda-group` runs out of activations then that a `agenda-group` is popped from the internal `agenda-group` stack and the next one comes into focus. This continues until `focus` is explicitly called again or the `main` `agenda-group` comes into focus.
+As rules are fired and a particular `agenda-group` runs out of activations then that `agenda-group` is popped from the internal `agenda-group` stack and the next one comes into focus. This continues until `focus` is explicitly called again or the `main` `agenda-group` comes into focus.
 
 **Note** Once an agenda group loses focus it must be re-added to the stack in order for those activations to be focused again.
 
@@ -556,23 +558,22 @@ Or in the dsl
 rule "Hello World" {
     agenda-group: "ag1";
     when{
-        m : Message m.message == 'hello';
+        m : Message m.name === 'hello';
     }
     then{
         modify(m, function(){
-            this.message = "goodbye"
+            this.name = "goodbye";
         });
     }
 }
-
 rule "Hello World 2" {
     agenda-group: "ag2";
     when{
-        m : Message m.message == 'hello';
+        m : Message m.name === 'goodbye';
     }
     then {
         modify(m, function(){
-            this.message = "goodbye"
+            m.name = "hello";
         });
     }
 }
@@ -588,45 +589,43 @@ When running your rules and you want a particular agenda group to run you must c
 ```
 //assuming a flow with the rules specified above.
 var fired = [];
-flow
-   .getSession(new Message("hello"))
-   .focus("ag1")
-   .on("fire", function(ruleName){
-      fired.push(ruleName); //[ 'Hello World' ]
-   })
-   .match(function(){
-        console.log(fired);
-   });
+flow.getSession(new Message("hello"))
+    .focus("ag1")
+    .on("fire", function (ruleName) {
+        fired.push(ruleName);
+    })
+    .match(function () {
+        console.log(fired);  //[ 'Hello World' ]
+    });
 ```
 
-Or you can add multiple focuses to the stack
+Or you can add multiple `agenda-groups` to the focus stack.
 
 ```javascript
-var fired = [], fired2 = [];
+var fired1 = [], fired2 = [];
 flow
-    .getSession(new Message("hello"))
-    .focus("ag2")
+    .getSession(new Message("goodbye"))
     .focus("ag1")
+    .focus("ag2")
     .on("fire", function (ruleName) {
-       fired.push(ruleName);
+        fired1.push(ruleName);
     })
     .match(function () {
-        console.log(fired); //[ 'Hello World', 'Hello World2' ]
+        console.log("Example 1", fired1); //[ 'Hello World', 'Hello World2' ]
     });
-
 flow
     .getSession(new Message("hello"))
-    .focus("ag1")
     .focus("ag2")
+    .focus("ag1")
     .on("fire", function (ruleName) {
-       fired2.push(ruleName);
+        fired3.push(ruleName);
     })
     .match(function () {
-        console.log(fired2); //[ 'Hello World2', 'Hello World' ]
+        console.log("Example 2", fired2); //[ 'Hello World', 'Hello World2' ]
     });
 ```
 
-Notice above that the last `agenda-group` focused is added to the array first.
+Notice above that the **last** `agenda-group` focused is added to the array first.
 
 <a name="agenda-groups-auto-focus"></a>
 ### Auto Focus
@@ -788,7 +787,7 @@ The default conflict resolution strategy consists of `salience` and `activationR
 
 ```
 
-In the above example activation 2 would be fired since it is the most recent activation an the rule salience is the same.
+In the above example activation 2 would be fired since it is the most recent activation and the rule salience is the same.
 
 **Example 2**
 
@@ -1037,18 +1036,18 @@ function matches(str, regex){
 
 rule Hello {
     when {
-        m : Message matches(m.message, /^hello(\\s*world)?$/);
+        m : Message matches(m.text, /^hello(\\s*world)?$/);
     }
     then {
         modify(m, function(){
-            this.message += " goodbye";
+            this.text += " goodbye";
         })
     }
 }
 
 rule Goodbye {
     when {
-        m : Message matches(m.message, /.*goodbye$/);
+        m : Message matches(m.text, /.*goodbye$/);
     }
     then {
     }
@@ -1060,18 +1059,18 @@ Or you can pass in a custom function using the scope option in compile.
 ```
 rule Hello {
     when {
-        m : Message doesMatch(m.message, /^hello(\\s*world)?$/);
+        m : Message doesMatch(m.text, /^hello(\\s*world)?$/);
     }
     then {
         modify(m, function(){
-            this.message += " goodbye";
+            this.text += " goodbye";
         })
     }
 }
 
 rule Goodbye {
     when {
-        m : Message doesMatch(m.message, /.*goodbye$/);
+        m : Message doesMatch(m.text, /.*goodbye$/);
     }
     then {
     }
@@ -1129,7 +1128,7 @@ when {
       * `&&`, `AND`, `and`
       * `||`, `OR`, `or`
       * `>`, `<`, `>=`, `<=`, `gt`, `lt`, `gte`, `lte`
-      * `==`, `!=`, `=~`, `!=~`, `eq`, `neq`, `like`, `notLike`
+      * `==`, `===`, `!=`, `!==`, `=~`, `!=~`, `eq`, `seq`, `neq`, `sneq`, `like`, `notLike`
       * `+`, `-`, `*`, `/`, `%`
       * `-` (unary minus)
       * `.` (member operator)
@@ -1139,10 +1138,10 @@ when {
         * `now` - the current date
         * `Date(year?, month?, day?, hour?, minute?, second?, ms?)` - creates a new `Date` object
         * `lengthOf(arr, length)` - checks the length of an array
-        * `isTrue(something)` - check if something === true         
+        * `isTrue(something)` - check if something === true
         * `isFalse(something)` - check if something === false
         * `isRegExp(something)` - check if something is a `RegExp`
-        * `isArray(something)` - check if something is an `Array`                                
+        * `isArray(something)` - check if something is an `Array`
         * `isNumber(something)` - check if something is an `Number`
         * `isHash(something)` - check if something is strictly an `Object`
         * `isObject(something)` - check if something is any type of `Object`
@@ -1157,8 +1156,8 @@ when {
         * `isNull(something)` - check if something is `null`
         * `isNotNull(something)` - check if something is not null
         * `dateCmp(dt1, dt2)` - compares two dates return 1, -1, or 0
-        * `years|months|days|hours|minutes|seconds``Ago`/`FromNow``(interval)` - adds/subtracts the date unit from the current time 
-        
+        * `(years|months|days|hours|minutes|seconds)(Ago|FromNow)(interval)` - adds/subtracts the date unit from the current time
+
    4. Reference(optional) - An object where the keys are properties on the current object, and values are aliases to use. The alias may be used in succeeding patterns.
 
 <a name="not-constraint"></a>
@@ -1650,27 +1649,27 @@ In this example we compile rules definitions inlined in a script tag.
 define Message {
     message : "",
     constructor : function (message) {
-        this.message = message;
+        this.text = message;
     }
 }
 
 rule Hello {
     when {
-        m : Message m.message =~ /^hello(\\s*world)?$/
+        m : Message m.text =~ /^hello(\\s*world)?$/
     }
     then {
         modify(m, function(){
-            this.message += " goodbye";
+            this.text += " goodbye";
         });
     }
 }
 
 rule Goodbye {
     when {
-        m : Message m.message =~ /.*goodbye$/
+        m : Message m.text =~ /.*goodbye$/
     }
     then {
-        document.getElementById("output").innerHTML += m.message + "</br>";
+        document.getElementById("output").innerHTML += m.text + "</br>";
     }
 }
 </script>

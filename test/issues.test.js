@@ -56,7 +56,7 @@ it.describe("issues", function (it) {
         var flow, Value;
         it.beforeAll(function () {
             flow = nools.compile(
-                "define Value {id : null,v : null,constructor : function (id, value) {this.id = id;this.v = value;} }" +
+                    "define Value {id : null,v : null,constructor : function (id, value) {this.id = id;this.v = value;} }" +
                     "rule 'issue66' {when {v4 : Value v4.id =~ /xyz/ && v4.v == 27;}then {emit('v4', v4);}}", {name: "issue66"});
             Value = flow.getDefined("value");
         });
@@ -77,7 +77,7 @@ it.describe("issues", function (it) {
         var flow, Value;
         it.beforeAll(function () {
             flow = nools.compile(
-                "define Value {id : null,v : null,constructor : function (id, value) {this.id = id;this.v = value;} }" +
+                    "define Value {id : null,v : null,constructor : function (id, value) {this.id = id;this.v = value;} }" +
                     "rule 'issue67' {when {v4 : Value v4.id =~ /xyz/ && v4.v =~ /abc/;}then {emit('v4', v4);}}", {name: "issue67"});
             Value = flow.getDefined("value");
         });
@@ -182,40 +182,40 @@ it.describe("issues", function (it) {
             var flow = nools.compile(flowSrc, {name: "issue85"});
             var called = 0;
             return flow.getSession()
-                .on("called",function () {
+                .on("called", function () {
                     called++;
                 }).match()
                 .then(function () {
                     assert.equal(called, 3);
                     called = 0;
-                    return flow.getSession(1).on("called",function () {
+                    return flow.getSession(1).on("called", function () {
                         called++;
                     }).match();
                 })
                 .then(function () {
                     assert.equal(called, 2);
                     called = 0;
-                    return flow.getSession('hello').on("called",function () {
+                    return flow.getSession('hello').on("called", function () {
                         called++;
                     }).match();
                 })
                 .then(function () {
                     assert.equal(called, 2);
                     called = 0;
-                    return flow.getSession(new Date()).on("called",function () {
+                    return flow.getSession(new Date()).on("called", function () {
                         called++;
                     }).match();
                 })
                 .then(function () {
                     assert.equal(called, 2);
                     called = 0;
-                    return flow.getSession(1, 'hello', new Date()).on("called",function () {
+                    return flow.getSession(1, 'hello', new Date()).on("called", function () {
                         called++;
                     }).match();
                 })
                 .then(function () {
                     assert.equal(called, 0);
-                    return flow.getSession(1, 'hello', new Date()).on("called",function () {
+                    return flow.getSession(1, 'hello', new Date()).on("called", function () {
                         called++;
                     }).match();
                 });
@@ -253,6 +253,26 @@ it.describe("issues", function (it) {
             } catch (e) {
                 assert.ok(true);
             }
+        });
+    });
+
+    it.describe("109", function (it) {
+        var flow;
+
+
+        it.beforeAll(function () {
+            flow = nools.compile("rule 'issue109' {when {exists(s1 : String);}then {emit('exists');}}", {name: "issue109"});
+        });
+
+        it.should("properly evaluate a rule with an exists constraint", function () {
+            var called = 0;
+            return flow.getSession("Hello")
+                .on("exists", function () {
+                    called++;
+                })
+                .match().then(function () {
+                    assert.equal(called, 1);
+                });
         });
     });
 });
