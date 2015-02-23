@@ -5,6 +5,7 @@ require("./events.test");
 require("./exists.test");
 require("./from.test");
 require("./matchUntil.halt");
+require("./match.halt");
 require("./not.test");
 require("./or.test");
 require("./rule.test");
