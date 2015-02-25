@@ -1,3 +1,15 @@
+# 0.4.0
+
+* Fix for issue [#122](https://github.com/C2FO/nools/issues/122) referencing defined class within another defined class
+   * Also fixes accessing scoped functions within a defined class.
+* Fix for issue [#119](https://github.com/C2FO/nools/issues/119) window was removed from the nools.js file now it is called in the current scope of `this`.
+* Allow session.halt even for `match()` [#143](https://github.com/C2FO/nools/pull/143) - [@raymondfeng](https://github.com/raymondfeng)
+   * Now if you call `halt()` even if you did not call `matchUntilHalt()`
+* Now you can use a function as a constraint (Only applies to rules defined programatically) [#142](https://github.com/C2FO/nools/pull/142) - [@raymondfeng](https://github.com/raymondfeng)
+* You can now define types using scope [#142](https://github.com/C2FO/nools/pull/142) - [@raymondfeng](https://github.com/raymondfeng)
+* Fix for issue, is the dsl you do not have to escape `\` characters [#123](https://github.com/C2FO/nools/issues/123)
+
+
 # 0.3.0
 
 * Added new `===` and `!==` operators [#110](https://github.com/C2FO/nools/issues/110)

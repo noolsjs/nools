@@ -1,0 +1,26 @@
+define Point {
+  x: 0,
+  y: 0,
+  constructor: function(x, y) {
+     this.x = x;
+     this.y = y;
+  }
+}
+
+define Line {
+  points: null,
+  constructor : function() {
+      this.points = [];
+  },
+  addPointFromDefined: function(x, y) {
+      this.points.push(new Point(x,y));
+  },
+
+  addPointWithScope: function(x, y){
+      this.points.push(createPoint(x,y));
+  }
+}
+
+function createPoint(x, y){
+    return new Point(x,y)
+}

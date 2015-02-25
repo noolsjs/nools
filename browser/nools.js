@@ -20,4 +20,4 @@
     } else {
         this.nools = nools;
     }
-}).call(window);
+}).call(typeof window !== "undefined" ? window : this);
