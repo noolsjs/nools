@@ -59,7 +59,7 @@
     "author": "Doug Martin (http://c2fo.com)",
     "main": "index.js",
     "scripts": {
-        "test": "it -r dot",
+        "test": "it -r spec",
         "create-doc": "rm -rf docs/* && coddoc -d ./lib -f multi-html"
     },
     "directories": {
