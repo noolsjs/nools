@@ -234,7 +234,8 @@ var flow = nools.compile(noolsSource, {
     scope: {
         //the logger you want your flow to use.
         logger: logger
-    }
+    },
+    name: 'person name is bob'
 });
 ```
 
