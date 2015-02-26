@@ -178,6 +178,21 @@
 
 
 
+<h1>0.4.0</h1>
+<ul>
+<li>Fix for issue <a href="https://github.com/C2FO/nools/issues/122">#122</a> referencing defined class within another defined class<ul>
+<li>Also fixes accessing scoped functions within a defined class.</li>
+</ul>
+</li>
+<li>Fix for issue <a href="https://github.com/C2FO/nools/issues/119">#119</a> window was removed from the nools.js file now it is called in the current scope of <code>this</code>.</li>
+<li>Allow session.halt even for <code>match()</code> <a href="https://github.com/C2FO/nools/pull/143">#143</a> - <a href="https://github.com/raymondfeng">@raymondfeng</a><ul>
+<li>Now if you call <code>halt()</code> even if you did not call <code>matchUntilHalt()</code></li>
+</ul>
+</li>
+<li>Now you can use a function as a constraint (Only applies to rules defined programatically) <a href="https://github.com/C2FO/nools/pull/142">#142</a> - <a href="https://github.com/raymondfeng">@raymondfeng</a></li>
+<li>You can now define types using scope <a href="https://github.com/C2FO/nools/pull/142">#142</a> - <a href="https://github.com/raymondfeng">@raymondfeng</a></li>
+<li>Fix for issue, is the dsl you do not have to escape <code>\</code> characters <a href="https://github.com/C2FO/nools/issues/123">#123</a></li>
+</ul>
 <h1>0.3.0</h1>
 <ul>
 <li>Added new <code>===</code> and <code>!==</code> operators <a href="https://github.com/C2FO/nools/issues/110">#110</a></li>
