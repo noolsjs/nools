@@ -275,4 +275,18 @@ it.describe("issues", function (it) {
                 });
         });
     });
+
+
+    it.describe("122", function (it) {
+        var flow;
+        it.beforeAll(function () {
+            flow = nools.compile("define Point {x: 0, y: 0, constructor: function(x, y) {this.x = x; this.y = y; } } define Line {points: null, constructor : function() {this.points = []; }, addPoint: function(x, y) {this.points.push(new Point(x,y)); } }", {name: "issue122"});
+        });
+
+        it.should("be able to access defined classes within another classes scope", function () {
+            var Line = flow.getDefined("Line");
+            var myLine = new Line();
+            myLine.addPoint(5, 5);
+        });
+    });
 });

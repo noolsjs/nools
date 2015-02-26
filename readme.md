@@ -79,7 +79,7 @@ var Message = function (message) {
 var flow = nools.flow("Hello World", function (flow) {
 
     //find any message that start with hello
-    flow.rule("Hello", [Message, "m", "m.text =~ /^hello(\\s*world)?$/"], function (facts) {
+    flow.rule("Hello", [Message, "m", "m.text =~ /^hello\\sworld$/"], function (facts) {
         facts.m.text = facts.m.text + " goodbye";
         this.modify(facts.m);
     });
@@ -96,7 +96,7 @@ In the above flow definition 2 rules were defined
 
   * Hello
     * Requires a Message
-    * The messages's `text` must match the regular expression `/^hello(\\s*world)?$/`
+    * The messages's `text` must match the regular expression `/^hello\\sworld$/`
     * When matched the message's `text` is modified and then we let the engine know that we modified the message.
   * Goodbye
     * Requires a Message
@@ -1037,7 +1037,7 @@ function matches(str, regex){
 
 rule Hello {
     when {
-        m : Message matches(m.text, /^hello(\\s*world)?$/);
+        m : Message matches(m.text, /^hello\s*world)?$/);
     }
     then {
         modify(m, function(){
@@ -1060,7 +1060,7 @@ Or you can pass in a custom function using the scope option in compile.
 ```
 rule Hello {
     when {
-        m : Message doesMatch(m.text, /^hello(\\s*world)?$/);
+        m : Message doesMatch(m.text, /^hello\sworld$/);
     }
     then {
         modify(m, function(){
@@ -1656,7 +1656,7 @@ define Message {
 
 rule Hello {
     when {
-        m : Message m.text =~ /^hello(\\s*world)?$/
+        m : Message m.text =~ /^hello\sworld$/
     }
     then {
         modify(m, function(){
@@ -1684,7 +1684,6 @@ rule Goodbye {
                 session = flow.getSession();
         //assert your different messages
         session.assert(new Message("goodbye"));
-        session.assert(new Message("hello"));
         session.assert(new Message("hello world"));
         session.match();
     }

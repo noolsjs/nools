@@ -158,7 +158,7 @@ it.describe("Flow compiled", function (it) {
         });
 
         it.should("emit when facts are asserted", function (next) {
-            var m = new Message("hello");
+            var m = new Message("hello world");
             session.once("assert", function (fact) {
                 assert.deepEqual(fact, m);
                 next();
@@ -167,7 +167,7 @@ it.describe("Flow compiled", function (it) {
         });
 
         it.should("emit when facts are retracted", function (next) {
-            var m = new Message("hello");
+            var m = new Message("hello world");
             session.once("retract", function (fact) {
                 assert.deepEqual(fact, m);
                 next();
@@ -177,7 +177,7 @@ it.describe("Flow compiled", function (it) {
         });
 
         it.should("emit when facts are modified", function (next) {
-            var m = new Message("hello");
+            var m = new Message("hello world");
             session.once("modify", function (fact) {
                 assert.deepEqual(fact, m);
                 next();
@@ -187,10 +187,10 @@ it.describe("Flow compiled", function (it) {
         });
 
         it.should("emit when rules are fired", function (next) {
-            var m = new Message("hello");
+            var m = new Message("hello world");
             var fire = [
-                ["Hello", "hello"],
-                ["Goodbye", "hello goodbye"]
+                ["Hello", "hello world"],
+                ["Goodbye", "hello world goodbye"]
             ], i = 0;
             session.on("fire", function (name, facts) {
                 assert.equal(name, fire[i][0]);
@@ -288,6 +288,48 @@ it.describe("Flow compiled", function (it) {
         });
     });
 
+    it.describe("defined objects", function (it) {
+
+        var flow, Point, Line, session;
+        it.beforeAll(function () {
+            flow = require("./rules/defined-compiled")();
+            Point = flow.getDefined("point");
+            Line = flow.getDefined("line");
+        });
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("allow creating a new defined object", function () {
+            var point = new Point(1, 2);
+            assert.equal(point.x, 1);
+            assert.equal(point.y, 2);
+        });
+
+        it("defined classes should have other classes in scope", function () {
+            var line = new Line();
+            line.addPointFromDefined(1, 2);
+            assert.lengthOf(line.points, 1);
+            var point = line.points[0];
+            assert.instanceOf(point, Point);
+            assert.equal(point.x, 1);
+            assert.equal(point.y, 2);
+        });
+
+        it("defined classes should have access to functions in scope", function () {
+            var line = new Line();
+            line.addPointWithScope(1, 2);
+            assert.lengthOf(line.points, 1);
+            var point = line.points[0];
+            assert.instanceOf(point, Point);
+            assert.equal(point.x, 1);
+            assert.equal(point.y, 2);
+        });
+
+    });
+
+
     it.describe("fibonacci nools dsl", function (it) {
 
         var flow, Fibonacci, Result;
@@ -382,12 +424,12 @@ it.describe("Flow compiled", function (it) {
                 session.assert(facts[i]);
             }
             var called = 0;
-            return session.on("get-facts",function (gottenFacts) {
+            return session.on("get-facts", function (gottenFacts) {
                 assert.deepEqual(gottenFacts, facts);
                 called++;
             }).match().then(function () {
-                    assert.equal(called, 1);
-                });
+                assert.equal(called, 1);
+            });
         });
 
         it.should("get facts by type", function () {
@@ -403,19 +445,19 @@ it.describe("Flow compiled", function (it) {
             }
             var called = 0;
             return session
-                .on("get-facts-number",function (fact) {
+                .on("get-facts-number", function (fact) {
                     assert.deepEqual(fact, [facts[0]]);
                     called++;
                 })
-                .on("get-facts-string",function (fact) {
+                .on("get-facts-string", function (fact) {
                     assert.deepEqual(fact, [facts[1]]);
                     called++;
                 })
-                .on("get-facts-boolean",function (fact) {
+                .on("get-facts-boolean", function (fact) {
                     assert.deepEqual(fact, [facts[2]]);
                     called++;
                 })
-                .on("get-facts-date",function (fact) {
+                .on("get-facts-date", function (fact) {
                     assert.deepEqual(fact, [facts[3]]);
                     called++;
                 })

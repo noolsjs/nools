@@ -7,7 +7,7 @@ define Message {
 
 rule Hello {
     when {
-        m : Message m.message =~ /^hello(\\s*world)?$/
+        m : Message m.message =~ /^hello\sworld$/
     }
     then {
         modify(m, function(){

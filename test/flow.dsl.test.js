@@ -274,7 +274,7 @@ it.describe("Flow dsl", function (it) {
         });
 
         it.should("emit when facts are asserted", function (next) {
-            var m = new Message("hello");
+            var m = new Message("hello ");
             session.once("assert", function (fact) {
                 assert.deepEqual(fact, m);
                 next();
@@ -303,10 +303,10 @@ it.describe("Flow dsl", function (it) {
         });
 
         it.should("emit when rules are fired", function (next) {
-            var m = new Message("hello");
+            var m = new Message("hello world");
             var fire = [
-                ["Hello", "hello"],
-                ["Goodbye", "hello goodbye"]
+                ["Hello", "hello world"],
+                ["Goodbye", "hello world goodbye"]
             ], i = 0;
             session.on("fire", function (name, facts) {
                 assert.equal(name, fire[i][0]);
@@ -322,10 +322,10 @@ it.describe("Flow dsl", function (it) {
 
         it.should("emit events from within the then action", function (next) {
             session.on("found-goodbye", function (message) {
-                assert.equal(message.message, "hello goodbye");
+                assert.equal(message.message, "hello world goodbye");
                 next();
             });
-            session.assert(new Message("hello"));
+            session.assert(new Message("hello world"));
             session.match();
         });
 
@@ -482,6 +482,46 @@ it.describe("Flow dsl", function (it) {
         });
     });
 
+    it.describe("defined objects", function (it) {
+
+        var flow, Point, Line, session;
+        it.beforeAll(function () {
+            flow = nools.compile(resolve(__dirname, "./rules/defined.nools"));
+            Point = flow.getDefined("point");
+            Line = flow.getDefined("line");
+        });
+
+        it.beforeEach(function () {
+            session = flow.getSession();
+        });
+
+        it.should("allow creating a new defined object", function () {
+            var point = new Point(1, 2);
+            assert.equal(point.x, 1);
+            assert.equal(point.y, 2);
+        });
+
+        it("defined classes should have other classes in scope", function () {
+            var line = new Line();
+            line.addPointFromDefined(1, 2);
+            assert.lengthOf(line.points, 1);
+            var point = line.points[0];
+            assert.instanceOf(point, Point);
+            assert.equal(point.x, 1);
+            assert.equal(point.y, 2);
+        });
+
+        it("defined classes should have access to functions in scope", function () {
+            var line = new Line();
+            line.addPointWithScope(1, 2);
+            assert.lengthOf(line.points, 1);
+            var point = line.points[0];
+            assert.instanceOf(point, Point);
+            assert.equal(point.x, 1);
+            assert.equal(point.y, 2);
+        });
+
+    });
 
     it.describe("fibonacci nools dsl", function (it) {
 
