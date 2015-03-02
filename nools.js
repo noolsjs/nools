@@ -983,6 +983,7 @@ Constraint.extend({
             this.type = "custom";
             this.fn = func;
             this.options = options;
+            extd.bindAll(this, ["assert"]);
         },
 
         equal: function (constraint) {

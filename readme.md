@@ -38,6 +38,7 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
       * [Salience](#rule-salience)
       * [Scope](#rule-scope)
       * [Constraints](#constraints)
+        * [Custom](#custom-contraints)
         * [Not](#not-constraint)
         * [Or](#or-constraint)
         * [From](#from-constraint)
@@ -1160,6 +1161,39 @@ when {
         * `(years|months|days|hours|minutes|seconds)(Ago|FromNow)(interval)` - adds/subtracts the date unit from the current time
 
    4. Reference(optional) - An object where the keys are properties on the current object, and values are aliases to use. The alias may be used in succeeding patterns.
+
+<a name="custom-contraints"></a>
+
+#### Custom Constraint
+
+When declaring your rules progrmmatically you can also use a function as a constraint. The function will be called with an object containing each fact that has matched previous constraints.
+
+
+```javascript
+var HelloFact = declare({
+    instance: {
+        value: true,
+        constructor: function (value) {
+            this.value = value;
+        }
+    }
+});
+
+var flow = nools.flow("custom contraint", function (flow) {
+    flow.rule("hello rule", [HelloFact, "h", function (facts) {
+        return facts.h.value === true;
+    }], function (facts) {
+        console.log(facts.h.value); //always true
+    });
+});
+
+var session = flow.getSession();
+session.assert(new HelloFact(false));
+session.assert(new HelloFact(true));
+session.match().then(function(){
+    console.log("DONE");
+});
+```
 
 <a name="not-constraint"></a>
 #### Not Constraint

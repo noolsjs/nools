@@ -497,6 +497,14 @@ it.describe("constraint matcher", function (it) {
             assert.equal(atoms[0].type, "reference");
         });
 
+        it.should("return a custom CustomConstraint if called with a function", function(){
+            var atoms = constraintMatcher.toConstraints(function(){
+                return true
+            });
+            assert.lengthOf(atoms, 1);
+            assert.equal(atoms[0].type, "custom");
+        });
+
     });
 
     it.describe("#toJs", function (it) {
