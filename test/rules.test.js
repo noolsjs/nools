@@ -430,34 +430,34 @@ it.describe("Rule", function (it) {
 
         it.describe("custom function as constraints", function (it) {
 
-          var MyConstraint = function(fact) {
-            return true;
-          };
+            function customContraint(fact) {
+                return true;
+            };
 
-          it.should("create for String function with custom constraint", function() {
-            var rule = rules.createRule("My Rule", [String, "s", MyConstraint], cb);
-            assert.isNotNull(rule);
-            assert.lengthOf(rule, 1);
-            rule = rule[0];
-            assert.equal(rule.name, "My Rule");
-            assert.isNotNull(rule.pattern);
-            var pattern = rule.pattern;
-            assert.equal(pattern.alias, "s");
-            assert.lengthOf(pattern.constraints, 2);
-            assert.instanceOf(pattern.constraints[0], constraints.ObjectConstraint);
-            assert.equal(pattern.constraints[0].constraint, String);
-            assert.instanceOf(pattern.constraints[1], constraints.CustomConstraint);
-            assert.strictEqual(rule.cb, cb);
-          });
+            it.should("create for String function with custom constraint", function () {
+                var rule = rules.createRule("My Rule", [String, "s", customContraint], cb);
+                assert.isNotNull(rule);
+                assert.lengthOf(rule, 1);
+                rule = rule[0];
+                assert.equal(rule.name, "My Rule");
+                assert.isNotNull(rule.pattern);
+                var pattern = rule.pattern;
+                assert.equal(pattern.alias, "s");
+                assert.lengthOf(pattern.constraints, 2);
+                assert.instanceOf(pattern.constraints[0], constraints.ObjectConstraint);
+                assert.equal(pattern.constraints[0].constraint, String);
+                assert.instanceOf(pattern.constraints[1], constraints.CustomConstraint);
+                assert.strictEqual(rule.cb, cb);
+            });
         });
 
         it.describe("custom type via scope", function (it) {
 
-            var MyType = function(name) {
+            var MyType = function (name) {
                 this.name = name;
             };
 
-            it.should("create for String function with custom constraint", function() {
+            it.should("create for String function with custom constraint", function () {
                 var rule = rules.createRule("My Rule", {scope: {MyType: MyType}}, ['MyType', "s", "s.name === 'X'"], cb);
                 assert.isNotNull(rule);
                 assert.lengthOf(rule, 1);

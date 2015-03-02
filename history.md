@@ -1,3 +1,9 @@
+# 0.4.1
+
+* Fixed issue with `CustomConstraint` not binding `this.assert` to `this`. [#146](https://github.com/C2FO/nools/pull/146) - [@raymondfeng](https://github.com/raymondfeng)
+* Added more tests for custom constraints
+* Updated readme to include docs about custom constraints.
+
 # 0.4.0
 
 * Fix for issue [#122](https://github.com/C2FO/nools/issues/122) referencing defined class within another defined class
