@@ -216,6 +216,7 @@
 <li><a href="#rule-salience">Salience</a></li>
 <li><a href="#rule-scope">Scope</a></li>
 <li><a href="#constraints">Constraints</a><ul>
+<li><a href="#custom-contraints">Custom</a></li>
 <li><a href="#not-constraint">Not</a></li>
 <li><a href="#or-constraint">Or</a></li>
 <li><a href="#from-constraint">From</a></li>
@@ -1098,6 +1099,32 @@ var flow = nools.compile(__dirname + &quot;/rules/provided-scope.nools&quot;, {s
 <li><p>Reference(optional) - An object where the keys are properties on the current object, and values are aliases to use. The alias may be used in succeeding patterns.</p>
 </li>
 </ol>
+<p><a name="custom-contraints"></a></p>
+<h4>Custom Constraint</h4>
+<p>When declaring your rules progrmmatically you can also use a function as a constraint. The function will be called with an object containing each fact that has matched previous constraints.</p>
+<pre class='prettyprint linenums lang-js'><code class="lang-javascript">var HelloFact = declare({
+    instance: {
+        value: true,
+        constructor: function (value) {
+            this.value = value;
+        }
+    }
+});
+
+var flow = nools.flow(&quot;custom contraint&quot;, function (flow) {
+    flow.rule(&quot;hello rule&quot;, [HelloFact, &quot;h&quot;, function (facts) {
+        return facts.h.value === true;
+    }], function (facts) {
+        console.log(facts.h.value); //always true
+    });
+});
+
+var session = flow.getSession();
+session.assert(new HelloFact(false));
+session.assert(new HelloFact(true));
+session.match().then(function(){
+    console.log(&quot;DONE&quot;);
+});</code></pre>
 <p><a name="not-constraint"></a></p>
 <h4>Not Constraint</h4>
 <p>The <code>not</code> constraint allows you to check that particular <code>fact</code> does <strong>not</strong> exist.</p>
