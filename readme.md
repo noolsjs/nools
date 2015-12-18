@@ -145,6 +145,19 @@ To use the flow
 var flow = nools.compile(__dirname + "/helloworld.nools"),
     Message = flow.getDefined("message");
 ```
+# Type Declaration 'extends'
+Defined types in the DSL no support 'extends' keyword for inheritance.
+
+Any type present in the flow can be extended. Base types must be defined before extended types.
+
+```
+define EncodedMessage extends Message {
+	encoding: 'sha1'
+	,constructor: function(message, encoding) {
+		Message.call(this, message);   // call superclass manually
+		this.encoding = encoding
+	}
+}
 
 ### Flow Events
 
@@ -340,7 +353,6 @@ session.assert(2);
 session.getFacts(Number); //[1, 2];
 session.getFacts(String); //["A", "B"];
 ```
-
 
 <a name="firing"></a>
 ## Firing the rules
@@ -1002,7 +1014,6 @@ flow1
         console.log(fired); //["Hello1", "Hello2", "Hello3", "Hello4"]
     });
 ```
-
 
 
 <a name="rule-scope"></a>

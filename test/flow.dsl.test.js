@@ -593,4 +593,26 @@ it.describe("Flow dsl", function (it) {
             });
         });
     });
+    it.describe("extended Fact types", function (it) {
+        var Person, Student, LongTermStudent, Count, session1Fired = {}, session1;
+        var flow = nools.compile(resolve(__dirname, "./rules/extends.nools"), {
+            name: 'extendsTest'
+        });
+        Person = flow.getDefined('Person');
+        Student = flow.getDefined('Student');
+        LongTermStudent = flow.getDefined('LongTermStudent');
+        //
+        session1 = flow.getSession(new Person('Bob'), new Student('Sue', 'harvard'), new LongTermStudent('Jim', 'princeton', 1)).on('fire', function (name) {
+            session1Fired[name] = session1Fired[name] || { cnt: 0 };
+            session1Fired[name].cnt++;
+        });
+        //
+        it.should(" fire rule(s) correctly according to type. each rule matching a single type ", function (next) {
+            return session1.match().then(function () {
+                assert(session1Fired['PersonTest'].cnt === 3);
+                assert(session1Fired['StudentTest'].cnt === 2);
+                assert(session1Fired['LongTermStudentTest'].cnt === 1);
+            })
+        });
+    });
 });

@@ -14,7 +14,8 @@ it.describe("nools dsl parser", function (it) {
                 define: [
                     {
                         name: "Test",
-                        properties: "({myProp : 'value'})"
+						extend: null,
+                        properties: "({myProp : 'value'})" 
                     }
                 ],
                 "rules": [],
@@ -28,6 +29,7 @@ it.describe("nools dsl parser", function (it) {
                 define: [
                     {
                         name: "Test",
+						extend: null,
                         properties: "({myFunc : function(){}})"
                     }
                 ],
@@ -183,6 +185,7 @@ it.describe("nools dsl parser", function (it) {
                     "define": [
                         {
                             "name": "Count",
+							extend: null,
                             "properties": "({     constructor: function(){         this.called = 0;     } })"
                         }
                     ],
