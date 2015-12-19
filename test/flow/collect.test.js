@@ -1,8 +1,6 @@
 "use strict";
 var it = require("it"),
     assert = require("assert"),
-    declare = require("declare.js"),
-    dateExtended = require("date-extended"),
     nools = require("../../");
 
 it.describe("collect condition", function (it) {
@@ -19,8 +17,9 @@ it.describe("collect condition", function (it) {
 				this.items.push(order);
 			}
 			,getOrder: function(name) {      
-					var idx = _.findIndex(this.items, order => order.type === name );
-					return idx > -1 ? this.items[idx] : undefined;
+					var item;
+					this.items.some(function(order) { if( order.type === name )  {item = order; return true;} });
+					return item;
 			}
 	}
 	//
@@ -31,8 +30,9 @@ it.describe("collect condition", function (it) {
 		//
 		var rule1Called = 0;
 		var rule2Called = 0;
-		var flow = nools.flow("from flow",{ define: { Customer: Customer, Item: Item }},
-		function (flow) {
+		var flow = nools.flow("collect test 1",function (flow) {
+			flow.addDefined('Customer', Customer);
+			flow.addDefined('Item', Item);
 			flow.rule("rule 1" , {salience: 10,  scope: { Customer: Customer, Item: Item }}, [
 				[Customer, 'c']
 				,[Array, 'list', 'list.size === c.items.size', 'from collect( item : Item item.price > 10 from c.items )']
@@ -56,9 +56,11 @@ it.describe("collect condition", function (it) {
 				assert.equal(rule1Called, 1);
 			});
 		});
+		
 		//
-		var flow = nools.flow("from flow",{ define: { Customer: Customer, Item: Item }},
-		function (flow) {
+		var flow = nools.flow("collect test 2",function (flow) {
+			flow.addDefined('Customer', Customer);
+			flow.addDefined('Item', Item);
 			flow.rule("rule 1" , {salience: 10,  scope: { Customer: Customer, Item: Item }}, [
 				[Customer, 'c']
 				,[Array, 'list', 'list.size === c.items.size', 'from collect( item : Item item.price > 10 from c.items)']
@@ -66,7 +68,7 @@ it.describe("collect condition", function (it) {
 				rule1Called++;
 			});
 			flow.rule("rule 2", {salience: 5,  noLoop: true, scope: { Customer: Customer, Item: Item }}, [
-				[Item, 'item', "item.type == 'bike'"]
+				[Item, 'item', "item.type == 'bike' && item.price !== 11"]
 			], function (facts) {
 				rule2Called++;
 				facts.item.price = 11;
@@ -92,4 +94,6 @@ it.describe("collect condition", function (it) {
 				assert.equal(rule2Called, 1);
 			});
 		});
+		
+	});
 });
