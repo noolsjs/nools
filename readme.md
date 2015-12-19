@@ -1424,6 +1424,9 @@ p : Person ;
 list: Array from collect( item: Item item.owner === p );
 items : Array items.length === list.length from collect( item: Item item.price > 10 from list );
  ```
+ This blog post from Marc Proctor the team lead on Drools explains collect in more detail.
+ http://blog.athico.com/2007/06/chained-from-accumulate-collect.html
+
  This paper was used to develop the collect node:
  http://citeseer.ist.psu.edu/viewdoc/download?doi=10.1.1.25.1076&rep=rep1&type=pdf
 
