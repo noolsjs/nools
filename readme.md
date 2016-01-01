@@ -1115,6 +1115,21 @@ rule TestQuery {
 var queryFn  = session.getQuery('MsgFilter');	
 var list     = queryFn(new RegExp(/hello/i));	
 
+// to define a query from a Flow...
+
+flow.query('MsgFilter', options, [
+	[Message, 'm', "m.text =~ filter"]
+]);
+
+// note: query arguments must be defined this is done by providing an arguments hash in a similiar fashion to scope.
+var options = {
+			arguments: {
+				filter: RegExp
+			}
+			,scope: {
+				Message: Message
+			}
+		};
 ```
 Queries are reactive meaning the contents of the returned Array changes as the contents of working memory change over time.  Another point to be aware of is a query does not have a RHS(then) and is not dependent upon the session match state. Queries simply 
 retrieve facts from working memory according to the conditions defined by the query.  
