@@ -20,6 +20,6 @@ rule TestQuery {
 	   list : Array from MsgFilter($maxLen, $filter); 
     }
     then {
-        emit("found-message", list[0]);
+        emit("query-rule", list);
     }
 }

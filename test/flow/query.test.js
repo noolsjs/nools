@@ -75,6 +75,13 @@ it.describe("query", function (it) {
 		it.should("rhs for rule calling query called a single time and list avaialable in lhs", function () {
 			var session		= flow.getSession();
 			//
+			session.on("query-rule", function (list) {
+				rule1Called++;
+                assert.equal(list.length, 1);
+				var msg = list[0];
+				assert.equal(msg.text, 'hello world');
+            });
+			//
 			session.assert( new Message('hello world'));
 			session.assert( 14 );
 			session.assert( new RegExp(/world/i));
@@ -83,22 +90,6 @@ it.describe("query", function (it) {
 				assert.equal(rule1Called, 1);
 			});
 		});
-		//
-		it.should("query can be called manually from session", function () {
-			rule1Called = 0;
-			//
-			session.assert( new Message('hello world'));
-			session.assert( 14 );
-			session.assert( new RegExp(/world/i));
-			//
-			// call the query manually
-			var list = session.getQuery('MsgFilter')(maxLen, /hello/i);
-			assert.equal(list.length, 1);
-			//
-			return session.match().then(function () {
-				assert.equal(rule1Called, 1);
-			});
-		});		
 	});
 
 });
