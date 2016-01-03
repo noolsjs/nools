@@ -1,5 +1,5 @@
 ﻿define Message {
-    message : "",
+    text : "",
     constructor : function (message) {
        this.text = message;
 	   this.length = this.text ? this.text.length : 0;
@@ -9,7 +9,7 @@
 /**
  * Simple query with parameters...
  */
-rule Query(String maxLen, RegExp filter)  {
+query MsgFilter(Number maxLen, RegExp filter)  {
    msg: Message msg.text.length < maxLen and msg.text =~ filter;
 }
 

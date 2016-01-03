@@ -50,15 +50,16 @@ it.describe("query", function (it) {
 			});
 		});
 		//
-		it.should("query can be called manually from session", function () {
+		it.should("be called manually from session", function () {
 			rule1Called = 0;
 			//
+			var session		= flow.getSession();
 			session.assert( new Message('hello world'));
 			session.assert( 14 );
 			session.assert( new RegExp(/world/i));
 			//
 			// call the query manually
-			var list = session.getQuery('MsgFilter')(maxLen, /hello/i);
+			var list = session.getQuery('MsgFilter')(14, /hello/i);
 			assert.equal(list.length, 1);
 			//
 			return session.match().then(function () {
@@ -82,6 +83,7 @@ it.describe("query", function (it) {
 				assert.equal(msg.text, 'hello world');
             });
 			//
+			var Message = flow.getDefined('Message');
 			session.assert( new Message('hello world'));
 			session.assert( 14 );
 			session.assert( new RegExp(/world/i));
