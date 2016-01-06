@@ -9,3 +9,4 @@ lib/parser/function/parser.js
 lib/parser/function/parser.js
 lib/parser/function/grammar.js
 lib/nodes/index.new.js
+lib/nodes/collectNode.query.js
