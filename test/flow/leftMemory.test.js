@@ -120,7 +120,6 @@ it.describe("BetaNode LeftMemory", function (it) {
             var node1 = lm.push(leftContext1);
             lm.push(leftContext2);
             assert.equal(lm.length, 2);
-            debugger;
             var nodes = lm.getLeftMemory(rightContext1);
             assert.lengthOf(nodes, 1);
             assert.deepEqual(nodes, [node1]);
