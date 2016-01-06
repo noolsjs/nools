@@ -82,6 +82,7 @@ rule TestPersonQueryLiteralParams {
     when {
 	   
 	   list : Array from people_over_the_age_of_x(40); 
+
     }
     then {
         emit("query-person-literal-param", list);
