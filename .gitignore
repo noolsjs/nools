@@ -2,3 +2,10 @@ node_modules
 nools.iml
 .idea
 atlassian-ide-plugin.xml
+lib/nodes/equalityNodeNew.js
+lib/initialFactContext.js
+lib/constraintMatcher.new.js
+lib/parser/function/parser.js
+lib/parser/function/parser.js
+lib/parser/function/grammar.js
+lib/nodes/index.new.js

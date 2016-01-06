@@ -6,20 +6,97 @@
     }
 }
 
+define Person {
+	age: undefined
+	,location: undefined
+	,constructor: function(age, location) {
+		this.age = age;
+		this.location = location;
+	}
+}
 /**
- * Simple query with parameters...
+ * Query people over the age of 30
+*/
+query people_over_the_age_of_30(  ) {
+    person : Person person.age > 30;		
+}
+
+/**
+ * Query people over the age of x
+*/
+query people_over_the_age_of_x( Number ageLimit ) {
+    person : Person person.age > ageLimit;		
+}
+
+/**
+ * Simple query with multiple parameters...
  */
 query MsgFilter(Number maxLen, RegExp filter)  {
    msg: Message msg.text.length < maxLen and msg.text =~ filter;
 }
 
-rule TestQuery {
+/**
+	call query with facts as parameters
+*/
+rule TestMessageQuery {
     when {
        $maxLen : Number;
 	   $filter : RegExp; 
 	   list : Array from MsgFilter($maxLen, $filter); 
     }
     then {
-        emit("query-rule", list);
+        emit("query-message", list);
+    }
+}
+/**
+	call query with mixed literal, facts as parameters
+*/
+rule TestMessageQueryMixed {
+    when {
+	   filter : RegExp; 
+	   list : Array from MsgFilter(14, filter); 
+    }
+    then {
+        emit("query-message-mixed", list);
+    }
+}
+
+
+/**
+	call query with no arguments
+*/
+rule TestPersonQueryNoParams {
+    when {
+	   list : Array from people_over_the_age_of_30(); 
+    }
+    then {
+        emit("query-person-no-params", list);
+    }
+}
+
+/**
+	call query with literal argument value
+	 // age: Number;
+*/
+rule TestPersonQueryLiteralParams {
+    when {
+	   
+	   list : Array from people_over_the_age_of_x(40); 
+    }
+    then {
+        emit("query-person-literal-param", list);
+    }
+}
+
+/**
+	call query with no arguments
+*/
+rule TestSameQueryCalledFromMultipleRules {
+    when {
+	   age  : Number;
+	   list : Array from people_over_the_age_of_x(age); 
+    }
+    then {
+        emit("rule-calling-same-query", list);
     }
 }
