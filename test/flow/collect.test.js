@@ -3,30 +3,31 @@ var it = require("it"),
     assert = require("assert"),
     nools = require("../../");
 
+//
+function Customer(name) {
+	this.name = name;
+	this.items = [];
+}
+Customer.prototype = {
+		add: function(order) {
+			this.items.push(order);
+		}
+		,getOrder: function(name) {      
+				var item;
+				this.items.some(function(order) { if( order.type === name )  {item = order; return true;} });
+				return item;
+		}
+}
+//
+function Item(type, price) {
+	this.type = type;
+	this.price = price;
+}
+
 it.describe("collect condition", function (it) {
 
     it.describe("basic test of collection element", function (it) {
 
-	//
-	function Customer(name) {
-		this.name = name;
-		this.items = [];
-	}
-	Customer.prototype = {
-			add: function(order) {
-				this.items.push(order);
-			}
-			,getOrder: function(name) {      
-					var item;
-					this.items.some(function(order) { if( order.type === name )  {item = order; return true;} });
-					return item;
-			}
-	}
-	//
-	function Item(type, price) {
-		this.type = type;
-		this.price = price;
-	}
 		//
 		var rule1Called = 0;
 		var rule2Called = 0;
@@ -95,5 +96,34 @@ it.describe("collect condition", function (it) {
 			});
 		});
 		
+	});
+
+	it.describe("basic test of collect using DSL", function (it) {
+debugger;
+		var defines = { Customer: Customer, Item: Item },
+			flow = nools.compile(__dirname + '/collect.nools', { name: 'TestCollect', defines: defines} ),
+			rule1Called = 0;
+
+		//
+		it.should("rhs for collection called a single time and set avaialable in lhs", function () {
+			var session		= flow.getSession();
+			//
+			session.on("test-collect", function (customer, items) {
+				rule1Called++;
+			});
+
+			//
+			var customer    = new Customer('John');
+			var stroller	= new Item('stroller',	50);
+			var bike		= new Item('bike',		11);
+			var car			= new Item('car',		2500);
+			session.assert(stroller);session.assert(bike);session.assert(car);
+			customer.add(stroller);customer.add(bike);customer.add(car);
+			session.assert(customer);  
+			//
+			return session.match().then(function () {
+				assert.equal(rule1Called, 1);
+			});
+		});
 	});
 });

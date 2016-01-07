@@ -1,0 +1,14 @@
+﻿
+/**
+	find customers who have bought items all of which are priced over 10
+	where the items are a file and not in working memory.
+*/
+rule TestCollect {
+	when {
+		c : Customer;
+		items: Array items.size === c.items.size from collect( item: Item item.price > 10 from c.items );
+	}
+	then {
+		emit('test-collect', c, items);
+	}
+}
