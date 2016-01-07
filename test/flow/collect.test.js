@@ -99,7 +99,6 @@ it.describe("collect condition", function (it) {
 	});
 
 	it.describe("basic test of collect using DSL", function (it) {
-debugger;
 		var defines = { Customer: Customer, Item: Item },
 			flow = nools.compile(__dirname + '/collect.nools', { name: 'TestCollect', defines: defines} ),
 			rule1Called = 0;
@@ -110,6 +109,8 @@ debugger;
 			//
 			session.on("test-collect", function (customer, items) {
 				rule1Called++;
+				assert.equal(items.length, 3);
+				assert(customer);
 			});
 
 			//
