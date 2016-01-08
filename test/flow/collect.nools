@@ -1,4 +1,61 @@
 ﻿
+define System {
+    location : "",
+	status: 'normal',
+    constructor : function (loc) {
+       this.location = loc;
+    }
+}
+
+define Alarm {
+	system: undefined
+	,status: 'normal'
+	,purpose: undefined
+	,constructor: function(system, status, purpose) {
+		this.system = system;
+		this.status = status;
+		this.purpose = purpose;
+	}
+}
+
+define Emergency {
+    system : undefined,
+    constructor : function (system) {
+       this.system = system;
+    }
+}
+
+
+/**
+	classic Drools alarm example
+*/
+rule "Raise priority if system has more than 3 pending alarms" {
+	when {
+		$system : System $system.status === 'normal';
+		$alarms : Array $alarms.length >= 3 from collect( $alarm : Alarm  $alarm.system === $system and $alarm.status === 'pending' );
+		}
+	then {
+	   emit('system-alarms', $system, $alarms);
+	   modify($system, function() {this.status = 'alarms-pending';})
+	}
+}
+/**
+	if the system is alarmed respond by asserting as Emergency fact.
+*/
+rule "If System is alarmed respond by asserting Emergency" {
+	when {
+		$system : System $system.status === 'alarms-pending';
+		$alarms : Array from collect( $alarm : Alarm  $alarm.system === $system and $alarm.status === 'pending' );
+		}
+	then {
+	   emit('system-emergency', $system, $alarms);
+	   modify($system, function() {this.status = 'emergency-declared';});
+	   var e = new Emergency($system);
+	   assert(e);
+	}
+}
+
+
 /**
 	find customers who have bought items all of which are priced over 10
 	where the items are a file and not in working memory.

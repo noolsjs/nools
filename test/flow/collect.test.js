@@ -97,15 +97,85 @@ it.describe("collect condition", function (it) {
 		});
 		
 	});
-
+	
 	it.describe("basic test of collect using DSL", function (it) {
 		var defines = { Customer: Customer, Item: Item },
 			flow = nools.compile(__dirname + '/collect.nools', { name: 'TestCollect', defines: defines} ),
 			rule1Called = 0;
+		it.should("alarm example initial states cause rule fire", function () {
+			//
+			var System      = flow.getDefined('System'),
+				Alarm		= flow.getDefined('Alarm'),
+				session		= flow.getSession(),
+				system, alarmA, alarmB, alarmC;
+			//
+			session.on("system-alarms", function (system, alarms) {
+				rule1Called++;
+				assert.equal(alarms.length, 3);
+				assert.equal(system.location, 'kitchen');
+				assert.deepEqual(alarms[0], alarmA);
+				assert.deepEqual(alarms[1], alarmB);				
+				assert.deepEqual(alarms[2], alarmC);				
+			});
+			//
+			system		= new System('kitchen');
+			session.assert(system);
+
+			alarmA		= new Alarm(system, 'pending', 'door');		// create three alarms for the System
+			alarmB		= new Alarm(system, 'pending', 'fire');
+			alarmC		= new Alarm(system, 'pending', 'window');
+			//
+			session.assert(alarmA);
+			session.assert(alarmB);
+			session.assert(alarmC);			
+			//
+			return session.match().then(function () {
+				assert.equal(rule1Called, 1);				
+			});
+		});
+		it.should("modified alarm example alarm causes rule fire", function () {
+			//
+			var System      = flow.getDefined('System'),
+				Alarm		= flow.getDefined('Alarm'),
+				session		= flow.getSession(),
+				system, alarmA, alarmB, alarmC;
+
+			rule1Called = 0;
+			//
+			session.on("system-alarms", function (system, alarms) {
+				rule1Called++;
+				assert.equal(alarms.length, 3);
+				assert.equal(system.location, 'kitchen');
+				assert.deepEqual(alarms[0], alarmA);
+				assert.deepEqual(alarms[1], alarmB);				
+				assert.deepEqual(alarms[2], alarmC);				
+			});
+			//
+			system		= new System('kitchen');
+			session.assert(system);
+
+			alarmA		= new Alarm(system, 'pending', 'door');		// create three alarms for the System
+			alarmB		= new Alarm(system, 'pending', 'fire');
+			alarmC		= new Alarm(system, 'normal', 'window');
+			//
+			session.assert(alarmA);
+			session.assert(alarmB);
+			session.assert(alarmC);		
+			//
+			return session.match().then(function () {
+				assert.equal(rule1Called, 0);
+				alarmC.status = 'pending';
+				session.modify(alarmC);
+				return session.match().then(function() {
+					assert.equal(rule1Called, 1);
+				});
+			});
+		});
 
 		//
 		it.should("rhs for collection called a single time and set avaialable in lhs", function () {
 			var session		= flow.getSession();
+			var rule1Called = 0;
 			//
 			session.on("test-collect", function (customer, items) {
 				rule1Called++;
