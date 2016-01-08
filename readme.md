@@ -42,7 +42,7 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
         * [Not](#not-constraint)
         * [Or](#or-constraint)
         * [From](#from-constraint)
-		* [Collect(#collect-modifer)]
+		* [Collect](#collect-modifer)
         * [Exists](#exists-constraint)
       * [Actions](#action)
         * [Async Actions](#action-async)
@@ -1391,7 +1391,7 @@ flow.rule("my rule", {
         this.assert(facts.n1);
     }
 }
-
+    
 ```
 
 Or using the dsl and the [scope](#rule-scope) option.
