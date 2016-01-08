@@ -23,14 +23,15 @@ function Item(type, price) {
 	this.type = type;
 	this.price = price;
 }
+//
+var rule1Called = 0;
+var rule2Called = 0;
+var rule3Called = 0;
 
 it.describe("collect condition", function (it) {
 
     it.describe("basic test of collection element", function (it) {
 
-		//
-		var rule1Called = 0;
-		var rule2Called = 0;
 		var flow = nools.flow("collect test 1",function (flow) {
 			flow.addDefined('Customer', Customer);
 			flow.addDefined('Item', Item);
@@ -141,6 +142,8 @@ it.describe("collect condition", function (it) {
 				system, alarmA, alarmB, alarmC;
 
 			rule1Called = 0;
+			rule2Called = 0;
+			rule3Called = 0;
 			//
 			session.on("system-alarms", function (system, alarms) {
 				rule1Called++;
@@ -150,6 +153,20 @@ it.describe("collect condition", function (it) {
 				assert.deepEqual(alarms[1], alarmB);				
 				assert.deepEqual(alarms[2], alarmC);				
 			});
+			//
+			session.on("system-emergency", function (system, alarms) {
+				rule2Called++;
+				assert.equal(alarms.length, 3);
+				assert.equal(system.status, 'alarms-pending');
+			});
+			//
+			session.on("emergency-response", function (emergency) {
+				rule3Called++;
+				assert.equal(emergency.alarms.length, 3);
+				assert.deepEqual(emergency.system, system);
+			});
+
+
 			//
 			system		= new System('kitchen');
 			session.assert(system);

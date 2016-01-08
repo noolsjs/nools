@@ -20,8 +20,10 @@ define Alarm {
 
 define Emergency {
     system : undefined,
-    constructor : function (system) {
+	alarms: undefined,
+    constructor : function (system, alarms) {
        this.system = system;
+	   this.alarms = alarms;
     }
 }
 
@@ -50,11 +52,21 @@ rule "If System is alarmed respond by asserting Emergency" {
 	then {
 	   emit('system-emergency', $system, $alarms);
 	   modify($system, function() {this.status = 'emergency-declared';});
-	   var e = new Emergency($system);
+	   var e = new Emergency($system, $alarms);
 	   assert(e);
 	}
 }
-
+/**
+	if there is an emergency turn of
+*/
+rule "If System is alarmed respond by asserting Emergency" {
+	when {
+		$emergency : Emergency;
+		}
+	then {
+	   emit('emergency-response', $emergency);
+	}
+}
 
 /**
 	find customers who have bought items all of which are priced over 10
