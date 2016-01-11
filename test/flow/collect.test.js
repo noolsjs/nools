@@ -31,7 +31,7 @@ var rule3Called = 0;
 it.describe("collect condition", function (it) {
 
     it.describe("basic test of collection element", function (it) {
-
+debugger;
 		var flow = nools.flow("collect test 1",function (flow) {
 			flow.addDefined('Customer', Customer);
 			flow.addDefined('Item', Item);
@@ -39,11 +39,13 @@ it.describe("collect condition", function (it) {
 				[Customer, 'c']
 				,[Array, 'list', 'list.size === c.items.size', 'from collect( item : Item item.price > 10 from c.items )']
 			], function(facts) {
+debugger;
 				rule1Called++;
 			});
 		});
 		//
 		it.should("rhs for collection called a single time and set avaialable in lhs", function () {
+debugger;
 			var session		= flow.getSession();
 			//
 			var customer    = new Customer('John');
@@ -53,8 +55,10 @@ it.describe("collect condition", function (it) {
 			session.assert(stroller);session.assert(bike);session.assert(car);
 			customer.add(stroller);customer.add(bike);customer.add(car);
 			session.assert(customer);  
-			//
+			rule1Called = 0;
+debugger;
 			return session.match().then(function () {
+debugger;
 				assert.equal(rule1Called, 1);
 			});
 		});
