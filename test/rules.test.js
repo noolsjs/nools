@@ -661,7 +661,6 @@ it.describe("Rule", function (it) {
             assert.equal(rule.name, "My Rule");
             assert.isNotNull(rule.pattern);
             var pattern = rule.pattern;
-            debugger;
             assert.instanceOf(pattern, patterns.CompositePattern);
             assert.instanceOf(pattern.leftPattern, patterns.ExistsPattern);
             assert.instanceOf(pattern.rightPattern, patterns.FromExistsPattern);
