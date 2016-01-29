@@ -37,8 +37,8 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
       * [Structure](#rule-structure)
       * [Salience](#rule-salience)
       * [Scope](#rule-scope)
+	  * [no-loop](#rule-no-loop)
       * [Constraints](#constraints)
-        * [Custom](#custom-contraints)
         * [Not](#not-constraint)
         * [Or](#or-constraint)
         * [From](#from-constraint)
@@ -80,7 +80,7 @@ var Message = function (message) {
 var flow = nools.flow("Hello World", function (flow) {
 
     //find any message that start with hello
-    flow.rule("Hello", [Message, "m", "m.text =~ /^hello\\sworld$/"], function (facts) {
+    flow.rule("Hello", [Message, "m", "m.text =~ /^hello(\\s*world)?$/"], function (facts) {
         facts.m.text = facts.m.text + " goodbye";
         this.modify(facts.m);
     });
@@ -97,7 +97,7 @@ In the above flow definition 2 rules were defined
 
   * Hello
     * Requires a Message
-    * The messages's `text` must match the regular expression `/^hello\\sworld$/`
+    * The messages's `text` must match the regular expression `/^hello(\\s*world)?$/`
     * When matched the message's `text` is modified and then we let the engine know that we modified the message.
   * Goodbye
     * Requires a Message
@@ -235,8 +235,7 @@ var flow = nools.compile(noolsSource, {
     scope: {
         //the logger you want your flow to use.
         logger: logger
-    },
-    name: 'person name is bob'
+    }
 });
 ```
 
@@ -1003,6 +1002,33 @@ flow1
     });
 ```
 
+<a name="rule-no-loop"></a>
+### No-Loop
+
+When a rule's action modifies a fact it may cause the rule to activate again, causing an infinite loop. Setting no-loop to true will skip the creation of another Activation for the rule with the current set of facts.
+
+```javascript
+this.rule("Hello", {noLoop: true}, [Message, "m", "m.text like /hello/"], function (facts) {
+	var m = facts.m;
+	m.text = 'hello world';    
+	this.modify(m)
+});
+
+```
+Or using the DSL
+
+```javascript
+rule Hello {
+    no-loop: true;
+    when {
+        m: Message m.name like /hello/;
+    }
+    then { modify(m, function() {
+		m.text = 'hello world'
+	});
+}
+```
+
 
 
 <a name="rule-scope"></a>
@@ -1038,7 +1064,7 @@ function matches(str, regex){
 
 rule Hello {
     when {
-        m : Message matches(m.text, /^hello\s*world)?$/);
+        m : Message matches(m.text, /^hello(\\s*world)?$/);
     }
     then {
         modify(m, function(){
@@ -1061,7 +1087,7 @@ Or you can pass in a custom function using the scope option in compile.
 ```
 rule Hello {
     when {
-        m : Message doesMatch(m.text, /^hello\sworld$/);
+        m : Message doesMatch(m.text, /^hello(\\s*world)?$/);
     }
     then {
         modify(m, function(){
@@ -1161,39 +1187,6 @@ when {
         * `(years|months|days|hours|minutes|seconds)(Ago|FromNow)(interval)` - adds/subtracts the date unit from the current time
 
    4. Reference(optional) - An object where the keys are properties on the current object, and values are aliases to use. The alias may be used in succeeding patterns.
-
-<a name="custom-contraints"></a>
-
-#### Custom Constraint
-
-When declaring your rules progrmmatically you can also use a function as a constraint. The function will be called with an object containing each fact that has matched previous constraints.
-
-
-```javascript
-var HelloFact = declare({
-    instance: {
-        value: true,
-        constructor: function (value) {
-            this.value = value;
-        }
-    }
-});
-
-var flow = nools.flow("custom contraint", function (flow) {
-    flow.rule("hello rule", [HelloFact, "h", function (facts) {
-        return facts.h.value === true;
-    }], function (facts) {
-        console.log(facts.h.value); //always true
-    });
-});
-
-var session = flow.getSession();
-session.assert(new HelloFact(false));
-session.assert(new HelloFact(true));
-session.match().then(function(){
-    console.log("DONE");
-});
-```
 
 <a name="not-constraint"></a>
 #### Not Constraint
@@ -1690,7 +1683,7 @@ define Message {
 
 rule Hello {
     when {
-        m : Message m.text =~ /^hello\sworld$/
+        m : Message m.text =~ /^hello(\\s*world)?$/
     }
     then {
         modify(m, function(){
@@ -1718,6 +1711,7 @@ rule Goodbye {
                 session = flow.getSession();
         //assert your different messages
         session.assert(new Message("goodbye"));
+        session.assert(new Message("hello"));
         session.assert(new Message("hello world"));
         session.match();
     }
