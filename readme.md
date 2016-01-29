@@ -37,6 +37,7 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
       * [Structure](#rule-structure)
       * [Salience](#rule-salience)
       * [Scope](#rule-scope)
+	  * [no-loop](#rule-no-loop)
       * [Constraints](#constraints)
         * [Custom](#custom-contraints)
         * [Not](#not-constraint)
@@ -145,6 +146,19 @@ To use the flow
 var flow = nools.compile(__dirname + "/helloworld.nools"),
     Message = flow.getDefined("message");
 ```
+# Type Declaration 'extends'
+Defined types in the DSL no support 'extends' keyword for inheritance.
+
+Any type present in the flow can be extended. Base types must be defined before extended types.
+
+```
+define EncodedMessage extends Message {
+	encoding: 'sha1'
+	,constructor: function(message, encoding) {
+		Message.call(this, message);   // call superclass manually
+		this.encoding = encoding
+	}
+}
 
 ### Flow Events
 
@@ -340,7 +354,6 @@ session.assert(2);
 session.getFacts(Number); //[1, 2];
 session.getFacts(String); //["A", "B"];
 ```
-
 
 <a name="firing"></a>
 ## Firing the rules
@@ -1001,6 +1014,33 @@ flow1
     .then(function(){
         console.log(fired); //["Hello1", "Hello2", "Hello3", "Hello4"]
     });
+```
+
+<a name="rule-no-loop"></a>
+### No-Loop
+
+When a rule's action modifies a fact it may cause the rule to activate again, causing an infinite loop. Setting no-loop to true will skip the creation of another Activation for the rule with the current set of facts.
+
+```javascript
+this.rule("Hello", {noLoop: true}, [Message, "m", "m.text like /hello/"], function (facts) {
+	var m = facts.m;
+	m.text = 'hello world';    
+	this.modify(m)
+});
+
+```
+Or using the DSL
+
+```javascript
+rule Hello {
+    no-loop: true;
+    when {
+        m: Message m.name like /hello/;
+    }
+    then { modify(m, function() {
+		m.text = 'hello world'
+	});
+}
 ```
 
 
