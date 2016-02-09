@@ -43,6 +43,7 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
       * [Structure](#rule-structure)
       * [Salience](#rule-salience)
       * [Scope](#rule-scope)
+	  * [no-loop](#rule-no-loop)
       * [Constraints](#constraints)
         * [Custom](#custom-contraints)
         * [Not](#not-constraint)
@@ -1007,6 +1008,32 @@ flow1
     .then(function(){
         console.log(fired); //["Hello1", "Hello2", "Hello3", "Hello4"]
     });
+```
+<a name="rule-no-loop"></a>
+### No-Loop
+
+When a rule's action modifies a fact it may cause the rule to activate again, causing an infinite loop. Setting no-loop to true will skip the creation of another Activation for the rule with the current set of facts.
+
+```javascript
+this.rule("Hello", {noLoop: true}, [Message, "m", "m.text like /hello/"], function (facts) {
+	var m = facts.m;
+	m.text = 'hello world';    
+	this.modify(m)
+});
+
+```
+Or using the DSL
+
+```javascript
+rule Hello {
+    no-loop: true;
+    when {
+        m: Message m.name like /hello/;
+    }
+    then { modify(m, function() {
+		m.text = 'hello world'
+	});
+}
 ```
 
 
