@@ -1,3 +1,6 @@
+# test
+
+
 [![Build Status](https://travis-ci.org/C2FO/nools.png)](https://travis-ci.org/C2FO/nools)
 
 [![browser support](https://ci.testling.com/C2FO/nools.png)](https://ci.testling.com/C2FO/nools)
@@ -37,8 +40,8 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
       * [Structure](#rule-structure)
       * [Salience](#rule-salience)
       * [Scope](#rule-scope)
+	  * [Query](#query)
       * [Constraints](#constraints)
-        * [Custom](#custom-contraints) 
         * [Not](#not-constraint)
         * [Or](#or-constraint)
         * [From](#from-constraint)
@@ -341,6 +344,7 @@ session.assert(2);
 session.getFacts(Number); //[1, 2];
 session.getFacts(String); //["A", "B"];
 ```
+
 
 <a name="firing"></a>
 ## Firing the rules
@@ -1086,6 +1090,48 @@ function matches(str, regex) {
 var flow = nools.compile(__dirname + "/rules/provided-scope.nools", {scope: {doesMatch: matches}});
 ```
 
+<a name="query"></a>
+### Query
+
+A query is a simple way to search the working memory for facts that match the stated conditions. Therefore, it contains only the structure of the LHS of a rule, so that you specify neither "when" nor "then". A query has an optional set of parameters, each of which is typed. Query names are global so be careful to avoid name collisions in a given flow.
+When a query is processed by the engine a function is created that can be accessed from the session by name; e.g. session.getQuery(<name>).  Then that function may be called passing arguments if neccessary depending upon the query signature.
+A query may be called from another rule or query using the from modifer since queries introduce a collection object that is not in working memory.  Note in the examples below unlike a javascript function the type is part of the query signature.
+```javascript
+query MsgFilter( RegExp filter )  {
+   m : Message  m.text =~ filter;
+}
+
+rule TestQuery {
+    when {
+        list : Array from MsgFilter(/world/i);
+    }
+    then {
+    }
+}
+// you may call queries manually from a session
+
+var queryFn  = session.getQuery('MsgFilter');	
+var list     = queryFn(new RegExp(/hello/i));	
+
+// to define a query from a Flow...
+
+flow.query('MsgFilter', options, [
+	[Message, 'm', "m.text =~ filter"]
+]);
+
+// note: query arguments must be defined this is done by providing an arguments hash in a similiar fashion to scope.
+var options = {
+			arguments: {
+				filter: RegExp
+			}
+			,scope: {
+				Message: Message
+			}
+		};
+```
+Queries are reactive meaning the contents of the returned Array changes as the contents of working memory change over time.  Another point to be aware of is a query does not have a RHS(then) and is not dependent upon the session match state. Queries simply 
+retrieve facts from working memory according to the conditions defined by the query.  
+
 <a name="constraints"></a>
 ### Constraints
 
@@ -1192,6 +1238,7 @@ session.match().then(function(){
     console.log("DONE");
 });
 ```
+
 <a name="not-constraint"></a>
 #### Not Constraint
 
@@ -1710,7 +1757,7 @@ define Message {
 
 rule Hello {
     when {
-        m : Message m.text =~ /^hello(\\sworld)?$/
+        m : Message m.text =~ /^hello(\\s*world)?$/
     }
     then {
         modify(m, function(){
@@ -1738,6 +1785,7 @@ rule Goodbye {
                 session = flow.getSession();
         //assert your different messages
         session.assert(new Message("goodbye"));
+        session.assert(new Message("hello"));
         session.assert(new Message("hello world"));
         session.match();
     }
