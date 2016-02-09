@@ -1,0 +1,46 @@
+﻿
+define Person {
+    constructor: function(name){
+        this.name = name;
+    }
+}
+
+define Student extends Person {
+	constructor: function(name, school) {
+		Person.call(this, name);
+		this.school = school;
+	}
+}
+
+define LongTermStudent extends Student {
+	constructor: function(name, school, years) {
+		Student.call(this, name, school);
+		this.years = years;
+	}
+}
+
+
+rule PersonTest {
+    when {
+        p: Person;
+    }
+    then {
+    }
+}
+
+rule StudentTest {
+    when {
+        s: Student;
+    }
+    then {
+    }
+}
+
+
+rule LongTermStudentTest {
+    when {
+        s: LongTermStudent;
+    }
+    then {
+    }
+}
