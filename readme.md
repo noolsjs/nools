@@ -1,3 +1,6 @@
+# test
+
+
 [![Build Status](https://travis-ci.org/C2FO/nools.png)](https://travis-ci.org/C2FO/nools)
 
 [![browser support](https://ci.testling.com/C2FO/nools.png)](https://ci.testling.com/C2FO/nools)
@@ -37,11 +40,12 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
       * [Structure](#rule-structure)
       * [Salience](#rule-salience)
       * [Scope](#rule-scope)
+	  * [Query](#query)
       * [Constraints](#constraints)
-        * [Custom](#custom-contraints)
         * [Not](#not-constraint)
         * [Or](#or-constraint)
         * [From](#from-constraint)
+		* [Collect](#collect-modifer)
         * [Exists](#exists-constraint)
       * [Actions](#action)
         * [Async Actions](#action-async)
@@ -80,7 +84,7 @@ var Message = function (message) {
 var flow = nools.flow("Hello World", function (flow) {
 
     //find any message that start with hello
-    flow.rule("Hello", [Message, "m", "m.text =~ /^hello\\sworld$/"], function (facts) {
+    flow.rule("Hello", [Message, "m", "m.text =~ /^hello(\\s*world)?$/"], function (facts) {
         facts.m.text = facts.m.text + " goodbye";
         this.modify(facts.m);
     });
@@ -97,7 +101,7 @@ In the above flow definition 2 rules were defined
 
   * Hello
     * Requires a Message
-    * The messages's `text` must match the regular expression `/^hello\\sworld$/`
+    * The messages's `text` must match the regular expression `/^hello(\\s*world)?$/`
     * When matched the message's `text` is modified and then we let the engine know that we modified the message.
   * Goodbye
     * Requires a Message
@@ -1003,8 +1007,6 @@ flow1
     });
 ```
 
-
-
 <a name="rule-scope"></a>
 ### Scope
 
@@ -1038,7 +1040,7 @@ function matches(str, regex){
 
 rule Hello {
     when {
-        m : Message matches(m.text, /^hello\s*world)?$/);
+        m : Message matches(m.text, /^hello(\\s*world)?$/);
     }
     then {
         modify(m, function(){
@@ -1061,7 +1063,7 @@ Or you can pass in a custom function using the scope option in compile.
 ```
 rule Hello {
     when {
-        m : Message doesMatch(m.text, /^hello\sworld$/);
+        m : Message doesMatch(m.text, /^hello(\\s*world)?$/);
     }
     then {
         modify(m, function(){
@@ -1087,6 +1089,48 @@ function matches(str, regex) {
 };
 var flow = nools.compile(__dirname + "/rules/provided-scope.nools", {scope: {doesMatch: matches}});
 ```
+
+<a name="query"></a>
+### Query
+
+A query is a simple way to search the working memory for facts that match the stated conditions. Therefore, it contains only the structure of the LHS of a rule, so that you specify neither "when" nor "then". A query has an optional set of parameters, each of which is typed. Query names are global so be careful to avoid name collisions in a given flow.
+When a query is processed by the engine a function is created that can be accessed from the session by name; e.g. session.getQuery(<name>).  Then that function may be called passing arguments if neccessary depending upon the query signature.
+A query may be called from another rule or query using the from modifer since queries introduce a collection object that is not in working memory.  Note in the examples below unlike a javascript function the type is part of the query signature.
+```javascript
+query MsgFilter( RegExp filter )  {
+   m : Message  m.text =~ filter;
+}
+
+rule TestQuery {
+    when {
+        list : Array from MsgFilter(/world/i);
+    }
+    then {
+    }
+}
+// you may call queries manually from a session
+
+var queryFn  = session.getQuery('MsgFilter');	
+var list     = queryFn(new RegExp(/hello/i));	
+
+// to define a query from a Flow...
+
+flow.query('MsgFilter', options, [
+	[Message, 'm', "m.text =~ filter"]
+]);
+
+// note: query arguments must be defined this is done by providing an arguments hash in a similiar fashion to scope.
+var options = {
+			arguments: {
+				filter: RegExp
+			}
+			,scope: {
+				Message: Message
+			}
+		};
+```
+Queries are reactive meaning the contents of the returned Array changes as the contents of working memory change over time.  Another point to be aware of is a query does not have a RHS(then) and is not dependent upon the session match state. Queries simply 
+retrieve facts from working memory according to the conditions defined by the query.  
 
 <a name="constraints"></a>
 ### Constraints
@@ -1406,6 +1450,29 @@ rule "my rule", {
 }
 ```
 
+<a name="collect-modifer"></a>
+
+###Collect Modifier
+The 'collect' modifer results in a returned object, as such a pattern can specify collect as its 'from' source. 
+The 'collect' modifer returns an array which allows cardinality reasoning (when there are more than 7 red buses). 
+
+This example chains two 'from's together. It finds customers who have bought items all of which are priced over 10, where the items are a field and not asserted into the working memory:
+ ```javascript
+c : Customer
+items : Array items.length == c.items.length ) from collect( item : Item item.price > 10 from c.items);
+ ```
+ If the items where not a field, but instead asserted into the working memory, we could use a correlated 'collect' pattern:
+```javascript
+p : Person ;
+list: Array from collect( item: Item item.owner === p );
+items : Array items.length === list.length from collect( item: Item item.price > 10 from list );
+ ```
+ This blog post from Marc Proctor the team lead on Drools explains collect in more detail.
+ http://blog.athico.com/2007/06/chained-from-accumulate-collect.html
+
+ This paper was used to develop the collect node:
+ http://citeseer.ist.psu.edu/viewdoc/download?doi=10.1.1.25.1076&rep=rep1&type=pdf
+
 <a name="exists-constraint"></a>
 
 ###Exists Constraint
@@ -1690,7 +1757,7 @@ define Message {
 
 rule Hello {
     when {
-        m : Message m.text =~ /^hello\sworld$/
+        m : Message m.text =~ /^hello(\\s*world)?$/
     }
     then {
         modify(m, function(){
@@ -1718,6 +1785,7 @@ rule Goodbye {
                 session = flow.getSession();
         //assert your different messages
         session.assert(new Message("goodbye"));
+        session.assert(new Message("hello"));
         session.assert(new Message("hello world"));
         session.match();
     }

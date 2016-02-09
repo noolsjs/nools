@@ -494,8 +494,8 @@ it.describe("from condition", function (it) {
                 });
 
                 return session.match().then(function () {
-                    assert.equal(called1, 0);
-                    assert.equal(called2, 5);
+                    assert.equal(called1, 1);
+                    assert.equal(called2, 4);
                     called1 = called2 = 0;
                     session.modify(persons[0], function () {
                         this.lastName = "yukon";
@@ -528,8 +528,8 @@ it.describe("from condition", function (it) {
                         this.lastName = "y";
                     });
                     return session.match().then(function () {
-                        assert.equal(called1, 0);
-                        assert.equal(called2, 5);
+                        assert.equal(called1, 1);
+                        assert.equal(called2, 4);
                     });
                 });
             });
