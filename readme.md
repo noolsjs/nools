@@ -79,7 +79,7 @@ var Message = function (message) {
 
 var flow = nools.flow("Hello World", function (flow) {
 
-    //find any message that start with hello
+    //find any message that is exactly hello world
     flow.rule("Hello", [Message, "m", "m.text =~ /^hello\\sworld$/"], function (facts) {
         facts.m.text = facts.m.text + " goodbye";
         this.modify(facts.m);
