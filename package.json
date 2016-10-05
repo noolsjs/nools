@@ -35,7 +35,7 @@
     "uglify-js": "~2.3.6"
   },
   "devDependencies": {
-    "eslint": "^3.7.1",
+    "eslint": "^2.13.1",
     "grunt": "~0.4.1",
     "grunt-browserify": "1.2.4",
     "grunt-contrib-jshint": "~0.5.3",
@@ -62,7 +62,7 @@
   "scripts": {
     "test": "it -r spec",
     "create-doc": "rm -rf docs/* && coddoc -d ./lib -f multi-html",
-    "eslint": "eslint lib --ignore-pattern lib/parser/constraint"
+    "eslint": "eslint lib  --ignore-pattern lib/parser/constraint"
   },
   "directories": {
     "lib": "lib"

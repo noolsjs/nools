@@ -1,5 +1,6 @@
 {
   "rules": {
-    "no-unused-vars": ["error", { "vars": "local", "args": "after-used" }]
+    "no-unused-vars": ["error", { "vars": "local", "args": "after-used" }],
+    "quotes": ["error", "double"]
   }
 }
