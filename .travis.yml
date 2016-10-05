@@ -1,8 +1,8 @@
 language: node_js
 node_js:
   - 0.10
-before_install:
-  - npm install -g eslint@2.*
+install:
+  - npm install
 script:
   - npm run eslint
   - npm test
