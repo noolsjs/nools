@@ -18,6 +18,9 @@ it.describe("constraint matcher", function (it) {
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a eq false"))({a: false}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a == 10"))({a: "10"}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a eq 10"))({a: "10"}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a == null"))({a: null}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a ==null"))({a: null}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a eq null"))({a: null}));
 
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == 'a'"))({a: "b"}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a eq 'a'"))({a: "b"}));
@@ -27,6 +30,9 @@ it.describe("constraint matcher", function (it) {
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a eq false"))({a: true}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == true"))({a: false}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a eq true"))({a: false}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == null"))({a: false}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a ==null"))({a: false}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a eq null"))({a: false}));
 
         });
 
@@ -36,8 +42,13 @@ it.describe("constraint matcher", function (it) {
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a === 10"))({a: 10}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a seq 10"))({a: 10}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a === true"))({a: true}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a ===true"))({a: true}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a === false"))({a: false}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a ===false"))({a: false}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a seq false"))({a: false}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a === null"))({a: null}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a ===null"))({a: null}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a seq null"))({a: null}));
 
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a === 'a'"))({a: "b"}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a seq 'a'"))({a: "b"}));
@@ -46,9 +57,14 @@ it.describe("constraint matcher", function (it) {
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a === 10"))({a: "10"}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a seq 10"))({a: "10"}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a === false"))({a: true}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a ===false"))({a: true}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a seq false"))({a: true}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a === true"))({a: false}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a ===true"))({a: false}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a seq true"))({a: false}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a === null"))({a: false}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a ===null"))({a: false}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a seq null"))({a: false}));
 
         });
 
@@ -58,20 +74,30 @@ it.describe("constraint matcher", function (it) {
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a != 10"))({a: 10}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a neq 10"))({a: 10}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a != true"))({a: true}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a !=true"))({a: true}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a neq true"))({a: true}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a != false"))({a: false}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a !=false"))({a: false}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a neq false"))({a: false}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a != 10"))({a: "10"}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a neq 10"))({a: "10"}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a != null"))({a: null}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a !=null"))({a: null}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a neq null"))({a: null}));
 
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != 'a'"))({a: "b"}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a neq 'a'"))({a: "b"}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != 10"))({a: 11}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a neq 10"))({a: 11}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != false"))({a: true}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !=false"))({a: true}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a neq false"))({a: true}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != true"))({a: false}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !=true"))({a: false}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a neq true"))({a: false}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a != null"))({a: false}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !=null"))({a: false}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a neq null"))({a: false}));
 
         });
 
@@ -81,10 +107,14 @@ it.describe("constraint matcher", function (it) {
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a !== 10"))({a: 10}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a sneq 10"))({a: 10}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a !== true"))({a: true}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a !==true"))({a: true}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a sneq true"))({a: true}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a !== false"))({a: false}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a !==false"))({a: false}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a sneq false"))({a: false}));
-
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a !== null"))({a: null}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a !==null"))({a: null}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a sneq null"))({a: null}));
 
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !== 'a'"))({a: "b"}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a sneq 'a'"))({a: "b"}));
@@ -93,9 +123,14 @@ it.describe("constraint matcher", function (it) {
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !== 10"))({a: "10"}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a sneq 10"))({a: "10"}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !== false"))({a: true}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !==false"))({a: true}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a sneq false"))({a: true}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !== true"))({a: false}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !==true"))({a: false}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a sneq true"))({a: false}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !== null"))({a: false}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a !==null"))({a: false}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a sneq null"))({a: false}));
         });
 
         it.should("check gt operator", function () {

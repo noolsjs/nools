@@ -841,10 +841,7 @@ it.describe("A Parser", function (it) {
             "and",
             "AND",
             "or",
-            "OR",
-            "null",
-            "true",
-            "false"
+            "OR"
         ];
         for (var i = 0, l = props.length; i < l; i++) {
             assert.deepEqual(parser.parseConstraint('a.name.' + props[i] + '("bob")'), [
