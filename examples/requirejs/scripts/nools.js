@@ -402,7 +402,7 @@ require.define("/lib/index.js",function(require,module,exports,__dirname,__filen
  *
  * @projectName nools
  * @github https://github.com/C2FO/nools
- * @includeDoc [Change Log] ../History.md
+ * @includeDoc [Change Log] ../history.md
  * @header
  *
  * [![Build Status](https://secure.travis-ci.org/C2FO/nools.png)](http://travis-ci.org/C2FO/nools)

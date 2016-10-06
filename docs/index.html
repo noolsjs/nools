@@ -150,7 +150,7 @@
                             
                             <li><a href="./examples.html">Examples</a></li>
                             
-                            <li><a href="./History.html">Change Log</a></li>
+                            <li><a href="./history.html">Change Log</a></li>
                             
                         </ul>
                         
@@ -179,14 +179,17 @@
 
 
 
-  <p><a href="https://travis-ci.org/C2FO/nools"><img src="https://travis-ci.org/C2FO/nools.png" alt="Build Status"></a></p>
+  <h1 id="-deprecation-warning-"><em>Deprecation Warning</em></h1>
+<p>C2FO is no longer maintaining this project. Please use accordingly. If you would like to help maintain or take over the project please let us know. </p>
+<p><a href="https://travis-ci.org/C2FO/nools"><img src="https://travis-ci.org/C2FO/nools.png" alt="Build Status"></a></p>
 <p><a href="https://ci.testling.com/C2FO/nools"><img src="https://ci.testling.com/C2FO/nools.png" alt="browser support"></a></p>
-<h1>Nools</h1>
+<h1 id="nools">Nools</h1>
+<p><a href="https://gitter.im/C2FO/nools?utm_source=badge&amp;utm_medium=badge&amp;utm_campaign=pr-badge&amp;utm_content=badge"><img src="https://badges.gitter.im/Join%20Chat.svg" alt="Join the chat at https://gitter.im/C2FO/nools"></a></p>
 <p>Nools is a <a href="http://en.wikipedia.org/wiki/Rete_algorithm">rete</a> based rules engine written entirely in javascript.</p>
-<h1>Installation</h1>
+<h1 id="installation">Installation</h1>
 <pre class='prettyprint linenums lang-js'><code>npm install nools</code></pre>
 <p>Or <a href="https://raw.github.com/C2FO/nools/master/nools.js">download the source</a> (<a href="https://raw.github.com/C2FO/nools/master/nools.min.js">minified</a>)</p>
-<h1>Usage</h1>
+<h1 id="usage">Usage</h1>
 <ul>
 <li>Flows<ul>
 <li><a href="#flow">Defining A Flow</a></li>
@@ -234,7 +237,7 @@
 <li><a href="#browser-support">Browser Support</a></li>
 <li><a href="#fib">Fibonacci</a></li>
 </ul>
-<h2>Resources</h2>
+<h2 id="resources">Resources</h2>
 <ul>
 <li><a href="https://groups.google.com/forum/#!forum/nools">Nools Google group</a></li>
 <li><a href="http://c2fo.github.io/nools/examples.html">Examples</a><ul>
@@ -251,10 +254,10 @@
 <li><a href="https://github.com/C2FO/nools/tree/master/test">Tests</a></li>
 </ul>
 <p><a name="flow"></a></p>
-<h2>Defining a flow</h2>
+<h2 id="defining-a-flow">Defining a flow</h2>
 <p>When using nools you define a <strong>flow</strong> which acts as a container for rules that can later be used to get
 a <strong>session</strong></p>
-<h3>Programmatically</h3>
+<h3 id="programmatically">Programmatically</h3>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">var nools = require(&quot;nools&quot;);
 
 var Message = function (message) {
@@ -263,7 +266,7 @@ var Message = function (message) {
 
 var flow = nools.flow(&quot;Hello World&quot;, function (flow) {
 
-    //find any message that start with hello
+    //find any message that is exactly hello world
     flow.rule(&quot;Hello&quot;, [Message, &quot;m&quot;, &quot;m.text =~ /^hello\\sworld$/&quot;], function (facts) {
         facts.m.text = facts.m.text + &quot; goodbye&quot;;
         this.modify(facts.m);
@@ -289,7 +292,7 @@ var flow = nools.flow(&quot;Hello World&quot;, function (flow) {
 </ul>
 </li>
 </ul>
-<h3>DSL</h3>
+<h3 id="dsl">DSL</h3>
 <p>You may also use the <code>nools</code> rules language to define your rules.</p>
 <p>The following is the equivalent of the rules defined programmatically above.</p>
 <pre class='prettyprint linenums lang-js'><code>define Message {
@@ -321,7 +324,7 @@ rule Goodbye {
 <p>To use the flow</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">var flow = nools.compile(__dirname + &quot;/helloworld.nools&quot;),
     Message = flow.getDefined(&quot;message&quot;);</code></pre>
-<h3>Flow Events</h3>
+<h3 id="flow-events">Flow Events</h3>
 <p>Each flow can have the following events emitted.</p>
 <ul>
 <li><code>assert (fact)</code> - emitted when facts are asserted</li>
@@ -344,7 +347,7 @@ session.on(&quot;modify&quot;, function(fact){
 session.on(&quot;fire&quot;, function(name, rule){
     //a rule was fired.
 });</code></pre>
-<h3><code>nools.compile</code></h3>
+<h3 id="-nools-compile-"><code>nools.compile</code></h3>
 <p>The compile method accepts the following parameters</p>
 <ul>
 <li><code>source|path</code> - The first argument must either be a path that ends in <code>.nools</code> or a string which is the source of the rules that you wish to compile.</li>
@@ -400,15 +403,15 @@ var flow = nools.compile(noolsSource, {
     name: &#39;person name is bob&#39;
 });</code></pre>
 <p><a name="session"></a></p>
-<h2>Working with a session</h2>
+<h2 id="working-with-a-session">Working with a session</h2>
 <p>A session is an instance of the flow that contains a working memory and handles the assertion, modification, and retraction of facts from the engine.</p>
 <p>To obtain an engine session from the flow invoke the  <code>getSession</code> method.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">var session = flow.getSession();</code></pre>
 <p><a name="facts"></a></p>
-<h2>Working with facts</h2>
+<h2 id="working-with-facts">Working with facts</h2>
 <p>Facts are items that the rules should try to match.</p>
 <p><a name="facts-assert"></a></p>
-<h3>Assert</h3>
+<h3 id="assert">Assert</h3>
 <p>To add facts to the session use <code>assert</code> method.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">session.assert(new Message(&quot;hello&quot;));
 session.assert(new Message(&quot;hello world&quot;));
@@ -417,7 +420,7 @@ session.assert(new Message(&quot;goodbye&quot;));</code></pre>
 <p><strong>Note</strong> assert is typically used pre engine execution and during the execution of the rules.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">flow.getSession(new Message(&quot;hello&quot;), new Message(&quot;hello world&quot;), new Message(&quot;goodbye&quot;));</code></pre>
 <p><a name="facts-retract"></a></p>
-<h3>Retract</h3>
+<h3 id="retract">Retract</h3>
 <p>To remove facts from the session use the <code>retract</code> method.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">var m = new Message(&quot;hello&quot;);
 
@@ -428,7 +431,7 @@ session.assert(m);
 session.retract(m);</code></pre>
 <p><strong>Note</strong> <code>retract</code> is typically used during the execution of the rules.</p>
 <p><a name="facts-modify"></a></p>
-<h3>Modify</h3>
+<h3 id="modify">Modify</h3>
 <p>To modify a fact use the <code>modify</code> method.</p>
 <p><strong>Note</strong> modify will not work with immutable objects (i.e. strings).</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">
@@ -441,7 +444,7 @@ m.text = &quot;hello goodbye&quot;;
 session.modify(m);</code></pre>
 <p><strong>Note</strong> <code>modify</code> is typically used during the execution of the rules.</p>
 <p><a name="get-facts"></a></p>
-<h3>Retrieving Facts</h3>
+<h3 id="retrieving-facts">Retrieving Facts</h3>
 <p>To get a list of facts currently in the session you can use the <code>getFacts()</code> method exposed on a session.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">session.assert(1);
 session.assert(&quot;A&quot;);
@@ -458,7 +461,7 @@ session.assert(2);
 session.getFacts(Number); //[1, 2];
 session.getFacts(String); //[&quot;A&quot;, &quot;B&quot;];</code></pre>
 <p><a name="firing"></a></p>
-<h2>Firing the rules</h2>
+<h2 id="firing-the-rules">Firing the rules</h2>
 <p>When you get a session from a <strong>flow</strong> no rules will be fired until the <strong>match</strong> method is called.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">var session = flow.getSession();
 //assert your different messages
@@ -483,7 +486,7 @@ session.match(function(err){
     //uh oh an error occurred
     console.error(err.stack);
   });</code></pre>
-<h2>Fire until halt</h2>
+<h2 id="fire-until-halt">Fire until halt</h2>
 <p>You may also run the engine an a &quot;reactive&quot; mode which will continue to match until <code>halt</code> is invoked.</p>
 <p>In the following example the rules engine continues to evaluate until the counter reaches <code>10000</code>. If you remove the &quot;counted to high&quot; rule then the engine would run indefinitely.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">
@@ -556,12 +559,12 @@ rule count {
         }
     );</code></pre>
 <p><a name="disposing"></a></p>
-<h2>Disposing of the session</h2>
+<h2 id="disposing-of-the-session">Disposing of the session</h2>
 <p>When working with a lot of facts it is wise to call the <code>dispose</code> method which will purge the current session of
 all facts, this will help prevent the process from growing a large memory footprint.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">session.dispose();</code></pre>
 <p><a name="removing-flow"></a></p>
-<h1>Removing a flow</h1>
+<h1 id="removing-a-flow">Removing a flow</h1>
 <p>To remove a defined flow from <code>nools</code> use the <code>deleteFlow</code> function.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">var myFlow = nools.flow(&quot;flow&quot;);
 
@@ -575,7 +578,7 @@ nools.deleteFlow(myFlow); //returns nools for chaining
 
 nools.getFlow(&quot;flow&quot;); //undefined</code></pre>
 <p><a name="removing-flows"></a></p>
-<h1>Removing All Flows</h1>
+<h1 id="removing-all-flows">Removing All Flows</h1>
 <p>To remove all flow from <code>nools</code> use the <code>deleteFlows</code> function.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">var myFlow = nools.flow(&quot;flow&quot;);
 
@@ -583,13 +586,13 @@ nools.deleteFlows(); //returns nools for chaining
 
 nools.getFlow(&quot;flow&quot;); //undefined</code></pre>
 <p><a name="checking-for-flow"></a></p>
-<h1>Checking If A Flow Exists</h1>
+<h1 id="checking-if-a-flow-exists">Checking If A Flow Exists</h1>
 <p>To check if a flow currently is registering with <code>nools</code> use the <code>hasFlow</code> function;</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">var myFlow = nools.flow(&quot;flow&quot;);
 
 nools.hasFlow(&quot;flow&quot;); //true</code></pre>
 <p><a name="agenda-groups"></a></p>
-<h2>Agenda Groups</h2>
+<h2 id="agenda-groups">Agenda Groups</h2>
 <p>Agenda groups allow for logical groups of rules within a flow.</p>
 <p>The agenda manages a <code>stack</code> of <code>agenda-groups</code> that are currently in focus. The default <code>agenda-group</code> is called <code>main</code> and all rules that do not have an <code>agenda-group</code> specified are placed into the <code>main</code> <code>agenda-group</code>.</p>
 <p>As rules are fired and a particular <code>agenda-group</code> runs out of activations then that <code>agenda-group</code> is popped from the internal <code>agenda-group</code> stack and the next one comes into focus. This continues until <code>focus</code> is explicitly called again or the <code>main</code> <code>agenda-group</code> comes into focus.</p>
@@ -631,7 +634,7 @@ rule &quot;Hello World 2&quot; {
 }</code></pre>
 <p>In the above rules we have defined two agenda-groups called <code>ag1</code> and <code>ag2</code></p>
 <p><a name="agenda-groups-focus"></a></p>
-<h3>Focus</h3>
+<h3 id="focus">Focus</h3>
 <p>When running your rules and you want a particular agenda group to run you must call <code>focus</code> on the session of the flow and specify the <code>agenda-group</code> to add to the stack.</p>
 <pre class='prettyprint linenums lang-js'><code>//assuming a flow with the rules specified above.
 var fired = [];
@@ -667,7 +670,7 @@ flow
     });</code></pre>
 <p>Notice above that the <strong>last</strong> <code>agenda-group</code> focused is added to the array first.</p>
 <p><a name="agenda-groups-auto-focus"></a></p>
-<h3>Auto Focus</h3>
+<h3 id="auto-focus">Auto Focus</h3>
 <p>Sometimes you may want an <code>agenda-group</code> to <code>auto-focus</code> whenever a certain rule is activated.</p>
 <pre class='prettyprint linenums lang-js'><code>this.rule(&quot;Bootstrap&quot;, [State, &quot;a&quot;, &quot;a.name == &#39;A&#39; &amp;&amp; a.state == &#39;NOT_RUN&#39;&quot;], function (facts) {
     this.modify(facts.a, function () {
@@ -780,9 +783,9 @@ flow
         console.log(fired); //[&quot;Bootstrap&quot;, &quot;A to B&quot;, &quot;B to C&quot;, &quot;B to D&quot;]
     });</code></pre>
 <p><a name="conflict-resolution"></a></p>
-<h2>Conflict Resolution</h2>
+<h2 id="conflict-resolution">Conflict Resolution</h2>
 <p>When declaring a flow it is defined with a default conflict resolution strategy. A conflict resolution strategy is used to determine which rule to activate when multiple rules are ready to be activated at the same time.</p>
-<h3>Resolution Strategies</h3>
+<h3 id="resolution-strategies">Resolution Strategies</h3>
 <ul>
 <li><code>salience</code> - sort activations on the specified <a href="#rule-salience"><code>salience</code></a>. (<strong>NOTE</strong> The default salience of a rule is 0).</li>
 <li><code>activationRecency</code> - sort activations on activation recency. This is a <code>LIFO</code> strategy the latest activation takes precedence.</li>
@@ -790,7 +793,7 @@ flow
 <li><code>bucketCounter</code> - sort activations on the internal <code>bucket</code> counter. The bucket counter is incremented after an activation is fired and the internal <code>workingMemory</code> is altered.</li>
 </ul>
 <p>The default conflict resolution strategy consists of <code>salience</code> and <code>activationRecency</code>.</p>
-<h3>Examples</h3>
+<h3 id="examples">Examples</h3>
 <p><strong>Example 1</strong></p>
 <pre class='prettyprint linenums lang-js'><code>//activation 1
 {
@@ -817,7 +820,7 @@ flow
     activationRecency: 2
 }</code></pre>
 <p>In this example activation 1 would fire because it has a greater salience</p>
-<h3>Overidding The Default Strategy</h3>
+<h3 id="overidding-the-default-strategy">Overidding The Default Strategy</h3>
 <p>To override the default strategy you can use the <code>conflictResolution</code> method on a flow.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">
 var flow = nools.flow(/**define your flow**/);
@@ -875,9 +878,9 @@ flow.conflictResolution([&quot;salience&quot;, &quot;factRecency&quot;, &quot;ac
 }</code></pre>
 <p>In Example 3 activation 2 would fire because <code>salience</code> and <code>factRecency</code> are the same but activation 2&#39;s activation recency is greater.</p>
 <p><a name="defining-rule"></a></p>
-<h1>Defining rules</h1>
+<h1 id="defining-rules">Defining rules</h1>
 <p><a name="rule structure"></a></p>
-<h2>Rule structure</h2>
+<h2 id="rule-structure">Rule structure</h2>
 <p>Lets look at the &quot;Calculate&quot; rule in the <a href="#fib">Fibonacci</a> example</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">   //flow.rule(type[String|Function], constraints[Array|Array[[]]], action[Function]);
    flow.rule(&quot;Calculate&quot;, [
@@ -908,7 +911,7 @@ flow.conflictResolution([&quot;salience&quot;, &quot;factRecency&quot;, &quot;ac
     }
 }</code></pre>
 <p><a name="rule-salience"></a></p>
-<h3>Salience</h3>
+<h3 id="salience">Salience</h3>
 <p>Salience is an option that can be specified on a rule giving it a priority and allowing the developer some control over conflict resolution of activations.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">this.rule(&quot;Hello4&quot;, {salience: 7}, [Message, &quot;m&quot;, &quot;m.name == &#39;Hello&#39;&quot;], function (facts) {
 });
@@ -965,7 +968,7 @@ flow1
         console.log(fired); //[&quot;Hello1&quot;, &quot;Hello2&quot;, &quot;Hello3&quot;, &quot;Hello4&quot;]
     });</code></pre>
 <p><a name="rule-scope"></a></p>
-<h3>Scope</h3>
+<h3 id="scope">Scope</h3>
 <p>Scope allows you to access function from within your rules.</p>
 <p>If you are using vanilla JS you can use the <code>scope</code> option when defining your rule.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">
@@ -1028,7 +1031,7 @@ rule Goodbye {
 };
 var flow = nools.compile(__dirname + &quot;/rules/provided-scope.nools&quot;, {scope: {doesMatch: matches}});</code></pre>
 <p><a name="constraints"></a></p>
-<h3>Constraints</h3>
+<h3 id="constraints">Constraints</h3>
 <p>Constraints define what facts the rule should match. The constraint is a array of either a single constraint (i.e. Bootstrap rule) or an array of constraints(i.e. Calculate).</p>
 <p>Programmatically</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">[
@@ -1100,7 +1103,7 @@ var flow = nools.compile(__dirname + &quot;/rules/provided-scope.nools&quot;, {s
 </li>
 </ol>
 <p><a name="custom-contraints"></a></p>
-<h4>Custom Constraint</h4>
+<h4 id="custom-constraint">Custom Constraint</h4>
 <p>When declaring your rules progrmmatically you can also use a function as a constraint. The function will be called with an object containing each fact that has matched previous constraints.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">var HelloFact = declare({
     instance: {
@@ -1126,7 +1129,7 @@ session.match().then(function(){
     console.log(&quot;DONE&quot;);
 });</code></pre>
 <p><a name="not-constraint"></a></p>
-<h4>Not Constraint</h4>
+<h4 id="not-constraint">Not Constraint</h4>
 <p>The <code>not</code> constraint allows you to check that particular <code>fact</code> does <strong>not</strong> exist.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">
 [
@@ -1141,7 +1144,7 @@ when {
 }</code></pre>
 <p>The previous example will check that for all numbers in the <code>workingMemory</code> there is <strong>not</strong> one that is greater than <code>n1</code>.</p>
 <p><a name="or-constraint"></a></p>
-<h4>Or Constraint</h4>
+<h4 id="or-constraint">Or Constraint</h4>
 <p>The <code>or</code> constraint can be used to check for the existence of multiple facts.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">
 [
@@ -1191,7 +1194,7 @@ when {
 }</code></pre>
 <p><strong>Note</strong> Using the <code>or</code> with a <code>not</code> will cause the activation to fire for each <code>not</code> condition that passes. In the above examples if none of the three facts existed then the rule would fire three times.</p>
 <p><a name="from-constraint"></a></p>
-<h4>From Constraint</h4>
+<h4 id="from-constraint">From Constraint</h4>
 <p>The <code>from</code> modifier allows for the checking of facts that are not necessarily in the <code>workingMemory</code>.</p>
 <p>The <code>from</code> modifier can be used to access properties on a <code>fact</code> in <code>workingMemory</code> or you can use javascript expressions.</p>
 <p>To access properties on a fact you can use the fact name and the property you wish to use as the source for the <code>from</code> source.</p>
@@ -1260,7 +1263,7 @@ flow.rule(&quot;my rule&quot;, {
     }
 }</code></pre>
 <p><a name="exists-constraint"></a></p>
-<h3>Exists Constraint</h3>
+<h3 id="exists-constraint">Exists Constraint</h3>
 <p><code>exists</code> is the logical inversion of a <code>not</code> constraint. It checks for the existence of a fact in memory.</p>
 <p> <strong>NOTE</strong> If there are multiple facts that satisfy the constraint the rule will <strong>ONLY</strong> be fired once.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">
@@ -1279,7 +1282,7 @@ flow.rule(&quot;my rule&quot;, {
  session.assert(4);
  session.assert(5);</code></pre>
 <p><a name="action"></a></p>
-<h3>Action</h3>
+<h3 id="action">Action</h3>
 <p>The action is a function that should be fired when all patterns in the rule match. The action is called in the scope
 of the engine so you can use <code>this</code> to <code>assert</code>, <code>modify</code>, or <code>retract</code> facts. An object containing all facts and
 references created by the alpha nodes is passed in as the first argument to the action.</p>
@@ -1308,7 +1311,7 @@ references created by the alpha nodes is passed in as the first argument to the 
 }</code></pre>
 <p>For rules defined using the rules language nools will automatically determine what parameters need to be passed in based on what is referenced in the action.</p>
 <p><a name="action-async"></a></p>
-<h3>Async Actions</h3>
+<h3 id="async-actions">Async Actions</h3>
 <p>If your action is async you can use the third argument which should be called when the action is completed.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">function (facts, engine, next) {
         //some async action
@@ -1332,7 +1335,7 @@ references created by the alpha nodes is passed in as the first argument to the 
    return saveToDatabase(user); // assume saveToDatabase returns a promise
 }</code></pre>
 <p><a name="globals"></a></p>
-<h3>Globals</h3>
+<h3 id="globals">Globals</h3>
 <p>Globals are accessible through the current working scope of rules defined in a <code>dsl</code>, very similar to using the <code>scope</code> option when compiling.</p>
 <p><strong>Note</strong>  <code>globals</code> are not part of the working memory and therefore are not accessible in the LHS (when) or your rule.</p>
 <p>Globals are used like the following:</p>
@@ -1367,7 +1370,7 @@ rule &quot;A Rule&quot; {
     }
 }</code></pre>
 <p><a name="import"></a></p>
-<h3>Importing</h3>
+<h3 id="importing">Importing</h3>
 <p>The <code>import</code> statement allows you to import other <code>nools</code> files into the current one. This can be used to split up logical flows into small reusable groups of rules.</p>
 <p>Define our common model to be used across our flows.</p>
 <pre class='prettyprint linenums lang-js'><code>//define.nools
@@ -1411,7 +1414,7 @@ rule notRule {
 <pre class='prettyprint linenums lang-js'><code>//import
 import(&quot;./orRules.nools&quot;);
 import(&quot;./notRules.nools&quot;);</code></pre>
-<h2>Emitting custom events.</h2>
+<h2 id="emitting-custom-events-">Emitting custom events.</h2>
 <p>You may also emit events from your rule actions using the sessions emit function.</p>
 <pre class='prettyprint linenums lang-js'><code>then {
     modify(f3, function(){
@@ -1426,11 +1429,11 @@ import(&quot;./notRules.nools&quot;);</code></pre>
 session.on(&quot;my custom event&quot;, function(){
     //custom event called.
 });</code></pre>
-<h1>Browser Support</h1>
+<h1 id="browser-support">Browser Support</h1>
 <p><a name="browser-support"></a></p>
 <p><code>Nools</code> can also be used in the browser. The only difference is that you cannot pass a file location to the compile method instead you must provide the source.</p>
 <p>Nools is compatible with amd(requirejs) and can also be used in a standard script tag.</p>
-<h3>Example 1.</h3>
+<h3 id="example-1-">Example 1.</h3>
 <p>In this example we compile rules definitions inlined in a script tag.</p>
 <pre class='prettyprint linenums lang-js'><code class="lang-html">&lt;script type=&quot;text/javascript&quot; src=&quot;nools.js&quot;&gt;&lt;/script&gt;
 &lt;script type=&quot;text/nools&quot; id=&quot;simple&quot;&gt;
@@ -1475,7 +1478,7 @@ rule Goodbye {
         session.match();
     }
 &lt;/script&gt;</code></pre>
-<h3>Using a compiled dsl.</h3>
+<h3 id="using-a-compiled-dsl-">Using a compiled dsl.</h3>
 <p>You may also use the <code>nools</code> executable to compile source into a browser friendly format skipping the need for compiling each time.</p>
 <pre class='prettyprint linenums lang-js'><code>nools compile ./my/rules.nools &gt; ./compiled.js</code></pre>
 <p>To use the flow require the compile version either through a script tag, <code>amd/requirejs</code>, or <code>commonjs</code> require.</p>
@@ -1486,11 +1489,11 @@ rule Goodbye {
 <pre class='prettyprint linenums lang-js'><code>nools.getFlow(&quot;my rules&quot;);</code></pre>
 <p>If you are using requirejs or nools must be required using something other than <code>require(&quot;nools&quot;)</code> then you can specify a location of the nools source.</p>
 <pre class='prettyprint linenums lang-js'><code>nools compile -nl &quot;./location/to/nools&quot; ./my/rules.nools</code></pre>
-<h3>RequireJS examples</h3>
+<h3 id="requirejs-examples">RequireJS examples</h3>
 <p>Examples of using nools with require js are located in the <a href="./examples">examples directory</a>.</p>
-<h1>Examples</h1>
+<h1 id="examples">Examples</h1>
 <p><a name="fib"></a></p>
-<h2>Fibonacci</h2>
+<h2 id="fibonacci">Fibonacci</h2>
 <pre class='prettyprint linenums lang-js'><code class="lang-javascript">&quot;use strict&quot;;
 
 var nools = require(&quot;nools&quot;);
@@ -1564,7 +1567,7 @@ session3.match().then(function () {
 <pre class='prettyprint linenums lang-js'><code>55 [43ms]
 9.969216677189305e+30 [383ms]
 4.346655768693743e+208 [3580ms]</code></pre>
-<h3>Fibonacci with nools DSL</h3>
+<h3 id="fibonacci-with-nools-dsl">Fibonacci with nools DSL</h3>
 <pre class='prettyprint linenums lang-js'><code>//Define our object classes, you can
 //also declare these outside of the nools
 //file by passing them into the compile method
@@ -1642,9 +1645,9 @@ session3.match().then(function () {
     console.log(&quot;%d [%dms]&quot;, r3.result, +(new Date()) - s3);
     session3.dispose();
 });</code></pre>
-<h2>License</h2>
+<h2 id="license">License</h2>
 <p>MIT <a href="https://github.com/C2FO/nools/raw/master/LICENSE">https://github.com/C2FO/nools/raw/master/LICENSE</a></p>
-<h2>Meta</h2>
+<h2 id="meta">Meta</h2>
 <ul>
 <li>Code: <code>git clone git://github.com/C2FO/nools.git</code></li>
 </ul>

@@ -2,3 +2,4 @@ node_modules
 nools.iml
 .idea
 atlassian-ide-plugin.xml
+build/
