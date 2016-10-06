@@ -37,7 +37,7 @@
     "devDependencies": {
         "grunt": "~0.4.1",
         "it": "~0.2.0",
-        "jison": ">=0.3.2",
+        "jison": "~0.4.17",
         "grunt-it": "~0.3.0",
         "grunt-contrib-uglify": "~0.2.0",
         "grunt-contrib-jshint": "~0.5.3",
