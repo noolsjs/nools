@@ -150,7 +150,7 @@
                             
                             <li><a href="./examples.html">Examples</a></li>
                             
-                            <li><a href="./History.html">Change Log</a></li>
+                            <li><a href="./history.html">Change Log</a></li>
                             
                         </ul>
                         
@@ -178,13 +178,20 @@
 
 
 
-<h1>0.4.1</h1>
+<h1 id="0-4-2">0.4.2</h1>
+<ul>
+<li>Fix import nools files under Windows <a href="https://github.com/C2FO/nools/issues/192">#192</a></li>
+<li>Fix memory leak <a href="https://github.com/C2FO/nools/issues/156">#156</a></li>
+<li>Fix compile callback not called when options provided <a href="https://github.com/C2FO/nools/issues/127">#127</a></li>
+<li>Fix parsing error with a constraint value set to null or boolean <a href="https://github.com/C2FO/nools/issues/157">#157</a></li>
+</ul>
+<h1 id="0-4-1">0.4.1</h1>
 <ul>
 <li>Fixed issue with <code>CustomConstraint</code> not binding <code>this.assert</code> to <code>this</code>. <a href="https://github.com/C2FO/nools/pull/146">#146</a> - <a href="https://github.com/raymondfeng">@raymondfeng</a></li>
 <li>Added more tests for custom constraints</li>
 <li>Updated readme to include docs about custom constraints.</li>
 </ul>
-<h1>0.4.0</h1>
+<h1 id="0-4-0">0.4.0</h1>
 <ul>
 <li>Fix for issue <a href="https://github.com/C2FO/nools/issues/122">#122</a> referencing defined class within another defined class<ul>
 <li>Also fixes accessing scoped functions within a defined class.</li>
@@ -199,7 +206,7 @@
 <li>You can now define types using scope <a href="https://github.com/C2FO/nools/pull/142">#142</a> - <a href="https://github.com/raymondfeng">@raymondfeng</a></li>
 <li>Fix for issue, is the dsl you do not have to escape <code>\</code> characters <a href="https://github.com/C2FO/nools/issues/123">#123</a></li>
 </ul>
-<h1>0.3.0</h1>
+<h1 id="0-3-0">0.3.0</h1>
 <ul>
 <li>Added new <code>===</code> and <code>!==</code> operators <a href="https://github.com/C2FO/nools/issues/110">#110</a></li>
 <li>Fix for issue <a href="https://github.com/C2FO/nools/issues/109">#109</a></li>
@@ -209,7 +216,7 @@
 </ul>
 </li>
 </ul>
-<h1>0.2.3</h1>
+<h1 id="0-2-3">0.2.3</h1>
 <ul>
 <li>Added new <code>getFacts</code> method to allow for querying of facts currently in session. <a href="https://github.com/C2FO/nools/issues/52">#52</a>;</li>
 <li>Added indexing on comparison operators (i.e. <code>&gt;, &lt;, &gt;=, &lt;=</code>).</li>
@@ -219,7 +226,7 @@
 </ul>
 </li>
 </ul>
-<h1>0.2.2</h1>
+<h1 id="0-2-2">0.2.2</h1>
 <ul>
 <li>Performance Upgrades<ul>
 <li>Added BetaNode indexing</li>
@@ -230,7 +237,7 @@
 </li>
 <li>Added new <code>exists</code> logic operator to check for existence of fact (opposite of <code>not</code>)</li>
 </ul>
-<h1>0.2.1</h1>
+<h1 id="0-2-1">0.2.1</h1>
 <ul>
 <li>Added support for js expression in the <code>from</code> node addressing issue <a href="https://github.com/C2FO/nools/issues/86">#86</a></li>
 <li>Enhanced <code>JoinReferenceNode</code> performance in the default assert case where there are no <code>references</code> to left or right context.</li>
@@ -245,7 +252,7 @@
 </ul>
 </li>
 </ul>
-<h1>0.2.0 / 2013-10-14</h1>
+<h1 id="0-2-0-2013-10-14">0.2.0 / 2013-10-14</h1>
 <ul>
 <li>Nools now supports true modify!!!<ul>
 <li>This is a major leap forward for <code>nools</code> opening the door for more complex actions and expressions in the rules.</li>
@@ -257,25 +264,25 @@
 <li>Added new <code>sudoku</code> web example.</li>
 <li>Added <a href="http://en.wikipedia.org/wiki/Verbal_arithmetic">Send More Money</a> benchmark see <a href="https://github.com/C2FO/nools/issues/78">#78</a>.</li>
 </ul>
-<h1>0.1.14</h1>
+<h1 id="0-1-14">0.1.14</h1>
 <ul>
 <li>Fixed issue with async actions and early match termination.</li>
 </ul>
-<h1>0.1.13</h1>
+<h1 id="0-1-13">0.1.13</h1>
 <ul>
 <li>Fixed issue <a href="https://github.com/C2FO/nools/issues/68">#68</a> where <code>matchUntilHalt</code> uses a lot of CPU</li>
 <li>Fixed issue <a href="https://github.com/C2FO/nools/issues/45">#45</a>, now compiled rules support <code>or</code> constraint with more than 2 inner constraints.</li>
 <li>Added new feature to address <a href="https://github.com/C2FO/nools/issues/76">#76</a>, now you can use <code>deleteFlows</code> to dispose all flows, or use <code>hasFlow</code> to check if a flow is already registred with <code>nools</code>.</li>
 </ul>
-<h1>0.1.12</h1>
+<h1 id="0-1-12">0.1.12</h1>
 <ul>
 <li>Fixed issue in node v0.6 where path.sep is not found.</li>
 </ul>
-<h1>0.1.11</h1>
+<h1 id="0-1-11">0.1.11</h1>
 <ul>
 <li>Fixed issue <a href="https://github.com/C2FO/nools/issues/73">#73</a> where requires in dsl would treat a file with a <code>.</code> character as a path instead of a module.</li>
 </ul>
-<h1>0.1.10</h1>
+<h1 id="0-1-10">0.1.10</h1>
 <ul>
 <li>Added ability to <code>import</code> other nools files to create composible rules files <a href="https://github.com/C2FO/nools/issues/58">#58</a></li>
 <li>When using <code>global</code> to require other files you can now require other files relative to the nools file</li>
@@ -286,7 +293,7 @@
 <li>Fixed issue <a href="https://github.com/C2FO/nools/issues/69">#69</a> where rules names with a <code>&#39;</code> character in a rule would produce invalid javascript when <code>transpiling</code>.</li>
 <li>Added option to beautify generated code</li>
 </ul>
-<h1>0.1.9</h1>
+<h1 id="0-1-9">0.1.9</h1>
 <ul>
 <li>Fixed issues where notNode was not retracting all contexts when a fact was retracted</li>
 <li>Fixed issue <a href="https://github.com/C2FO/nools/issues/50">50</a> in compiling rule with or condition</li>
@@ -294,22 +301,22 @@
 <li>Merged pull request <a href="https://github.com/C2FO/nools/pull/49">49</a></li>
 <li>Added tests for logicalNot and truthy statements</li>
 </ul>
-<h1>0.1.8 / 2013-08-14</h1>
+<h1 id="0-1-8-2013-08-14">0.1.8 / 2013-08-14</h1>
 <ul>
 <li>Fixed scoping issue where scoped variables defined in compile were not available to defined classes or functions.</li>
 </ul>
-<h1>0.1.7 / 2013-06-25</h1>
+<h1 id="0-1-7-2013-06-25">0.1.7 / 2013-06-25</h1>
 <ul>
 <li>Fixed constraint parser to not evaluate functions that have the same name as operators as operators.</li>
 <li>Fixed the <code>getMatcher</code> to properly return an equality expression for constraints that do not have an explicit equality</li>
 <li>Added new diganosis example</li>
 <li>Changed Fibonacci example to support larger number</li>
 </ul>
-<h1>v0.1.6 / 2012-06-17</h1>
+<h1 id="v0-1-6-2012-06-17">v0.1.6 / 2012-06-17</h1>
 <ul>
 <li>Fixed issue with the use of next in async actions</li>
 </ul>
-<h1>v0.1.5 / 2013-06-17</h1>
+<h1 id="v0-1-5-2013-06-17">v0.1.5 / 2013-06-17</h1>
 <ul>
 <li>More Examples</li>
 <li>Changed nools compile to transpile to Javascript!</li>
@@ -320,7 +327,7 @@
 </ul>
 </li>
 </ul>
-<h1>v0.1.4 / 2013-05-25</h1>
+<h1 id="v0-1-4-2013-05-25">v0.1.4 / 2013-05-25</h1>
 <ul>
 <li>Added new agenda-group (#29)</li>
 <li>More documentation<ul>
@@ -332,15 +339,15 @@
 </li>
 <li>Cleaned up agenda and made more modular</li>
 </ul>
-<h1>v0.1.3 / 2013-05-24</h1>
+<h1 id="v0-1-3-2013-05-24">v0.1.3 / 2013-05-24</h1>
 <ul>
 <li>Fixed memory leak with FactHashes for the agendas</li>
 </ul>
-<h1>v0.1.2 / 2013-05-24</h1>
+<h1 id="v0-1-2-2013-05-24">v0.1.2 / 2013-05-24</h1>
 <ul>
 <li>Removed unneeded calls to <code>.then</code> to address performance degredation (#30)</li>
 </ul>
-<h1>v0.1.1 / 2013-05-23</h1>
+<h1 id="v0-1-1-2013-05-23">v0.1.1 / 2013-05-23</h1>
 <ul>
 <li>Updated grunt</li>
 <li>Fixed nextTick issues for node v0.10 #32</li>
@@ -352,7 +359,7 @@
 <li>Rebuilt nools.js and nools.min.js</li>
 <li>Added more tests for new globals feature</li>
 </ul>
-<h1>0.1.0 / 2013-02-27</h1>
+<h1 id="0-1-0-2013-02-27">0.1.0 / 2013-02-27</h1>
 <ul>
 <li>Browser support!</li>
 <li>Support for compiling nools dsl from string source or path</li>
@@ -373,20 +380,20 @@
 <li>More Examples (requirejs, browser, conways game of life)</li>
 <li>More tests and better coverage on or and not nodes.</li>
 </ul>
-<h1>0.0.5 / 2012-09-10</h1>
+<h1 id="0-0-5-2012-09-10">0.0.5 / 2012-09-10</h1>
 <ul>
 <li>Fix for issue <a href="https://github.com/C2FO/nools/issues/13">#13</a> where identifiers were not gathered in property chains that contained functions.</li>
 </ul>
-<h1>0.0.4 / 2012-09-10</h1>
+<h1 id="0-0-4-2012-09-10">0.0.4 / 2012-09-10</h1>
 <ul>
 <li>Added travis CI</li>
 </ul>
-<h1>0.0.3 / 2012-09-06</h1>
+<h1 id="0-0-3-2012-09-06">0.0.3 / 2012-09-06</h1>
 <ul>
 <li>Updates for repo rename</li>
 <li>code clean up</li>
 </ul>
-<h1>0.0.2 / 2012-05-22</h1>
+<h1 id="0-0-2-2012-05-22">0.0.2 / 2012-05-22</h1>
 <ul>
 <li>Increased performance<ul>
 <li>Manners benchmark 800%</li>

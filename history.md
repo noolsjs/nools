@@ -1,3 +1,10 @@
+# 0.4.2
+
+* Fix import nools files under Windows [#192](https://github.com/C2FO/nools/issues/192)
+* Fix memory leak [#156](https://github.com/C2FO/nools/issues/156)
+* Fix compile callback not called when options provided [#127](https://github.com/C2FO/nools/issues/127)
+* Fix parsing error with a constraint value set to null or boolean [#157](https://github.com/C2FO/nools/issues/157)
+
 # 0.4.1
 
 * Fixed issue with `CustomConstraint` not binding `this.assert` to `this`. [#146](https://github.com/C2FO/nools/pull/146) - [@raymondfeng](https://github.com/raymondfeng)

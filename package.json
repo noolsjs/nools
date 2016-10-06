@@ -1,71 +1,72 @@
 {
-    "name": "nools",
-    "description": "A rules engine for node",
-    "version": "0.4.1",
-    "bin": {
-        "nools": "./bin/nools"
-    },
-    "keywords": [
-        "rules",
-        "flow",
-        "rules engine",
-        "rools",
-        "drools",
-        "async",
-        "flow control"
-    ],
-    "repository": {
-        "type": "git",
-        "url": "git@github.com:C2FO/nools.git"
-    },
-    "dependencies": {
-        "declare.js": "~0.0.3",
-        "extended": "~0.0.3",
-        "is-extended": "~0.0.4",
-        "string-extended": "~0.0.3",
-        "array-extended": "~0.0.4",
-        "date-extended": "~0.0.3",
-        "function-extended": "~0.0.3",
-        "object-extended": "~0.0.3",
-        "promise-extended": "~0.0.3",
-        "arguments-extended": "~0.0.3",
-        "leafy": "~0.0.3",
-        "ht": "~0.0.2",
-        "commander": "~1.1.1",
-        "uglify-js": "~2.3.6"
-    },
-    "devDependencies": {
-        "grunt": "~0.4.1",
-        "it": "~0.2.0",
-        "jison": "~0.4.17",
-        "grunt-it": "~0.3.0",
-        "grunt-contrib-uglify": "~0.2.0",
-        "grunt-contrib-jshint": "~0.5.3",
-        "grunt-browserify": "1.2.4",
-        "grunt-exec": "^0.4.5"
-    },
-    "testling": {
-        "files": "test/browserling.js",
-        "browsers": [
-            "ie/8..latest",
-            "chrome/20..latest",
-            "firefox/14..latest",
-            "safari/latest",
-            "iphone/6",
-            "ipad/6"
-        ]
-    },
-    "homepage": "http://c2fo.github.com/nools",
-    "author": "Doug Martin (http://c2fo.com)",
-    "main": "index.js",
-    "scripts": {
-        "test": "it -r spec",
-        "create-doc": "rm -rf docs/* && coddoc -d ./lib -f multi-html"
-    },
-    "directories": {
-        "lib": "lib"
-    },
-    "engines": {
-        "node": ">= 0.6.1"
-    }
+  "name": "nools",
+  "description": "A rules engine for node",
+  "version": "0.4.2",
+  "bin": {
+    "nools": "./bin/nools"
+  },
+  "keywords": [
+    "rules",
+    "flow",
+    "rules engine",
+    "rools",
+    "drools",
+    "async",
+    "flow control"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:C2FO/nools.git"
+  },
+  "dependencies": {
+    "declare.js": "~0.0.3",
+    "extended": "~0.0.3",
+    "is-extended": "~0.0.4",
+    "string-extended": "~0.0.3",
+    "array-extended": "~0.0.4",
+    "date-extended": "~0.0.3",
+    "function-extended": "~0.0.3",
+    "object-extended": "~0.0.3",
+    "promise-extended": "~0.0.3",
+    "arguments-extended": "~0.0.3",
+    "leafy": "~0.0.3",
+    "ht": "~0.0.2",
+    "commander": "~1.1.1",
+    "uglify-js": "~2.3.6"
+  },
+  "devDependencies": {
+    "coddoc": "0.0.3",
+    "grunt": "~0.4.1",
+    "grunt-browserify": "1.2.4",
+    "grunt-contrib-jshint": "~0.5.3",
+    "grunt-contrib-uglify": "~0.2.0",
+    "grunt-exec": "^0.4.5",
+    "grunt-it": "~0.3.0",
+    "it": "~0.2.0",
+    "jison": "~0.4.17"
+  },
+  "testling": {
+    "files": "test/browserling.js",
+    "browsers": [
+      "ie/8..latest",
+      "chrome/20..latest",
+      "firefox/14..latest",
+      "safari/latest",
+      "iphone/6",
+      "ipad/6"
+    ]
+  },
+  "homepage": "http://c2fo.github.com/nools",
+  "author": "Doug Martin (http://c2fo.com)",
+  "main": "index.js",
+  "scripts": {
+    "test": "it -r spec",
+    "create-doc": "rm -rf docs/* && coddoc -d ./lib -f multi-html"
+  },
+  "directories": {
+    "lib": "lib"
+  },
+  "engines": {
+    "node": ">= 0.6.1"
+  }
 }

@@ -7,8 +7,8 @@ module.exports = function (grunt) {
         pkg: grunt.file.readJSON('package.json'),
 
         exec: {
-            removeDocs: "rm -rf docs/* && mkdir -p ./docs/examples/browser && cp -r ./examples/browser/ ./docs/examples/browser && cp ./nools.min.js ./docs/nools.js",
-            createDocs: 'coddoc -f multi-html -d ./lib --dir ./docs'
+            removeDocs: "rm -rf docs/* && mkdir -p ./docs/examples/browser && cp -r ./examples/browser ./docs/examples && cp ./nools.min.js ./docs/nools.js",
+            createDocs: 'node_modules/coddoc/bin/coddoc -f multi-html -d ./lib --dir ./docs'
         },
 
         jshint: {
