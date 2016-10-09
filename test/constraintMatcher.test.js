@@ -21,6 +21,12 @@ it.describe("constraint matcher", function (it) {
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a == null"))({a: null}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a ==null"))({a: null}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a eq null"))({a: null}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a + 2 == 4"))({a: 2}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a - 2 == 4"))({a: 6}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a * 2 == 4"))({a: 2}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a / 2 == 4"))({a: 8}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a % 2 == 1"))({a: 9}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a ^ 2 == 16"))({a: 4}));
 
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == 'a'"))({a: "b"}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a eq 'a'"))({a: "b"}));
@@ -33,6 +39,12 @@ it.describe("constraint matcher", function (it) {
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a == null"))({a: false}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a ==null"))({a: false}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a eq null"))({a: false}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a + 2 == 4"))({a: 3}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a - 2 == 4"))({a: 7}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a * 2 == 4"))({a: 3}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a / 2 == 4"))({a: 9}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a % 2 == 1"))({a: 10}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a ^ 2 == 16"))({a: 5}));
 
         });
 
@@ -257,16 +269,30 @@ it.describe("constraint matcher", function (it) {
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq a.world"))({a: {hello: "hello", world: "world"}}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a['hello'] eq a['world']"))({a: {hello: "hello", world: "world"}}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a[b] eq a[c]"))({a: {hello: "hello", world: "world"}, b: "hello", c: "world"}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a[b] eq c[d]"))({a: [5], b: 0, c: [4, 5], d: 1}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a[hello + world] eq a.helloworld"))({a: {helloworld: "hello world"}, hello: "hello", world: "world"}));
         });
 
         it.should("check with in operator", function () {
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a in []"))({a: 1}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a in [1]"))({a: 1}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a in [1,2]"))({a: 1}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a in [1,2,3,4]"))({a: 1}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a in ['a','b','c']"))({a: 1}));
+
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a in [b*2]"))({a: 6, b:3}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a in [b * 2, b^2]"))({a: 16, b:4}));
         });
 
         it.should("check with notIn operator", function () {
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a notIn []"))({a: 1}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a notIn [1]"))({a: 1}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a notIn [1,2]"))({a: 1}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a notIn [1,2,3,4]"))({a: 1}));
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a notIn ['a','b','c']"))({a: 1}));
+
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a notIn [b*2]"))({a: 6, b:3}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a notIn [b * 2, b^2]"))({a: 16, b:4}));
         });
 
         it.should("allow properties with in", function () {
@@ -298,6 +324,20 @@ it.describe("constraint matcher", function (it) {
             assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.length eq 5 && a.myFunc() eq 'hello world'"))({a: a}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello.size eq 5 && a.myFunc() eq 'hello world'"))({a: a}));
             assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("a.hello eq 5 && a.myFunc() eq 'hello'"))({a: a}));
+        });
+
+        it.should("check with function and diverse arguments", function () {
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("Math.max(a, 5) == 6"))({a: 6, Math: Math}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("Math.max(a + b, a * b) == 9"))({a: 3, b: 3, Math:Math}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("Math.max(a ^ b, Math.floor(5.2)) == 5"))({a: 2, b: 2, Math:Math}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("Math.min(a[0], b[0]) == 5"))({Math: Math, a: [5], b: {0: 6}}));
+            assert.isTrue(constraintMatcher.getMatcher(parser.parseConstraint("Math.max((a.zero[0] + 0 * 0), b[0].one) == 1"))({Math: Math, a: {zero: [0]}, b: [{one: 1}]}));
+
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("Math.max(a, 5) == 6"))({a: 7, Math: Math}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("Math.max(a + b, a * b) == 9"))({a: 4, b: 3, Math:Math}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("Math.max(a ^ b, Math.floor(5.2)) == 5"))({a: 3, b: 2, Math:Math}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("Math.min(a[0], b[0]) == 5"))({Math: Math, a: [2], b: {0: 6}}));
+            assert.isFalse(constraintMatcher.getMatcher(parser.parseConstraint("Math.max((a.zero[0] + 0 * 0), b[0].one) == 1"))({Math: Math, a: {zero: [0]}, b: [{one: 0}]}));
         });
 
         it.should("check with functions and identifier args", function () {
