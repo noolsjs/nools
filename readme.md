@@ -1133,12 +1133,14 @@ when {
       * Custom - any custom type that you define
    2. Alias - the name the object should be represented as.
    3. Pattern(optional) - The pattern that should evaluate to a boolean, the alias that was used should be used to reference the object in the pattern. Strings should be in single quotes, regular expressions are allowed. Any previously defined alias/reference can be used within the pattern. Available operators are.
+      * Not supported: bitwize operators `& | << >> >>> ^ ~`
       * `&&`, `AND`, `and`
       * `||`, `OR`, `or`
       * `>`, `<`, `>=`, `<=`, `gt`, `lt`, `gte`, `lte`
       * `==`, `===`, `!=`, `!==`, `=~`, `!=~`, `eq`, `seq`, `neq`, `sneq`, `like`, `notLike`
       * `+`, `-`, `*`, `/`, `%`
       * `-` (unary minus)
+      * `^` (pow operator)
       * `.` (member operator)
       * `in` (check inclusion in an array)
       * `notIn` (check that something is not in an array)
