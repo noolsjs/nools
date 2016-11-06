@@ -1,3 +1,11 @@
+# 0.4.4
+
+* Fix focusing an agenda-group without rules [#158](https://github.com/C2FO/nools/issues/158)
+* Fix bump uglify version for security purpose [#196](https://github.com/C2FO/nools/issues/196)
+* Fix callback compile [#127](https://github.com/C2FO/nools/issues/127)
+
+# 0.4.3 => 0.4.2
+
 # 0.4.2
 
 * Fix import nools files under Windows [#192](https://github.com/C2FO/nools/issues/192)

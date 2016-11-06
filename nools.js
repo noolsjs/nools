@@ -94,7 +94,7 @@ module.exports = declare(EventEmitter, {
         },
 
         setFocus: function (agendaGroup) {
-            if (agendaGroup !== this.getFocused()) {
+            if (agendaGroup !== this.getFocused() && this.agendaGroups[agendaGroup]) {
                 this.agendaGroupStack.push(agendaGroup);
                 this.emit("focused", agendaGroup);
             }
@@ -192,10 +192,8 @@ module.exports = declare(EventEmitter, {
             var rule = this.rules[node.name], nodeRule = node.rule, agendaGroup = nodeRule.agendaGroup;
             rule.tree.insert(insert);
             this.getAgendaGroup(agendaGroup).insert(insert);
-            if (agendaGroup) {
-                if (nodeRule.autoFocus) {
-                    this.setFocus(agendaGroup);
-                }
+            if (nodeRule.autoFocus) {
+                this.setFocus(agendaGroup);
             }
 
             rule.factTable.insert(insert);
@@ -2153,7 +2151,6 @@ exports.compile = function (file, options, cb) {
         options = {};
     } else {
         options = options || {};
-        cb = null;
     }
     if (extd.isString(file)) {
         options.name = options.name || (isNoolsFile(file) ? path.basename(file, path.extname(file)) : null);
