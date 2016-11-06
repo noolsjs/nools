@@ -4,64 +4,88 @@ var it = require("it"),
     nools = require("../../");
 
 it.describe("no-loop", function (it) {
-    /*jshint indent*/
-    function Message(name) {
-        this.name = name;
+    var fired;
+
+    function Wrapper(n) {
+        this.n = n;
     }
-    var cnt = 0;   
-    
-    var flow1 = nools.flow("noLoop1", function () {
-        
-        this.rule("Hello2", { noLoop: true }, [Message, "m", "m.name =~ /Hello/"], function (facts) {
-            var m = facts.m;
-            m.name = 'Hello World';
-            this.modify(m);
-        });
-    }),
-	
-        flow2 = nools.flow("noLoop2", function () {
-            
-            this.rule("Hello1", [Message, "m", "m.name =~ /Hello/"], function (facts) {
-                var m = facts.m;
-                if (cnt++ < 2) {
-                    m.name = 'Hello World';
-                    this.modify(m);
-                }
-            });
-        });
 
-    var noolsSource =  "rule 'Hello3' { no-loop: true; when {m: Message m.name =~/Hello/;}then {modify(m, function () { this.name = 'Hello World'; });}}";
+    it.should("not loop with option on", function () {
+        fired = [];
 
-    var flow3 = nools.compile(noolsSource, {
-        name: 'testDsl'
-        ,define: {
-            Message: Message
-        }
-    });
-   
-    it.should("not loop with option on and loop otherwise", function () {
-        var fired1 = [], fired2 = [], fired3 = [];
-        var session1 = flow1.getSession(new Message("Hello")).on("fire", function (name) {
-            fired1.push(name);
-        }),
-        session2 = flow2.getSession(new Message("Hello")).on("fire", function (name) {
-            fired2.push(name);
-        }),
-        session3 = flow3.getSession(new Message("Hello")).on("fire", function (name) {
-            fired3.push(name);
-        });
-        return session1.match()
-            .then(function () {
-        return session2.match().then(function () {
-            return session3.match().then(function () {
+        return nools
+            .flow("noLoop", function () {
+                this.rule("ping", { noLoop: true }, [Wrapper, "w", "w.n < 5"], function (facts) {
+                    var w = facts.w;
+                    w.n++;
+                    this.modify(w);
+                });
             })
-        })
-        })
-       .then(function () {
-            assert.deepEqual(fired1, ["Hello2"]);
-            assert.deepEqual(fired2, ["Hello1", "Hello1", "Hello1"]);
-            assert.deepEqual(fired3, ["Hello3"]);
-        });
+            .getSession(new Wrapper(0))
+            .on("fire", function (name) {
+                fired.push(name);
+            })
+            .match()
+            .then(function(){
+                assert.deepEqual(fired, [ 'ping' ])
+            });
     });
 
+    it.should("avoid only self-recursions", function () {
+        fired = [];
+
+        return nools
+            .flow("noLoop2", function () {
+                this.rule("ping", { noLoop: true }, [Wrapper, "w", "w.n < 5"], function (facts) {
+                    var w = facts.w;
+                    w.n++;
+                    this.modify(w);
+                });
+
+                this.rule("pong", { noLoop: true }, [Wrapper, "w", "w.n < 5"], function (facts) {
+                    var w = facts.w;
+                    w.n++;
+                    this.modify(w);
+                });
+            })
+            .getSession(new Wrapper(0))
+            .on("fire", function (name) {
+                fired.push(name);
+            })
+            .match()
+            .then(function(){
+                assert.deepEqual(fired, [ 'ping', 'pong', 'ping', 'pong', 'ping' ])
+            });
+    });
+
+    it.should("mix with noloop", function () {
+        fired = [];
+
+        return nools
+            .flow("noLoop3", function () {
+                this.rule("a", { noLoop: true }, [Wrapper, "w", "w.n < 5"], function (facts) {
+                    var w = facts.w;
+                    w.n++;
+                    this.modify(w);
+                });
+
+                this.rule("b", {}, [Wrapper, "w", "w.n < 5"], function (facts) {
+
+                });
+
+                this.rule("c", { noLoop: true }, [Wrapper, "w", "w.n < 5"], function (facts) {
+                    var w = facts.w;
+                    w.n++;
+                    this.modify(w);
+                });
+            })
+            .getSession(new Wrapper(0))
+            .on("fire", function (name) {
+                fired.push(name);
+            })
+            .match()
+            .then(function(){
+                assert.deepEqual(fired, [ 'a', 'b', 'c', 'a', 'b', 'c', 'a'])
+            });
+    });
 });
