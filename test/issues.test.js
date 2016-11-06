@@ -289,4 +289,17 @@ it.describe("issues", function (it) {
             myLine.addPoint(5, 5);
         });
     });
+
+    it.describe("127", function (it) {
+        var flow, callbackCalled;
+        it.beforeAll(function () {
+            flow = nools.compile("", {name: "issue127"}, function() {
+                callbackCalled = true;
+            });
+        });
+
+        it.should("callback should be called even if config provided", function () {
+            assert.truthy(callbackCalled);
+        });
+    });
 });
