@@ -64,6 +64,7 @@ it.describe("agenda-groups", function (it) {
         session.assert(new Message("hello"));
         session.focus("ag2");
         session.focus("ag1");
+        session.focus("unknown");
         session.on("fire", function (name) {
             events.push(name);
         });
