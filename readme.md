@@ -626,10 +626,10 @@ flow
     .focus("ag2")
     .focus("ag1")
     .on("fire", function (ruleName) {
-        fired3.push(ruleName);
+        fired2.push(ruleName);
     })
     .match(function () {
-        console.log("Example 2", fired2); //[ 'Hello World', 'Hello World2' ]
+        console.log("Example 2", fired2); //[ 'Hello World2', 'Hello World' ]
     });
 ```
 
