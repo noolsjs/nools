@@ -103,11 +103,11 @@ In the above flow definition 2 rules were defined
 
   * Hello
     * Requires a Message
-    * The messages's `text` must match the regular expression `/^hello\\sworld$/`
+    * The message's `text` must match the regular expression `/^hello\\sworld$/`
     * When matched the message's `text` is modified and then we let the engine know that we modified the message.
   * Goodbye
     * Requires a Message
-    * The messages's `text` must match the regular expression `/.*goodbye$/`(anything that ends in goodbye)
+    * The message's `text` must match the regular expression `/.*goodbye$/`(anything that ends in goodbye)
     * When matched the resulting message is logged.
 
 ### DSL
@@ -171,7 +171,7 @@ session.on("retract", function(fact){
 });
 
 session.on("modify", function(fact){
-    //fact was modifed
+    //fact was modified
 });
 
 session.on("fire", function(name, rule){
@@ -186,7 +186,7 @@ The compile method accepts the following parameters
 * `source|path` - The first argument must either be a path that ends in `.nools` or a string which is the source of the rules that you wish to compile.
 * `options?`
    * `name` : This is the name of the flow. You can use this name to look up the flow by using `nools.getFlow`.
-   * `define` : A hash of Classes that should be aviable to the rules that you are compiling.
+   * `define` : A hash of Classes that should be available to the rules that you are compiling.
    * `scope`: A hash of items that should be available to rules as they run. (i.e. a logger)
 * `cb?` - an options function to invoke when compiling is done.
 
@@ -385,7 +385,7 @@ session.match().then(
 
 ## Fire until halt
 
-You may also run the engine an a "reactive" mode which will continue to match until `halt` is invoked.
+You may also run the engine in a "reactive" mode which will continue to match until `halt` is invoked.
 
 In the following example the rules engine continues to evaluate until the counter reaches `10000`. If you remove the "counted to high" rule then the engine would run indefinitely.
 
@@ -815,7 +815,7 @@ In the above example activation 2 would be fired since it is the most recent act
 ```
 In this example activation 1 would fire because it has a greater salience
 
-###Overidding The Default Strategy
+###Overriding The Default Strategy
 
 To override the default strategy you can use the `conflictResolution` method on a flow.
 
@@ -830,7 +830,7 @@ flow.conflictResolution(["salience", "factRecency", "activationRecency"]);
 The combination of `salience`, `factRecency`, and `activationRecency` would do the following.
 
 1. Check if the salience is the same, if not use the activation with the greatest salience.
-2. If salience is the same check if fact recency is the same. The fact recency is determined by looping through the facts in each activation and until two different recencies are found. The activation with the greatest recency takes precendence.
+2. If salience is the same check if fact recency is the same. The fact recency is determined by looping through the facts in each activation and until two different recencies are found. The activation with the greatest recency takes precedence.
 3. If fact recency is the same check the activation recency.
 
 
@@ -1172,7 +1172,7 @@ when {
 
 #### Custom Constraint
 
-When declaring your rules progrmmatically you can also use a function as a constraint. The function will be called with an object containing each fact that has matched previous constraints.
+When declaring your rules programmatically you can also use a function as a constraint. The function will be called with an object containing each fact that has matched previous constraints.
 
 
 ```javascript
@@ -1872,7 +1872,7 @@ rule Recurse {
     when {
         //you can use not or or methods in here
         not(f : Fibonacci f.sequence == 1);
-        //f1 is how you can reference the fact else where
+        //f1 is how you can reference the fact elsewhere
         f1 : Fibonacci f1.sequence != 1;
     }
     then {
@@ -1895,7 +1895,7 @@ rule Calculate {
     when {
         f1 : Fibonacci f1.value != -1 {sequence : s1};
         //here we define constraints along with a hash so you can reference sequence
-        //as s2 else where
+        //as s2 elsewhere
         f2 : Fibonacci f2.value != -1 && f2.sequence == s1 + 1 {sequence:s2};
         f3 : Fibonacci f3.value == -1 && f3.sequence == s2 + 1;
         r : Result
