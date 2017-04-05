@@ -886,7 +886,7 @@ In Example 2 activation 2 would fire because of the third recency entry.
 
 //activation 2
 {
-    salience: 1,
+    salience: 2,
     factRecency: [1,2,3],
     activationRecency: 2
 }
