@@ -43,11 +43,12 @@ Or [download the source](https://raw.github.com/C2FO/nools/master/nools.js) ([mi
       * [Structure](#rule-structure)
       * [Salience](#rule-salience)
       * [Scope](#rule-scope)
-      * [Constraints](#constraints)
+      * [Constraints](#constraints)	
         * [Custom](#custom-contraints)
         * [Not](#not-constraint)
         * [Or](#or-constraint)
         * [From](#from-constraint)
+		* [Collect](#collect-modifer)
         * [Exists](#exists-constraint)
       * [Actions](#action)
         * [Async Actions](#action-async)
@@ -1396,7 +1397,7 @@ flow.rule("my rule", {
         this.assert(facts.n1);
     }
 }
-
+    
 ```
 
 Or using the dsl and the [scope](#rule-scope) option.
@@ -1411,6 +1412,29 @@ rule "my rule", {
     }
 }
 ```
+
+<a name="collect-modifer"></a>
+
+###Collect Modifier
+The 'collect' modifer results in a returned object, as such a pattern can specify collect as its 'from' source. 
+The 'collect' modifer returns an array which allows cardinality reasoning (when there are more than 7 red buses). 
+
+This example chains two 'from's together. It finds customers who have bought items all of which are priced over 10, where the items are a field and not asserted into the working memory:
+ ```javascript
+c : Customer
+items : Array items.length == c.items.length ) from collect( item : Item item.price > 10 from c.items);
+ ```
+ If the items where not a field, but instead asserted into the working memory, we could use a correlated 'collect' pattern:
+```javascript
+p : Person ;
+list: Array from collect( item: Item item.owner === p );
+items : Array items.length === list.length from collect( item: Item item.price > 10 from list );
+ ```
+ This blog post from Marc Proctor the team lead on Drools explains collect in more detail.
+ http://blog.athico.com/2007/06/chained-from-accumulate-collect.html
+
+ This paper was used to develop the collect node:
+ http://citeseer.ist.psu.edu/viewdoc/download?doi=10.1.1.25.1076&rep=rep1&type=pdf
 
 <a name="exists-constraint"></a>
 
