@@ -321,6 +321,20 @@ session.modify(m);
 
 **Note** `modify` is typically used during the execution of the rules.
 
+# Type Declaration 'extends'
+Defined types in the DSL no support 'extends' keyword for inheritance.
+
+Any type present in the flow can be extended. Base types must be defined before extended types.
+
+```
+define EncodedMessage extends Message {
+	encoding: 'sha1'
+	,constructor: function(message, encoding) {
+		Message.call(this, message);   // call superclass manually
+		this.encoding = encoding
+	}
+}
+
 <a name="get-facts"></a>
 ### Retrieving Facts
 
